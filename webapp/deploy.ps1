@@ -100,8 +100,8 @@ if (-not $SkipMigration) {
 
     # Find all migration files and apply them in order
     $migrationFiles = @(
-        "migration.sql",
-        "migration_fingerprint.sql"
+        "migrations/001_base.sql",
+        "migrations/017_fingerprint.sql"
     )
 
     $appliedCount = 0

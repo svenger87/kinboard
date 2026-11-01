@@ -8,7 +8,7 @@
  *
  * Until 1.13 this built an absolute URL from NEXT_PUBLIC_SUPABASE_URL, and that
  * address went into the database with every upload. The migration
- * migration_zzzzzzzz_image_urls_relative.sql rewrites those rows.
+ * migrations/071_image_urls_relative.sql rewrites those rows.
  *
  * Who serves the relative path:
  * - Kong, when it is the front door (KINBOARD_ENTRY=kong) or behind a proxy

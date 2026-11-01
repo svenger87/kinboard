@@ -20,7 +20,7 @@ docker/data
 docker/.env
 
 # Everything else in docker/ that holds an install's secrets. None of it is
-# read at build time: the image takes only docker/migration*.sql and the
+# read at build time: the image takes only docker/migrations/, migrate.sh and the
 # entrypoint, and kong.yml and diun.yml reach their containers from the host
 # through bind mounts. On an install that builds from source these files carry
 # real keys (setup.sh writes them in), and `COPY . .` would bake them into a

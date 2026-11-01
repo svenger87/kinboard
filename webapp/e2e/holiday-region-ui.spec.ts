@@ -3,6 +3,9 @@ import { execFileSync } from "child_process";
 import { establishSession } from "./session";
 import { acquireWholeDatabase, dbContainer, releaseWholeDatabase } from "./whole-database";
 
+// page.route below must see /api/realtime; a service worker would answer first.
+test.use({ serviceWorkers: "block" });
+
 /**
  * Settings → Holidays and the wizard's region step, rendered (RFC-014 §4.2).
  * Run with --project=webkit and --project=mobile: long German and French
@@ -62,10 +65,12 @@ test("Settings → Holidays offers cantons for Switzerland and fits the screen",
   await establishSession(page, familyCode!, "claude-holidays-ui");
   // No realtime: its settings broadcast would refresh the region on this
   // device too, and hide a save that forgot to invalidate the query.
+  // The service worker is blocked for this file (test.use below), or it would
+  // answer the request before the route sees it.
   let realtimeSockets = 0;
-  await page.routeWebSocket(/\/realtime\/v1\//, (ws) => {
+  await page.route("**/api/realtime", (route) => {
     realtimeSockets++;
-    ws.close();
+    return route.abort();
   });
   await page.goto("/settings/holidays", { waitUntil: "domcontentloaded" });
 
@@ -102,7 +107,7 @@ test("Settings → Holidays offers cantons for Switzerland and fits the screen",
   await expect(page.getByTestId("holiday-preview").locator("li").first()).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   expect(psql(`SELECT value->>'code' FROM settings WHERE family_id = '${familyId}' AND key = 'holiday_region'`)).toBe("CH-ZH");
-  expect(realtimeSockets, "the realtime socket was opened and refused").toBeGreaterThan(0);
+  expect(realtimeSockets, "the live-updates stream was opened and refused").toBeGreaterThan(0);
 
   // The Netherlands has no state worth picking: no second select.
   await page.locator("#holiday-region-country").click();

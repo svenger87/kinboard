@@ -122,7 +122,7 @@ test.describe("PostgREST anon-key boundary", () => {
 
   test("settings table is write-locked for the anon role", async ({ request }) => {
     // Milestone D: INSERT/UPDATE/DELETE on settings are REVOKEd from anon
-    // (migration_settings_write_lockdown.sql) — writes go through
+    // (migrations/039_settings_write_lockdown.sql) — writes go through
     // PUT /api/settings only. SELECT stays open (useSetting reads directly).
     const response = await request.patch(
       `${SUPABASE_URL}/rest/v1/settings?family_id=eq.${FAMILY_ID}&key=eq.home_assistant`,

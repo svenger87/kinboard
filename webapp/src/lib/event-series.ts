@@ -6,7 +6,7 @@
  *
  * This file works out what to write; the database writes it, in one
  * transaction under the series' row lock (event_series_write() and
- * event_series_end() in docker/migration_zzzzzzzzzzzzz_event_series.sql), so
+ * event_series_end() in docker/migrations/082_event_series.sql), so
  * a failure part-way leaves nothing behind and a day of a series is never
  * written twice.
  */

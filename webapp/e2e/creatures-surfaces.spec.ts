@@ -250,7 +250,7 @@ test.describe("Belongs to is a parent's setting", () => {
   });
 
   test("the migration adds the column idempotently, clears it with the person, and keeps the browser off it", () => {
-    const sql = read("docker/migration_zzzzzzzzz_device_owner.sql");
+    const sql = read("docker/migrations/077_device_owner.sql");
     expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS person_id UUID REFERENCES public\.people\(id\) ON DELETE SET NULL/);
     expect(sql).toMatch(/REVOKE INSERT, UPDATE ON TABLE public\.devices FROM anon, authenticated;/);
     expect(sql).not.toMatch(/'GRANT\s/i);
@@ -262,8 +262,8 @@ test.describe("Belongs to is a parent's setting", () => {
     // Nothing that sorts after it grants the column back: it sorted last when
     // it was written; the shop's migration (RFC-017 §5), after it, names no
     // privilege on devices.
-    const all = readdirSync(join(ROOT, "docker")).filter((f) => /^migration.*\.sql$/.test(f)).sort();
-    const later = all.slice(all.indexOf("migration_zzzzzzzzz_device_owner.sql") + 1);
+    const all = readdirSync(join(join(ROOT, "docker"), "migrations")).map((f) => `migrations/${f}`).filter((f) => /^migrations\/\d{3}_.*\.sql$/.test(f)).sort();
+    const later = all.slice(all.indexOf("migrations/077_device_owner.sql") + 1);
     for (const f of later) {
       expect(codeOnly(read(`docker/${f}`), { sql: true }), f).not.toMatch(/(GRANT|REVOKE)[^;]*ON (TABLE )?(public\.)?devices\b/i);
     }

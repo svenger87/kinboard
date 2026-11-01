@@ -94,7 +94,7 @@ test("both routes are behind the session and the settings PIN, and take the fami
 });
 
 test("the table holds a task's award positive and lets only an adjustment be negative; only the server writes", () => {
-  const sql = codeOnly(read("docker/migration_zzzzzzzzzzzz_point_adjustments.sql"), { sql: true });
+  const sql = codeOnly(read("docker/migrations/081_point_adjustments.sql"), { sql: true });
   expect(sql).toContain("(kind = 'task' AND points > 0)");
   expect(sql).toContain("(kind = 'adjustment' AND points <> 0 AND points BETWEEN -10000 AND 10000 AND todo_id IS NULL)");
   // Only an adjustment can be taken back from here; a task's award goes with an un-tick.
@@ -108,6 +108,6 @@ test("the table holds a task's award positive and lets only an adjustment be neg
 test("the parent's list and every total move on every screen when an adjustment is made", () => {
   const realtime = codeOnly(read("src/hooks/use-realtime.ts"));
   expect(realtime).toMatch(/case "todo_point_awards":[\s\S]*?"todo-point-awards"[\s\S]*?"point-adjustments"/);
-  const sql = codeOnly(read("docker/migration_zzzzzzzzzzzz_point_adjustments.sql"), { sql: true });
+  const sql = codeOnly(read("docker/migrations/081_point_adjustments.sql"), { sql: true });
   expect(sql).toContain("ALTER PUBLICATION supabase_realtime ADD TABLE public.todo_point_awards");
 });

@@ -25,7 +25,7 @@ const NAME_MAX = 80;
 
 /**
  * The key the rooms table is unique on — `lower(trim(name))`, the same match
- * `migration_rooms.sql` resolves a device's room text with. Anything else
+ * `migrations/034_rooms.sql` resolves a device's room text with. Anything else
  * here would create a second "flur" next to the household's "Flur".
  */
 function roomKey(name: string): string {

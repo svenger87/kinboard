@@ -96,7 +96,9 @@ WORKDIR /app
 
 # curl: cron job health checks (existing). postgresql-client: provides
 # `psql` + `pg_isready` for the entrypoint's migration-runner logic.
-RUN apk add --no-cache curl postgresql-client
+# su-exec: the entrypoint starts as root to own the uploaded-files directory,
+# then runs the server as nextjs.
+RUN apk add --no-cache curl postgresql-client su-exec
 
 # Add sync script for cron jobs
 RUN echo '#!/bin/sh' > /usr/local/bin/google-sync && \
@@ -219,17 +221,17 @@ RUN test -f ./licenses/NOTICE && test -f ./licenses/date-holidays-LICENSE && tes
  && test -f ./licenses/fonts/bricolage-grotesque-OFL.txt && test -f ./licenses/fonts/hanken-grotesk-OFL.txt \
  && test -f ./licenses/fonts/space-mono-OFL.txt
 
-# Bake migrations + entrypoint script into the image. The entrypoint
-# applies migrations against the db before exec'ing the Next.js
-# server — see webapp/docker/webapp-entrypoint.sh. This is the path
-# Watchtower-driven self-hoster updates rely on (the alternative,
-# webapp/docker/start.sh's run_migrations(), is host-driven and only
-# fires when the operator manually invokes the script).
-COPY --chown=nextjs:nodejs docker/migration*.sql ./migrations/
-COPY --chown=nextjs:nodejs docker/webapp-entrypoint.sh ./webapp-entrypoint.sh
+# Bake migrations, their runner and the entrypoint into the image. The
+# entrypoint applies migrations against the db before exec'ing the Next.js
+# server — see webapp/docker/webapp-entrypoint.sh. This is the path every
+# self-hoster update relies on; `./start.sh migrate` runs the same migrate.sh
+# from the host.
+COPY --chown=nextjs:nodejs docker/migrations/ ./migrations/
+COPY --chown=nextjs:nodejs docker/migrate.sh docker/webapp-entrypoint.sh ./
 USER root
-RUN chmod +x ./webapp-entrypoint.sh
-USER nextjs
+RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh
+# No `USER nextjs` here: webapp-entrypoint.sh drops to it before starting the
+# server, after the steps that need root (the uploaded-files directory).
 
 EXPOSE 3000
 

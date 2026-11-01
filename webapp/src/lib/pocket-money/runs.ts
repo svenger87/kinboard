@@ -6,7 +6,7 @@
  * each one asks the database to do.
  *
  * Every balance change here is one SQL call
- * (`docker/migration_zzzzz_pocket_money_booking.sql`):
+ * (`docker/migrations/063_pocket_money_booking.sql`):
  *
  * - the allowance: `pay_pocket_money_allowance()` claims the period and books
  *   it in one transaction;
@@ -172,7 +172,7 @@ export async function accrueInterest(
     if (acct.last_accrued_date === today) continue; // already done
     // Carry the sub-cent fraction instead of flooring it away each day.
     // Flooring meant any balance under ~EUR 36.50 accrued nothing at all,
-    // ever — see migration_pocket_money_interest_carry.sql.
+    // ever — see migrations/033_pocket_money_interest_carry.sql.
     const { addCents, carryMicros } = applyDailyAccrual({
       balanceCents: acct.balance_cents,
       maxBalanceEligibleCents: acct.max_balance_eligible_cents,

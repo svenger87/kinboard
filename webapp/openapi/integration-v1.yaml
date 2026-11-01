@@ -518,7 +518,7 @@ paths:
       summary: Delete a note
       description: |
         Moves the note to Kinboard's recycle bin through the same BEFORE
-        DELETE trigger as tasks (`migration_zzz_soft_delete.sql`). A note
+        DELETE trigger as tasks (`migrations/056_soft_delete.sql`). A note
         already binned, missing, or belonging to another family answers
         `404` rather than being deleted again — a second delete on an
         already-binned row purges it for real, which this refuses to do.
@@ -628,7 +628,7 @@ paths:
       summary: Remove a meal plan entry
       description: |
         Moves the entry to Kinboard's recycle bin through the same BEFORE
-        DELETE trigger as notes and tasks (`migration_zzz_soft_delete.sql`).
+        DELETE trigger as notes and tasks (`migrations/056_soft_delete.sql`).
         An entry already binned, missing, or belonging to another family
         answers `404` rather than being deleted again — a second delete on
         an already-binned row purges it for real, which this refuses to do.

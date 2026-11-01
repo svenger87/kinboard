@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/server";
+import { FilesNotConfiguredError, putObject, removeObjects } from "@/lib/files/store";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { checkPhotoUpload } from "@/lib/photo-upload-rules";
 
 export const dynamic = "force-dynamic";
 
-const BUCKET = "family-photos";
+const BUCKET = "family-photos" as const;
 
 /** Long edge of the stored thumbnail. Enough for a grid cell on a 4K panel. */
 const THUMBNAIL_EDGE = 640;
@@ -36,7 +37,7 @@ function exifTakenAt(raw: string | undefined): string | null {
  * Upload one photo into the family's library. RFC-009 §3.3.
  *
  * The only way into the `family-photos` bucket: it has no client-facing write
- * policy, for the reasons migration_zzzz_storage_write_policies.sql records at
+ * policy, for the reasons migrations/061_storage_write_policies.sql records at
  * length. This route holds `createAdminClient()` (service_role, bypasses RLS)
  * and is therefore the thing that has to check the session and the family.
  */
@@ -107,24 +108,28 @@ export async function POST(request: NextRequest) {
   const storagePath = `${familyId}/${stamp}.${EXTENSION[file.type] ?? "jpg"}`;
   const thumbnailPath = `${familyId}/${stamp}-thumb.webp`;
 
-  const supabase = createAdminClient();
-
-  const original = await supabase.storage
-    .from(BUCKET)
-    .upload(storagePath, normalised, { contentType: file.type, upsert: false });
-  if (original.error) {
-    console.error("[photos/upload] storage error:", original.error);
+  try {
+    await putObject(BUCKET, storagePath, normalised);
+  } catch (err) {
+    console.error("[photos/upload] storage error:", err);
+    if (err instanceof FilesNotConfiguredError) {
+      return NextResponse.json({ error: "storage_not_configured" }, { status: 503 });
+    }
     return NextResponse.json({ error: "storage_failed" }, { status: 500 });
   }
 
-  const thumb = await supabase.storage
-    .from(BUCKET)
-    .upload(thumbnailPath, thumbnail, { contentType: "image/webp", upsert: false });
   // A missing thumbnail is a degraded photo, not a failed upload — the row
   // falls back to the original. Storing the row anyway beats discarding a
   // photo somebody already waited for.
-  const storedThumbnail = thumb.error ? null : thumbnailPath;
-  if (thumb.error) console.error("[photos/upload] thumbnail failed:", thumb.error);
+  let storedThumbnail: string | null = thumbnailPath;
+  try {
+    await putObject(BUCKET, thumbnailPath, thumbnail);
+  } catch (err) {
+    storedThumbnail = null;
+    console.error("[photos/upload] thumbnail failed:", err);
+  }
+
+  const supabase = createAdminClient();
 
   const { data: row, error } = await (supabase as never as {
     from: (t: string) => {
@@ -147,7 +152,7 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     // Leave no orphan: the objects are useless without the row that names them.
-    await supabase.storage.from(BUCKET).remove([storagePath, thumbnailPath]);
+    await removeObjects(BUCKET, [storagePath, thumbnailPath]).catch(() => {});
     console.error("[photos/upload] insert failed:", error);
     return NextResponse.json({ error: "insert_failed" }, { status: 500 });
   }

@@ -19,11 +19,11 @@ import { postJoin } from "./session";
  * that has picked up those default privileges grants them anyway, so it worked
  * locally and was dead on a correctly configured install.
  *
- * migration_zy_schema_hardening.sql records the same failure on
+ * migrations/048_schema_hardening.sql records the same failure on
  * birthday_gift_ideas, with the same symptom. Twice is enough to assert it.
  */
 
-const sql = readFileSync("docker/migration_school_holidays.sql", "utf8");
+const sql = readFileSync("docker/migrations/036_school_holidays.sql", "utf8");
 
 test("the migration grants school_holidays to the browser roles", () => {
   for (const role of ["anon", "authenticated"]) {
@@ -42,7 +42,7 @@ test("the grant covers the writes the settings form makes", () => {
   }
 });
 
-const syncSql = readFileSync("docker/migration_zzzzz_school_holiday_sync.sql", "utf8");
+const syncSql = readFileSync("docker/migrations/064_school_holiday_sync.sql", "utf8");
 
 test("the browser roles may write manual rows only (RFC-014 §5.1)", () => {
   for (const cmd of ["INSERT", "UPDATE", "DELETE"]) {

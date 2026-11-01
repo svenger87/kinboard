@@ -268,7 +268,7 @@ const recipeSteps = z.array(z.string().trim().min(1).max(MAX_RECIPE_STEP)).min(1
   .describe("The steps in order, one per entry, without numbers; Kinboard numbers them.");
 const EVENT_PERSON_NOTE = "person_id (from list_people) says who the event is for; on a Google calendar it is stored with the event in Google too, so the next sync keeps it. Clearing it on a Google calendar that has its own person, or whose mapping rules match the event, gives the event that person again at the next sync; a CalDAV calendar's next sync assigns it from the calendar's own settings again.";
 const TASK_FIELDS_NOTE = "A task can be assigned to a person (person_id from list_people), repeat (recurrence), and carry a priority, an icon and points; points are awarded only when the task is assigned to a child, each time that child completes it.";
-// Taking turns (#341). The rules are the database's (migration_zzzzzy_todo_turns.sql):
+// Taking turns (#341). The rules are the database's (migrations/066_todo_turns.sql):
 // day k of the schedule is rotation_person_ids[k mod n]'s, the task's person
 // follows the turn, and record_todo_points awards a tick to the person whose
 // turn that day was, if a child.

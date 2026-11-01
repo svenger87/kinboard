@@ -13,8 +13,7 @@
 #
 #   cd webapp/docker
 #   cp docker-compose.demo.yml.example docker-compose.demo.yml
-#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml \
-#                  -f docker-compose.traefik.yml -f docker-compose.watchtower.yml \
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml \
 #                  -f docker-compose.demo.yml" \
 #     ./start.sh up
 #

@@ -8,7 +8,7 @@
  * call it from here; an approved withdrawal request, the allowance cron and
  * the interest cron reach it through their own SQL functions
  * (`lib/pocket-money/runs.ts`). It is `book_pocket_money()`
- * (`docker/migration_zzzzz_pocket_money_booking.sql`), which moves the balance
+ * (`docker/migrations/063_pocket_money_booking.sql`), which moves the balance
  * with one conditional UPDATE — `balance_cents + delta >= 0` is checked by the
  * statement that changes it, so two withdrawals racing on one account cannot
  * both pass — and inserts the transaction in the same call, so a failed insert

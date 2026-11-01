@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { removeObjects } from "@/lib/files/store";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
 
-const BUCKET = "family-photos";
+const BUCKET = "family-photos" as const;
 
 /**
  * Remove one photo from the library.
@@ -55,7 +56,7 @@ export async function DELETE(
   const objects = [row.storage_path, row.thumbnail_path].filter(
     (p: string | null): p is string => !!p,
   );
-  const { error: storageError } = await supabase.storage.from(BUCKET).remove(objects);
+  const storageError = await removeObjects(BUCKET, objects).then(() => null, (err: unknown) => err);
   if (storageError) {
     console.error("[photos] object removal failed:", storageError);
     return NextResponse.json({ error: "storage_failed" }, { status: 500 });

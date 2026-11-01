@@ -12,7 +12,7 @@ import {
 } from "./whole-database";
 
 /**
- * migration_holiday_region.sql against a real database (RFC-014 §12): each
+ * migrations/019_holiday_region.sql against a real database (RFC-014 §12): each
  * holiday_country state produces the stated row, and a second run changes
  * nothing.
  *
@@ -35,7 +35,7 @@ test.skip(SKIP_WITHOUT_DATABASE, "no database container reachable, and no FAMILY
 test.beforeEach(acquireWholeDatabase);
 test.afterEach(releaseWholeDatabase);
 
-const MIGRATION = readFileSync(join(process.cwd(), "docker/migration_holiday_region.sql"), "utf8");
+const MIGRATION = readFileSync(join(process.cwd(), "docker/migrations/019_holiday_region.sql"), "utf8");
 
 function psql(script: string): string {
   return execFileSync(

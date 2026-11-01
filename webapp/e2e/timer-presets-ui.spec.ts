@@ -194,7 +194,9 @@ test.describe("while the presets can't be read", () => {
         await expect(page.getByRole("button", { name, exact: true })).toBeVisible({ timeout: 15_000 });
       }
       await expect(page.getByRole("button", { name: "7 min", exact: true })).toHaveCount(0);
-      expect(hits).toBeGreaterThan(0);
+      // The defaults show before the read is even sent, so the read is waited
+      // for rather than counted at once: what matters is that it was stubbed.
+      await expect.poll(() => hits, { timeout: 15_000 }).toBeGreaterThan(0);
       await page.unrouteAll({ behavior: "ignoreErrors" });
     });
   }

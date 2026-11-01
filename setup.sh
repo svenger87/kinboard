@@ -14,8 +14,8 @@
 #                       Optional: every device reaches the API at the address it
 #                       opened Kinboard from, so this is only used for links
 #                       handed to other apps. Also settable via KINBOARD_URL.
-#   --api-url <URL>     only if the API (Kong) must live on a separate host;
-#                       `same-origin` switches back. Also KINBOARD_API_URL.
+#   --api-url <URL>     accepted and ignored since 1.15: the API is always on
+#                       the address Kinboard was opened from.
 #   --force, -f         regenerate everything from scratch (re-prompts for keys)
 #   --non-interactive   never prompt; useful for CI / Docker entrypoint use
 #   --advanced          also prompt for Immich, Bring, camera, SMTP server
@@ -33,9 +33,6 @@ force=0
 non_interactive=0
 advanced=0
 cli_url="${KINBOARD_URL:-}"
-cli_api_url="${KINBOARD_API_URL:-}"
-cli_api_url_set=0
-[[ -n "${KINBOARD_API_URL+x}" ]] && cli_api_url_set=1
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --force|-f) force=1 ;;
@@ -43,8 +40,8 @@ while [[ $# -gt 0 ]]; do
     --advanced) advanced=1 ;;
     --url=*) cli_url="${1#*=}" ;;
     --url) cli_url="${2:-}"; shift || true ;;
-    --api-url=*) cli_api_url="${1#*=}"; cli_api_url_set=1 ;;
-    --api-url) cli_api_url="${2:-}"; cli_api_url_set=1; shift || true ;;
+    --api-url=*) echo "note: --api-url is ignored since 1.15 (the API is on the app's own address)" >&2 ;;
+    --api-url) echo "note: --api-url is ignored since 1.15 (the API is on the app's own address)" >&2; shift || true ;;
     --help|-h)
       sed -n '3,22p' "$0"
       exit 0
@@ -75,9 +72,8 @@ fi
 # ----------------------------------------------------------------------
 # 1. Bootstrap the docker stack .env
 # ----------------------------------------------------------------------
-# A new install (or --force) starts from .env.example, which makes Kong the
-# front door (KINBOARD_ENTRY=kong) with the API on the app's own address. An
-# existing .env keeps whatever it has; see step 5a for how it moves.
+# A new install (or --force) starts from .env.example. An existing .env keeps
+# what it has; later steps only add what is missing.
 fresh_env=0
 if [[ ! -f "$DOCKER_ENV" ]] || [[ $force -eq 1 ]]; then
   echo "→ creating $DOCKER_ENV from .env.example"
@@ -86,43 +82,39 @@ if [[ ! -f "$DOCKER_ENV" ]] || [[ $force -eq 1 ]]; then
 fi
 
 # ----------------------------------------------------------------------
-# 1b. Addresses
+# 1b. The address
 # ----------------------------------------------------------------------
-# The browser reaches the API at the address it opened Kinboard from
-# (RFC-018): Kong serves the app and the API on one port, so a tablet at home
-# uses the LAN address, a phone outside uses the domain, and there is no
-# question to get wrong. API_EXTERNAL_URL stays empty unless the API really
-# has to live on a separate host (--api-url).
+# Every device reaches Kinboard — app and API alike, one container — at
+# whatever address it opened it from: the LAN address at home, a domain or a
+# tunnel outside. SITE_URL is only the address handed to other apps (calendar
+# feed links, OAuth metadata), so it is suggested rather than asked.
 #
-# Until 1.13 this step asked "where will you open Kinboard?" and baked the
-# answer into every browser call. A wrong answer did not fail loudly: the page
-# loaded from wherever the user typed, and every call after it went nowhere
-# (Discussion #277).
+# Until 1.13 this step asked where Kinboard would be opened and baked the
+# answer into every browser call; a wrong answer loaded the page and then sent
+# every call nowhere (Discussion #277). Until 1.15 it also managed
+# API_EXTERNAL_URL, Kong's address. Kong is gone, and so is that setting: a
+# line left in .env is ignored.
 #
-# Which address to suggest — kept for SITE_URL, the address handed to other
-# apps (calendar feed links). Arguments are the detected facts, so the
-# decision can be tested without a network: public IP, this machine's own
-# addresses, the source address of the default route, and whether this is
-# WSL (1/0). Prints "url|reason", with Kong's own port 8100; site_url_for()
-# below turns that into the address the family opens.
-suggest_api_url() {
+# Which address to suggest. Arguments are the detected facts, so the decision
+# can be tested without a network: public IP, this machine's own addresses,
+# the source address of the default route, and whether this is WSL (1/0).
+# Prints "url|reason".
+suggest_site_url() {
   local public_ip="$1" own_ips="$2" route_ip="$3" is_wsl="$4"
 
   # WSL2 sits behind its own NAT. Its addresses are the VM's — nothing on the
   # LAN reaches them and they change on restart — while the Windows browser on
   # the same PC reaches the stack through localhost forwarding.
   if [[ "$is_wsl" == "1" ]]; then
-    echo "http://localhost:8100|WSL: works from this PC's browser; phones and tablets need WSL mirrored networking — see the wiki"
+    echo "http://localhost:3001|WSL: works from this PC's browser; phones and tablets need WSL mirrored networking — see the wiki"
     return
   fi
 
   # A public IP only counts when it is on one of this machine's interfaces,
-  # which is what a VPS looks like. The old test was "public differs from LAN",
-  # which is backwards: behind a home router the two ALWAYS differ, because
-  # the public address belongs to the router — so every home install was
-  # offered an address it could only reach through a port forward.
+  # which is what a VPS looks like. Behind a home router the public address
+  # belongs to the router, and offering it would mean a port forward.
   if [[ -n "$public_ip" ]] && printf '%s\n' $own_ips | grep -qxF "$public_ip"; then
-    echo "http://${public_ip}:8100|this machine's public IP"
+    echo "http://${public_ip}:3001|this machine's public IP"
     return
   fi
 
@@ -132,9 +124,9 @@ suggest_api_url() {
   local lan_ip="$route_ip"
   [[ -n "$lan_ip" ]] || lan_ip=$(printf '%s\n' $own_ips | head -n1)
   if [[ -n "$lan_ip" && "$lan_ip" != 127.* ]]; then
-    echo "http://${lan_ip}:8100|this machine's LAN IP"
+    echo "http://${lan_ip}:3001|this machine's LAN IP"
   else
-    echo "http://localhost:8100|localhost only — won't work from other devices"
+    echo "http://localhost:3001|localhost only — won't work from other devices"
   fi
 }
 
@@ -142,17 +134,8 @@ env_get() {
   grep -E "^$1=" "$DOCKER_ENV" | tail -n1 | cut -d= -f2- | tr -d '\r"' || true
 }
 
-# Empty and `same-origin` both mean "the address the page was opened from".
-normalise_api_url() {
-  local v="${1%/}"
-  case "$(printf '%s' "$v" | tr '[:upper:]' '[:lower:]')" in
-    ''|same-origin) echo "" ;;
-    *) echo "$v" ;;
-  esac
-}
-
-# An address typed with Kong's port (the habit the old prompt taught) names
-# the API; the family opens the same host on the webapp port.
+# An address typed with Kong's old port (the habit the pre-1.13 prompt taught)
+# names the API; the family opens the same host on the webapp port.
 site_url_for() {
   local u="${1%/}"
   if [[ "$u" == *:8100 || "$u" == *:8100/* ]]; then
@@ -162,44 +145,14 @@ site_url_for() {
   fi
 }
 
-existing_api_raw="$(env_get API_EXTERNAL_URL)"
-existing_api_url="$(normalise_api_url "$existing_api_raw")"
 existing_site_url="$(env_get SITE_URL)"
 cli_url="${cli_url%/}"
 
-if [[ $cli_api_url_set -eq 1 ]]; then
-  api_url="$(normalise_api_url "$cli_api_url")"
-elif [[ $fresh_env -eq 1 ]]; then
-  api_url=""
-elif [[ -n "$existing_api_url" && -n "$cli_url" ]]; then
-  # An install that already has a separate API address, re-run with --url:
-  # the flag keeps the meaning it had for that install.
-  api_url="$cli_url"
-else
-  api_url="$existing_api_url"
-fi
-
-# `same-origin`, written by somebody on purpose, stays written as it was:
-# empty is what setup.sh itself picks, `same-origin` is a decision.
-api_written="$api_url"
-if [[ -z "$api_url" ]]; then
-  if [[ $cli_api_url_set -eq 1 ]]; then
-    [[ -n "$cli_api_url" ]] && api_written="same-origin"
-  elif [[ $fresh_env -eq 0 ]] && [[ -n "$existing_api_raw" ]]; then
-    api_written="same-origin"
-  fi
-fi
-
 if [[ -n "$cli_url" ]]; then
   site_url="$(site_url_for "$cli_url")"
-elif [[ $fresh_env -eq 0 && -n "$existing_site_url" && $cli_api_url_set -eq 0 ]]; then
-  # A re-run keeps the address; --url is how it changes. (It used to be
-  # re-derived from API_EXTERNAL_URL on every run, which for a Kong port
-  # other than 8100 quietly turned SITE_URL into the API's address.)
+elif [[ $fresh_env -eq 0 && -n "$existing_site_url" ]]; then
+  # A re-run keeps the address; --url is how it changes.
   site_url="${existing_site_url%/}"
-elif [[ -n "$api_url" ]]; then
-  # Separate API host: SITE_URL follows it.
-  site_url="$(site_url_for "$api_url")"
 elif [[ -t 0 && $non_interactive -eq 0 ]]; then
   # No question: a suggestion, said out loud, that --url changes later.
   detected_public_ip=$(curl -s --max-time 3 https://api.ipify.org 2>/dev/null || true)
@@ -208,9 +161,8 @@ elif [[ -t 0 && $non_interactive -eq 0 ]]; then
     | awk '{for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit }}' || true)
   detected_wsl=0
   grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null && detected_wsl=1
-  IFS='|' read -r suggested suggestion_reason <<< \
-    "$(suggest_api_url "$detected_public_ip" "$detected_own_ips" "$detected_route_ip" "$detected_wsl")"
-  site_url="$(site_url_for "$suggested")"
+  IFS='|' read -r site_url suggestion_reason <<< \
+    "$(suggest_site_url "$detected_public_ip" "$detected_own_ips" "$detected_route_ip" "$detected_wsl")"
   echo "→ Kinboard will answer at ${site_url} (${suggestion_reason})."
   echo "  Every device can use whichever address reaches this machine — the LAN"
   echo "  address, a domain, a tunnel. This one is only used for links handed to"
@@ -220,23 +172,13 @@ else
 fi
 site_url="${site_url%/}"
 
-# Force-update these even on idempotent re-runs. Use awk so JWT-style chars
-# are handled; append a key the file does not have yet.
-for kv in "API_EXTERNAL_URL=$api_written" "SITE_URL=$site_url" "ADDITIONAL_REDIRECT_URLS=$site_url"; do
-  k="${kv%%=*}"; v="${kv#*=}"
-  if ! grep -qE "^${k}=" "$DOCKER_ENV"; then
-    printf '%s=\n' "$k" >> "$DOCKER_ENV"
-  fi
-  awk -v k="$k" -v v="$v" '
-    $0 ~ "^"k"=" { print k"="v; next }
-    { print }
-  ' "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
-done
-if [[ -n "$api_url" ]]; then
-  echo "  API_EXTERNAL_URL=$api_url (a separate API address)"
-else
-  echo "  API_EXTERNAL_URL is empty: the browser uses the address it opened Kinboard from"
+# Force-update on idempotent re-runs. awk, so any character is safe; a key
+# the file does not have yet is appended.
+if ! grep -qE "^SITE_URL=" "$DOCKER_ENV"; then
+  printf 'SITE_URL=\n' >> "$DOCKER_ENV"
 fi
+awk -v v="$site_url" '$0 ~ /^SITE_URL=/ { print "SITE_URL=" v; next } { print }' \
+  "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
 echo "  SITE_URL=$site_url"
 
 # ----------------------------------------------------------------------
@@ -278,7 +220,6 @@ fill_secret() {
 # component contains an unencoded `/`.
 POSTGRES_PASSWORD=$(openssl rand -hex 32)
 JWT_SECRET=$(openssl rand -hex 32)
-SECRET_KEY_BASE=$(openssl rand -hex 48)
 CRON_SECRET=$(openssl rand -hex 32)
 # Used only when the docker-compose.diun.yml auto-update overlay is
 # enabled. Harmless to generate eagerly — costs nothing if unused.
@@ -287,7 +228,6 @@ DIUN_WEBHOOK_SECRET=$(openssl rand -hex 32)
 echo "→ filling random secrets in $DOCKER_ENV"
 fill_secret POSTGRES_PASSWORD "$POSTGRES_PASSWORD" "$DOCKER_ENV"
 fill_secret JWT_SECRET "$JWT_SECRET" "$DOCKER_ENV"
-fill_secret SECRET_KEY_BASE "$SECRET_KEY_BASE" "$DOCKER_ENV"
 fill_secret CRON_SECRET "$CRON_SECRET" "$DOCKER_ENV"
 fill_secret DIUN_WEBHOOK_SECRET "$DIUN_WEBHOOK_SECRET" "$DOCKER_ENV"
 # Auto-detect the project's host path from setup.sh's own location.
@@ -298,9 +238,9 @@ fill_secret KINBOARD_PROJECT_DIR "$REPO_ROOT" "$DOCKER_ENV"
 # 2b. Generate Supabase ANON_KEY + SERVICE_ROLE_KEY locally
 # ----------------------------------------------------------------------
 # These are JWTs signed with JWT_SECRET — purely local cryptography, no
-# need to "issue" them at supabase.com. The kong gateway uses them for
-# the key-auth plugin; the client-side webapp uses ANON_KEY for direct
-# PostgREST queries; server-side code uses SERVICE_ROLE_KEY.
+# need to "issue" them at supabase.com. The browser uses ANON_KEY for its
+# PostgREST queries until it has a family token; server-side code uses
+# SERVICE_ROLE_KEY.
 #
 # Reuse the JWT_SECRET we just generated (or that was already in .env).
 JWT_SECRET_NOW=$(grep -E "^JWT_SECRET=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
@@ -500,129 +440,13 @@ if [[ ! -f "$WEBAPP_ENV" ]]; then
   echo "  edit it after Supabase keys are issued"
 fi
 
-# ----------------------------------------------------------------------
-# 5. Substitute Supabase keys into kong.yml (only if the user has set them)
-# ----------------------------------------------------------------------
-KONG_YML="$REPO_ROOT/webapp/docker/kong.yml"
-if [[ -f "$KONG_YML" ]]; then
-  anon_key=$(grep -E "^ANON_KEY=" "$DOCKER_ENV" | head -n1 | cut -d= -f2-)
-  service_role_key=$(grep -E "^SERVICE_ROLE_KEY=" "$DOCKER_ENV" | head -n1 | cut -d= -f2-)
-  if [[ -n "$anon_key" ]] && [[ -n "$service_role_key" ]]; then
-    if grep -q "REPLACE_WITH_ANON_KEY\|REPLACE_WITH_SERVICE_ROLE_KEY" "$KONG_YML"; then
-      echo "→ substituting ANON_KEY + SERVICE_ROLE_KEY into kong.yml"
-      # awk in-place to avoid sed escaping pitfalls with JWT special chars
-      awk -v a="$anon_key" -v s="$service_role_key" '
-        { gsub(/REPLACE_WITH_ANON_KEY/, a); gsub(/REPLACE_WITH_SERVICE_ROLE_KEY/, s); print }
-      ' "$KONG_YML" > "$KONG_YML.tmp" && mv "$KONG_YML.tmp" "$KONG_YML"
-    fi
-  else
-    echo "→ kong.yml left with placeholders — re-run setup.sh after"
-    echo "  setting ANON_KEY and SERVICE_ROLE_KEY in webapp/docker/.env"
-  fi
-
-  # Always rewrite the webapp_origin CORS lines — site_url can change
-  # between runs, and getting it wrong gives the browser CORS errors when
-  # talking to Kong. The marker `# webapp_origin` anchors each line so we
-  # can rewrite without regenerating the file from a template.
-  echo "→ pinning Kong CORS allowed origin to $site_url"
-  awk -v origin="$site_url" '
-    /# webapp_origin[[:space:]]*$/ {
-      match($0, /^[[:space:]]*/);
-      indent = substr($0, 1, RLENGTH);
-      print indent "- " origin "  # webapp_origin";
-      next;
-    }
-    { print }
-  ' "$KONG_YML" > "$KONG_YML.tmp" && mv "$KONG_YML.tmp" "$KONG_YML"
-fi
+# kong.yml is no longer touched (1.15: Kong is gone). The file stays tracked
+# and an install's copy keeps its keys: deleting or changing it upstream would
+# stop `git pull --ff-only`, and with it the self-update, on every install
+# whose copy setup.sh once filled in.
 
 # ----------------------------------------------------------------------
-# 5a. The front-door route (RFC-018)
-# ----------------------------------------------------------------------
-# Kong serves the app as well as the API through a catch-all route to the
-# webapp. kong.yml is the install's own file, full of its real keys, so the
-# merge only adds the route's lines (at the indent the file uses) and checks
-# the result before it replaces the file; the steps above still rewrite their
-# own lines (keys, the CORS origin) as they always did. The tracked template
-# does not carry the route: every install's kong.yml differs from the
-# template, and a template change would stop `git pull --ff-only` (and with it
-# the self-update) on all of them.
-ENTRY_SH="$REPO_ROOT/webapp/docker/kinboard-entry.sh"
-entry_route=0
-if [[ -f "$KONG_YML" ]]; then
-  if sh "$ENTRY_SH" merge "$KONG_YML"; then
-    entry_route=1
-  fi
-fi
-
-# A KINBOARD_ENTRY compose cannot use ("Kong", a typo) would break every
-# compose command; it is lower-cased, and anything else becomes webapp.
-ENV_FILE="$DOCKER_ENV" sh "$ENTRY_SH" normalise
-
-set_env_key() {
-  local k="$1" v="$2"
-  if grep -qE "^${k}=" "$DOCKER_ENV"; then
-    awk -v k="$k" -v v="$v" '$0 ~ "^"k"=" { print k"="v; next } { print }' \
-      "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
-  else
-    printf '%s=%s\n' "$k" "$v" >> "$DOCKER_ENV"
-  fi
-}
-
-if [[ $fresh_env -eq 1 ]]; then
-  if [[ $entry_route -eq 1 ]]; then
-    set_env_key KINBOARD_ENTRY kong
-    echo "→ KINBOARD_ENTRY=kong: Kong answers on port 3001 with the app and its API"
-  else
-    # Without the route Kong would answer every page with a 404.
-    set_env_key KINBOARD_ENTRY webapp
-    echo "⚠ KINBOARD_ENTRY=webapp: kong.yml could not take the front-door route (see above)," >&2
-    echo "  so the webapp keeps port 3001 and the API stays on Kong's own port." >&2
-  fi
-fi
-current_entry="$(env_get KINBOARD_ENTRY)"
-
-# The webapp in front (KINBOARD_ENTRY=webapp, or no line yet, which compose
-# treats the same) and no API address: the browser would call /rest on the
-# webapp's own port, and every call would 404. Give it the address the old
-# setup would have: SITE_URL's host on Kong's port, or SITE_URL itself when a
-# proxy fronts both on one name (no port to swap).
-#
-# That is also the answer for a deliberate `same-origin` on an install not
-# moved yet: the address is on SITE_URL's host, so it works now, and once
-# Kong is the front door the browser ignores it and uses the page's own
-# address (lib/supabase/api-base.ts) — which is what `same-origin` asked for.
-# A Kong install keeps `same-origin` exactly as written, and so does one
-# behind Traefik, where one domain already serves both.
-compose_files_now="${COMPOSE_FILES:-$(env_get COMPOSE_FILES)}"
-if [[ "${current_entry:-webapp}" != "kong" && -z "$api_url" && "$compose_files_now" != *traefik* ]]; then
-  kong_port="$(env_get KONG_HTTP_PORT)"; kong_port="${kong_port:-8100}"
-  webapp_port="$(env_get WEBAPP_PORT)"; webapp_port="${webapp_port:-3001}"
-  if [[ "$site_url" =~ ^(https?://[^/]+):${webapp_port}$ ]]; then
-    api_url="${BASH_REMATCH[1]}:${kong_port}"
-  else
-    api_url="$site_url"
-  fi
-  if [[ "$api_written" == "same-origin" ]]; then
-    echo "⚠ API_EXTERNAL_URL=same-origin only works once Kong is the front door" >&2
-    echo "  (KINBOARD_ENTRY=kong). Until then the browser uses $api_url;" >&2
-    echo "  after the move it is ignored, being on SITE_URL's host." >&2
-  fi
-  set_env_key API_EXTERNAL_URL "$api_url"
-  echo "  API_EXTERNAL_URL=$api_url (the webapp answers on its own port, so the API needs an address)"
-fi
-
-if [[ $fresh_env -eq 0 && -z "$current_entry" ]]; then
-  echo "→ this install still answers on the webapp container (no KINBOARD_ENTRY in .env)."
-  echo "  ./start.sh up and the self-update move it to Kong once a request through"
-  echo "  Kong reaches the app. To stay as you are, add KINBOARD_ENTRY=webapp to .env."
-elif [[ $fresh_env -eq 0 ]]; then
-  echo "→ KINBOARD_ENTRY=$current_entry (from .env)"
-fi
-
-# ----------------------------------------------------------------------
-# 5b. Substitute DIUN_WEBHOOK_SECRET into diun.yml — same pattern as
-# kong.yml above. Diun doesn't evaluate Go-template env-var refs in
+# 5b. Substitute DIUN_WEBHOOK_SECRET into diun.yml. Diun doesn't evaluate Go-template env-var refs in
 # header values, so the secret has to be substituted in at setup time.
 # Re-running with a changed secret re-writes the live diun.yml; the
 # diun container needs a `docker restart kinboard-diun` afterward to
@@ -660,8 +484,7 @@ done
 
 cat <<EOF
 
-Setup complete. All required secrets are generated and the kong gateway
-is wired up.
+Setup complete. All required secrets are generated.
 
 Next steps:
 EOF

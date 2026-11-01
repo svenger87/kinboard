@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { FilesNotConfiguredError, putObject } from "@/lib/files/store";
 import { publicStorageUrl } from "@/lib/supabase/public-url";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
@@ -57,32 +57,23 @@ export async function POST(request: NextRequest) {
     const extension = file.type.split("/")[1];
     const filename = `${familyId}/${timestamp}-${randomId}.${extension}`;
 
-    const supabase = createAdminClient();
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = new Uint8Array(arrayBuffer);
-
-    const { data, error } = await supabase.storage
-      .from("goal-images")
-      .upload(filename, buffer, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (error) {
+    try {
+      await putObject("goal-images", filename, new Uint8Array(await file.arrayBuffer()));
+    } catch (error) {
       console.error("[pocket-money] storage upload error:", error);
+      if (error instanceof FilesNotConfiguredError) {
+        return NextResponse.json({ error: "Uploads need the storage volume (see UPGRADING.md)" }, { status: 503 });
+      }
       return NextResponse.json(
         { error: "Failed to upload image" },
         { status: 500 }
       );
     }
 
-    // Build the browser-reachable public URL. supabase.storage.getPublicUrl
-    // would derive it from the admin client's internal `kong:8000` base,
-    // which the browser can't resolve. publicStorageUrl uses
-    // a relative path instead. See lib/supabase/public-url.ts.
+    // Relative, like every stored URL: see lib/supabase/public-url.ts.
     return NextResponse.json({
-      url: publicStorageUrl("goal-images", data.path),
-      path: data.path,
+      url: publicStorageUrl("goal-images", filename),
+      path: filename,
     });
   } catch (error) {
     console.error("[pocket-money] upload error:", error);

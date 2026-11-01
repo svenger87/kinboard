@@ -21,23 +21,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$SCRIPT_DIR"
 
-RIG_PROJECT="kbfresh"
+RIG_PROJECT="kbinstall"
 # Overridable so the same rig runs on a CI runner, which has no
 # /mnt/user. The default stays the Unraid path this is developed on.
-RIG_DATA="${RIG_DATA:-/mnt/user/appdata/kinboard-fresh-data}"
-RIG_WEBAPP_PORT=3031
-RIG_POSTGRES_PORT=5462
-RIG_KONG_HTTP_PORT=8130
-RIG_KONG_HTTPS_PORT=8573
-RIG_GO2RTC_HTTP_PORT=1995
-RIG_GO2RTC_WEBRTC_PORT=8585
-RIG_NETWORK_SUBNET="10.221.0.0/24"
+RIG_DATA="${RIG_DATA:-/mnt/user/appdata/kinboard-install-rig}"
+RIG_WEBAPP_PORT=3033
+RIG_POSTGRES_PORT=5464
+RIG_GO2RTC_HTTP_PORT=1997
+RIG_GO2RTC_WEBRTC_PORT=8587
+RIG_NETWORK_SUBNET="10.223.0.0/24"
 RIG_DEMO_CODE="FRSH01"
 
 # shellcheck source=test-rig-common.sh
 . "$SCRIPT_DIR/test-rig-common.sh"
 
-INSTALL_COMPOSE=(-f docker-compose.yml)
+INSTALL_COMPOSE=(-f docker-compose.yml -f docker-compose.build.yml)
 API="$BASE_URL/api/integration/v1"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -133,18 +131,16 @@ chk "shopping-only CANNOT read events"       "$(curl -so /dev/null -w '%{http_co
 say "The outbox: a write that never touches a route still emits"
 # This is the claim the architecture rests on. Twenty client components write
 # straight to PostgREST; if events only came from route handlers, none of those
-# actions would ever produce one.
-KEY=$(grep '^SERVICE_ROLE_KEY=' "$SCRIPT_DIR/.env" | cut -d= -f2-)
+# actions would ever produce one. A plain SQL insert is the same proof: no
+# route, only the database's own triggers.
 FAM=$(psql_rig -c "SELECT id FROM families LIMIT 1")
 CURSOR=$(curl -s -H "Authorization: Bearer $FULL" "$API/events" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).cursor))")
-curl -s -o /dev/null -X POST "http://localhost:${RIG_KONG_HTTP_PORT}/rest/v1/shopping_items" \
-  -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
-  -d "{\"family_id\":\"$FAM\",\"name\":\"outbox-proof\"}"
+psql_rig -c "INSERT INTO shopping_items (family_id, name) VALUES ('$FAM', 'outbox-proof')" >/dev/null
 sleep 1
 FOUND=$(curl -s -H "Authorization: Bearer $FULL" "$API/events?after=$CURSOR" \
   | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);
       console.log(r.events.some(e=>e.payload&&e.payload.name==='outbox-proof')?'yes':'no')})")
-[ "$FOUND" = "yes" ] && pass "PostgREST write appeared in /events with no route involved" \
+[ "$FOUND" = "yes" ] && pass "a direct database write appeared in /events with no route involved" \
                      || fail "the outbox did not capture a direct database write"
 
 say "Rate limiting"

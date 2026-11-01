@@ -13,7 +13,7 @@ There are **no user accounts**. There is **no password protection on data access
 
 **The database enforces the family boundary.** The browser talks to the database API (PostgREST) directly, so row-level security is on for every family-scoped table, and every policy reads the caller's family from a `family_id` claim on the request's token:
 
-- **The anon key in the browser bundle reads nothing.** It is public by design and carries no family. This was not always so: until 2026-08 RLS was off, and on 2026-08-04 an unauthenticated request from outside the network read a family's join code straight from the API. `migration_zz_row_level_security.sql` closed that.
+- **The anon key in the browser bundle reads nothing.** It is public by design and carries no family. This was not always so: until 2026-08 RLS was off, and on 2026-08-04 an unauthenticated request from outside the network read a family's join code straight from the API. `migrations/049_row_level_security.sql` closed that.
 - **A joined device gets a family-scoped token** from `/api/session/token`, exchanged for the HttpOnly device-session cookie. It lasts an hour and is refreshed automatically. Knowing a `family_id` is not enough: the token is signed with the stack's JWT secret, which never leaves the server.
 - **Within a family, the rules that matter are enforced by the server, not trusted to the screen.** The browser can't write pocket money, points, rewards, creatures, settings, or create and delete families: those tables are read-only for it, and the change goes through an API route that checks the settings PIN and the other rules. No browser role can `TRUNCATE` a table.
 - **The service-role key bypasses all of this** and is held only by the Next.js server process. API routes and cron jobs establish the family from the device session first and filter on it themselves.
@@ -59,7 +59,6 @@ For the typical home deployment:
 
 ### Recommended
 
-- **Disable signup if you self-host Supabase Auth.** Kinboard doesn't actually use GoTrue auth flows for the family identity model, so leaving signup off avoids accidental account creation. Set `GOTRUE_DISABLE_SIGNUP=true` in `webapp/docker/.env`.
 - **Limit the Postgres port to localhost.** The default `docker-compose.yml` exposes 5432 to the host network so you can `psql` for ops. If you don't need that, change `"5432:5432"` to `"127.0.0.1:5432:5432"`.
 - **Rotate the family join code occasionally.** Settings → the join-code card has a "Rotate" action, plus an opt-in expiry (never / 1 hour / 24 hours / 7 days) — expired codes are rejected at join time.
 
@@ -78,7 +77,7 @@ Once set, the PIN persists for the browser session via `sessionStorage`. Closing
 
 ## Integration credentials
 
-OAuth tokens (Google, Home Assistant), CalDAV passwords, and API keys (Immich, Unsplash, Bring!) live in `public.integration_secrets`, a table with `anon`/`authenticated` database privileges revoked and excluded from the Realtime publication — only the server's service-role client can read it. Before v1.4.0 these lived in the same `settings` table as everything else, which every screen of the family can read by design (so the dashboard can live-sync); that meant any device on the network could read another family member's Google refresh token or Home Assistant long-lived token via PostgREST. Settings pages now read a merged, secret-stripped view to show "connected" status without the browser ever receiving the actual token. Existing installs migrate their previously-exposed credentials into the locked-down table automatically on upgrade — no reconnecting required.
+OAuth tokens (Google, Home Assistant), CalDAV passwords, and API keys (Immich, Unsplash, Bring!) live in `public.integration_secrets`, a table with `anon`/`authenticated` database privileges revoked and never streamed live — only the server's service-role client can read it. Before v1.4.0 these lived in the same `settings` table as everything else, which every screen of the family can read by design (so the dashboard can live-sync); that meant any device on the network could read another family member's Google refresh token or Home Assistant long-lived token via PostgREST. Settings pages now read a merged, secret-stripped view to show "connected" status without the browser ever receiving the actual token. Existing installs migrate their previously-exposed credentials into the locked-down table automatically on upgrade — no reconnecting required.
 
 ## How device recognition works
 
@@ -106,7 +105,7 @@ The fingerprint is intentionally low-entropy and stable — the opposite of trac
 
 **Privacy notes:** the fingerprint is not a tracking identifier: every lookup is scoped to a family, never global, so it can't be used to identify a device across families.
 
-Source: `webapp/src/lib/device-id.ts` (fingerprint computation), `webapp/src/app/api/session/recognize/route.ts` (the lookup, and what it will say), `webapp/src/app/api/session/resume/route.ts` (issuing the session, and the trust model written out), `webapp/docker/migration_fingerprint_history.sql` (schema for the history array).
+Source: `webapp/src/lib/device-id.ts` (fingerprint computation), `webapp/src/app/api/session/recognize/route.ts` (the lookup, and what it will say), `webapp/src/app/api/session/resume/route.ts` (issuing the session, and the trust model written out), `webapp/docker/migrations/018_fingerprint_history.sql` (schema for the history array).
 
 ## Trusted-LAN-but-still-paranoid checklist
 

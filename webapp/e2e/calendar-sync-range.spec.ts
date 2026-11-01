@@ -28,7 +28,7 @@ import {
  *      keeping the old hardcoded 60. That part can't be observed by calling
  *      a function (the threading itself is the thing that would regress),
  *      so it's checked by reading the source, the same approach
- *      e2e/realtime-publication.spec.ts uses for the publication/subscriber
+ *      e2e/realtime-change-feed.spec.ts uses for the trigger/subscriber
  *      pairing.
  */
 

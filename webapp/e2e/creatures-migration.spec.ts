@@ -12,7 +12,7 @@ import {
 } from "./whole-database";
 
 /**
- * migration_zzzzzzzz_pocket_money_creatures_out.sql (RFC-017 step 1): the
+ * migrations/074_pocket_money_creatures_out.sql (RFC-017 step 1): the
  * creatures move off the pocket-money account into `creatures`, and a child's
  * reward requests from the account to the child.
  *
@@ -28,24 +28,24 @@ import {
  * roll everything back.
  */
 
-const FILE = "migration_zzzzzzzz_pocket_money_creatures_out.sql";
+const FILE = "migrations/074_pocket_money_creatures_out.sql";
 const DIR = join(process.cwd(), "docker");
 const MIGRATION = readFileSync(join(DIR, FILE), "utf8");
 const SQL = codeOnly(MIGRATION, { sql: true });
 
 test.describe("the file", () => {
   test("sorts after what it copies and before the pocket-money revoke", () => {
-    const files = readdirSync(DIR).filter((f) => /^migration.*\.sql$/.test(f)).sort();
+    const files = readdirSync(join(DIR, "migrations")).map((f) => `migrations/${f}`).filter((f) => /^migrations\/\d{3}_.*\.sql$/.test(f)).sort();
     const at = files.indexOf(FILE);
     expect(at).toBeGreaterThan(-1);
     for (const before of [
-      "migration_zzzzzzz_point_rewards.sql",
-      "migration_zzzzzzzz_pocket_money_avatar_style.sql",
-      "migration_zzzzzzzz_pocket_money_avatar_style_look.sql",
-      "migration_zzz_todo_points.sql",
-      "migration_zz_row_level_security.sql",
+      "migrations/070_point_rewards.sql",
+      "migrations/072_pocket_money_avatar_style.sql",
+      "migrations/073_pocket_money_avatar_style_look.sql",
+      "migrations/057_todo_points.sql",
+      "migrations/049_row_level_security.sql",
     ]) expect(files.indexOf(before), before).toBeLessThan(at);
-    expect(files.indexOf("migration_zzzzzzzz_pocket_money_server_only.sql")).toBeGreaterThan(at);
+    expect(files.indexOf("migrations/075_pocket_money_server_only.sql")).toBeGreaterThan(at);
   });
 
   test("the backfill runs only in the statement that creates the table", () => {
@@ -293,7 +293,7 @@ ROLLBACK;
     expect(out).toContain("mine:1");
     expect(out).toContain("theirs:0");
     expect(out).toContain("binned:0");
-    // the same for the child's pocket-money account (migration_zzz_soft_delete.sql §3b,
+    // the same for the child's pocket-money account (migrations/056_soft_delete.sql §3b,
     // which said NOT EXISTS under people's own RLS and so never hid it) and requests
     expect(out).toContain("acct:1");
     expect(out).toContain("req:1");

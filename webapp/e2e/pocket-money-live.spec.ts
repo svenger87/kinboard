@@ -5,7 +5,7 @@ import { decideWithdrawal } from "../src/lib/pocket-money/runs";
 
 /**
  * The pocket-money SQL functions under real concurrency, against PostgreSQL
- * through PostgREST (docker/migration_zzzzz_pocket_money_booking.sql). The
+ * through PostgREST (docker/migrations/063_pocket_money_booking.sql). The
  * fake-client specs (pocket-money-runs, integration-pocket-money) pin what the
  * code asks for; this one proves the database does it atomically.
  *

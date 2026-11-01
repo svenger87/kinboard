@@ -1,10 +1,21 @@
 # Kinboard - Full Stack Docker Compose
-# Includes: Supabase (Postgres, Realtime, Kong) + Next.js Webapp
 #
-# This file ships portable defaults — `docker compose up -d` works on any
-# host. For Traefik reverse-proxy integration (TLS, routing), copy
-# `docker-compose.traefik.yml.example` → `docker-compose.traefik.yml` and
-# run `docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d`.
+#   db       Postgres (the supabase/postgres image: its roles and extensions
+#            are what the schema and the row-level-security policies use)
+#   rest     PostgREST — the browser's database API, reached through the
+#            webapp at /rest/v1 on the app's own address
+#   webapp   the app; also serves /rest/v1, uploaded files and live updates
+#   cron     the scheduler for the webapp's jobs
+#   go2rtc   camera streams
+#
+# Until 1.15 this also ran Kong, GoTrue, Realtime, Storage and imgproxy. The
+# app used none of GoTrue or imgproxy, and the webapp now does what the other
+# three did for it; see UPGRADING.md for what an existing install goes through.
+#
+# This file ships portable defaults — `docker compose up -d` pulls the
+# published image and works on any host. To build the webapp from this
+# source tree instead, add `-f docker-compose.build.yml`. For Traefik (TLS,
+# routing), add `-f docker-compose.traefik.yml`.
 #
 # Configurable via .env (see .env.example).
 #
@@ -12,7 +23,7 @@
 # deprecation warning on every up; omitted intentionally.)
 
 # Container logs are unbounded by default: Docker's json-file driver keeps
-# writing until the disk fills. Kong alone logs one line per API request,
+# writing until the disk fills. Kong alone (before 1.15) logged one line per API request,
 # which on a dashboard that polls comes to roughly 10-15 MB a day — a few
 # gigabytes a year, inside Docker's storage, on a box that is meant to run
 # untouched for years.
@@ -59,7 +70,7 @@ services:
       # `supabase_admin` role and the extensions' default-privileges
       # grant would fail with `ON_ERROR_STOP=1`, killing the entrypoint
       # before migrate.sh ever runs. Result: no supabase service roles,
-      # auth/rest/storage/realtime crash-loop forever. The screenshot
+      # rest crash-loops forever. The screenshot
       # demo stack works around this with an override; this is the
       # equivalent fix in the canonical compose so fresh installs work
       # out of the box.
@@ -70,11 +81,10 @@ services:
   # ===================
   # DB role-password alignment (one-shot)
   # ===================
-  # The supabase/postgres image seeds authenticator, supabase_auth_admin and
-  # supabase_storage_admin with EMPTY passwords; only supabase_admin gets the
-  # real one from migrate.sh. Without aligning them to POSTGRES_PASSWORD,
-  # rest/auth/storage/realtime crash-loop forever with "password
-  # authentication failed for user authenticator".
+  # The supabase/postgres image seeds `authenticator` (PostgREST's login role)
+  # with an EMPTY password; only supabase_admin gets the real one from
+  # migrate.sh. Without aligning it to POSTGRES_PASSWORD, rest crash-loops
+  # forever with "password authentication failed for user authenticator".
   #
   # This used to be fixed by start.sh AFTER `up`, from the host — which meant
   # a bare `docker compose up` (no start.sh) silently broke with cascading
@@ -95,11 +105,9 @@ services:
     # supabase/postgres image (the `postgres` role is NOT a superuser and
     # can't modify the reserved `authenticator` role). migrate.sh sets
     # supabase_admin's password to POSTGRES_PASSWORD, and it already accepts
-    # TCP+password connections (realtime uses it). Wait until the supabase
+    # TCP+password connections. Wait until the supabase
     # migrations have actually created the `authenticator` role before
-    # ALTERing it — on a first boot the db can report healthy mid-init —
-    # then align the three empty-password roles and ensure the _realtime
-    # schema realtime's migrator needs.
+    # ALTERing it — on a first boot the db can report healthy mid-init.
     entrypoint:
       - bash
       - -c
@@ -115,204 +123,14 @@ services:
           sleep 2
         done
         psql -h db -p 5432 -U supabase_admin -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-        ALTER USER authenticator          WITH PASSWORD '${POSTGRES_PASSWORD}';
-        ALTER USER supabase_auth_admin     WITH PASSWORD '${POSTGRES_PASSWORD}';
-        ALTER USER supabase_storage_admin  WITH PASSWORD '${POSTGRES_PASSWORD}';
-        CREATE SCHEMA IF NOT EXISTS _realtime;
+        ALTER USER authenticator WITH PASSWORD '${POSTGRES_PASSWORD}';
         SQL
-        echo "db-init: role passwords aligned."
+        echo "db-init: authenticator password aligned."
     networks:
       - kinboard
 
   # ===================
-  # Supabase Kong (API Gateway)
-  # ===================
-  kong:
-    # Which container publishes WEBAPP_PORT (3001) is KINBOARD_ENTRY's choice
-    # (RFC-018): `kong` makes Kong the front door, serving the app and its API
-    # at one address; `webapp`, or nothing set, is the layout every install had
-    # before. The port mapping lives in docker-compose.entry-<value>.yml, which
-    # this service and `webapp` extend. Not a profile: profiles switch whole
-    # services on and off, and here the same two services stay and only a port
-    # moves. Not a second -f file either: plain `docker compose up`, the
-    # self-update and every COMPOSE_FILES set pick it up from .env unchanged.
-    extends:
-      file: docker-compose.entry-${KINBOARD_ENTRY:-webapp}.yml
-      service: kong
-    logging: *default-logging
-    image: kong:3.9.3
-    container_name: ${PROJECT_NAME:-kinboard}-kong
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    ports:
-      - "${KONG_HTTP_PORT:-8100}:8000"
-      - "${KONG_HTTPS_PORT:-8543}:8443"
-    environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
-      KONG_DNS_ORDER: LAST,A,CNAME
-      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
-      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
-      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
-      # nginx ships `worker_processes auto`, which resolves through
-      # sysconf(_SC_NPROCESSORS_ONLN) — the *host's* core count, not the
-      # container's allocation. On a 56-core host Kong started 56 workers at
-      # ~58 MB each: 3.2 GB, 79% of the whole stack, filling a 4 GB cgroup and
-      # OOM-killing ofelia. Kinboard's traffic is a handful of households, so
-      # two workers is not a compromise. Raise KONG_WORKERS if you are proxying
-      # something else through the same gateway. (#252)
-      KONG_NGINX_WORKER_PROCESSES: ${KONG_WORKERS:-2}
-      # Whose X-Forwarded-* headers Kong passes on to the webapp instead of
-      # overwriting them with its own view (plain http, port 8000). With Kong
-      # in front of the webapp, a TLS proxy or tunnel ahead of Kong is what
-      # knows the request was https — the session cookie's Secure flag and the
-      # OAuth metadata depend on it. Private ranges only: Traefik, cloudflared
-      # and anything on the Docker networks or the LAN. A client on the
-      # internet hitting Kong directly can then forge neither the protocol nor
-      # its address. Behind Cloudflare's proxy (orange cloud) WITHOUT a tunnel,
-      # Kong sees Cloudflare's addresses: add https://www.cloudflare.com/ips/
-      # to this list, or https and the client address are lost.
-      KONG_TRUSTED_IPS: ${KONG_TRUSTED_IPS:-127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7}
-      # The client address behind those proxies: the last untrusted entry of
-      # X-Forwarded-For becomes X-Real-IP for the webapp (its rate limits).
-      KONG_REAL_IP_HEADER: ${KONG_REAL_IP_HEADER:-X-Forwarded-For}
-      KONG_REAL_IP_RECURSIVE: ${KONG_REAL_IP_RECURSIVE:-on}
-    volumes:
-      - ./kong.yml:/home/kong/kong.yml:ro
-    networks:
-      - kinboard
-
-  # ===================
-  # Supabase Auth (GoTrue)
-  # ===================
-  auth:
-    logging: *default-logging
-    image: supabase/gotrue:v2.189.0
-    container_name: ${PROJECT_NAME:-kinboard}-auth
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      db-init:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 3
-    environment:
-      GOTRUE_API_HOST: 0.0.0.0
-      GOTRUE_API_PORT: 9999
-      # Required by GoTrue. With the API on the app's own address (RFC-018,
-      # API_EXTERNAL_URL empty) that address is SITE_URL.
-      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-${SITE_URL:-http://localhost:3001}}
-
-      GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
-
-      GOTRUE_SITE_URL: ${SITE_URL}
-      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
-      GOTRUE_DISABLE_SIGNUP: false
-
-      GOTRUE_JWT_ADMIN_ROLES: service_role
-      GOTRUE_JWT_AUD: authenticated
-      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
-      GOTRUE_JWT_EXP: 3600
-      GOTRUE_JWT_SECRET: ${JWT_SECRET}
-
-      GOTRUE_EXTERNAL_EMAIL_ENABLED: true
-      GOTRUE_MAILER_AUTOCONFIRM: true
-      GOTRUE_SMTP_HOST: ${SMTP_HOST}
-      GOTRUE_SMTP_PORT: ${SMTP_PORT}
-      GOTRUE_SMTP_USER: ${SMTP_USER}
-      GOTRUE_SMTP_PASS: ${SMTP_PASS}
-      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL}
-      GOTRUE_MAILER_URLPATHS_INVITE: /auth/v1/verify
-      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
-      GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify
-      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/v1/verify
-
-      GOTRUE_EXTERNAL_PHONE_ENABLED: false
-      GOTRUE_SMS_AUTOCONFIRM: false
-    networks:
-      - kinboard
-
-  # ===================
-  # Supabase Realtime
-  # ===================
-  realtime:
-    logging: *default-logging
-    image: supabase/realtime:v2.102.3
-    container_name: ${PROJECT_NAME:-kinboard}-realtime
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      db-init:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "curl", "-sSfL", "--head", "-o", "/dev/null", "-H", "Authorization: Bearer ${ANON_KEY}", "http://localhost:4000/api/tenants/realtime-dev/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 3
-    ulimits:
-      nofile:
-        soft: 100000
-        hard: 100000
-    environment:
-      PORT: 4000
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: supabase_admin
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-      DB_NAME: postgres
-      DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
-      DB_ENC_KEY: supabaserealtime
-      API_JWT_SECRET: ${JWT_SECRET}
-      # Guards /metrics only, but it is read with fetch_env! outside any
-      # environment guard — absent, the container exits at boot.
-      METRICS_JWT_SECRET: ${JWT_SECRET}
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
-      # Replaces FLY_APP_NAME, which newer versions no longer read. Both raise
-      # the same message when missing, which makes the swap easy to miss.
-      #
-      # This is NOT the tenant id — that comes from the first label of the Host
-      # header (see the network alias below), which is why `realtime-dev` has to
-      # stay there and not here.
-      APP_NAME: realtime
-      # Creates the realtime-dev tenant at boot. Newer versions no longer
-      # auto-create one when the healthcheck hits them; a missing tenant is
-      # just a 404. Compared as a literal string, so "1" or "True" do nothing.
-      #
-      # Note it deletes and recreates the tenant on every start, so anything
-      # hand-tuned on that row will not survive a restart.
-      SEED_SELF_HOST: "true"
-      RUN_JANITOR: "true"
-      # The image used to set this itself; newer ones dropped the default.
-      RLIMIT_NOFILE: "10000"
-      # The healthcheck below runs every 5s and would otherwise log four lines
-      # each time.
-      DISABLE_HEALTHCHECK_LOGGING: "true"
-      ERL_AFLAGS: -proto_dist inet_tcp
-      DNS_NODES: "''"
-      # Removed: FLY_ALLOC_ID and FLY_APP_NAME (Fly-era, no longer read),
-      # ENABLE_TAILSCALE (the sidecar is gone from the image entirely).
-    # No command: the image's own run.sh migrates, seeds when SEED_SELF_HOST is
-    # set, then execs the server. Overriding it here would make that run twice —
-    # the second time as root rather than as the unprivileged user.
-    networks:
-      kinboard:
-        # Realtime extracts the tenant_id from the first label of the Host
-        # header. Kong forwards with Host = upstream hostname, so the upstream
-        # name must match the seeded tenant external_id (`realtime-dev`).
-        # Aliasing the service answers the same container under both names.
-        aliases:
-          - realtime-dev
-
-  # ===================
-  # Supabase REST (PostgREST)
+  # PostgREST
   # ===================
   rest:
     logging: *default-logging
@@ -326,7 +144,8 @@ services:
         condition: service_completed_successfully
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
-      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      # `storage` was exposed for the storage-api container, which is gone.
+      PGRST_DB_SCHEMAS: public,graphql_public
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
       # Dropped with the v14 bump:
@@ -341,103 +160,21 @@ services:
       - kinboard
 
   # ===================
-  # Supabase Storage
-  # ===================
-  storage:
-    logging: *default-logging
-    image: supabase/storage-api:v1.60.4
-    container_name: ${PROJECT_NAME:-kinboard}-storage
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      db-init:
-        condition: service_completed_successfully
-      rest:
-        condition: service_started
-    healthcheck:
-      # Use 127.0.0.1, not localhost: the storage server binds IPv4
-      # (0.0.0.0:5000), but `localhost` resolves to IPv6 [::1] first in this
-      # image, so a localhost healthcheck gets connection-refused and the
-      # container reports unhealthy forever despite serving fine.
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5000/status"]
-      interval: 5s
-      timeout: 5s
-      retries: 3
-    environment:
-      ANON_KEY: ${ANON_KEY}
-      SERVICE_KEY: ${SERVICE_ROLE_KEY}
-      POSTGREST_URL: http://rest:3000
-      PGRST_JWT_SECRET: ${JWT_SECRET}
-      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/postgres
-      FILE_SIZE_LIMIT: 52428800
-      STORAGE_BACKEND: file
-      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
-      TENANT_ID: stub
-      REGION: stub
-      GLOBAL_S3_BUCKET: stub
-      ENABLE_IMAGE_TRANSFORMATION: true
-      IMGPROXY_URL: http://imgproxy:8080
-    volumes:
-      - ${DATA_DIR:-./data}/storage:/var/lib/storage
-    networks:
-      - kinboard
-
-  # ===================
-  # Image Proxy (for storage transformations)
-  # ===================
-  imgproxy:
-    logging: *default-logging
-    image: darthsim/imgproxy:v4.0.12
-    container_name: ${PROJECT_NAME:-kinboard}-imgproxy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "imgproxy", "health"]
-      interval: 5s
-      timeout: 5s
-      retries: 3
-    environment:
-      IMGPROXY_BIND: ":8080"
-      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
-      # Renamed in v4, and v4 has no alias mechanism: it ignores unknown
-      # IMGPROXY_* vars silently, with no warning. Under the old names WebP
-      # detection simply switches off (IMGPROXY_AUTO_WEBP defaults to false),
-      # which nothing reports — you would find it as unexplained bandwidth.
-      IMGPROXY_ETAG_ENABLED: true
-      IMGPROXY_AUTO_WEBP: true
-      # v3.23 raised the default source limit 16.8MP -> 50MP. Held at the old
-      # value: this decodes untrusted images, and the ceiling is the memory a
-      # single request can cost.
-      IMGPROXY_MAX_SRC_RESOLUTION: 16.8
-    volumes:
-      - ${DATA_DIR:-./data}/storage:/var/lib/storage:ro
-    networks:
-      - kinboard
-
-  # ===================
   # Next.js Webapp
   # ===================
   webapp:
-    # Publishes WEBAPP_PORT only when KINBOARD_ENTRY is webapp; see kong above.
-    extends:
-      file: docker-compose.entry-${KINBOARD_ENTRY:-webapp}.yml
-      service: webapp
     logging: *default-logging
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      args:
-        # Bake the browser-facing Supabase URL + anon key into the
-        # client JS bundle. Next.js inlines NEXT_PUBLIC_* at BUILD time;
-        # setting them only as runtime env vars would leave the client
-        # bundle with whatever was in .env.local at build time (or
-        # nothing). These args make the runtime values authoritative.
-        #
-        # Empty unless a separate API host is configured: with the API on the
-        # app's own address (RFC-018) there is nothing to bake, and a baked
-        # localhost would be exactly the address a phone cannot reach.
-        NEXT_PUBLIC_SUPABASE_URL: ${API_EXTERNAL_URL:-}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+    # The published image. KINBOARD_TAG picks the channel or version (`next`
+    # is the RC channel, `latest` the stable one, or a version like 1.15.0).
+    # To build from this source tree instead: -f docker-compose.build.yml.
+    image: ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest}
+    ports:
+      - "${WEBAPP_PORT:-3001}:3000"
+    volumes:
+      # Uploaded files (lib/files/store.ts). The same directory the storage-api
+      # container used, so the backup that archives it covers the new files
+      # too and the entrypoint can hard-link the old objects across.
+      - ${DATA_DIR:-./data}/storage:/var/lib/storage
     container_name: ${PROJECT_NAME:-kinboard}-webapp
     restart: unless-stopped
     # The scheduled jobs live here, on the container they run inside, rather
@@ -523,7 +260,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      kong:
+      db-init:
+        condition: service_completed_successfully
+      rest:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
@@ -532,19 +271,15 @@ services:
       retries: 3
       start_period: 30s
     environment:
-      # Where the browser finds the API (RFC-018). With KINBOARD_ENTRY=kong,
-      # or API_EXTERNAL_URL empty or `same-origin`, it is the address the page
-      # was opened from; otherwise API_EXTERNAL_URL, as before. Plain
-      # variables, read per request: Next would freeze a NEXT_PUBLIC_* read
-      # into the build. See src/lib/supabase/api-base.ts.
-      KINBOARD_ENTRY: ${KINBOARD_ENTRY:-webapp}
-      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-}
-      # Use external URL for client-side (browser) access
-      NEXT_PUBLIC_SUPABASE_URL: ${API_EXTERNAL_URL}
+      # The browser reaches the API on the page's own address: the webapp
+      # forwards /rest/v1 to PostgREST (src/lib/rest-proxy.ts), and server
+      # code goes to it directly. API_EXTERNAL_URL and KINBOARD_ENTRY are no
+      # longer read (there is no Kong to point them at).
+      POSTGREST_URL: http://rest:3000
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
-      # Use internal URL for server-side access
-      SUPABASE_URL: http://kong:8000
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      # Where uploaded files live, inside the volume above.
+      FILES_DIR: /var/lib/storage/files
       # Signs the short-lived family-scoped tokens the browser uses for its
       # direct PostgREST connection. Must be the same secret PostgREST
       # verifies with (PGRST_JWT_SECRET below), or nothing the app mints will
@@ -593,10 +328,9 @@ services:
       # public-demo visitors can load the seeded household. Self-hosters
       # leave it unset.
       KINBOARD_DEMO_FAMILY_CODE: ${KINBOARD_DEMO_FAMILY_CODE:-}
-      # Postgres credentials for the entrypoint's migration runner. The
-      # entrypoint applies webapp/docker/migration*.sql on container start
-      # so Watchtower-driven updates pick up new schema without needing
-      # the operator to run `start.sh migrate` from the host.
+      # Postgres credentials for the entrypoint's migration runner (so any
+      # image update applies new schema without `start.sh migrate`) and for
+      # the live-update feed's LISTEN connection (src/lib/realtime).
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
       POSTGRES_USER: postgres

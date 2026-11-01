@@ -1,7 +1,8 @@
-import { test, expect, type Browser, type Page, type WebSocket } from "@playwright/test";
+import { test, expect, type Browser, type Page } from "@playwright/test";
 
 /**
- * RFC-018 §6, against a running stack with Kong as the front door: one stack,
+ * RFC-018 §6, against a running stack (since 1.15 the webapp serves the API,
+ * the files and the live-update stream itself): one stack,
  * opened from two addresses at once — say the LAN address on the kitchen
  * tablet and the domain on a phone — and both load their data and get live
  * updates, with every API call going to the address the page came from and
@@ -16,7 +17,7 @@ import { test, expect, type Browser, type Page, type WebSocket } from "@playwrig
 const FAMILY_CODE = process.env.FAMILY_CODE ?? "";
 const URLS = (process.env.SAME_ORIGIN_URLS ?? "").split(",").map((u) => u.trim().replace(/\/+$/, "")).filter(Boolean);
 
-const API = /^\/(rest|auth|storage|realtime)\/v1\//;
+const API = /^\/((rest|auth|storage|realtime)\/v1\/|api\/realtime$)/;
 
 interface Screen {
   page: Page;
@@ -24,8 +25,8 @@ interface Screen {
   apiRequests: string[];
   failures: string[];
   corsErrors: string[];
-  sockets: WebSocket[];
-  frames: string[];
+  /** Bodies of message reads (/api/messages, /rest/v1/messages), newest last. */
+  messageReads: string[];
   close: () => Promise<void>;
 }
 
@@ -39,8 +40,7 @@ async function screenAt(browser: Browser, base: string, name: string): Promise<S
     apiRequests: [],
     failures: [],
     corsErrors: [],
-    sockets: [],
-    frames: [],
+    messageReads: [],
     close: () => context.close(),
   };
   page.on("request", (r) => {
@@ -53,11 +53,11 @@ async function screenAt(browser: Browser, base: string, name: string): Promise<S
   page.on("console", (m) => {
     if (/cors|access-control-allow-origin/i.test(m.text())) screen.corsErrors.push(m.text());
   });
-  page.on("websocket", (ws) => {
-    screen.sockets.push(ws);
-    ws.on("framereceived", (f) => {
-      if (typeof f.payload === "string") screen.frames.push(f.payload);
-    });
+  page.on("response", (r) => {
+    const path = new URL(r.url()).pathname;
+    if (path.startsWith("/rest/v1/messages") || path.startsWith("/api/messages")) {
+      void r.text().then((t) => screen.messageReads.push(t), () => {});
+    }
   });
 
   await page.goto("/join", { waitUntil: "domcontentloaded" });
@@ -91,13 +91,14 @@ test.describe("one stack, two addresses (RFC-018)", () => {
         // ...and it did: data was loaded, all of it from the page's own address.
         await expect.poll(() => s.apiRequests.filter((u) => u.includes("/rest/v1/")).length, { timeout: 20_000 }).toBeGreaterThan(0);
         for (const u of s.apiRequests) expect(new URL(u).origin, u).toBe(s.origin);
-        // The realtime socket too.
-        await expect.poll(() => s.sockets.map((w) => w.url()).find((u) => u.includes("/realtime/v1/websocket")) ?? "", { timeout: 20_000 }).toContain(
-          s.origin.replace(/^http/, "ws"),
+        // The live-update stream too.
+        await expect.poll(() => s.apiRequests.find((u) => new URL(u).pathname === "/api/realtime") ?? "", { timeout: 20_000 }).toContain(
+          `${s.origin}/api/realtime`,
         );
       }
 
-      // A message sent on screen A arrives on screen B over B's own socket.
+      // A message sent on screen A reaches screen B: B's stream announces the
+      // change and B reads the new row again, from its own origin.
       const body = `same-origin-${tag}`;
       await a.page.evaluate(async (text) => {
         const raw = decodeURIComponent(document.cookie.split("; ").find((c) => c.startsWith("family-calendar-storage="))!.split("=")[1]);
@@ -109,7 +110,7 @@ test.describe("one stack, two addresses (RFC-018)", () => {
         });
         if (!res.ok) throw new Error(`send failed: ${res.status}`);
       }, body);
-      await expect.poll(() => b.frames.some((f) => f.includes(body) && f.includes("postgres_changes")), { timeout: 30_000 }).toBe(true);
+      await expect.poll(() => b.messageReads.some((t) => t.includes(body)), { timeout: 30_000 }).toBe(true);
 
       for (const s of [a, b]) {
         expect(s.failures, s.origin).toEqual([]);

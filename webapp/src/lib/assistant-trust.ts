@@ -9,7 +9,7 @@
  * What an assistant is, here: its connection — one `integration_tokens` row
  * with an `oauth_client_id`. A refreshed token is the same row, so it keeps
  * the trust; reconnecting is a new row, which starts untrusted; revoking
- * clears it (a trigger on the table, migration_zzzzzzzzzzz_assistant_trust.sql).
+ * clears it (a trigger on the table, migrations/080_assistant_trust.sql).
  * A token made by hand in Settings is never trusted.
  *
  * Who may switch it: a person at a Kinboard screen — a session route, never

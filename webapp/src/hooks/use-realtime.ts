@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { useRealtimeStatusStore } from "@/stores/realtime-status-store";
 import { queryKeys } from "./use-supabase-queries";
@@ -10,17 +9,34 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { actionChangeMatters } from "@/lib/home/action-prompt";
 import { reactToTaskChange } from "@/stores/creature-reactions";
 import type { TickRow } from "@/lib/pocket-money/creature-reactions";
-import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { invalidatePocketMoney } from "./use-pocket-money-accounts";
 
 /**
- * How often to re-authenticate the realtime socket.
+ * Live updates: the family's row changes, from the server's change feed.
  *
- * Family tokens live an hour (FAMILY_TOKEN_TTL_SECONDS). Refreshing every 20
- * minutes means a missed tick or two still lands well inside the window,
- * which matters on a kiosk that may sleep and wake.
+ * `GET /api/realtime` is a Server-Sent Events stream (app/api/realtime/route.ts)
+ * fed by a Postgres NOTIFY on every change to the tables below
+ * (docker/migrations/084_change_feed.sql). It replaced Supabase Realtime's
+ * WebSocket. The session cookie authenticates it and decides the family, so
+ * there is no token to hand over or refresh here.
+ *
+ * Each change arrives in the shape the handler always read — `eventType`,
+ * `new`, `old` — with `new`/`old` cut down to `id` and the fields a handler
+ * reads (TickRow for todos, `key` for settings, `birthday_id` for gift ideas,
+ * `status` for assistant requests). Anything else a screen needs it refetches.
  */
-const REALTIME_REAUTH_INTERVAL_MS = 20 * 60 * 1000;
+
+/** A change as the stream sends it; `new`/`old` are `{}` where there is no row. */
+export interface ChangePayload {
+  table?: string;
+  eventType: "INSERT" | "UPDATE" | "DELETE";
+  new: Record<string, unknown>;
+  old: Record<string, unknown>;
+}
+
+/** Reconnect delays after the stream is refused (a 401, a 502 while the server restarts). */
+const RECONNECT_MIN_MS = 2_000;
+const RECONNECT_MAX_MS = 60_000;
 
 type TableName =
   | "people"
@@ -103,7 +119,7 @@ interface UseRealtimeOptions {
 }
 
 /**
- * Hook to subscribe to Supabase Realtime changes and automatically invalidate queries
+ * Hook to follow the family's row changes and invalidate the affected queries
  *
  * @param options - Configuration options
  * @param options.tables - Specific tables to subscribe to (defaults to all)
@@ -112,7 +128,6 @@ interface UseRealtimeOptions {
 export function useRealtime(options: UseRealtimeOptions = {}) {
   const { tables = ALL_TABLES, enabled = true } = options;
 
-  const supabase = createClient();
   const queryClient = useQueryClient();
   const { family } = useFamilyStore();
   const setStatus = useRealtimeStatusStore((s) => s.setStatus);
@@ -120,7 +135,7 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
   const handleChange = useCallback(
     (
       table: TableName,
-      payload: RealtimePostgresChangesPayload<Record<string, unknown>>
+      payload: ChangePayload
     ) => {
       // Realtime change received - invalidate query
       if (!family?.id) return;
@@ -238,7 +253,7 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           queryClient.invalidateQueries({
             queryKey: ["settings", family.id],
           });
-          // school_holidays is not in the publication. The rows a sync writes
+          // school_holidays has no change feed. The rows a sync writes
           // come with an update to the school_holiday_sync setting in the same
           // transaction, and a new region with its holiday_region row: either
           // one refetches the rows, so open screens follow a sync or a region
@@ -339,73 +354,107 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
     [queryClient, family]
   );
 
+  /**
+   * Refetch everything this family's screens show. After a gap — the stream
+   * reconnected, or the server's database connection came back — changes may
+   * have been missed, and there is no replay.
+   */
+  const resync = useCallback(() => {
+    if (!family?.id) return;
+    const familyId = family.id;
+    queryClient.invalidateQueries({
+      predicate: (query) => query.queryKey.includes(familyId),
+    });
+    // Keyed without the family id.
+    queryClient.invalidateQueries({ queryKey: ["giftIdeas"] });
+    invalidatePocketMoney(queryClient);
+  }, [queryClient, family?.id]);
+
+  // The stream is opened once per family, not again whenever the family
+  // object or a callback changes identity: the handlers are read through refs.
+  const handleChangeRef = useRef(handleChange);
+  const resyncRef = useRef(resync);
   useEffect(() => {
-    if (!enabled || !family?.id) return;
+    handleChangeRef.current = handleChange;
+    resyncRef.current = resync;
+  }, [handleChange, resync]);
 
+  const tablesKey = tables.join(",");
+
+  useEffect(() => {
+    if (!enabled || !family?.id || typeof EventSource === "undefined") return;
+
+    const wanted = new Set(tablesKey.split(","));
     let disposed = false;
+    let source: EventSource | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let failures = 0;
+    let openedBefore = false;
 
-    /**
-     * Hand the socket a fresh token before the old one expires.
-     *
-     * Family tokens last an hour. The HTTP path re-mints transparently on
-     * every request, but a WebSocket is opened once and then simply held —
-     * exactly the situation a wall display is in, where nothing reloads the
-     * page for days. Without this the socket's JWT ages out and the server
-     * stops honouring the subscription while the connection still looks
-     * healthy: the same silent failure this fix exists to end.
-     *
-     * setAuth() re-reads the `accessToken` option in client.ts, so the
-     * refresh logic stays in exactly one place.
-     */
-    const reauthTimer = setInterval(() => {
-      void supabase.realtime.setAuth();
-    }, REALTIME_REAUTH_INTERVAL_MS);
-
-    // Create a channel for all subscriptions
-    const channel = supabase.channel(`family-${family.id}`);
-
-    // Subscribe to each table
-    tables.forEach((table) => {
-      channel.on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table,
-          // Note: RLS will filter to only family's data
-        },
-        (payload) => handleChange(table, payload)
-      );
-    });
-
-    // Subscribe to the channel. supabase-js retries CHANNEL_ERROR/TIMED_OUT
-    // internally (rejoin timer), so the status flips back to SUBSCRIBED on
-    // recovery without any action on our side.
-    channel.subscribe((status) => {
+    const connect = () => {
       if (disposed) return;
+      const es = new EventSource("/api/realtime");
+      source = es;
 
-      if (status === "SUBSCRIBED") {
+      es.onopen = () => {
+        if (disposed) return;
+        failures = 0;
         setStatus("connected");
-      } else if (
-        status === "CHANNEL_ERROR" ||
-        status === "TIMED_OUT" ||
-        status === "CLOSED"
-      ) {
-        setStatus("disconnected");
-      }
-    });
+        // Every open after the first follows a gap.
+        if (openedBefore) resyncRef.current();
+        openedBefore = true;
+      };
 
-    // Cleanup on unmount. supabase.removeChannel() fires this same
-    // subscribe callback with status "CLOSED" — flip `disposed` first so
-    // that self-inflicted close doesn't overwrite the store with
-    // "disconnected" (a genuinely unexpected pre-cleanup CLOSED is still
-    // handled above, before this runs).
+      es.addEventListener("change", (event) => {
+        if (disposed) return;
+        let payload: ChangePayload;
+        try {
+          payload = JSON.parse((event as MessageEvent<string>).data) as ChangePayload;
+        } catch {
+          return;
+        }
+        if (!payload.table || !wanted.has(payload.table)) return;
+        handleChangeRef.current(payload.table as TableName, payload);
+      });
+
+      // The server's database connection is back after a loss.
+      es.addEventListener("resync", () => {
+        if (disposed) return;
+        setStatus("connected");
+        resyncRef.current();
+      });
+
+      // The server has lost its database connection: the stream is open, but
+      // nothing will arrive until the next resync.
+      es.addEventListener("down", () => {
+        if (!disposed) setStatus("disconnected");
+      });
+
+      es.onerror = () => {
+        if (disposed) return;
+        setStatus("disconnected");
+        // A dropped connection is retried by the browser itself (readyState
+        // CONNECTING). A refused one — not a 200 event stream, such as a 401
+        // or a proxy's 502 while the server restarts — is not: that
+        // EventSource is CLOSED for good, so open a new one after a wait.
+        if (es.readyState === EventSource.CLOSED) {
+          es.close();
+          const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_MIN_MS * 2 ** failures);
+          failures++;
+          retryTimer = setTimeout(connect, delay);
+        }
+      };
+    };
+
+    connect();
+
+    // `disposed` first, so an event already queued cannot touch the store.
     return () => {
       disposed = true;
-      clearInterval(reauthTimer);
-      supabase.removeChannel(channel);
+      if (retryTimer) clearTimeout(retryTimer);
+      source?.close();
     };
-  }, [supabase, family?.id, enabled, tables, handleChange, setStatus]);
+  }, [family?.id, enabled, tablesKey, setStatus]);
 }
 
 /**

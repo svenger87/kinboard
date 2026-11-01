@@ -3,8 +3,8 @@ import { createAdminClient } from "@/lib/supabase/server";
 /**
  * Liveness marks for things `/api/health` cannot reach directly.
  *
- * The webapp can probe the database itself, and it can infer realtime from
- * the replication slots. The cron worker is different: it runs in its own
+ * The webapp can probe the database itself, and live updates are its own
+ * LISTEN connection (lib/realtime/hub.ts). The cron worker is different: it runs in its own
  * container, talks to the webapp over HTTP, and leaves no trace when there
  * happens to be no work to do. A run that processes zero notifications is a
  * perfectly healthy run, so "did any row change" cannot stand in for "is the

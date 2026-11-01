@@ -1,51 +1,24 @@
-# Traefik reverse-proxy override.
-#
-# Copy to `docker-compose.traefik.yml` and adjust to your setup, then run:
+# Traefik reverse-proxy overlay:
 #   docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d
+# (or COMPOSE_FILES in .env, which start.sh and the self-update read).
 #
 # Requirements:
-#   - A Traefik instance running on the host with the entrypoints below
-#   - The `proxy` network exists on the host (`docker network create proxy`)
-#   - Set DOMAIN and TRAEFIK_CERT_RESOLVER in .env
+#   - A Traefik instance running on the host with a `websecure` entrypoint
+#   - The external network Traefik watches (`docker network create proxy`)
+#   - DOMAIN and TRAEFIK_CERT_RESOLVER set in .env
 #
 # Variables read from .env:
 #   DOMAIN                  e.g. kinboard.example.com
-#   TRAEFIK_CERT_RESOLVER   name of your Traefik cert resolver (e.g. letsencrypt, cloudflare)
+#   TRAEFIK_CERT_RESOLVER   your Traefik cert resolver (default: letsencrypt)
 #   TRAEFIK_NETWORK         external network Traefik watches (default: proxy)
-
-version: "3.8"
+#
+# One route. The webapp answers every path on the domain: the app, the
+# database API at /rest/v1, uploaded files at /storage/v1 and live updates.
+# Until 1.15 a second router sent /rest, /auth, /storage and /realtime to Kong
+# with a forward-auth gate in front; Kong is gone and the gate (no service_role
+# key from outside) is in the webapp itself, on every install.
 
 services:
-  kong:
-    networks:
-      - kinboard
-      - traefik
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.rule=Host(`${DOMAIN}`) && (PathPrefix(`/rest`) || PathPrefix(`/auth`) || PathPrefix(`/storage`) || PathPrefix(`/realtime`))"
-      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.entrypoints=websecure"
-      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}"
-      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.priority=100"
-      # Reject service_role from the public endpoint (pentest F3).
-      #
-      # PostgREST accepts any validly-signed JWT, and service_role bypasses
-      # row-level security entirely. It is only ever used server-side over the
-      # internal webapp->kong path (which never touches Traefik), so it should
-      # never arrive from the internet. This forward-auth gate inspects the
-      # role claim on each public request and 403s service_role; the anon key
-      # and family-scoped tokens pass through, and PostgREST still verifies the
-      # signature afterwards. The gate fails open (see the route) so it can't
-      # take the dashboard down.
-      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.middlewares=${PROJECT_NAME:-kinboard}-rolegate@docker"
-      - "traefik.http.middlewares.${PROJECT_NAME:-kinboard}-rolegate.forwardauth.address=http://${PROJECT_NAME:-kinboard}-webapp:3000/api/internal/rest-gate"
-      # Published to the internet deliberately. What protects it is row-level
-      # security (docker/migration_zz_row_level_security.sql): the anon key that ships in
-      # the browser bundle carries no family claim, so it reads nothing, and a
-      # device gets a family-scoped token only after joining with the family
-      # code. Before RLS this router was restricted to private networks,
-      # because publishing it meant handing out every family's data.
-      - "traefik.http.services.${PROJECT_NAME:-kinboard}-api.loadbalancer.server.url=http://${PROJECT_NAME:-kinboard}-kong:8000"
-
   webapp:
     networks:
       - kinboard
@@ -55,15 +28,13 @@ services:
       - "traefik.http.routers.${PROJECT_NAME:-kinboard}-webapp.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.${PROJECT_NAME:-kinboard}-webapp.entrypoints=websecure"
       - "traefik.http.routers.${PROJECT_NAME:-kinboard}-webapp.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}"
-      - "traefik.http.routers.${PROJECT_NAME:-kinboard}-webapp.priority=1"
       - "traefik.http.services.${PROJECT_NAME:-kinboard}-webapp.loadbalancer.server.url=http://${PROJECT_NAME:-kinboard}-webapp:3000"
 
   # Optional: route go2rtc's WebRTC TCP fallback through Traefik. Only enable
   # if your Traefik static config defines a `webrtc` TCP entrypoint and you
   # actually need WebRTC TCP fallback (most setups work over UDP and can
-  # leave the host-published 8555/udp port open via UFW directly). Without
-  # the matching entrypoint, Traefik logs `EntryPoint doesn't exist` errors
-  # every ~10 seconds.
+  # leave the host-published 8555/udp port open directly). Without the
+  # matching entrypoint, Traefik logs `EntryPoint doesn't exist` every ~10 s.
   #
   # go2rtc:
   #   networks:

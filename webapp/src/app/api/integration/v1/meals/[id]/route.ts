@@ -12,7 +12,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * DELETE /api/integration/v1/meals/{id}
  *
  * Soft delete through the same BEFORE DELETE trigger as notes and tasks
- * (`migration_zzz_soft_delete.sql`), and the same existence check
+ * (`migrations/056_soft_delete.sql`), and the same existence check
  * `notes/[id]/route.ts` uses to get there: the trigger stamps `deleted_at`
  * and returns NULL, which tells Postgres to skip the physical delete *and*
  * empties its RETURNING clause, so a successful soft delete and "matched

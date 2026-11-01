@@ -74,7 +74,7 @@ export function mintFamilyToken(familyId: string, deviceId?: string | null): Fam
     // What current_family_id() reads in every policy.
     family_id: familyId,
     // Which screen is acting, for the task log (todo_actor() in
-    // migration_zzzzzy_todo_turns.sql). Informational only: no policy reads
+    // migrations/066_todo_turns.sql). Informational only: no policy reads
     // it, and the database checks it names a device of this family.
     ...(deviceId ? { device_id: deviceId } : {}),
     iss: "kinboard",

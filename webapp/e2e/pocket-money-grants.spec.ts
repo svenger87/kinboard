@@ -15,13 +15,13 @@ import { SKIP_WITHOUT_DATABASE, dbContainer } from "./whole-database";
  * and get `UPDATE 1`, and write best_tier or reward_mode past the settings PIN
  * the routes enforce (#353, #359).
  *
- * migration_zzzzzzzz_pocket_money_server_only.sql takes the write privileges
+ * migrations/075_pocket_money_server_only.sql takes the write privileges
  * away. Reads stay: the pages and realtime need them, so they are asserted too.
  */
 
 const DOCKER = join(__dirname, "..", "docker");
 const SRC = join(__dirname, "..", "src");
-const SELF = "migration_zzzzzzzz_pocket_money_server_only.sql";
+const SELF = "migrations/075_pocket_money_server_only.sql";
 const TABLES = [
   "pocket_money_accounts",
   "pocket_money_goals",
@@ -29,7 +29,7 @@ const TABLES = [
   "pocket_money_withdrawal_requests",
 ];
 
-const migrations = readdirSync(DOCKER).filter((f) => /^migration.*\.sql$/.test(f)).sort();
+const migrations = readdirSync(join(DOCKER, "migrations")).map((f) => `migrations/${f}`).filter((f) => /^migrations\/\d{3}_.*\.sql$/.test(f)).sort();
 const sqlOf = (f: string) => codeOnly(readFileSync(join(DOCKER, f), "utf8"), { sql: true });
 
 test.describe("migrations", () => {
@@ -45,12 +45,19 @@ test.describe("migrations", () => {
     expect(sql).not.toMatch(/REVOKE\s+(?:ALL|[A-Z,\s]*\bSELECT\b)/i);
   });
 
-  test("the revoke sorts after every migration that names a pocket_money_* table", () => {
+  test("the revoke sorts after every migration that creates or grants on a pocket_money_* table", () => {
     const touching = migrations.filter((f) => f !== SELF && /\bpocket_money_[a-z_]+/i.test(sqlOf(f)));
-    // Guard the guard: the tables are created in migration_pocket_money.sql.
-    expect(touching).toContain("migration_pocket_money.sql");
-    expect(touching).toContain("migration_zzzzzzz_point_rewards.sql");
-    for (const f of touching) expect(f < SELF, `${f} sorts after ${SELF}`).toBe(true);
+    // Guard the guard: the tables are created in migrations/031_pocket_money.sql.
+    expect(touching).toContain("migrations/031_pocket_money.sql");
+    expect(touching).toContain("migrations/070_point_rewards.sql");
+    // A later file may name the tables — the change-feed trigger
+    // (084_change_feed.sql) puts a trigger on them — but only if it creates
+    // no table and grants nothing, so it cannot undo the revoke.
+    for (const f of touching.filter((t) => t > SELF)) {
+      const sql = sqlOf(f);
+      expect(sql, `${f} sorts after ${SELF} and grants`).not.toMatch(/\bGRANT\b/i);
+      expect(sql, `${f} sorts after ${SELF} and creates a table`).not.toMatch(/\bCREATE\s+TABLE\b/i);
+    }
   });
 
   test("no migration grants a browser role a write on a pocket_money_* table after the revoke", () => {

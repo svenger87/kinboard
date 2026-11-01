@@ -1,0 +1,29 @@
+-- migrations/014_disable_rls.sql
+--
+-- SUPERSEDED. This file is now a no-op and must stay one.
+--
+-- It used to disable row-level security on every family-scoped table. That
+-- was the right call at the time: init.sql's original policies keyed on a
+-- `current_setting('app.current_family_id')` GUC that the application never
+-- set, so they blocked legitimate writes — notably the join flow's INSERT
+-- into `devices`.
+--
+-- It is the wrong call now. The browser talks to PostgREST directly with the
+-- anon key, which is public by design, so with RLS off anyone who could reach
+-- the API could read and write every family's data. On 2026-08-04 an
+-- unauthenticated request from the internet returned a family's join code.
+--
+-- migrations/049_row_level_security.sql replaces those broken policies with ones that read
+-- a `family_id` claim from the request's JWT — a mechanism the application
+-- does set, via /api/session/token.
+--
+-- Emptied rather than deleted: the migration runner applies every
+-- migration_*.sql on each boot in filename order, and `disable` sorts before
+-- `enable`. Deleting the file would be fine on a fresh install but would
+-- leave older installs running whatever copy they already have. Leaving it
+-- inert is the version that is safe everywhere.
+--
+-- If you genuinely need RLS off — debugging, a migration of your own — do it
+-- by hand and put it back. Do not restore this file.
+
+SELECT 1;

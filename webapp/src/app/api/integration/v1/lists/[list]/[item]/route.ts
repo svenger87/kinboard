@@ -41,7 +41,7 @@ export const dynamic = "force-dynamic";
  * query against `todos` in this file repeats `.is("deleted_at", null)`
  * itself. Skipping it on the DELETE path is what let a second delete reach
  * an already-binned row and purge it: the soft-delete trigger lets a DELETE
- * through once `deleted_at` is already set (`migration_zzz_soft_delete.sql`),
+ * through once `deleted_at` is already set (`migrations/056_soft_delete.sql`),
  * so the WHERE clause is the only thing standing between "binned" and "gone".
  */
 export async function PATCH(
@@ -230,7 +230,7 @@ export async function PATCH(
       const { data, error } = await query.select("id").maybeSingle();
 
       // A task that takes turns can only be ticked for its open day; before
-      // its schedule starts there is none (migration_zzzzzy_todo_turns.sql).
+      // its schedule starts there is none (migrations/066_todo_turns.sql).
       if (error && (error as { hint?: string }).hint === "no_open_turn") {
         return NextResponse.json(
           { error: "this task has no turn open yet", code: "conflict" },
@@ -273,7 +273,7 @@ export async function DELETE(
       // behaviour rather than inventing a third.
       if (def.softDeletes) {
         // A DELETE's own RETURNING clause cannot be used to judge success
-        // here. The soft-delete trigger (migration_zzz_soft_delete.sql) is a
+        // here. The soft-delete trigger (migrations/056_soft_delete.sql) is a
         // BEFORE DELETE trigger that stamps deleted_at and returns NULL —
         // and returning NULL from a BEFORE DELETE trigger tells Postgres to
         // skip the row, which cancels the physical delete *and* empties its

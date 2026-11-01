@@ -9,7 +9,7 @@
  * The room is the linked `rooms` row's name. `catalogue_items.room` (text) is
  * deliberately not used: since RFC-007 it is the legacy recovery copy the
  * catalogue screen no longer writes, so falling back to it would resurrect a
- * room the household cleared (see `migration_rooms.sql`).
+ * room the household cleared (see `migrations/034_rooms.sql`).
  */
 
 import { createAdminClient } from "@/lib/supabase/server";

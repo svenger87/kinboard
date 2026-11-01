@@ -227,7 +227,7 @@ test.describe("who may write", () => {
   });
 
   test("the tables are read-only to the browser, family-scoped, published, and the functions are the service role's", () => {
-    const sql = codeOnly(read("docker/migration_zzzzzzz_point_rewards.sql"), { sql: true });
+    const sql = codeOnly(read("docker/migrations/070_point_rewards.sql"), { sql: true });
     for (const table of ["point_rewards", "point_redemptions"]) {
       expect(sql).toMatch(new RegExp(`ALTER TABLE public\\.${table} ENABLE ROW LEVEL SECURITY;`));
       expect(sql).toMatch(new RegExp(`CREATE POLICY ${table}_family_read ON public\\.${table}\\s+FOR SELECT USING \\(family_id = public\\.current_family_id\\(\\)\\);`));
@@ -252,7 +252,7 @@ test.describe("who may write", () => {
   });
 
   test("per child since RFC-017: the balance, the request and the decision lock the child, not an account", () => {
-    const sql = codeOnly(read("docker/migration_zzzzzzzz_pocket_money_creatures_out.sql"), { sql: true });
+    const sql = codeOnly(read("docker/migrations/074_pocket_money_creatures_out.sql"), { sql: true });
     const totals = sql.slice(sql.indexOf("FUNCTION public.point_person_totals("), sql.indexOf("FUNCTION public.point_account_totals("));
     expect(totals).toMatch(/FROM public\.todo_point_awards\s+WHERE person_id = p_person_id/);
     expect(totals).toMatch(/FROM public\.point_redemptions WHERE person_id = p_person_id/);
@@ -271,14 +271,14 @@ test.describe("who may write", () => {
 
   test("the migration sorts after the ones it builds on", () => {
     // Not necessarily last: a later migration may follow it.
-    const files = readdirSync(join(ROOT, "docker")).filter((f) => /^migration.*\.sql$/.test(f)).sort();
-    const at = files.indexOf("migration_zzzzzzz_point_rewards.sql");
+    const files = readdirSync(join(join(ROOT, "docker"), "migrations")).map((f) => `migrations/${f}`).filter((f) => /^migrations\/\d{3}_.*\.sql$/.test(f)).sort();
+    const at = files.indexOf("migrations/070_point_rewards.sql");
     expect(at).toBeGreaterThanOrEqual(0);
     for (const before of [
-      "migration_pocket_money.sql",
-      "migration_pocket_money_best_tier.sql",
-      "migration_zz_row_level_security.sql",
-      "migration_zzz_todo_points.sql",
+      "migrations/031_pocket_money.sql",
+      "migrations/032_pocket_money_best_tier.sql",
+      "migrations/049_row_level_security.sql",
+      "migrations/057_todo_points.sql",
     ]) {
       expect(files.indexOf(before), before).toBeGreaterThanOrEqual(0);
       expect(files.indexOf(before), before).toBeLessThan(at);

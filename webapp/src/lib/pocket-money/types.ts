@@ -26,7 +26,7 @@ export type WithdrawalStatus = "pending" | "approved" | "denied";
  * Balance thresholds (in cents) that promote the avatar to the next
  * stage. The stage reflects what is in the account *now*, so spending
  * moves it down and saving moves it back up — see
- * `migration_pocket_money_best_tier.sql` for why that replaced the old
+ * `migrations/032_pocket_money_best_tier.sql` for why that replaced the old
  * lifetime-earnings model, and `best_tier` for how the achievement is
  * preserved when a kid spends.
  *
@@ -46,7 +46,7 @@ export type WithdrawalStatus = "pending" | "approved" | "denied";
  * the top, where it belongs.
  *
  * Kept in sync with the backfill CASE in
- * webapp/docker/migration_pocket_money_best_tier.sql.
+ * webapp/docker/migrations/032_pocket_money_best_tier.sql.
  */
 export const TIER_THRESHOLDS_CENTS: ReadonlyArray<number> = [
   0,        // stage 1: empty account

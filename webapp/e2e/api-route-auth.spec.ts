@@ -282,6 +282,11 @@ test("a route that still takes family_id checks it against the session", () => {
     // the person are looked up in; the body carries only `{ person_id }`
     // (lib/device-owner.ts refuses any other field).
     "devices/[id]/route.ts",
+    // The live-updates stream. The regex matches the local `familyId`, taken
+    // from auth.session.familyId, which the hub filters on; the request is a
+    // bare GET with nothing but the session cookie
+    // (e2e/realtime-change-feed.spec.ts pins that it reads no family id).
+    "realtime/route.ts",
   ]);
 
   const missing: string[] = [];

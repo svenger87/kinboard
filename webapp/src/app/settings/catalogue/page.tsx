@@ -73,7 +73,7 @@ import type { CatalogueItem } from "@/types/database";
 import type { HAEntity } from "@/types/home-assistant";
 
 /**
- * Names a device the same way `migration_catalogue_items.sql` names one:
+ * Names a device the same way `migrations/010_catalogue_items.sql` names one:
  * the entity's own friendly name if it has one, otherwise its entity-id
  * suffix in sentence case ("light.under_cupboard" -> "Under cupboard"),
  * otherwise the raw entity id. Keeping this in step with the SQL is the

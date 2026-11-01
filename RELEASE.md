@@ -103,7 +103,7 @@ Before tagging:
 - [ ] No uncommitted local changes; `git status` is clean
 - [ ] `npm run lint` passes locally
 - [ ] CI is green on `kinboard/main`
-- [ ] If schema changed: a `migration*.sql` file landed and is idempotent
+- [ ] If schema changed: a `migrations/NNN_topic.sql` file landed and is idempotent
 - [ ] No new env vars without `.env.example` entries
 - [ ] If a breaking change: it's flagged prominently in CHANGELOG and a migration note exists in the wiki
 
@@ -195,7 +195,7 @@ Local `main` keeps full history; `origin` (gitlab) gets the regular push later.
 Write the upgrade command as:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.image.yml pull
+git pull --ff-only
 ./start.sh up
 ```
 
@@ -230,7 +230,7 @@ Should show both `amd64` and `arm64`. If only one arch is present, the merge job
 
 ## Post-release
 
-- [ ] Test the published image on a fresh box (`docker compose -f docker-compose.yml -f docker-compose.image.yml pull && up -d`)
+- [ ] Test the published image on a fresh box (`docker compose pull && docker compose up -d`)
 - [ ] Tweet / Mastodon post / Discussions announcement (link to the GitHub Release page, mention 1–2 highlights)
 - [ ] If breaking change: write a wiki migration note linked from the release notes
 - [ ] If the release forces users to re-authenticate, or changes what the

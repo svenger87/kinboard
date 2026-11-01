@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { toBrowserStorageUrl } from "@/lib/supabase/signed-url";
+import { signedObjectUrl } from "@/lib/files/signed";
 
 export const dynamic = "force-dynamic";
 
-const BUCKET = "family-photos";
+const BUCKET = "family-photos" as const;
 
 /**
  * How long a signed photo URL lives.
@@ -64,30 +64,13 @@ export async function GET(request: NextRequest) {
   const rows = (data ?? []) as PhotoRow[];
   if (rows.length === 0) return NextResponse.json({ photos: [], totalBytes: 0 });
 
-  // One round trip for every URL rather than one per photo: a library of 200
-  // would otherwise be 400 separate signing calls before the page could paint.
-  const paths = rows.map((r) => r.storage_path);
-  const thumbPaths = rows.map((r) => r.thumbnail_path).filter((p): p is string => !!p);
-
-  const [signed, signedThumbs] = await Promise.all([
-    supabase.storage.from(BUCKET).createSignedUrls(paths, SIGNED_URL_TTL_SECONDS),
-    thumbPaths.length
-      ? supabase.storage.from(BUCKET).createSignedUrls(thumbPaths, SIGNED_URL_TTL_SECONDS)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-
-  if (signed.error) {
-    console.error("[photos] signing failed:", signed.error);
-    return NextResponse.json({ error: "sign_failed" }, { status: 500 });
-  }
-
+  // Signed here, by the server, for an hour: the bucket is private, and the
+  // page loads these as plain <img> sources (lib/files/signed.ts).
+  const sign = (path: string) => signedObjectUrl(BUCKET, path, SIGNED_URL_TTL_SECONDS);
   const urlByPath = new Map<string, string>();
-  for (const entry of [...(signed.data ?? []), ...(signedThumbs.data ?? [])]) {
-    // The path comes back on the internal kong origin; swap it for the one
-    // the browser can actually reach. See lib/supabase/signed-url.ts.
-    if (entry.path && entry.signedUrl) {
-      urlByPath.set(entry.path, toBrowserStorageUrl(entry.signedUrl));
-    }
+  for (const row of rows) {
+    urlByPath.set(row.storage_path, sign(row.storage_path));
+    if (row.thumbnail_path) urlByPath.set(row.thumbnail_path, sign(row.thumbnail_path));
   }
 
   const photos = rows.map((row) => ({

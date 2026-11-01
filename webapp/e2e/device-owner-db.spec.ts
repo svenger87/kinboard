@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { dbContainer } from "./whole-database";
 
 /**
- * devices.person_id (RFC-017 §8.2, migration_zzzzzzzzz_device_owner.sql),
+ * devices.person_id (RFC-017 §8.2, migrations/077_device_owner.sql),
  * against the stack's database: the column and what deleting the person does
  * to it, that the migration runs again on the next boot without a change, and
  * the grants -- a family token can still write everything else about a device
@@ -80,7 +80,7 @@ test("the column: a nullable uuid that refers to people and is cleared when the 
 });
 
 test("the migration runs again on the next boot and changes nothing", () => {
-  const file = readFileSync(join(process.cwd(), "docker", "migration_zzzzzzzzz_device_owner.sql"), "utf8");
+  const file = readFileSync(join(process.cwd(), "docker", "migrations/077_device_owner.sql"), "utf8");
   const before = psql(`SELECT string_agg(grantee || ':' || privilege_type || ':' || column_name, ',' ORDER BY grantee, privilege_type, column_name)
     FROM information_schema.column_privileges WHERE table_name = 'devices' AND grantee IN ('anon', 'authenticated')`);
   psql(file);

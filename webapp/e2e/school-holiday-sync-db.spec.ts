@@ -8,7 +8,7 @@ import {
 } from "./whole-database";
 
 /**
- * migration_zzzzz_school_holiday_sync.sql and apply_school_holiday_sync()
+ * migrations/064_school_holiday_sync.sql and apply_school_holiday_sync()
  * against a real database (RFC-014 §5.1, §5.2, §6.2, §12). The rule these
  * protect: nothing fetched can delete, edit or hide anything the family made.
  */
@@ -23,7 +23,7 @@ function psql(sql: string): string {
 
 function applyMigration(): void {
   execFileSync("bash", ["-c",
-    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migration_zzzzz_school_holiday_sync.sql`],
+    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migrations/064_school_holiday_sync.sql`],
     { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8" });
 }
 
@@ -292,7 +292,7 @@ test("only a synced row can be hidden", () => {
 /**
  * As the browser: `authenticated` with the family's claim, the way PostgREST
  * runs a request. Everything runs inside one transaction that is rolled back.
- * `dropPolicies` simulates the boot window, when migration_zz_row_level_security.sql
+ * `dropPolicies` simulates the boot window, when migrations/049_row_level_security.sql
  * has swept the restrictive policies and this file has not yet put them back.
  */
 const asBrowser = (family: string, sql: string, dropPolicies = false) =>

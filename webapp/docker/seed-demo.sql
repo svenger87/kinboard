@@ -26,7 +26,7 @@ BEGIN;
 -- Cascades through FKs: devices, people, calendars, events, todos,
 -- shopping_items, subjects, schedules, birthdays, notes, recipes,
 -- recipe_ingredients, recipe_tags, meal_plans, meal_plan_entries.
--- The wipe has to be a *hard* delete. `migration_zzz_soft_delete.sql` puts a
+-- The wipe has to be a *hard* delete. `migrations/056_soft_delete.sql` puts a
 -- BEFORE DELETE trigger on people, notes, todos, birthdays, recipes and the
 -- rest that stamps `deleted_at` and returns NULL, so the cascade leaves every
 -- row in place with its id — and the re-insert below then fails on
@@ -464,7 +464,7 @@ INSERT INTO public.settings (family_id, key, value) VALUES
 
 -- =========================================================================
 -- Integration secrets — server-only table (see
--- webapp/docker/migration_integration_secrets.sql). The mock-ha token
+-- webapp/docker/migrations/020_integration_secrets.sql). The mock-ha token
 -- above belongs here, not in `settings` (which is anon-readable), so
 -- the demo box exercises the same read-path sentinel-masking as a real
 -- install. ON CONFLICT DO UPDATE keeps this re-runnable by the hourly

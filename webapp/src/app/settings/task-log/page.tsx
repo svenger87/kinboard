@@ -37,7 +37,7 @@ const KIND_ICONS: Record<TodoEvent["kind"], LucideIcon> = {
  * Every time a task was ticked or un-ticked -- when, from which screen, and
  * whose turn it was -- and when it was created, edited, deleted or restored.
  * The calendar shows how each day ended; this shows how it got there. The
- * database writes it (migration_zzzzzy_todo_turns.sql); the page only reads.
+ * database writes it (migrations/066_todo_turns.sql); the page only reads.
  */
 export default function TaskLogPage() {
   const t = useTranslations("settings.taskLog");

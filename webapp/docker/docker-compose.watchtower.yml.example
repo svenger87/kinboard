@@ -2,7 +2,7 @@
 #
 # containrrr/watchtower was archived upstream in 2024 and is no longer
 # maintained. Beyond the abandonment, Watchtower only updates IMAGES —
-# it does NOT git pull new compose files / kong.yml / migrations, and
+# it does NOT git pull new compose files, and
 # it does NOT re-run setup.sh to substitute new placeholders. Real
 # Kinboard releases routinely ship config alongside the image, and
 # Watchtower-driven restarts silently break in those cases (we hit it
@@ -10,15 +10,19 @@
 #
 # Use docker-compose.diun.yml.example instead — it runs Diun (image
 # notifier, actively maintained) plus a webhook executor that triggers
-# the FULL upgrade path (git pull → setup.sh → compose pull → up -d →
-# kong restart). This file is kept only so existing self-hosters with
+# the FULL upgrade path (git pull → setup.sh → compose pull → up -d). This file is kept only so existing self-hosters with
 # `docker-compose.watchtower.yml` already deployed don't have their
 # stack break on the next git pull. Migrate at your earliest
 # convenience.
 #
+# 1.15 is the release that shows why: it drops five services and moves the
+# uploaded files, and a Watchtower update brings only the image. The new
+# image keeps working on the old compose file, but uploads are refused until
+# the compose file is updated (git pull, then up -d --remove-orphans).
+#
 # Auto-updates only the kinboard-webapp container by polling GHCR every
 # hour and pulling whenever the tag's digest moves. Other containers
-# (db, kong, auth, realtime, ...) stay pinned to whatever versions
+# (db, rest, cron, ...) stay pinned to whatever versions
 # docker-compose.yml declares — auto-bumping a database container is
 # not safe in general.
 #
@@ -27,7 +31,7 @@
 #
 #   cd webapp/docker
 #   cp docker-compose.watchtower.yml.example docker-compose.watchtower.yml
-#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.watchtower.yml" \
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.watchtower.yml" \
 #     ./start.sh up
 #
 # Pair this with a rolling KINBOARD_TAG so Watchtower has something to

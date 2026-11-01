@@ -7,16 +7,13 @@
 #   ./start.sh restart   # rebuild webapp + restart
 #   ./start.sh logs      # tail logs
 #   ./start.sh status    # show container state
-#   ./start.sh migrate   # apply migration*.sql files
+#   ./start.sh migrate   # apply migrations/NNN_*.sql (migrate.sh)
 #   ./start.sh seed-demo # load optional demo family + subjects
 #
-# Compose file selection: defaults to `docker-compose.yml`. If you
-# also have `docker-compose.image.yml` in this directory, it's
-# auto-included so `up` pulls the published image instead of trying
-# to build from a source tree that may not be on disk (image-pull
-# self-host deployments). Override the full set in .env or your
-# shell, e.g.:
-#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml"
+# Compose file selection: defaults to `docker-compose.yml`, which runs the
+# published image. Override the full set in .env or your shell, e.g.:
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml"
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.build.yml"   # from source
 
 set -euo pipefail
 
@@ -30,10 +27,6 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-# A KINBOARD_ENTRY compose cannot use ("Kong", a typo) would make every
-# compose command fail; lower-case it, anything else becomes webapp (RFC-018).
-ENV_FILE=./.env sh ./kinboard-entry.sh normalise
-
 # Source .env so user-set vars (especially COMPOSE_FILES) take
 # effect for this script's own logic. docker compose reads .env on
 # its own for compose-file substitution, but doesn't propagate
@@ -43,19 +36,10 @@ set -a
 . ./.env
 set +a
 
-# Pick a sensible compose-file default. Source-build self-hosters get
-# the base file; image-pull self-hosters automatically also get the
-# image overlay if they have docker-compose.image.yml present (which
-# they do if they followed the published-image path in the wiki).
-# Reverse-proxy users (Traefik) and demo overlays still need to be
-# specified explicitly via COMPOSE_FILES — they're not always-on.
-if [[ -z "${COMPOSE_FILES:-}" ]]; then
-  if [[ -f docker-compose.image.yml ]]; then
-    COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml"
-  else
-    COMPOSE_FILES="-f docker-compose.yml"
-  fi
-fi
+# The base file runs the published image (docker-compose.image.yml used to be
+# needed for that and is now only kept for COMPOSE_FILES lines that name it).
+# Traefik, a source build and demo overlays go in COMPOSE_FILES explicitly.
+COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml}"
 if command -v docker-compose >/dev/null 2>&1; then
   COMPOSE="docker-compose"
 else
@@ -71,83 +55,27 @@ set -a
 source ./.env
 set +a
 PROJECT_NAME="${PROJECT_NAME:-kinboard}"
-# Exported by the sourcing above, a shell value would beat .env in compose —
-# and the entry steps below rewrite .env. Let compose read the file.
-unset KINBOARD_ENTRY
 
-# NOTE: supabase service-role password alignment (authenticator,
-# supabase_auth_admin, supabase_storage_admin) + the `_realtime` schema now
-# happen INSIDE the stack via the one-shot `db-init` service in
-# docker-compose.yml, gated so auth/rest/storage/realtime wait for it. That
-# makes a bare `docker compose up` work without this script. We no longer
-# align passwords from the host here.
+# NOTE: PostgREST's login-role password is aligned INSIDE the stack by the
+# one-shot `db-init` service in docker-compose.yml, which `rest` waits for, so
+# a bare `docker compose up` works without this script.
 
-# Apply every webapp/docker/migration*.sql to the running DB, by hand.
+# Apply the migrations to the running DB from the host, by hand.
 #
 # THIS IS NOT THE PATH MIGRATIONS NORMALLY TAKE. The webapp container applies
-# them itself on every start (webapp-entrypoint.sh), which is the one runner:
-# it works for image-only deployments and Watchtower-driven updates, where
-# start.sh is never invoked, and it refuses to start the app if a migration
-# fails rather than serving against a half-applied schema.
+# them itself on every start (webapp-entrypoint.sh), and refuses to start the
+# app if one fails rather than serving against a half-applied schema. This is
+# the escape hatch for when it could not (no POSTGRES_PASSWORD in the webapp
+# environment), and for a dev box running `next dev` with no webapp container.
 #
-# This function stays as `./start.sh migrate` — an explicit escape hatch for
-# when the entrypoint could not run them (no POSTGRES_PASSWORD in the webapp
-# environment) or when an operator wants to re-apply them without a restart.
-# `up` no longer calls it: running it there meant two runners applying the
-# same files concurrently, which collided (issue #152).
+# Same runner, same files, same order: migrate.sh, reading migrations/NNN_*.sql
+# and recording each in kinboard.schema_migrations. Running it twice is safe;
+# the second run applies nothing.
 #
-# ORDERING CONVENTION — migrations apply in alphabetical order (bash glob).
-# That has two real implications when adding a new migration file:
-#
-#   1. If migration B depends on a table/column created in migration A
-#      (e.g. `migration_vehicles_image.sql` ALTERs the `vehicles` table
-#      that `migration_vehicles.sql` creates), B's filename must sort
-#      AFTER A's. Use a `_<topic>` suffix matching the parent — Postgres'
-#      ASCII has `.` (46) < `_` (95), so `migration_vehicles.sql` sorts
-#      before `migration_vehicles_image.sql`. Subject suffixes that don't
-#      share the parent prefix (e.g. `migration_unique_constraints.sql`)
-#      can interleave, so check the resulting order with `ls migration*.sql`
-#      before committing.
-#
-#   2. The unsuffixed `migration.sql` is the historical catch-all from
-#      pre-1.0 — it sorts FIRST and folds in everything pre-dating the
-#      `migration_<topic>.sql` convention. New migrations should always
-#      use the `_<topic>` suffix; do not touch `migration.sql`.
-#
-# The entrypoint applies the same files in the same order. Keep the two in
-# sync — this one exists so an operator is never locked out, not as a second
-# opinion on what the schema should be.
+# Adding a migration: the next free number, `NNN_topic.sql`, idempotent
+# (IF NOT EXISTS, guarded DO blocks) because an edited file is applied again.
 run_migrations() {
-  set +e
-  local found=0 migration
-  local -a failed=()
-  for migration in migration*.sql; do
-    [[ -f "$migration" ]] || continue
-    found=1
-    echo "→ $migration"
-    # ON_ERROR_STOP so a broken statement fails its file instead of psql
-    # shrugging and running the rest of it.
-    docker exec -i "${PROJECT_NAME:-kinboard}-db" \
-      psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$migration" || failed+=("$migration")
-  done
-  if [[ $found -eq 1 ]]; then
-    docker exec "${PROJECT_NAME:-kinboard}-db" \
-      psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema';" >/dev/null 2>&1 || true
-    docker restart "${PROJECT_NAME:-kinboard}-rest" >/dev/null 2>&1 || true
-  fi
-  set -e
-
-  # This used to discard every psql exit code, so a migration that failed
-  # outright looked exactly like one that applied. Every file is still
-  # attempted — one failure should not hide the rest — but the summary and the
-  # non-zero exit are what make it visible.
-  if [[ ${#failed[@]} -gt 0 ]]; then
-    echo >&2
-    echo "error: ${#failed[@]} migration(s) failed:" >&2
-    printf '         %s\n' "${failed[@]}" >&2
-    echo "       The schema is not what the app expects. Fix these before using the stack." >&2
-    return 1
-  fi
+  PSQL="docker exec -i ${PROJECT_NAME:-kinboard}-db psql -U postgres -d postgres" ./migrate.sh
 }
 
 # Report on the migrations the webapp container runs at startup.
@@ -209,34 +137,6 @@ wait_for_migrations() {
   echo "  warning: the webapp had not finished its migrations after 6 minutes." >&2
   echo "           Check: docker logs $container" >&2
   return 0
-}
-
-# Does the port in API_EXTERNAL_URL match the one Kong publishes?
-#
-# Discussion #277 cost somebody an evening to `:8001` instead of `:8100`. The
-# two numbers a self-hoster types are 3001 for the page and 8100 for the API,
-# and getting the second wrong produces the failure that thread was entirely
-# about: the page loads, setting up a family gets one step in, and everything
-# after it goes nowhere. Nothing named the port it was reaching for, and the
-# address is typed once and then lives in a file nobody opens again.
-#
-# Both numbers are right here, so say when they disagree. Prints "match",
-# "mismatch <url-port> <kong-port>", or "none" when the address carries no
-# port at all, which is what a Traefik/domain setup looks like.
-api_url_port_verdict() {
-  url="$1"
-  kong_port="$2"
-  [ -n "$url" ] || { echo none; return 0; }
-
-  # The port is the ":NNNN" after the host, before any path.
-  url_port=$(printf '%s' "$url" \
-    | sed -E 's#^[a-zA-Z][a-zA-Z0-9+.-]*://##; s#/.*$##; s#^[^:]*$##; s#^[^:]*:##')
-
-  case "$url_port" in
-    ''|*[!0-9]*) echo none ;;
-    "$kong_port") echo match ;;
-    *) echo "mismatch $url_port $kong_port" ;;
-  esac
 }
 
 # Refuse to start when the data directory sits on a Windows drive.
@@ -327,25 +227,6 @@ case "$cmd" in
   up)
     check_data_dir_filesystem || exit 1
 
-    # A warning, not a refusal: a reverse proxy listening on a different port
-    # in front of Kong is a legitimate setup, and this cannot tell that apart
-    # from a typo.
-    port_verdict="$(api_url_port_verdict "${API_EXTERNAL_URL:-}" "${KONG_HTTP_PORT:-8100}")"
-    case "$port_verdict" in
-      mismatch*)
-        set -- $port_verdict
-        echo "warning: API_EXTERNAL_URL uses port $2, but Kong is published on $3." >&2
-        echo "         API_EXTERNAL_URL=${API_EXTERNAL_URL}" >&2
-        echo "         The browser loads the page from the webapp port (${WEBAPP_PORT:-3001})" >&2
-        echo "         and then sends every data request to the address above, so if that" >&2
-        echo "         port is wrong the page appears and nothing in it works: setting up" >&2
-        echo "         a family gets one step in, then 'can't reach the Kinboard server'." >&2
-        echo "         If a reverse proxy listens on $2 and forwards to Kong, this is fine." >&2
-        echo "         Otherwise fix API_EXTERNAL_URL in webapp/docker/.env and re-run" >&2
-        echo "         ./setup.sh --non-interactive from the project root." >&2
-        ;;
-    esac
-
     # Say something when the stack is about to build the webapp from source
     # while a published image sits unused on this machine.
     #
@@ -355,60 +236,46 @@ case "$cmd" in
     # containers come up healthy, and only the version in Settings disagrees
     # (issue #106). A warning, not a refusal — building from source on
     # purpose is a supported path.
-    if ! $COMPOSE $COMPOSE_FILES config 2>/dev/null | grep -q 'image: ghcr.io/svenger87/kinboard'; then
+    if $COMPOSE $COMPOSE_FILES config 2>/dev/null | grep -q 'image: kinboard-webapp:local'; then
       if docker image inspect "ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest}" >/dev/null 2>&1; then
         echo "warning: the webapp will be BUILT FROM SOURCE, but the published image" >&2
         echo "         ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest} is already on this machine." >&2
-        echo "         To run the published image instead, load the overlay:" >&2
-        echo "           COMPOSE_FILES=\"-f docker-compose.yml -f docker-compose.image.yml\" ./start.sh up" >&2
+        echo "         To run the published image instead, drop docker-compose.build.yml" >&2
+        echo "         from COMPOSE_FILES." >&2
         echo "         To build on purpose, run 'git pull --ff-only origin main' first, or you" >&2
         echo "         will rebuild the version you are already running." >&2
       fi
     fi
 
-    # The one-shot db-init service (docker-compose.yml) aligns role
-    # passwords before auth/rest/storage/realtime start, so we just bring
-    # the stack up and apply migrations.
-    # An install from before KINBOARD_ENTRY moves to Kong as its front door
-    # (RFC-018), but only once a request through Kong reaches the app;
-    # anything less leaves it on the webapp and says why. No-op when .env
-    # already says kong or webapp. When the stack is already running, prepare
-    # decides before the up (so one recreate covers a new image and the
-    # port); when it is not, prepare does nothing and `switch` decides after
-    # the up. confirm checks a decided move after the up. See
-    # kinboard-entry.sh.
-    entry() {
-      COMPOSE="$COMPOSE" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env KONG_YML=./kong.yml \
-        sh ./kinboard-entry.sh "$@" || true
-    }
-    entry prepare
+    # Containers of services 1.15 retired (kong, auth, realtime, storage,
+    # imgproxy) go first: Kong may hold WEBAPP_PORT, which the webapp
+    # publishes now. --remove-orphans below would get them too, but only in
+    # the same up that has to bind the port. See kinboard-entry.sh.
+    COMPOSE="$COMPOSE" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env sh ./kinboard-entry.sh retire || true
 
     webapp_before="$(webapp_container)"
     set +e
-    $COMPOSE $COMPOSE_FILES up -d
+    $COMPOSE $COMPOSE_FILES up -d --remove-orphans
     up_status=$?
     set -e
     if [[ $up_status -ne 0 ]]; then
-      # A failed up must not leave KINBOARD_ENTRY=kong behind unconfirmed:
-      # put the setting and the old layout back, and back off.
-      entry recover --restart --mark
       echo "error: docker compose up failed" >&2
       exit 1
     fi
     recreate_scheduler_if_webapp_changed "$webapp_before"
     wait_for_migrations
-
-    entry confirm
-    webapp_before="$(webapp_container)"
-    entry switch
-    recreate_scheduler_if_webapp_changed "$webapp_before"
     $COMPOSE $COMPOSE_FILES ps
     ;;
   down)
     $COMPOSE $COMPOSE_FILES down
     ;;
   restart)
-    $COMPOSE $COMPOSE_FILES build --no-cache webapp
+    # Rebuilds only when the build overlay is loaded; otherwise pulls.
+    if $COMPOSE $COMPOSE_FILES config 2>/dev/null | grep -q 'image: kinboard-webapp:local'; then
+      $COMPOSE $COMPOSE_FILES build --no-cache webapp
+    else
+      $COMPOSE $COMPOSE_FILES pull webapp
+    fi
     $COMPOSE $COMPOSE_FILES up -d --no-deps webapp
     $COMPOSE $COMPOSE_FILES up -d --no-deps --force-recreate cron
     ;;

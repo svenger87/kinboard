@@ -38,7 +38,7 @@ echo "Applying schema migrations to bring demo up to prod's level…"
 # like events.person_id don't exist in our fresh init.sql schema and the
 # data restore fails with "column does not exist" on every event row.
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-for migration in "$REPO_ROOT"/webapp/docker/migration*.sql; do
+for migration in "$REPO_ROOT"/webapp/docker/migrations/[0-9]*.sql; do
   [ -f "$migration" ] || continue
   name=$(basename "$migration")
   echo "  → $name"

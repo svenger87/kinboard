@@ -1,5 +1,5 @@
 /**
- * "Who did it?" when a task is ticked (migration_zzzzzzzzzzzzz_todo_done_by.sql).
+ * "Who did it?" when a task is ticked (migrations/083_todo_done_by.sql).
  *
  * A task's points went to whoever it was assigned to, or whose turn it was,
  * so Jonas doing Mira's dishes earned Mira the points. A tick on the board or

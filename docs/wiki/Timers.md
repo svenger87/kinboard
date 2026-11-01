@@ -56,7 +56,7 @@ back 3, 5, 10 and 15 minutes.
 |---|---|
 | No sound on the wall display | Touch the screen once after the kiosk browser starts (the Timers widget says when the sound is off), confirm the device is a kiosk under **Settings → Devices**, and check the tablet's media volume. |
 | No phone notification | Enable notifications on that device and use **Settings → Notifications → Send test**. |
-| Another device updates slowly | Confirm Realtime is healthy; a polling fallback will normally reconcile active timers within ten seconds. |
+| Another device updates slowly | Check Settings → Diagnostics for the live-update status; a polling fallback will normally reconcile active timers within ten seconds. |
 | Timers widget is missing | Enable it under **Settings → Widgets**. |
 
 See [Notifications](Notifications) for browser and HTTPS requirements.

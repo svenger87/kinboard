@@ -8,7 +8,7 @@ import {
 } from "./whole-database";
 
 /**
- * migration_zzzzzzzzzzzzz_todo_done_by.sql against a real database: a tick
+ * migrations/083_todo_done_by.sql against a real database: a tick
  * that says who did it pays them, one that does not pays as before, and the
  * answer never outlives its tick. todo-done-by.spec.ts covers the screens.
  */
@@ -23,13 +23,13 @@ function psql(sql: string): string {
 
 /**
  * Applied before every test, inside the lock. todo-turns-db.spec.ts re-applies
- * migration_zzzzzy_todo_turns.sql, whose record_todo_points this migration
+ * migrations/066_todo_turns.sql, whose record_todo_points this migration
  * replaces, so a run that put that file back last would test the old
  * function. Idempotent; a stack applies both at boot, in name order.
  */
 function applyMigration(): void {
   execFileSync("bash", ["-c",
-    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migration_zzzzzzzzzzzzz_todo_done_by.sql`],
+    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migrations/083_todo_done_by.sql`],
     { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 

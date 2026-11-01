@@ -21,7 +21,7 @@ import { join } from "node:path";
  *
  *   - `rooms-migration › the blob's entity lists are ignored` asserts that no
  *     catalogue row was invented for an entity named only in the settings
- *     blob. `migration_catalogue_items.sql`, running in the other worker over
+ *     blob. `migrations/010_catalogue_items.sql`, running in the other worker over
  *     every family including this one, invents exactly that row — and is
  *     right to. Expected `[]`, received `["light.removed|-"]`.
  *

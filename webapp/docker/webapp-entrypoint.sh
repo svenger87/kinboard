@@ -1,11 +1,9 @@
 #!/bin/sh
 # webapp-entrypoint.sh — applied as the runner stage's ENTRYPOINT.
 #
-# Runs migration*.sql against the db before exec'ing the Next.js server.
-# Each migration file uses IF NOT EXISTS / IF EXISTS guards so re-running
-# is a no-op — safe to fire on every container start, which is exactly
-# what we need for Watchtower-driven updates: pulling a new webapp image
-# with new migrations baked in DOES apply them automatically.
+# Applies migrations/NNN_*.sql (through migrate.sh) before exec'ing the
+# Next.js server, so pulling a new image with new migrations baked in applies
+# them automatically: Diun, Watchtower, a manual pull — anything.
 #
 # THIS IS THE ONLY THING THAT APPLIES MIGRATIONS AUTOMATICALLY.
 #
@@ -27,6 +25,16 @@
 
 set -e
 
+# Root for the steps below that own files (moving uploads out of the old
+# storage-api layout); the server itself never runs as root. An image run with
+# `user:` set skips the file steps and starts as that user.
+start_server() {
+  if [ "$(id -u)" = "0" ]; then
+    exec su-exec nextjs:nodejs node server.js
+  fi
+  exec node server.js
+}
+
 POSTGRES_HOST="${POSTGRES_HOST:-db}"
 POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 POSTGRES_USER="${POSTGRES_USER:-postgres}"
@@ -35,7 +43,7 @@ POSTGRES_DB="${POSTGRES_DB:-postgres}"
 if [ -z "$POSTGRES_PASSWORD" ]; then
   echo "[entrypoint] POSTGRES_PASSWORD not set; skipping migrations." >&2
   echo "[entrypoint] Run 'webapp/docker/start.sh migrate' from the host or pass POSTGRES_PASSWORD via docker-compose env." >&2
-  exec node server.js
+  start_server
 fi
 
 export PGPASSWORD="$POSTGRES_PASSWORD"
@@ -49,107 +57,34 @@ until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d 
   i=$((i + 1))
   if [ $i -gt 30 ]; then
     echo "[entrypoint] postgres still unreachable after 60s; starting webapp anyway (it will retry on its own connections)." >&2
-    exec node server.js
+    start_server
   fi
   sleep 2
 done
 echo "[entrypoint] postgres reachable."
 
-# Apply migrations in alphabetical order. Each file's idempotency guards
-# (IF NOT EXISTS / DO blocks with information_schema checks) keep
-# re-runs safe.
+# The migrations. migrate.sh applies each numbered file it has not applied
+# before (or whose content changed) and records it in
+# kinboard.schema_migrations; a boot with nothing new runs no migration SQL.
 MIGRATIONS_DIR="/app/migrations"
 
-# Wait for the storage service to have created its schema, because three
-# migrations create image buckets in it. They are guarded, so they skip rather
-# than fail if it is not there — which on a fresh install would mean recipe,
-# goal and vehicle image uploads are broken until the next container start.
-# Waiting here makes a first boot come up complete instead of nearly complete.
-#
-# Bounded, and not fatal: a stack running without the storage service is a
-# supported thing to do, and the guards cover it.
-echo "[entrypoint] waiting for the storage schema (max 60s)..."
-i=0
-until [ "$(psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-                -tAc "SELECT to_regclass('storage.buckets') IS NOT NULL" 2>/dev/null)" = "t" ]; do
-  i=$((i + 1))
-  if [ $i -gt 30 ]; then
-    echo "[entrypoint] storage schema not there after 60s; continuing (image buckets will be created on a later start)." >&2
-    break
-  fi
-  sleep 2
-done
-
-# Wait for realtime to finish claiming its tables, for the same reason as the
-# storage wait above — except this one is about correctness of the *first*
-# attempt rather than completeness.
-#
-# On startup realtime adds every replicated public table to its publications
-# and creates two logical replication slots. Adding a table locks it; creating
-# a slot waits for every in-flight transaction to drain. The policy block in
-# migration.sql drops and recreates policies on those same tables, which needs
-# an AccessExclusiveLock. Interleave the two and Postgres breaks the cycle by
-# killing one of them:
-#
-#   psql:/app/migrations/migration.sql:143: ERROR:  deadlock detected
-#   DETAIL: Process 267 waits for AccessExclusiveLock on relation 18004 ...
-#           Process 261 waits for ShareLock on virtual transaction 15/112 ...
-#
-# Measured over a 20-run fresh-install loop before this wait existed: 5 of 20
-# first attempts died exactly there, on public.recipes / recipe_ingredients —
-# both of which are in realtime's publication. Every one recovered on the
-# retry below, so nothing was ever broken; but a 25% first-boot failure rate
-# writes a deadlock and a stack trace into the log of a brand-new install,
-# which is indistinguishable from a migration that is genuinely wrong.
-#
-# Bounded and not fatal, because a stack without realtime is supported.
-echo "[entrypoint] waiting for realtime to claim its tables (max 40s)..."
-i=0
-until [ "$(psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-                -tAc "SELECT count(*) > 0 FROM pg_replication_slots WHERE slot_name LIKE 'supabase_realtime%'" 2>/dev/null)" = "t" ]; do
-  i=$((i + 1))
-  if [ $i -gt 20 ]; then
-    echo "[entrypoint] no realtime replication slot after 40s; continuing (realtime may not be deployed)." >&2
-    break
-  fi
-  sleep 2
-done
-
-# Retained as a backstop. The wait above removes the common cause, but the
-# services still start concurrently and a slower box can still lose a race —
-# and without a retry the container exits, Docker restarts it, and it succeeds
-# anyway by way of a crash-loop, which reads exactly like a broken schema.
+# Retained as a backstop for a first boot, where the database may still be
+# finishing its own init scripts when this starts. Without a retry the
+# container exits, Docker restarts it, and it succeeds anyway by way of a
+# crash-loop, which reads exactly like a broken schema.
 MIGRATION_ATTEMPTS="${MIGRATION_ATTEMPTS:-6}"
-
-apply_migrations() {
-  for migration in "$MIGRATIONS_DIR"/migration*.sql; do
-    [ -f "$migration" ] || continue
-    name="$(basename "$migration")"
-    echo "[entrypoint] applying $name"
-    if ! psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-              -v ON_ERROR_STOP=1 -f "$migration"; then
-      echo "[entrypoint] FAILED: $name" >&2
-      return 1
-    fi
-  done
-  return 0
-}
 
 if [ -d "$MIGRATIONS_DIR" ]; then
   attempt=1
-  until apply_migrations; do
+  until MIGRATIONS_DIR="$MIGRATIONS_DIR" sh /app/migrate.sh; do
     if [ "$attempt" -ge "$MIGRATION_ATTEMPTS" ]; then
       echo "[entrypoint] GIVING UP after $attempt attempts — refusing to start webapp with stale schema." >&2
       exit 1
     fi
-    echo "[entrypoint] migration attempt $attempt failed; retrying in 5s (the other services may still be initialising)" >&2
+    echo "[entrypoint] migration attempt $attempt failed; retrying in 5s (the database may still be initialising)" >&2
     attempt=$((attempt + 1))
     sleep 5
   done
-  # Tell PostgREST to reload its schema cache so newly-added columns
-  # become queryable without a separate restart.
-  psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-       -c "NOTIFY pgrst, 'reload schema';" >/dev/null 2>&1 || true
 
   # The server's own time zone, for the database's "today" when a family has
   # not picked one (#341) -- the zone the rest of the server already falls
@@ -171,7 +106,115 @@ else
   echo "[entrypoint] no migrations directory at $MIGRATIONS_DIR; skipping."
 fi
 
+# ---------------------------------------------------------------------------
+# Realtime's replication slots (1.15).
+#
+# The supabase/realtime container held logical replication slots. A slot
+# keeps every byte of WAL its consumer has not read, and with the consumer gone
+# nothing reads it again: pg_wal grows until the disk is full and Postgres
+# stops. So any slot realtime left behind is dropped once nothing is attached
+# to it. One still in use (a stack whose compose file still runs realtime) is
+# left alone. supabase_admin, because dropping a slot needs REPLICATION, which
+# `postgres` lacks in this image; it shares POSTGRES_PASSWORD.
+# ---------------------------------------------------------------------------
+slots="$(psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U supabase_admin -d "$POSTGRES_DB" -tAq -v ON_ERROR_STOP=1 <<'SQL' 2>&1
+SELECT slot_name || ' ' || pg_drop_replication_slot(slot_name)::text
+  FROM pg_replication_slots
+ WHERE slot_name LIKE 'supabase_realtime%' AND NOT active;
+SQL
+)" || echo "[entrypoint] could not check for realtime's replication slots: $slots" >&2
+for slot in $slots; do
+  case "$slot" in supabase_realtime*) echo "[entrypoint] dropped replication slot $slot (realtime is gone)" ;; esac
+done
+
+# ---------------------------------------------------------------------------
+# Files from storage-api (1.15).
+#
+# Uploaded files now live at $FILES_DIR/<bucket>/<key> (lib/files/store.ts).
+# storage-api kept each object at <volume>/stub/stub/<bucket>/<key>/<version>,
+# with the version recorded in storage.objects. FILES_DIR sits inside that same
+# volume, so each object is hard-linked across: no copy, no extra disk, and
+# the old tree stays as it was in case anything has to be rolled back. Only
+# when a link is impossible is the file copied.
+#
+# Once, then never again: a marker file records the move (see below for when
+# it is written). Objects already at their new path are skipped, so an
+# interrupted run simply continues. An
+# object whose file is missing is reported and skipped — it was already a
+# broken image before the move.
+# ---------------------------------------------------------------------------
+migrate_files() {
+  [ -n "${FILES_DIR:-}" ] || return 0
+  if [ "$(id -u)" != "0" ]; then
+    [ -d "$FILES_DIR" ] || echo "[entrypoint] FILES_DIR $FILES_DIR does not exist and this container is not root; uploads will fail" >&2
+    return 0
+  fi
+  mkdir -p "$FILES_DIR"
+  chown nextjs:nodejs "$FILES_DIR"
+
+  marker="$FILES_DIR/.moved-from-storage-api"
+  [ -f "$marker" ] && return 0
+
+  legacy="$(dirname "$FILES_DIR")"
+  has_objects="$(psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAq \
+                 -c "SELECT to_regclass('storage.objects') IS NOT NULL" 2>/dev/null || true)"
+  if [ "$has_objects" = "f" ]; then
+    # No storage schema: nothing to move. No marker either, so a pre-1.15
+    # backup restored into this install later is still moved on its next start.
+    return 0
+  fi
+  list="$(mktemp)"
+  if [ "$has_objects" != "t" ] || ! psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+       -tAq -F "$(printf '\t')" -v ON_ERROR_STOP=1 >"$list" <<'SQL'
+SELECT bucket_id, name, coalesce(version, '')
+  FROM storage.objects
+ WHERE name NOT LIKE '%/.emptyFolderPlaceholder' AND name <> '.emptyFolderPlaceholder';
+SQL
+  then
+    # No marker: the next start tries again.
+    echo "[entrypoint] could not list storage-api's objects; uploaded files not moved yet (retried on the next start)" >&2
+    rm -f "$list"
+    return 0
+  fi
+
+  moved=0; present=0; missing=0
+  tab="$(printf '\t')"
+  while IFS="$tab" read -r bucket name version; do
+    [ -n "$bucket" ] && [ -n "$name" ] || continue
+    case "/$bucket/$name/" in
+      */../* | */./* | *//*) echo "[entrypoint] skipping object with an unsafe name: $bucket/$name" >&2; continue ;;
+    esac
+    dst="$FILES_DIR/$bucket/$name"
+    if [ -e "$dst" ]; then present=$((present + 1)); continue; fi
+    src=""
+    for candidate in "$legacy/stub/stub/$bucket/$name/$version" "$legacy/stub/$bucket/$name/$version" \
+                     "$legacy/stub/stub/$bucket/$name" "$legacy/stub/$bucket/$name"; do
+      if [ -f "$candidate" ]; then src="$candidate"; break; fi
+    done
+    if [ -z "$src" ]; then
+      echo "[entrypoint] storage object has no file on disk, skipped: $bucket/$name" >&2
+      missing=$((missing + 1))
+      continue
+    fi
+    mkdir -p "$(dirname "$dst")"
+    ln "$src" "$dst" 2>/dev/null || cp -p "$src" "$dst"
+    moved=$((moved + 1))
+  done <"$list"
+  rm -f "$list"
+
+  chown -R nextjs:nodejs "$FILES_DIR"
+  # The marker only once there was something to move. An install without
+  # uploads keeps checking an empty table (one query per start), so a pre-1.15
+  # backup restored into it later is still moved. Once written, objects
+  # deleted after the move are never brought back from the old tree.
+  if [ $((moved + present + missing)) -gt 0 ]; then
+    printf '%s moved=%s present=%s missing=%s\n' "$(date -u +%FT%TZ)" "$moved" "$present" "$missing" >"$marker"
+  fi
+  echo "[entrypoint] uploaded files moved out of storage-api: $moved moved, $present already there, $missing missing"
+}
+migrate_files
+
 unset PGPASSWORD
 
 echo "[entrypoint] starting Next.js server"
-exec node server.js
+start_server

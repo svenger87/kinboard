@@ -1,21 +1,15 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import {
   CORRELATION_HEADER,
   newCorrelationId,
   sanitiseCorrelationId,
 } from "@/lib/correlation";
-import { serverSupabaseUrl } from "@/lib/supabase/api-base";
-
-interface CookieToSet {
-  name: string;
-  value: string;
-  options: CookieOptions;
-}
 
 export async function proxy(request: NextRequest) {
-  // Correlation ID, attached before anything else so it is available even if
-  // the Supabase refresh below throws.
+  // Correlation ID. This proxy used to also refresh Supabase auth cookies on
+  // every request; nothing here has ever had a GoTrue session to refresh
+  // (lib/require-session.ts is how the app authenticates), so that went with
+  // the auth container in 1.15.
   //
   // This lives here rather than in a middleware.ts of its own: Next 16 renamed
   // middleware to proxy, and having both files is a hard build error —
@@ -31,43 +25,14 @@ export async function proxy(request: NextRequest) {
     sanitiseCorrelationId(request.headers.get(CORRELATION_HEADER)) ?? newCorrelationId();
   request.headers.set(CORRELATION_HEADER, correlationId);
 
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
 
-  // Server side: the internal address, never the browser's (RFC-018).
-  const supabase = createServerClient(
-    serverSupabaseUrl(),
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: CookieToSet[]) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          response = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  // Check for family session in localStorage (handled client-side)
-  // This proxy primarily refreshes Supabase tokens if needed
-
   // Back to the caller too, so a client can log the ID without parsing a body
-  // — including on responses that have none. Set last: the Supabase cookie
-  // handling above replaces `response` wholesale when it refreshes a token,
-  // which would drop a header set any earlier.
+  // — including on responses that have none.
   response.headers.set(CORRELATION_HEADER, correlationId);
 
   return response;

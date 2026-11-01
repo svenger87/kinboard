@@ -4,125 +4,73 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import vm from "node:vm";
-import {
-  browserApiUrl,
-  publicApiEnv,
-  resolveBrowserBase,
-  serverSupabaseUrl,
-} from "../src/lib/supabase/api-base";
+import { publicApiEnv, serverSupabaseUrl } from "../src/lib/supabase/api-base";
 import { absoluteStorageUrl, publicStorageUrl } from "../src/lib/supabase/public-url";
-import { toBrowserStorageUrl } from "../src/lib/supabase/signed-url";
+import { postgrestFetch } from "../src/lib/rest-proxy";
 
 /**
- * RFC-018: the browser talks to the API at the address it opened Kinboard
- * from. One stack, opened as http://192.168.1.10:3001 on the kitchen tablet
- * and as https://kinboard.example.com on a phone, serves both — no CORS, no
- * address baked into the bundle, nothing that breaks when the internet is
- * down and the tablet is in the same room as the server.
+ * The browser talks to the API at the address it opened Kinboard from
+ * (RFC-018). Since 1.15 there is no Kong to choose between: the webapp serves
+ * the app, /rest/v1 and the uploaded files itself, so one stack opened as
+ * http://192.168.1.10:3001 on the kitchen tablet and as
+ * https://kinboard.example.com on a phone serves both, and no setting can
+ * point the browser anywhere else.
  */
 
 test.describe("which API address the browser gets", () => {
-  test("Kong as the front door: the old two-port address on SITE_URL's host gives way to the page's own origin", () => {
-    // What every 1.12 install has; after the move the browser must not keep
-    // calling :8100 on one fixed host.
-    const lan = { API_EXTERNAL_URL: "http://192.168.1.10:8100", SITE_URL: "http://192.168.1.10:3001" };
-    expect(browserApiUrl({ KINBOARD_ENTRY: "kong", ...lan })).toBeNull();
-    expect(browserApiUrl({ KINBOARD_ENTRY: "Kong ", ...lan })).toBeNull();
-    expect(browserApiUrl({ KINBOARD_ENTRY: "kong" })).toBeNull();
+  test("always the page's own origin, whatever an old .env still says", () => {
+    expect(publicApiEnv("anon")).toEqual({ NEXT_PUBLIC_SUPABASE_URL: "same-origin", NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon" });
+    const base = readFileSync("src/lib/supabase/api-base.ts", "utf8");
+    // Nothing reads the settings that used to pick another address.
+    expect(base).not.toMatch(/env\.(API_EXTERNAL_URL|KINBOARD_ENTRY|NEXT_PUBLIC_SUPABASE_URL)/);
   });
 
-  test("a separate API host is honoured even with Kong in front", () => {
-    // A proxy may send only api.example.com to Kong and kinboard.example.com to
-    // webapp:3000; same-origin calls would land on the webapp and 404.
-    const env = { API_EXTERNAL_URL: "https://api.kinboard.example.com", SITE_URL: "https://kinboard.example.com" };
-    expect(browserApiUrl({ KINBOARD_ENTRY: "kong", ...env })).toBe("https://api.kinboard.example.com");
-    expect(browserApiUrl({ KINBOARD_ENTRY: "webapp", ...env })).toBe("https://api.kinboard.example.com");
-    // Without SITE_URL nothing says it is the same host, so it is kept.
-    expect(browserApiUrl({ KINBOARD_ENTRY: "kong", API_EXTERNAL_URL: "http://nas:8100" })).toBe("http://nas:8100");
-  });
-
-  test("an empty or `same-origin` API_EXTERNAL_URL means the page's own origin", () => {
-    expect(browserApiUrl({ KINBOARD_ENTRY: "webapp", API_EXTERNAL_URL: "" })).toBeNull();
-    expect(browserApiUrl({ KINBOARD_ENTRY: "webapp", API_EXTERNAL_URL: "same-origin" })).toBeNull();
-    expect(browserApiUrl({ KINBOARD_ENTRY: "webapp", API_EXTERNAL_URL: "SAME-ORIGIN" })).toBeNull();
-  });
-
-  test("an install still on the webapp keeps its configured API address", () => {
-    expect(browserApiUrl({ KINBOARD_ENTRY: "webapp", API_EXTERNAL_URL: "https://kinboard.example.com/" })).toBe(
-      "https://kinboard.example.com",
-    );
-  });
-
-  test("next dev (no KINBOARD_ENTRY, no API_EXTERNAL_URL) keeps NEXT_PUBLIC_SUPABASE_URL", () => {
-    // RFC-018 §8: same-origin is a property of the containerised stack.
-    expect(browserApiUrl({ NEXT_PUBLIC_SUPABASE_URL: "http://localhost:8130" })).toBe("http://localhost:8130");
-  });
-
-  test("API_EXTERNAL_URL, even empty, wins over a NEXT_PUBLIC value baked or passed alongside it", () => {
-    expect(browserApiUrl({ API_EXTERNAL_URL: "", NEXT_PUBLIC_SUPABASE_URL: "http://localhost:8100" })).toBeNull();
-  });
-
-  test("window.__ENV carries the address, or `same-origin`", () => {
-    expect(publicApiEnv("anon", { KINBOARD_ENTRY: "kong" })).toEqual({
-      NEXT_PUBLIC_SUPABASE_URL: "same-origin",
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon",
-    });
-    expect(publicApiEnv("anon", { KINBOARD_ENTRY: "webapp", API_EXTERNAL_URL: "http://nas:8100" }).NEXT_PUBLIC_SUPABASE_URL).toBe(
-      "http://nas:8100",
-    );
-  });
-});
-
-test.describe("the base the browser client connects to", () => {
-  const LAN = "http://192.168.1.10:3001";
-  const PUBLIC = "https://kinboard.example.com";
-
-  test("same-origin: two devices, two addresses, one stack", () => {
-    expect(resolveBrowserBase("same-origin", undefined, LAN)).toBe(LAN);
-    expect(resolveBrowserBase("same-origin", undefined, PUBLIC)).toBe(PUBLIC);
-  });
-
-  test("same-origin never falls through to an address baked into the build", () => {
+  test("the browser client builds on window.location.origin, never a baked value", () => {
     // The 2026-08-06 outage: a build carrying localhost:8130, read ahead of the runtime value.
-    expect(resolveBrowserBase("same-origin", "http://localhost:8130", PUBLIC)).toBe(PUBLIC);
-  });
-
-  test("a configured address is used as it is", () => {
-    expect(resolveBrowserBase("http://nas:8100/", "http://localhost:8130", LAN)).toBe("http://nas:8100");
-  });
-
-  test("with no window.__ENV at all, the build-time value, else the origin", () => {
-    expect(resolveBrowserBase(undefined, "http://localhost:8130", LAN)).toBe("http://localhost:8130");
-    expect(resolveBrowserBase(undefined, undefined, LAN)).toBe(LAN);
-    expect(resolveBrowserBase("", "same-origin", LAN)).toBe(LAN);
-  });
-
-  test("the client reads the runtime value through resolveBrowserBase, not the raw env", () => {
     const client = readFileSync("src/lib/supabase/client.ts", "utf8");
-    expect(client).toContain("resolveBrowserBase(");
-    expect(client).toContain("browserApiBase(),");
-  });
-});
-
-test.describe("server-side code stays on the internal address", () => {
-  test("SUPABASE_URL (http://kong:8000) first, never the browser's address", () => {
-    expect(serverSupabaseUrl({ SUPABASE_URL: "http://kong:8000", KINBOARD_ENTRY: "kong" })).toBe("http://kong:8000");
-    expect(serverSupabaseUrl({ NEXT_PUBLIC_SUPABASE_URL: "http://localhost:8130" })).toBe("http://localhost:8130");
-    expect(() => serverSupabaseUrl({ KINBOARD_ENTRY: "kong" })).toThrow(/SUPABASE_URL is not set: .*http:\/\/kong:8000/);
+    expect(client).toContain("return window.location.origin;");
+    expect(client).not.toContain("process.env.NEXT_PUBLIC_SUPABASE_URL");
   });
 
-  test("the server client and the proxy build on it, not on NEXT_PUBLIC_SUPABASE_URL", () => {
-    for (const f of ["src/lib/supabase/server.ts", "src/proxy.ts"]) {
-      const src = readFileSync(f, "utf8");
-      expect(src, f).toContain("serverSupabaseUrl()");
-      expect(src, f).not.toContain("process.env.NEXT_PUBLIC_SUPABASE_URL!");
-    }
-  });
-
-  test("the root layout decides per request, through publicApiEnv", () => {
+  test("the root layout hands the browser publicApiEnv", () => {
     const layout = readFileSync("src/app/layout.tsx", "utf8");
     expect(layout).toContain("publicApiEnv(");
     expect(layout).not.toMatch(/NEXT_PUBLIC_SUPABASE_URL:\s*process\.env/);
+  });
+});
+
+test.describe("server-side code goes straight to PostgREST", () => {
+  test("POSTGREST_URL first; a pre-1.15 compose file's Kong address until it is updated", () => {
+    expect(serverSupabaseUrl({ POSTGREST_URL: "http://rest:3000/", SUPABASE_URL: "http://kong:8000" })).toBe("http://rest:3000");
+    expect(serverSupabaseUrl({ SUPABASE_URL: "http://kong:8000" })).toBe("http://kong:8000");
+    expect(() => serverSupabaseUrl({})).toThrow(/POSTGREST_URL is not set/);
+  });
+
+  test("the /rest/v1 prefix supabase-js adds is stripped on the way to PostgREST", async () => {
+    const seen: string[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      seen.push(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+      return new Response("[]");
+    }) as typeof fetch;
+    try {
+      const f = postgrestFetch("http://rest:3000");
+      await f("http://rest:3000/rest/v1/events?select=id&family_id=eq.1");
+      await f("http://rest:3000/rest/v1/rpc/current_family_id", { method: "POST" });
+      await f("http://elsewhere/rest/v1/events");
+    } finally {
+      globalThis.fetch = real;
+    }
+    expect(seen).toEqual([
+      "http://rest:3000/events?select=id&family_id=eq.1",
+      "http://rest:3000/rpc/current_family_id",
+      "http://elsewhere/rest/v1/events",
+    ]);
+  });
+
+  test("both server clients use it", () => {
+    const server = readFileSync("src/lib/supabase/server.ts", "utf8");
+    expect(server.match(/postgrestFetch\(/g)?.length).toBe(2);
   });
 });
 
@@ -142,16 +90,6 @@ test.describe("stored image URLs (RFC-018 §4)", () => {
     }
   });
 
-  test("a signed photo URL stays relative when the API is the page's own origin", () => {
-    const signed = "http://kong:8000/storage/v1/object/sign/family-photos/f/a.jpg?token=t";
-    expect(toBrowserStorageUrl(signed, undefined, "anon")).toBe("/storage/v1/object/sign/family-photos/f/a.jpg?token=t&apikey=anon");
-  });
-
-  test("an install still on the webapp serves the relative path itself, from Kong inside the stack", () => {
-    const route = readFileSync("src/app/storage/v1/object/public/[...path]/route.ts", "utf8");
-    expect(route).toContain("serverSupabaseUrl()");
-    expect(route).toContain('p === ".."');
-  });
 });
 
 /**
@@ -187,7 +125,9 @@ test.describe("the service worker on a same-origin API", () => {
     expect(intercepted("/rest/v1/events?select=*")).toBe(false);
     expect(intercepted("/auth/v1/user")).toBe(false);
     expect(intercepted("/realtime/v1/websocket")).toBe(false);
-    expect(intercepted("/storage/v1/object/sign/family-photos/f/a.jpg?token=t", "image")).toBe(false);
+    // The live-updates stream: a cached or held event stream is no stream.
+    expect(intercepted("/api/realtime")).toBe(false);
+    expect(intercepted("/storage/v1/object/sign/family-photos/f/a.jpg?exp=1&sig=ab", "image")).toBe(false);
   });
 
   test("public bucket images are cached like any other image", () => {
@@ -197,64 +137,74 @@ test.describe("the service worker on a same-origin API", () => {
 });
 
 /**
- * The compose files resolved by `docker compose config` itself, with each
- * value of KINBOARD_ENTRY and with the overlays real installs stack on top.
+ * The compose files resolved by `docker compose config` itself — with a fresh
+ * .env.example and with the .env of an install from before 1.15, which still
+ * carries KINBOARD_ENTRY, API_EXTERNAL_URL and Kong's ports.
  */
-test.describe("which container publishes 3001", () => {
+test.describe("the stack", () => {
   const hasCompose = spawnSync("docker", ["compose", "version"], { encoding: "utf8" }).status === 0;
 
-  function ports(entry: string | null, overlays: string[] = []) {
-    const dir = mkdtempSync(join(tmpdir(), "entry-compose-"));
+  type Svc = { ports?: { published: string; target: number }[]; environment?: Record<string, string>; volumes?: { source: string; target: string }[] };
+  function resolve(extraEnv: string, overlays: string[] = []) {
+    const dir = mkdtempSync(join(tmpdir(), "stack-compose-"));
     try {
       const envFile = join(dir, "env");
-      const example = readFileSync("docker/.env.example", "utf8").replace(/^KINBOARD_ENTRY=.*\n/m, "");
-      writeFileSync(envFile, entry === null ? example : `${example}KINBOARD_ENTRY=${entry}\n`);
+      writeFileSync(envFile, readFileSync("docker/.env.example", "utf8") + extraEnv);
       const files = ["docker-compose.yml", ...overlays].flatMap((f) => ["-f", f]);
       // The shell's environment beats --env-file in compose; keep it out.
       const env: NodeJS.ProcessEnv = { ...process.env };
-      for (const k of ["KINBOARD_ENTRY", "WEBAPP_PORT", "KONG_HTTP_PORT", "KONG_HTTPS_PORT", "API_EXTERNAL_URL"]) delete env[k];
+      for (const k of ["KINBOARD_ENTRY", "WEBAPP_PORT", "KONG_HTTP_PORT", "API_EXTERNAL_URL", "COMPOSE_FILES", "KINBOARD_TAG"]) delete env[k];
       const out = execFileSync("docker", ["compose", "--env-file", envFile, ...files, "config", "--format", "json"], {
         cwd: "docker",
         encoding: "utf8",
         env,
         stdio: ["ignore", "pipe", "ignore"],
       });
-      const cfg = JSON.parse(out) as { services: Record<string, { ports?: { published: string; target: number }[]; environment?: Record<string, string> }> };
-      const pub = (s: string) => (cfg.services[s].ports ?? []).map((p) => `${p.published}:${p.target}`).sort();
-      return { kong: pub("kong"), webapp: pub("webapp"), env: cfg.services.webapp.environment ?? {} };
+      return JSON.parse(out) as { services: Record<string, Svc & { image?: string }> };
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   }
+  const pub = (s: Svc) => (s.ports ?? []).map((p) => `${p.published}:${p.target}`).sort();
 
-  test("kong: Kong takes 3001 and keeps 8100; the webapp publishes nothing", () => {
+  test("six services; none of the five 1.15 retired", () => {
     test.skip(!hasCompose, "needs docker compose");
-    const p = ports("kong");
-    expect(p.kong).toEqual(["3001:8000", "8100:8000", "8543:8443"]);
-    expect(p.webapp).toEqual([]);
-    expect(p.env.KINBOARD_ENTRY).toBe("kong");
+    const services = Object.keys(resolve("").services).sort();
+    expect(services).toEqual(["cron", "db", "db-init", "go2rtc", "rest", "webapp"]);
   });
 
-  test("webapp, or no setting at all (an install from before): today's layout", () => {
+  test("the webapp publishes 3001, runs the published image, and has its files and PostgREST", () => {
     test.skip(!hasCompose, "needs docker compose");
-    for (const entry of ["webapp", null]) {
-      const p = ports(entry);
-      expect(p.kong).toEqual(["8100:8000", "8543:8443"]);
-      expect(p.webapp).toEqual(["3001:3000"]);
-      expect(p.env.KINBOARD_ENTRY).toBe("webapp");
+    const web = resolve("").services.webapp;
+    expect(pub(web)).toEqual(["3001:3000"]);
+    expect(web.image).toBe("ghcr.io/svenger87/kinboard:latest");
+    expect(web.environment?.POSTGREST_URL).toBe("http://rest:3000");
+    expect(web.environment?.FILES_DIR).toBe("/var/lib/storage/files");
+    expect(web.volumes?.map((v) => v.target)).toContain("/var/lib/storage");
+    for (const gone of ["KINBOARD_ENTRY", "API_EXTERNAL_URL", "SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"]) {
+      expect(web.environment, gone).not.toHaveProperty(gone);
     }
   });
 
-  test("the published-image, Traefik and demo overlays stack on either layout", () => {
+  test("an install's old .env changes nothing: Kong's settings are simply not read", () => {
     test.skip(!hasCompose, "needs docker compose");
-    const overlays = ["docker-compose.image.yml", "docker-compose.traefik.yml", "docker-compose.demo.yml.example"];
-    expect(ports("kong", overlays).kong).toContain("3001:8000");
-    expect(ports("webapp", overlays).webapp).toEqual(["3001:3000"]);
+    const old = "KINBOARD_ENTRY=kong\nAPI_EXTERNAL_URL=http://192.168.1.10:8100\nKONG_HTTP_PORT=8101\nWEBAPP_PORT=3002\n";
+    const cfg = resolve(old);
+    expect(pub(cfg.services.webapp)).toEqual(["3002:3000"]);
+    expect(Object.keys(cfg.services)).not.toContain("kong");
   });
 
-  test("a new install's .env.example starts on kong, with no API address", () => {
+  test("the image, Traefik, demo and build overlays still stack", () => {
+    test.skip(!hasCompose, "needs docker compose");
+    const all = resolve("", ["docker-compose.image.yml", "docker-compose.traefik.yml", "docker-compose.demo.yml.example"]);
+    expect(Object.keys(all.services)).not.toContain("kong");
+    expect(resolve("", ["docker-compose.build.yml"]).services.webapp.image).toBe("kinboard-webapp:local");
+  });
+
+  test(".env.example carries none of the retired settings", () => {
     const example = readFileSync("docker/.env.example", "utf8");
-    expect(example).toMatch(/^KINBOARD_ENTRY=kong$/m);
-    expect(example).toMatch(/^API_EXTERNAL_URL=$/m);
+    for (const key of ["KINBOARD_ENTRY", "API_EXTERNAL_URL", "KONG_HTTP_PORT", "SECRET_KEY_BASE", "ADDITIONAL_REDIRECT_URLS"]) {
+      expect(example, key).not.toMatch(new RegExp(`^${key}=`, "m"));
+    }
   });
 });

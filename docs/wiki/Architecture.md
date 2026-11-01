@@ -19,32 +19,28 @@ A 30,000-foot view of how the pieces fit together. Read this once before you cha
                           │   (HTTPS)   │    optional
                           └──────┬──────┘
                                  │
-                       ┌─────────▼──────────┐
-                       │    Supabase Kong   │  the front door
-                       │    (port 3001)     │
-                       │                    │
-                       │  /rest  /auth      │──────────────┐
-                       │  /storage /realtime│              │
-                       │  everything else ──┼──┐           │
-                       └────────────────────┘  │           │
-                                               │           │
-                                     ┌─────────▼──────┐    │
-                                     │  Next.js app   │    │
-                                     │  (3000, inside │    │
-                                     │   the stack)   │    │
-                                     │  /pages        │    │
-                                     │  /api/* routes │    │
-                                     └───────┬────────┘    │
-                                             │ server-side │ websocket
-                                             │ via Kong    │
-                                             │ (internal)  │
-                                   ┌─────────▼─────────────▼──┐
-                                   │       PostgreSQL         │
-                                   │  + Realtime + Storage    │
-                                   └──────────────────────────┘
+                     ┌───────────▼────────────┐
+                     │      Next.js webapp    │  one address, one port
+                     │      (port 3001)       │  (WEBAPP_PORT)
+                     │                        │
+                     │  pages, /api/*         │
+                     │  /rest/v1  ────────────┼──────────┐
+                     │  /storage/v1 (files)   │          │
+                     │  live updates (SSE)    │          │
+                     └───┬────────────────┬───┘          │
+                         │                │ server-side  │ forwarded
+                         │                │ queries,     │
+                         │                │ LISTEN       │
+                 ┌───────▼───────┐        │       ┌──────▼──────┐
+                 │ uploaded files│        │       │  PostgREST  │
+                 │ on disk       │        │       │   (rest)    │
+                 │ (DATA_DIR/    │        │       └──────┬──────┘
+                 │  storage)     │  ┌─────▼──────────────▼──┐
+                 └───────────────┘  │      PostgreSQL       │
+                                    └───────────────────────┘
 ```
 
-Since 1.13 Kong is the front door ([RFC-018](https://github.com/svenger87/kinboard/blob/main/docs/rfc/018-same-origin-api.md)): the app and its API share one address, so the browser makes no cross-origin requests and a screen at home never leaves the house for data. Kong also keeps its own port, 8100, so an `API_EXTERNAL_URL` pointing there keeps working. An install with `KINBOARD_ENTRY=webapp` (including any behind Traefik that hasn't opted in) still has the older layout: the webapp answers on 3001 and the browser fetches data from `API_EXTERNAL_URL`. See [Self-hosting → How it works](Self-hosting#how-it-works).
+Since 1.15 the webapp is the only thing a browser talks to. It serves the pages, forwards `/rest/v1` to PostgREST inside the stack (refusing the `service_role` key from outside), serves uploaded files from disk at `/storage/v1/object/…`, and pushes live updates to every open screen. The app and its API share one address, so the browser makes no cross-origin requests and a screen at home never leaves the house for data. Until 1.15 the stack also ran Supabase's Kong gateway, GoTrue, Realtime, Storage and imgproxy. The app never used GoTrue or imgproxy, and the webapp now does what it used the other three for. Alongside it run `cron` (Ofelia, the scheduled jobs) and `go2rtc` (camera streams).
 
 ## Frontend stack
 
@@ -59,7 +55,7 @@ Since 1.13 Kong is the front door ([RFC-018](https://github.com/svenger87/kinboa
 
 1. **All data is family-scoped.** A `family_id` UUID column exists on every row. The browser reads and writes through PostgREST with a short-lived family-scoped token, and **row-level security** limits every query to that family; API routes establish the family from the device session and filter on it themselves. See [Row-Level Security](#row-level-security) below and [Security-and-Threat-Model](Security-and-Threat-Model) for the full threat model.
 2. **Devices join families via 6-character join codes.** Stored in `families.join_code`. Auth model is "device fingerprint + join code" — see [Security-and-Threat-Model](Security-and-Threat-Model).
-3. **Real-time updates** use Supabase Realtime (Postgres logical replication → WebSocket). The hook `use-realtime.ts` subscribes to a table and the relevant TanStack Query cache invalidates automatically.
+3. **Real-time updates** come from the webapp itself: it listens to Postgres with `LISTEN`/`NOTIFY` and streams changes to the browser as Server-Sent Events from `/api/realtime`. The hook `use-realtime.ts` subscribes to a table and the relevant TanStack Query cache invalidates automatically.
 4. **Server-side data access** uses the service-role client, `createAdminClient()` (`src/lib/supabase/server.ts`). It bypasses row-level security, so every API route and cron job establishes the family from the device session (or the integration token) first and filters on `family_id` itself. The anon-key `createClient()` in the same file is not used by any route: under RLS, with no family claim, it would read nothing.
 
 ## Project layout
@@ -89,12 +85,13 @@ Since 1.13 Kong is the front door ([RFC-018](https://github.com/svenger87/kinboa
 │   ├── messages/                # next-intl bundles: en.json, de.json, fr.json
 │   └── docker/                  # docker-compose stack + helpers
 │       ├── docker-compose.yml
-│       ├── docker-compose.traefik.yml.example
-│       ├── init.sql                 # Base schema (RLS comes from migration_zz_row_level_security.sql)
+│       ├── docker-compose.traefik.yml   # Traefik overlay (one route to the webapp)
+│       ├── docker-compose.build.yml     # build the webapp from source instead of pulling it
+│       ├── init.sql                 # Base schema (RLS comes from migrations/049_row_level_security.sql)
+│       ├── migrations/              # NNN_topic.sql, applied in order by migrate.sh
 │       ├── seed-demo.sql            # Optional demo dataset
 │       ├── start.sh                 # up/down/logs/restart/migrate/seed-demo
-│       ├── kinboard-self-update.sh  # Live-host upgrade helper (Diun webhook or by hand)
-│       └── kong.yml                 # Supabase API gateway config
+│       └── kinboard-self-update.sh  # Live-host upgrade helper (Diun webhook or by hand)
 ├── kiosk/                       # Kiosk-side scripts (presence sensor)
 ├── tools/                       # Debugging / development helpers
 ├── docs/wiki/                   # This wiki
@@ -137,15 +134,15 @@ The browser talks to PostgREST directly, so the Next.js API is not in that reque
 - **A device that has joined gets a family-scoped token** from `/api/session/token`, which is gated by the HttpOnly device-session cookie. The token is signed with the stack's JWT secret, lasts an hour, and the client refreshes it well before then, so a kiosk never needs attention (`src/lib/family-jwt.ts`, `src/lib/supabase/family-token.ts`).
 - **The service role bypasses RLS.** Every API route and cron job uses it and establishes the family server-side, so RLS is the backstop for the direct-PostgREST path, not a replacement for the `family_id` filtering in the routes.
 
-The policies live in `webapp/docker/migration_zz_row_level_security.sql`. It sorts after every other migration on purpose: it drops any policy that isn't one of its own family-scope policies, so a later migration that creates a policy is cleaned up instead of quietly widening access.
+The policies live in `webapp/docker/migrations/049_row_level_security.sql`. It sorts after every other migration on purpose: it drops any policy that isn't one of its own family-scope policies, so a later migration that creates a policy is cleaned up instead of quietly widening access.
 
 **Some tables only the server writes.** Row-level security limits a token to its own family, but within that family it would let any screen write anything, a child's wall panel included. Where a rule matters, the browser roles have no write privilege at all and the change goes through an API route that enforces it:
 
-- `families`: no insert or delete from the browser (`migration_zzzzzz_families_server_only.sql`); creating and deleting a family go through `/api/family`.
-- Pocket money, points, rewards and creatures: read-only from the browser (`migration_zzzzzzzz_pocket_money_server_only.sql` and the points/creatures migrations), so a balance, a purchase or a reward decision can't be written past the settings PIN.
+- `families`: no insert or delete from the browser (`migrations/068_families_server_only.sql`); creating and deleting a family go through `/api/family`.
+- Pocket money, points, rewards and creatures: read-only from the browser (`migrations/075_pocket_money_server_only.sql` and the points/creatures migrations), so a balance, a purchase or a reward decision can't be written past the settings PIN.
 - `settings`, `device_sessions`, `todo_occurrences` and `todo_events` are written only by the server too, and `devices` is created and changed only by it (a screen can still remove a device of its own family).
 
-**The seven tables without RLS have no browser privileges at all**: `integration_tokens`, `integration_clients`, `integration_idempotency`, the two OAuth tables, `domain_events` and `system_heartbeats`. `integration_secrets` has RLS on *and* its privileges revoked. And no browser role holds `TRUNCATE` on anything (`migration_zzzz_revoke_truncate.sql`): it isn't a row operation, so no policy would stop it emptying a table for every family on the instance.
+**The seven tables without RLS have no browser privileges at all**: `integration_tokens`, `integration_clients`, `integration_idempotency`, the two OAuth tables, `domain_events` and `system_heartbeats`. `integration_secrets` has RLS on *and* its privileges revoked. And no browser role holds `TRUNCATE` on anything (`migrations/060_revoke_truncate.sql`): it isn't a row operation, so no policy would stop it emptying a table for every family on the instance.
 
 The join code is still the household's key: anyone who has it can join a device and get a token for that family. RLS stops the *public* key and other families from reaching your data; it does not make the join code less important. [Security-and-Threat-Model](Security-and-Threat-Model) covers what that means in practice.
 
@@ -161,13 +158,13 @@ Purging is the inverse and needs every trigger to stand down at once, cascades i
 
 `events` is deliberately out of scope: the syncers reconcile against the upstream calendar, and a soft-deleted event either returns on the next sync or fights it. `recipe_ingredients` and `recipe_tag_assignments` are out because editing a recipe deletes and re-inserts them, which would fill the bin on every save.
 
-The migration is `migration_zzz_soft_delete.sql`, named to sort **after** `migration_zz_row_level_security.sql` — that one recreates every family-scope policy on each boot, so anything amending those policies has to run last. Retention lives in `settings` under `recycle_bin`; the nightly `purge-recycle-bin` job enforces it. User-facing docs: [Recycle-Bin](Recycle-Bin).
+The migration is `migrations/056_soft_delete.sql`, numbered **after** `migrations/049_row_level_security.sql` — that one recreates every family-scope policy whenever it is applied, so anything amending those policies has to come after it. Retention lives in `settings` under `recycle_bin`; the nightly `purge-recycle-bin` job enforces it. User-facing docs: [Recycle-Bin](Recycle-Bin).
 
 ### Migrations
 
-`webapp/docker/init.sql` runs **once**, on first DB init. Every schema change since ships as a `webapp/docker/migration*.sql` file, and each uses `IF NOT EXISTS` / `IF EXISTS` guards so re-applying is a no-op.
+`webapp/docker/init.sql` runs **once**, on first DB init. Every schema change since ships as a numbered `webapp/docker/migrations/NNN_topic.sql` file, applied in numeric order. Numbers sort the same in every shell and locale, which the old alphabetical `migration_zzz_*.sql` names did not.
 
-**The webapp container applies them, on every start**, from `webapp-entrypoint.sh` — one runner, deliberately. It works for deployments that never invoke `start.sh` (image-only, Watchtower, Diun), and it refuses to start the app if a migration fails rather than serving against a half-applied schema. It then issues `NOTIFY pgrst, 'reload schema'` so new columns are queryable without restarting PostgREST. `start.sh up` watches that log rather than applying anything itself: until 1.8.0 it applied the same files from the host *at the same time*, and the two runners collided (issue #152). See `webapp/docker/migration*.sql` for the current, always-up-to-date list; `./start.sh migrate` re-applies them by hand if you ever need to (rarely — `up` already does it).
+**One runner, `webapp/docker/migrate.sh`, applies them.** The webapp container calls it on every start (from `webapp-entrypoint.sh`), which works for deployments that never invoke `start.sh` (image-only, Watchtower, Diun); `./start.sh migrate` calls the same script from the host. It records each file with its checksum in `kinboard.schema_migrations` and applies only files that are new or whose content changed, so a start with nothing new runs no migration SQL. Because an edited file is applied again, every migration must stay idempotent (`IF NOT EXISTS` / `IF EXISTS` guards, `CREATE OR REPLACE`). The container refuses to start the app if a migration fails rather than serving against a half-applied schema, and after applying anything it issues `NOTIFY pgrst, 'reload schema'` so new columns are queryable without restarting PostgREST. `start.sh up` watches that log rather than applying anything itself: until 1.8.0 it applied the same files from the host *at the same time*, and the two runners collided (issue #152).
 
 ### Typed access
 
@@ -193,7 +190,7 @@ Applies `seed-demo.sql`, which creates a "Demo Family" (join code `DEMO01`) with
 
 Per-family settings live in the `public.settings` table as `(family_id, key, value JSONB)`. The shape is intentionally loose — the app reads with `useSetting<T>("key", default)` and writes with `useUpdateSetting`. This avoids schema migrations for settings shape changes.
 
-`settings` is readable by every screen of the family (it's in the Realtime publication for live sync), so it's the wrong place for secrets. Since v1.4.0, integration credentials live in a separate server-only table instead — see [Integration credentials](#integration-credentials) below. The table here shows the non-secret shape as it exists today; fields marked *(secret, moved)* are no longer present under these keys.
+`settings` is readable by every screen of the family (it streams live to every screen), so it's the wrong place for secrets. Since v1.4.0, integration credentials live in a separate server-only table instead — see [Integration credentials](#integration-credentials) below. The table here shows the non-secret shape as it exists today; fields marked *(secret, moved)* are no longer present under these keys.
 
 ### Settings keys at a glance
 
@@ -222,7 +219,7 @@ The schema is intentionally not normalized into per-feature tables — settings 
 
 ### Integration credentials
 
-OAuth tokens, API keys, and the settings PIN live in `public.integration_secrets` (`family_id, key, value JSONB`), added in v1.4.0 (`webapp/docker/migration_integration_secrets.sql`, `migration_pin_secret.sql`). Unlike `settings`, this table has `anon`/`authenticated` privileges revoked and is excluded from the Realtime publication — only the service-role client (`createAdminClient()`) can read it, so a browser on the LAN can no longer read another device's Google/Home Assistant/Immich/Bring tokens or the PIN via PostgREST. Settings pages that need to show "connected" state read a merged view (`getMergedSetting`) that overlays the secret on top of the public settings shape without ever sending the secret value itself to the browser — a PUT that includes the sentinel placeholder means "keep the stored secret unchanged." Existing installs migrate their previously-exposed values into this table automatically on upgrade. Full reasoning: [Security-and-Threat-Model → Integration credentials](Security-and-Threat-Model#integration-credentials).
+OAuth tokens, API keys, and the settings PIN live in `public.integration_secrets` (`family_id, key, value JSONB`), added in v1.4.0 (`webapp/docker/migrations/020_integration_secrets.sql`, `migrations/030_pin_secret.sql`). Unlike `settings`, this table has `anon`/`authenticated` privileges revoked and is never streamed live — only the service-role client (`createAdminClient()`) can read it, so a browser on the LAN can no longer read another device's Google/Home Assistant/Immich/Bring tokens or the PIN via PostgREST. Settings pages that need to show "connected" state read a merged view (`getMergedSetting`) that overlays the secret on top of the public settings shape without ever sending the secret value itself to the browser — a PUT that includes the sentinel placeholder means "keep the stored secret unchanged." Existing installs migrate their previously-exposed values into this table automatically on upgrade. Full reasoning: [Security-and-Threat-Model → Integration credentials](Security-and-Threat-Model#integration-credentials).
 
 CalDAV credentials are the one entry keyed per *object* rather than per integration: each connected calendar stores its username/password under `caldav:<calendar_id>`, because a family can have calendars on different servers with different logins. That dynamic key doesn't fit `SECRET_FIELDS`' static path filter in `lib/integration-secrets.ts`, so `lib/caldav-credentials.ts` writes the row directly with the service-role client. The storage guarantee is identical — the table is the same locked-down one — and no API response ever contains a CalDAV password, which is why changing one means re-entering it rather than round-tripping a sentinel.
 
@@ -244,16 +241,9 @@ All under `webapp/src/app/api/`. Highlights:
 
 ## Real-time invalidation
 
-When any row in a watched table changes (insert / update / delete), Supabase Realtime emits an event over WebSocket. The `use-realtime.ts` hook listens, identifies the affected table, and calls `queryClient.invalidateQueries(...)` on the TanStack Query keys for that table. Components re-render with fresh data within ~100 ms of the DB write.
+When any row in a watched table changes (insert / update / delete), Postgres sends a notification that the webapp is listening for (`LISTEN`/`NOTIFY`), and the webapp passes it on to every connected screen of that family over its Server-Sent Events stream at `/api/realtime`. The `use-realtime.ts` hook listens, identifies the affected table, and calls `queryClient.invalidateQueries(...)` on the TanStack Query keys for that table, so components re-render with fresh data.
 
-Tables published via the `supabase_realtime` PUBLICATION (see `init.sql`):
-
-```
-events, todos, shopping_items, subjects, schedules, birthdays, notes,
-settings, recipes, recipe_ingredients, recipe_tags, meal_plans,
-meal_plan_entries, item_catalog, push_subscriptions,
-notification_preferences
-```
+Because the webapp holds the listening connection itself, a migration that starts streaming a new table takes effect when the webapp restarts with it. Until 1.15 a separate Realtime container read the `supabase_realtime` publication only when it started, and had to be restarted by hand after such a migration; that chore is gone.
 
 ## What's intentionally absent
 

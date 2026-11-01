@@ -125,7 +125,7 @@ test.describe("the enums match the server's own lists", () => {
     // the only thing that decides what an event type is, and a spec listing an
     // event nothing emits is a promise no automation will ever see fulfilled.
     const migration = readFileSync(
-      join(__dirname, "..", "docker", "migration_zzy_domain_events.sql"),
+      join(__dirname, "..", "docker", "migrations/053_domain_events.sql"),
       "utf8",
     );
     const emitted = new Set([...migration.matchAll(/'(kinboard_[a-z_]+)'/g)].map((m) => m[1]));

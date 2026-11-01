@@ -8,7 +8,7 @@ import {
 } from "./whole-database";
 
 /**
- * migration_zzzzzzzzzzzz_point_adjustments.sql against a real database
+ * migrations/081_point_adjustments.sql against a real database
  * (discussion #349): a parent's bonus and correction count in
  * point_person_totals() like task points, a correction past what was spent is
  * owed, an adjustment can be taken back and a task's award cannot, and only
@@ -25,7 +25,7 @@ function psql(sql: string): string {
 
 function applyMigration(): void {
   execFileSync("bash", ["-c",
-    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migration_zzzzzzzzzzzz_point_adjustments.sql`],
+    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migrations/081_point_adjustments.sql`],
     { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8" });
 }
 

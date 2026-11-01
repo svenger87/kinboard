@@ -50,7 +50,7 @@ test.describe("the catalogue", () => {
   });
 
   test("every id fits the database's check, and none is a free accessory's name", () => {
-    const sql = read("docker/migration_zzzzzzzzz_point_purchases.sql");
+    const sql = read("docker/migrations/078_point_purchases.sql");
     const pattern = /item_id ~ '([^']+)'/.exec(sql)![1];
     for (const item of SHOP_ITEMS) {
       expect(new RegExp(pattern).test(item.id), item.id).toBe(true);
@@ -301,15 +301,15 @@ test.describe("the render matrix: item × creature × style", () => {
 // The migration, the realtime publication and the guards
 // ---------------------------------------------------------------------------
 
-const FILE = "migration_zzzzzzzzz_point_purchases.sql";
+const FILE = "migrations/078_point_purchases.sql";
 const SQL = codeOnly(read(`docker/${FILE}`), { sql: true });
 
 test.describe("the migration", () => {
   test("sorts after the creatures and the balance it replaces", () => {
-    const files = readdirSync(join(ROOT, "docker")).filter((f) => /^migration.*\.sql$/.test(f)).sort();
+    const files = readdirSync(join(join(ROOT, "docker"), "migrations")).map((f) => `migrations/${f}`).filter((f) => /^migrations\/\d{3}_.*\.sql$/.test(f)).sort();
     const at = files.indexOf(FILE);
-    expect(at).toBeGreaterThan(files.indexOf("migration_zzzzzzzz_pocket_money_creatures_out.sql"));
-    expect(at).toBeGreaterThan(files.indexOf("migration_zzzzzzzzz_device_owner.sql"));
+    expect(at).toBeGreaterThan(files.indexOf("migrations/074_pocket_money_creatures_out.sql"));
+    expect(at).toBeGreaterThan(files.indexOf("migrations/077_device_owner.sql"));
     // the last to define point_person_totals, so its version is the one left standing
     const definers = files.filter((f) => /FUNCTION public\.point_person_totals\(/.test(codeOnly(read(`docker/${f}`), { sql: true })));
     expect(definers[definers.length - 1]).toBe(FILE);
@@ -347,7 +347,7 @@ test.describe("the migration", () => {
     expect(lock).toBeGreaterThan(0);
     expect(fn.indexOf("deleted_at IS NULL")).toBeGreaterThan(lock);
     // and this file's version is the one left standing
-    const files = readdirSync(join(ROOT, "docker")).filter((f) => /^migration.*\.sql$/.test(f)).sort();
+    const files = readdirSync(join(join(ROOT, "docker"), "migrations")).map((f) => `migrations/${f}`).filter((f) => /^migrations\/\d{3}_.*\.sql$/.test(f)).sort();
     const definers = files.filter((f) => /FUNCTION public\.request_person_point_redemption\(/.test(codeOnly(read(`docker/${f}`), { sql: true })));
     expect(definers[definers.length - 1]).toBe(FILE);
   });
@@ -365,7 +365,7 @@ test.describe("the migration", () => {
   test("the balance subtracts purchases, and the request and decision read it", () => {
     const fn = SQL.slice(SQL.indexOf("FUNCTION public.point_person_totals("), SQL.indexOf("FUNCTION public.purchase_person_point_item("));
     expect(fn).toContain("'balance', GREATEST(0, v_earned - v_spent - v_purchased)");
-    const step1 = codeOnly(read("docker/migration_zzzzzzzz_pocket_money_creatures_out.sql"), { sql: true });
+    const step1 = codeOnly(read("docker/migrations/074_pocket_money_creatures_out.sql"), { sql: true });
     for (const name of ["request_person_point_redemption", "decide_point_redemption"]) {
       const body = step1.slice(step1.indexOf(`FUNCTION public.${name}(`));
       expect(body.slice(0, body.indexOf("END $$;")), name).toContain("public.point_person_totals(");

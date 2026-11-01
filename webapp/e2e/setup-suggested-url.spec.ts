@@ -29,8 +29,8 @@ function suggest(publicIp: string, ownIps: string, routeIp: string, isWsl: "0" |
     "bash",
     [
       "-c",
-      `eval "$(sed -n '/^suggest_api_url()/,/^}$/p' ../setup.sh)"; ` +
-        `suggest_api_url "$1" "$2" "$3" "$4"`,
+      `eval "$(sed -n '/^suggest_site_url()/,/^}$/p' ../setup.sh)"; ` +
+        `suggest_site_url "$1" "$2" "$3" "$4"`,
       "_",
       publicIp,
       ownIps,
@@ -44,33 +44,33 @@ function suggest(publicIp: string, ownIps: string, routeIp: string, isWsl: "0" |
 test("a home server behind a router is offered its LAN address, not its public one", () => {
   // The case that was broken for everyone at home: the two always differ.
   expect(suggest("87.1.2.3", "192.168.1.50 172.17.0.1", "192.168.1.50", "0")).toBe(
-    "http://192.168.1.50:8100",
+    "http://192.168.1.50:3001",
   );
 });
 
 test("a VPS, whose public address is on the interface, is offered that address", () => {
-  expect(suggest("5.6.7.8", "5.6.7.8 172.17.0.1", "5.6.7.8", "0")).toBe("http://5.6.7.8:8100");
+  expect(suggest("5.6.7.8", "5.6.7.8 172.17.0.1", "5.6.7.8", "0")).toBe("http://5.6.7.8:3001");
 });
 
 test("WSL is offered localhost, because its own address is the VM's", () => {
   // hostname -I under WSL2 is the VM's internal address; nothing on the LAN
   // reaches it and it changes on restart. localhost is what the Windows
   // browser on the same PC actually reaches.
-  expect(suggest("87.1.2.3", "172.28.1.5", "172.28.1.5", "1")).toBe("http://localhost:8100");
+  expect(suggest("87.1.2.3", "172.28.1.5", "172.28.1.5", "1")).toBe("http://localhost:3001");
 });
 
 test("the LAN address comes from the default route, not whichever address is listed first", () => {
   // On a Docker host `hostname -I` can list the docker0 bridge before the
   // real interface; the route to the outside world does not.
   expect(suggest("87.1.2.3", "172.17.0.1 192.168.1.50", "192.168.1.50", "0")).toBe(
-    "http://192.168.1.50:8100",
+    "http://192.168.1.50:3001",
   );
 });
 
 test("with no public IP detected, a home server still gets its LAN address", () => {
-  expect(suggest("", "192.168.1.50", "192.168.1.50", "0")).toBe("http://192.168.1.50:8100");
+  expect(suggest("", "192.168.1.50", "192.168.1.50", "0")).toBe("http://192.168.1.50:3001");
 });
 
 test("with nothing detected at all, the suggestion is localhost", () => {
-  expect(suggest("", "", "", "0")).toBe("http://localhost:8100");
+  expect(suggest("", "", "", "0")).toBe("http://localhost:3001");
 });

@@ -3,6 +3,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/database";
 import { serverSupabaseUrl } from "@/lib/supabase/api-base";
+import { postgrestFetch } from "@/lib/rest-proxy";
 
 interface CookieToSet {
   name: string;
@@ -13,12 +14,13 @@ interface CookieToSet {
 export async function createClient() {
   const cookieStore = await cookies();
 
-  // The internal address: server code never goes out through the browser's
-  // (RFC-018 — with the API on the page's own origin there is none to use).
+  // The internal address: server code never goes out through the browser's.
+  const url = serverSupabaseUrl();
   return createServerClient<Database>(
-    serverSupabaseUrl(),
+    url,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: postgrestFetch(url) },
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -43,7 +45,7 @@ export async function createClient() {
 //
 // `actor` names who is acting, for the task log: the Integration API passes
 // "integration", which the database reads from the request headers
-// (todo_actor() in migration_zzzzzy_todo_turns.sql). Without it a write
+// (todo_actor() in migrations/066_todo_turns.sql). Without it a write
 // with this key is logged as the server's.
 export function createAdminClient(options?: { actor?: "integration" }) {
   const supabaseUrl = serverSupabaseUrl();
@@ -58,6 +60,9 @@ export function createAdminClient(options?: { actor?: "integration" }) {
       autoRefreshToken: false,
       persistSession: false,
     },
-    ...(options?.actor ? { global: { headers: { "x-kinboard-actor": options.actor } } } : {}),
+    global: {
+      fetch: postgrestFetch(supabaseUrl),
+      ...(options?.actor ? { headers: { "x-kinboard-actor": options.actor } } : {}),
+    },
   });
 }

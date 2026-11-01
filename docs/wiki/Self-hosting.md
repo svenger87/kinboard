@@ -4,7 +4,7 @@ This is the deeper deployment guide. If you just want to bring up the stack, see
 
 ## What URL should I use?
 
-**Whichever address reaches your server.** Since 1.13 the browser talks to Kinboard's API at the address it opened Kinboard from, so there is nothing to get right in advance: the kitchen tablet can use `http://192.168.1.50:3001`, your phone `https://kinboard.example.com`, and both work against the same stack at the same time.
+**Whichever address reaches your server.** The browser talks to Kinboard's API at the address it opened Kinboard from, so there is nothing to get right in advance: the kitchen tablet can use `http://192.168.1.50:3001`, your phone `https://kinboard.example.com`, and both work against the same stack at the same time.
 
 | Your setup | Open Kinboard at |
 |---|---|
@@ -17,68 +17,38 @@ This is the deeper deployment guide. If you just want to bring up the stack, see
 
 ### How it works
 
-Two parts of Kinboard answer a browser: the webapp, and the API gateway (Kong) that every piece of data comes from. Kong is now the front door. It listens on port `3001` and sends `/rest`, `/auth`, `/storage` and `/realtime` to the API, and everything else to the webapp. One address, one port, no CORS, and a tablet at home keeps working when the internet is down, because it never leaves the house.
+Everything a browser needs comes from one container, the webapp, on one port (`WEBAPP_PORT`, 3001): the pages, the database API at `/rest/v1` (which the webapp forwards to PostgREST inside the stack), uploaded files at `/storage/v1/object/…`, and the live-update feed that keeps every screen in sync. One address, one port, no CORS, and a tablet at home keeps working when the internet is down, because it never leaves the house.
 
-Two settings in `webapp/docker/.env` decide this:
+There is nothing to configure for this. The webapp also refuses the `service_role` key on `/rest/v1` from outside, on every install — that key bypasses row-level security and is only ever used by server code talking to PostgREST directly.
 
-| Setting | Meaning |
-|---|---|
-| `KINBOARD_ENTRY=kong` | Kong answers on `WEBAPP_PORT` (3001). The default for new installs. Kong also keeps its own port, `KONG_HTTP_PORT` (8100). |
-| `KINBOARD_ENTRY=webapp` | The webapp answers on 3001 itself, as before 1.13, and the browser uses `API_EXTERNAL_URL` for data. |
-| `API_EXTERNAL_URL=` (empty) | The browser uses the address the page came from. Leave it empty unless you need the next row. |
-| `API_EXTERNAL_URL=https://api.example.com` | A separate API host, for setups that really keep Kong somewhere else. Set it with `./setup.sh --api-url https://api.example.com`; `--api-url same-origin` switches back. |
+### Installs from before 1.15
 
-The front door needs one route in `webapp/docker/kong.yml`, which `setup.sh` adds for you. It's the block whose lines all end in `# kinboard_entry`. Every other line of that file, including your keys, stays exactly as it was.
-
-### Installs from before 1.13
-
-Your install keeps working exactly as it did: until it has been moved, it has no `KINBOARD_ENTRY` line, which means `webapp`, and the browser keeps using your `API_EXTERNAL_URL`.
-
-The move happens on its own, carefully. `setup.sh` adds the route to `kong.yml`. Then the next `./start.sh up`, or the next auto-update, asks Kong for the start page from inside the stack. **Only if the webapp answers through Kong** does it write `KINBOARD_ENTRY=kong` and move port 3001 from the webapp to Kong. If anything about that fails, the install stays on the webapp, `.env` is put back exactly as it was, and the log says why (`entry: staying on webapp: ...`). Your bookmarks keep working either way: the address and port are the same, only the container behind them changes.
-
-What the move costs: the webapp container is recreated (without its port) and Kong is recreated (with it). During an auto-update that is the same restart the new image needs anyway, so it adds nothing; Kinboard is unreachable on 3001 while the new webapp applies its migrations and starts, as on any update. Run on its own, the move takes that one restart.
-
-Not moved automatically:
-
-- an install whose `API_EXTERNAL_URL` names a **different host** than `SITE_URL`, a separate API host. A proxy (Nginx Proxy Manager, Caddy, cloudflared) may send the app's name to the webapp container and only the API's name to Kong, and that would break. Such an install keeps working as it is and can opt in;
-- an install behind Traefik (below).
-
-If the move is interrupted, only the `KINBOARD_ENTRY` line is put back; everything else in `.env` stays as it is. A stopped `./start.sh` (Ctrl-C) or a failed `docker compose up` does that on the spot, together with the old layout. When nothing can run (the update container stopped with `docker stop`, a power cut), `webapp/docker/.env.pre-entry` is left behind and nothing answers on 3001 until the next `./start.sh up` or update, which restores it. After a move was undone, no new attempt is made for 24 hours (`webapp/docker/.env.entry-state`; delete it to try again now, or set `ENTRY_RETRY_AFTER` in seconds).
-
-**Firewalls:** after the move, port 3001 belongs to the Kong container. Rules that name the port on the host are unaffected; rules keyed to the webapp container (Docker `DOCKER-USER` rules by container IP, or per-container firewall tools) have to follow it to Kong.
-
-Kong waits up to 10 minutes for the webapp on a request (`read_timeout`/`write_timeout` on the front-door service), so restoring a large backup through *Settings → Backup* is not cut off at Kong's default 60 seconds.
-
-- **To stay as you are**, add `KINBOARD_ENTRY=webapp` to `webapp/docker/.env`. Nothing moves an install that has the line. A value other than `kong` or `webapp` (a typo, `Kong`) is corrected to lower case, or to `webapp`, by `setup.sh` and `./start.sh`.
-- **To move by hand**, set `KINBOARD_ENTRY=kong`, run `./setup.sh` (it adds the route if it's missing), then `docker restart kinboard-kong` and `./start.sh up`.
-- **Behind Traefik**, nothing moves automatically: Traefik reaches the containers inside the stack, so host ports don't matter to it. See [Behind Traefik](#behind-traefik) for the simpler one-route setup you can opt into.
+Until 1.15 a separate API gateway (Kong) sat in the stack, and some installs had it answering on port 3001 (`KINBOARD_ENTRY=kong`) or kept the API on its own port and address (`API_EXTERNAL_URL`, port 8100). Those settings are ignored now: a line left in `.env` does no harm, and an old `API_EXTERNAL_URL` pointing at port 8100 is simply not used, because the browser no longer goes there. If a reverse proxy sent `/rest`, `/storage` or `/realtime` to Kong, send everything to the webapp instead. [UPGRADING.md](https://github.com/svenger87/kinboard/blob/main/UPGRADING.md#115--one-container-serves-everything) has the full upgrade notes.
 
 ### Common gotchas
 
-- **The page loads but stays empty, or the console shows `CORS` errors**: the install is still on `KINBOARD_ENTRY=webapp` with an `API_EXTERNAL_URL` that this device can't reach. Open Kinboard at that same host, or move the install to Kong as above.
-- **`ERR_CONNECTION_REFUSED` on `/rest/v1/...` from a page on port 3001**: same cause.
 - **Don't use `localhost` on other devices.** A phone visiting `localhost` is asking itself, not your server.
 - **HTTP vs HTTPS:** plain HTTP is fine on the LAN. Push notifications and "Add to Home Screen" need HTTPS; a [Cloudflare Tunnel](#reverse-proxied-via-cloudflare-tunnel) or [Traefik](#behind-traefik) gives you that.
 
 ### Changing the address later
 
-There's nothing to change for the browser. For `SITE_URL` (calendar-feed links), run `./setup.sh --url <address>` from the repo root.
-
-If you use a separate API host (`API_EXTERNAL_URL` set): `./setup.sh --api-url <address>` rewrites it, and Kong's CORS allow-list, the lines marked `# webapp_origin` in `kong.yml`, follows `SITE_URL`. Restart Kong afterwards with `docker restart kinboard-kong` (a `kong reload` is not enough, because DB-less Kong only reads `kong.yml` when it starts) and the webapp with `./start.sh up`.
+There's nothing to change for the browser. For `SITE_URL` (calendar-feed links), run `./setup.sh --url <address>` from the repo root, then `cd webapp/docker && ./start.sh up` so the webapp picks it up.
 
 `./setup.sh` without `--force` is idempotent: it won't regenerate secrets that already exist. `--force` regenerates everything and **invalidates existing device join codes**.
 
 ## Compose file overlay
 
-The repo ships three compose files; you opt into them as your environment requires:
+The repo ships a base compose file and a few overlays; you opt into them as your environment requires:
 
 | File | Purpose | Default? |
 |---|---|---|
-| `webapp/docker/docker-compose.yml` | Base stack (db, kong, webapp, cron, go2rtc, ...). Ports forwarded directly to host. | Yes |
-| `webapp/docker/docker-compose.traefik.yml.example` | Traefik labels for kong, webapp, go2rtc. Copy to `docker-compose.traefik.yml` and adjust. | No |
-| `webapp/docker/docker-compose.override.yml` | Host-specific extras (GPU device pins, custom volumes, etc.). Gitignored. | No |
+| `webapp/docker/docker-compose.yml` | Base stack: `db`, `db-init`, `rest`, `webapp`, `cron`, `go2rtc`. Runs the published image `ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest}`; ports forwarded directly to the host. | Yes |
+| `webapp/docker/docker-compose.traefik.yml` | Traefik labels: one router, everything on `DOMAIN` to the webapp (go2rtc optional). | No |
+| `webapp/docker/docker-compose.build.yml` | Builds the webapp from this checkout instead of pulling it (tagged `kinboard-webapp:local`). | No |
+| `webapp/docker/docker-compose.image.yml` | Optional since 1.15: only adds `pull_policy: always`. Kept so `COMPOSE_FILES` lines that name it keep working. | No |
+| `webapp/docker/docker-compose.override.yml` | Host-specific extras (GPU device pins, custom volumes, a `cloudflared` container, etc.). Gitignored. | No |
 
-To run with all three:
+To run with Traefik and an override:
 
 ```bash
 export COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.override.yml"
@@ -88,7 +58,7 @@ export COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml -f doc
 Or directly:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.override.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.override.yml up -d --remove-orphans
 ```
 
 ## Environment variables
@@ -99,14 +69,8 @@ All driven from `webapp/docker/.env`. The shipped `.env.example` has comments ex
 |---|---|---|
 | `PROJECT_NAME` | `kinboard` | Container name prefix (e.g. `kinboard-db`) |
 | `DATA_DIR` | `./data` | Bind path root for db + storage volumes |
-| `WEBAPP_PORT` | `3001` | The port the family opens Kinboard at — published by Kong or the webapp, per `KINBOARD_ENTRY` |
-| `KINBOARD_ENTRY` | `kong` (new installs) | `kong`: Kong is the front door on `WEBAPP_PORT`. `webapp`: the layout before 1.13. See [What URL should I use?](#what-url-should-i-use) |
-| `API_EXTERNAL_URL` | *(empty)* | Empty: the browser uses the address it opened Kinboard from. Set only for a separate API host |
-| `KONG_HTTP_PORT` | `8100` | Kong's own host port, kept in both layouts |
-| `KONG_TRUSTED_IPS` | private ranges (`127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7`) | Whose `X-Forwarded-*` headers Kong believes (https, the client address). Traefik, cloudflared and the LAN are covered. Behind Cloudflare's proxy **without** a tunnel (orange cloud straight to your port), add [Cloudflare's ranges](https://www.cloudflare.com/ips/), or Kinboard sees every request as plain http from Cloudflare |
-| | | The private-range default assumes Docker hands Kong the client's own source address. Rootless Docker, IPv6 through the userland proxy and some NAS setups show every client as a Docker-internal address instead; there, set `KONG_TRUSTED_IPS` to the proxies you really have (or `127.0.0.1/32` if none) |
-| `KONG_REAL_IP_HEADER` / `KONG_REAL_IP_RECURSIVE` | `X-Forwarded-For` / `on` | How Kong finds the client behind those proxies; it passes the result to the webapp as `X-Real-IP` for its rate limits |
-| `KONG_WORKERS` | `2` | nginx worker processes in Kong — nginx would otherwise start one per host CPU |
+| `WEBAPP_PORT` | `3001` | The port the family opens Kinboard at — the app, its API, uploaded files and live updates all answer here |
+| `KINBOARD_TAG` | `latest` | Which published image to run: `latest` (stable), `next` (release candidates) or an exact version. See [Pre-release channel](#pre-release-channel) |
 | `NETWORK_SUBNET` | `10.200.0.0/24` | Internal Docker network subnet (change if it collides) |
 | `TZ` | `UTC` | Timezone passed to go2rtc |
 | `DOMAIN` | `kinboard.example.com` | Public domain — only consumed by the Traefik overlay |
@@ -116,55 +80,31 @@ All driven from `webapp/docker/.env`. The shipped `.env.example` has comments ex
 
 ### Secrets
 
-`POSTGRES_PASSWORD`, `JWT_SECRET`, `SECRET_KEY_BASE`, `CRON_SECRET`, `VAPID_*` are generated by `setup.sh`. `ANON_KEY` and `SERVICE_ROLE_KEY` are JWTs signed with `JWT_SECRET` — generate them per [Supabase self-hosting docs](https://supabase.com/docs/guides/self-hosting#api-keys) and paste into `.env`. Re-run `setup.sh` after pasting; it'll substitute the values into `kong.yml` automatically.
+`POSTGRES_PASSWORD`, `JWT_SECRET`, `CRON_SECRET`, `VAPID_*` are generated by `setup.sh`. `ANON_KEY` and `SERVICE_ROLE_KEY` are JWTs signed with `JWT_SECRET`, and `setup.sh` mints those too. `ANON_KEY` is what the browser sends before it has a family token; `SERVICE_ROLE_KEY` is for server code only, and the webapp refuses it on `/rest/v1` from outside.
+
+`SECRET_KEY_BASE`, `API_EXTERNAL_URL`, `KINBOARD_ENTRY`, `ADDITIONAL_REDIRECT_URLS` and the `KONG_*` settings belonged to containers that were retired in 1.15. Nothing reads them any more; a line left in `.env` is harmless.
 
 ## Behind Traefik
 
-The repo ships a Traefik overlay that wires kong + webapp + (optional) go2rtc into an external Traefik instance. **It assumes Traefik is already running on the host with a cert resolver configured.** If you don't have Traefik yet, follow [From scratch: Traefik + Let's Encrypt](#from-scratch-traefik--lets-encrypt) below first.
+The repo ships a Traefik overlay that wires the webapp + (optional) go2rtc into an external Traefik instance. **It assumes Traefik is already running on the host with a cert resolver configured.** If you don't have Traefik yet, follow [From scratch: Traefik + Let's Encrypt](#from-scratch-traefik--lets-encrypt) below first.
 
 ### Wiring kinboard into your existing Traefik
-
-Copy the example override:
-
-```bash
-cd webapp/docker
-cp docker-compose.traefik.yml.example docker-compose.traefik.yml
-```
 
 Set in `.env`:
 
 ```
 DOMAIN=kinboard.example.com
 SITE_URL=https://kinboard.example.com
-API_EXTERNAL_URL=
-ADDITIONAL_REDIRECT_URLS=https://kinboard.example.com
 TRAEFIK_CERT_RESOLVER=letsencrypt
 TRAEFIK_NETWORK=proxy
+COMPOSE_FILES=-f docker-compose.yml -f docker-compose.traefik.yml
 ```
 
-`API_EXTERNAL_URL` stays empty: the API is on the same domain as the app, which is exactly what "the address the page was opened from" means.
+then `./start.sh up`.
 
-The override registers two HTTP routers — Kong on `/rest|/auth|/storage|/realtime` and webapp on everything else — both behind `Host(${DOMAIN})` with the same cert resolver. Traefik prefers the longer `PathPrefix` rules first, so Kong wins for the API paths and the webapp serves the rest. Traefik reaches both containers inside the stack, so `KINBOARD_ENTRY` doesn't matter to it, and neither the update nor `./start.sh up` changes a Traefik install's layout on its own.
+The overlay registers **one** HTTP router: everything for `Host(${DOMAIN})` goes to the webapp, which serves the app, the database API at `/rest/v1`, uploaded files and live updates itself. The guard that stops a `service_role` key arriving from the internet is in the webapp, so it applies here as on every install.
 
-#### The simpler version: one route to Kong
-
-With Kong as the front door, Traefik needs only one target: everything for your domain goes to Kong, and Kong sends pages on to the webapp. `docker-compose.traefik-one-route.yml.example` is that variant. It is optional; the two-router overlay above keeps working.
-
-```bash
-cd webapp/docker
-cp docker-compose.traefik-one-route.yml.example docker-compose.traefik.yml
-# KINBOARD_ENTRY=kong in .env, then ./setup.sh (adds Kong's route if missing)
-docker restart kinboard-kong
-./start.sh up
-```
-
-It keeps the guard that stops a `service_role` key arriving from the internet on the API paths. Kong passes Traefik's `X-Forwarded-Proto: https` on to the webapp (`KONG_TRUSTED_IPS`), so the session cookie stays `Secure`.
-
-#### A separate API host
-
-If the API has to live on its own host, for example `api.kinboard.example.com`, set `API_EXTERNAL_URL` to it (`./setup.sh --api-url https://api.kinboard.example.com`), route that host to Kong, and keep `KINBOARD_ENTRY=webapp`. The browser then calls that host directly, and Kong's CORS allow-list (the `# webapp_origin` lines in `kong.yml`) has to name `SITE_URL`.
-
-> **Re-run `setup.sh` after editing `.env`.** With a separate API host it re-pins Kong's CORS allow-list to the new `SITE_URL`; without that the browser rejects every API response with `blocked by CORS policy`.
+> **Upgrading from an older overlay?** Until 1.15 the overlay had a second router sending `/rest`, `/auth`, `/storage` and `/realtime` to Kong, behind a forward-auth "rest-gate". If you keep your own copy of `docker-compose.traefik.yml` (or the old `docker-compose.traefik-one-route.yml.example`), replace it with the shipped one. An old copy still carries a `kong:` block, and compose refuses a service with labels but no image (`service "kong" has neither an image nor a build context specified`), so the stack would not come up.
 
 ### From scratch: Traefik + Let's Encrypt
 
@@ -228,7 +168,7 @@ Replace `you@example.com` with a real address — Let's Encrypt sends expiry war
 
 Then follow [Wiring kinboard into your existing Traefik](#wiring-kinboard-into-your-existing-traefik) above.
 
-**Firewall (UFW):** open 80/tcp and 443/tcp publicly. Close 3001 and 8100 — Traefik fronts both. If you've applied Docker-level firewall rules per [Security-and-Threat-Model → Recommended hardening](Security-and-Threat-Model#recommended-hardening), mirror the port change there too (drop `3001` and `8100`, add `80` and `443`).
+**Firewall (UFW):** open 80/tcp and 443/tcp publicly. Close 3001 — Traefik fronts it. If you've applied Docker-level firewall rules per [Security-and-Threat-Model → Recommended hardening](Security-and-Threat-Model#recommended-hardening), mirror the port change there too (drop `3001`, add `80` and `443`).
 
 **Verify:**
 
@@ -286,11 +226,10 @@ docker exec kinboard-db pg_dump -U supabase_admin -F c postgres > /backups/kinbo
 Two details in that line are load-bearing.
 
 **`-U supabase_admin`, not `postgres`.** `postgres` is not a superuser in the
-Supabase image. The `_realtime` schema is split between owners and `pg_dump`
-locks every table, so as `postgres` it aborts on the first table it doesn't
-own — `permission denied for table _realtime.feature_flags` or similar. Which
-tables sit under which owner changes with the realtime image version, so this
-can start failing on a setup that had been fine for months.
+Supabase Postgres image, and `pg_dump` locks every table it dumps, so as
+`postgres` it aborts on the first table it doesn't own — on an install that
+ran the old realtime container, `permission denied for table
+_realtime.feature_flags` or similar.
 
 **No `-t`.** `-F c` is a binary format, and `docker exec -t` allocates a TTY
 that rewrites line endings in the stream. The dump still *looks* fine — right
@@ -322,32 +261,23 @@ so on its own it is half a backup — and the half that is missing is the one
 nobody can recreate. A family's photographs are only ever in `${DATA_DIR}/storage/`.
 
 ```bash
-tar --xattrs --xattrs-include='*' -czf /backups/kinboard-storage-$(date +%F).tar.gz \
-  -C "${DATA_DIR}" storage
+tar -czf /backups/kinboard-storage-$(date +%F).tar.gz -C "${DATA_DIR}" storage
 ```
 
-**`--xattrs --xattrs-include='*'` is not optional, and leaving it off fails in
-the worst possible way.** Storage keeps each object's content type and cache
-headers in extended attributes on the file itself, not in the database:
+Since 1.15 uploaded files are plain files at
+`${DATA_DIR}/storage/files/<bucket>/<path>`, and the content type comes from the
+file name, so any `tar` will do — GNU tar and `--xattrs` are no longer needed.
+(Until 1.15 the storage container kept each file's content type in an extended
+attribute, and a backup without `--xattrs` restored pictures that would not
+load. A backup of that era still wants `--xattrs` when you extract it.)
 
-```
-user.supabase.content-type="image/jpeg"
-user.supabase.cache-control="max-age=3600"
-```
+On an install that was upgraded to 1.15, the same directory also still holds
+the old layout (`storage/stub/stub/…`): the upgrade hard-linked each file into
+`storage/files/` rather than copying it, so the two share their bytes on disk
+and the archive is not twice the size. Leave the old tree where it is; it is
+what a [rollback](https://github.com/svenger87/kinboard/blob/main/UPGRADING.md#115--one-container-serves-everything) would use.
 
-A plain `tar -czf` copies the bytes and silently drops those. The restore then
-looks perfect — right files, right sizes, right paths, matching rows in the
-database — and every image returns **HTTP 500**:
-
-```
-{"code":"ENODATA","errno":61}  The extended attribute does not exist.
-```
-
-Nothing in the app says what is wrong; the pictures simply do not load. The
-same flags are needed again when extracting, so the attributes survive the trip
-back.
-
-Objects are write-once, so this can be `tar`'d while the stack is up.
+Files are write-once, so this can be `tar`'d while the stack is up.
 
 Per-family settings live in `public.settings` (JSONB) and come along with the `pg_dump`.
 
@@ -359,33 +289,31 @@ Bring the stack up **first**, then restore the data into it:
 # 1. a clean, fully started stack — empty, but with the current schema
 cd webapp/docker
 ./start.sh up
-# wait until http://localhost:3000 answers
+# wait until http://localhost:3001/api/health answers
 
-# 2. put the data back
+# 2. put the data back. The new stack has already written its own
+#    instance settings (the server's time zone) on start; the backup's
+#    replace them, and the next start records the time zone again.
+docker exec -i kinboard-db psql -U supabase_admin -d postgres -c "TRUNCATE public.instance_settings"
 docker exec -i kinboard-db pg_restore -U supabase_admin -d postgres \
   --data-only --disable-triggers -n public < /backups/kinboard-2026-08-09.pgdump
 
-# 3. put the uploaded files back, and the rows that point at them
-docker exec -i kinboard-db pg_restore -U supabase_admin -d postgres \
-  --data-only --disable-triggers -n storage -t objects < /backups/kinboard-2026-08-09.pgdump
-
-tar --xattrs --xattrs-include='*' -xzf /backups/kinboard-storage-2026-08-09.tar.gz \
-  -C "${DATA_DIR}"
-
-docker restart kinboard-storage
+# 3. put the uploaded files back
+tar -xzf /backups/kinboard-storage-2026-08-09.tar.gz -C "${DATA_DIR}"
 ```
 
-**Step 3 is a separate restore on purpose.** `-n public` selects the public
-schema and nothing else, so it does not bring back `storage.objects` — the rows
-that tell storage which files exist. Restoring only the public schema leaves a
-photo library that lists pictures it cannot show. Restoring the whole `storage`
-schema is the wrong fix in the other direction: `storage.buckets` has already
-been populated by the migrations that ran when the stack started, so a
-wholesale restore collides with them. `-t objects` takes the one table that
-holds the household's data.
+The files are served straight from `${DATA_DIR}/storage/files/`, so once they
+are back the pictures load; there is nothing to restart.
 
-Three things about that are load-bearing, and each of them fails quietly if you
-get it wrong.
+**A backup taken before 1.15** has the files only in the old layout, and the
+rows describing them in the `storage` schema of the dump. Restore it into the
+version it was taken with (`KINBOARD_TAG=<that version>` and that version's
+compose file, `git checkout v<that version>`), following the restore steps of
+that version's documentation, and then upgrade: the upgrade moves the files
+across exactly as it does on a running install.
+
+Three things about the database restore are load-bearing, and each of them
+fails quietly if you get it wrong.
 
 **Start the stack before restoring, not after.** Kinboard's schema arrives in
 two halves: the baseline is mounted into the database image and runs when the
@@ -418,17 +346,19 @@ current schema, so the procedure above is verified rather than remembered.
 
 ## Updates
 
-Pull the new code, re-run lint, restart the stack:
+Pull the new code and bring the stack up again:
 
 ```bash
 git pull
 cd webapp/docker
-./start.sh restart   # rebuilds webapp + restarts webapp + cron
+./start.sh up        # pulls/recreates what changed, removes retired containers
 ```
+
+`./start.sh restart` pulls (or, with `docker-compose.build.yml`, rebuilds) just the webapp and restarts it and `cron`.
 
 The scheduler (`cron`, ofelia) reads its jobs from the webapp container's labels only when it starts, so whenever the webapp container is recreated, `cron` has to be recreated after it or a job a release adds never runs. `./start.sh restart` always does this, and `./start.sh up` and the Diun self-update do it whenever they recreated the webapp. If you recreate the webapp some other way (`docker compose up -d webapp`), follow it with `docker compose up -d --no-deps --force-recreate cron`, with the same `-f` files.
 
-Schema changes ship as new files in `webapp/docker/migrations/` (idempotent — safe to re-apply). **You do not normally need to run them**: the webapp container applies every migration when it starts, so pulling a new image and restarting is enough, and it refuses to start rather than serve against a half-applied schema.
+Schema changes ship as numbered files in `webapp/docker/migrations/` (`NNN_topic.sql`). **You do not normally need to run them**: the webapp container applies every migration it has not applied before when it starts, records it (with a checksum) in `kinboard.schema_migrations`, and refuses to start rather than serve against a half-applied schema. Pulling a new image and restarting is enough.
 
 The manual path is still there for when the container could not do it — no `POSTGRES_PASSWORD` in the webapp's environment, say:
 
@@ -438,19 +368,6 @@ cd webapp/docker
 ```
 
 For a remote deploy, `webapp/deploy.sh` syncs the source tree over SSH and runs the migrations + rebuild on the target. Configure host details in `deploy-config.local.sh` (gitignored) — see `deploy-config.local.sh.example` for the template.
-
-### Live-host migrations
-
-If you're upgrading an existing deployment to the new templated compose layout (the one this repo currently ships), use `webapp/docker/migrate-prod.sh` on the host:
-
-```bash
-ssh nas
-cd /mnt/user/appdata/kinboard/webapp/docker
-./migrate-prod.sh --dry-run    # preview
-./migrate-prod.sh               # apply
-```
-
-It's idempotent. It appends new templated env keys (`DATA_DIR`, `DOMAIN`, etc.), substitutes Supabase JWTs into `kong.yml`, renders `docker-compose.traefik.yml` from the example, and creates a `docker-compose.override.yml` for any host-specific extras.
 
 ### Auto-updates
 
@@ -485,13 +402,12 @@ It's idempotent. It appends new templated env keys (`DATA_DIR`, `DOMAIN`, etc.),
 The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml.example`). It runs the FULL upgrade sequence end-to-end whenever a new GHCR image lands:
 
 1. `git pull --ff-only origin main` — picks up new compose files, migrations, `init.sql`, `seed-demo.sql`
-2. `./setup.sh --non-interactive` — re-substitutes Kong placeholders, and adds routes a release needs to your own `kong.yml` without touching the rest of it
-3. `docker compose -f docker-compose.yml -f docker-compose.image.yml pull --ignore-buildable` — pulls the new GHCR image(s); skips the locally-built webhook image.
-   **Name both files.** `docker compose` only auto-loads `docker-compose.yml` and `docker-compose.override.yml`; the published image lives in `docker-compose.image.yml`. Leave it out and compose silently falls back to `build:` and rebuilds from whatever source is on disk — which looks like a successful upgrade that changes nothing. `./start.sh up` adds the overlay for you.
-4. `docker compose up -d` (with webhook + diun excluded — see below) — recreates only services whose image changed; the webapp's entrypoint re-applies all `migration_*.sql` on boot (idempotent)
-5. `docker compose up -d --no-deps --force-recreate cron` — only when step 4 recreated the webapp, because the scheduler reads its jobs from the webapp's labels only when it starts
-6. `docker restart kinboard-kong` — only when `kong.yml`'s mtime moved during the run
-7. `kinboard-entry.sh` — for an install with no `KINBOARD_ENTRY` in `.env`: asks Kong for the start page from inside the stack and, only if the webapp answers, writes `KINBOARD_ENTRY=kong`. That is decided before step 4, so step 4's single recreate installs the new image and moves port 3001 to Kong together; it is confirmed after step 4, with a standalone move as the fallback. Otherwise the install stays on the webapp and the log says why. See [Installs from before 1.13](#installs-from-before-113)
+2. `./setup.sh --non-interactive` — adds any `.env` key a release needs; does nothing when none are missing
+3. `docker compose $COMPOSE_FILES pull --ignore-buildable` — pulls the new GHCR image(s); skips the locally-built webhook image
+4. the pre-upgrade backup (above) — only when step 3 brought a new image
+5. `docker compose up -d --remove-orphans` (with webhook + diun excluded — see below) — recreates only services whose image or definition changed, and removes containers of services a release retired; the webapp's entrypoint applies new migrations on boot
+6. `docker compose up -d --no-deps --force-recreate cron` — only when step 5 recreated the webapp, because the scheduler reads its jobs from the webapp's labels only when it starts
+7. `docker restart kinboard-diun` — only when `diun/diun.yml` changed during the run
 
 Two containers do this:
 - **Diun** (`crazymax/diun`) — image notifier. Polls GHCR every 30 min, detects new digests on services labeled `diun.enable=true`, fires a webhook. Read-only docker socket.
@@ -519,11 +435,11 @@ cp docker-compose.diun.yml.example docker-compose.diun.yml
 #   DIUN_WEBHOOK_SECRET=<random hex>
 #   KINBOARD_PROJECT_DIR=/absolute/host/path/to/kinboard
 #   COMPOSE_PROJECT_NAME=kinboard
-#   COMPOSE_FILES=-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml
+#   COMPOSE_FILES=-f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml
 # Then, from the project root:
 ./setup.sh --non-interactive
 cd webapp/docker
-docker compose -f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml up -d --build
 ```
 
 The overlay adds a `diun.enable=true` label to the kinboard-webapp service so Diun knows to watch its image. Only that container is watched by default — auto-bumping the Postgres image is not safe; if you want Diun to watch additional services, add the same label to them in `docker-compose.override.yml`.
@@ -552,17 +468,17 @@ Same script, same code path. Useful right after pushing a hotfix when you don't 
 
 #### Updating the auto-updater itself
 
-The script intentionally **excludes** the `webhook` and `diun` services from `docker compose up -d` — it's currently executing inside the webhook container, and recreating that container mid-run would SIGKILL the script before it finishes (half-done state, kong restart skipped, etc.). To pick up new versions of `Dockerfile.webhook`, `kinboard-self-update.sh`, `diun.yml`, or `hooks.yaml`, run from the host:
+The script intentionally **excludes** the `webhook` and `diun` services from `docker compose up -d` — it's currently executing inside the webhook container, and recreating that container mid-run would SIGKILL the script before it finishes (half-done state, scheduler not recreated, etc.). To pick up new versions of `Dockerfile.webhook`, `kinboard-self-update.sh`, `diun.yml`, or `hooks.yaml`, run from the host:
 
 ```bash
 cd webapp/docker
-docker compose -f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml \
+docker compose -f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml \
   up -d --build webhook diun
 ```
 
 #### What you give up
 
-- **Surprise restarts.** When an update lands, the webapp container is recreated — ~30 seconds of downtime. Tabs lose their realtime websocket and reconnect.
+- **Surprise restarts.** When an update lands, the webapp container is recreated — ~30 seconds of downtime. Tabs lose their live-update connection and reconnect.
 - **Reading release notes before they apply.** If you want "see what changed → decide → apply" semantics, don't enable the overlay; track the [release notes](https://github.com/svenger87/kinboard/releases) and run `kinboard-self-update.sh` manually after each release you actually want.
 - **The trust boundary.** The webhook container has rw access to `/var/run/docker.sock` and the project directory. Anything with that access can effectively run as root on the host. Same blast radius as Watchtower or any other update agent — Diun-the-detector itself only needs read-only socket access.
 
@@ -583,10 +499,10 @@ cp /tmp/kinboard-preserve/docker-compose.override.yml webapp/docker/docker-compo
 # DATA_DIR + COMPOSE_PROJECT_NAME both critical here:
 sed -i 's|^DATA_DIR=.*|DATA_DIR=/mnt/user/appdata/kinboard|' webapp/docker/.env
 grep -q ^COMPOSE_PROJECT_NAME webapp/docker/.env || echo "COMPOSE_PROJECT_NAME=kinboard" >> webapp/docker/.env
-./setup.sh --non-interactive   # regenerates kong.yml substitutions, fills new keys
+./setup.sh --non-interactive   # fills any missing .env keys
 cp webapp/docker/docker-compose.diun.yml.example webapp/docker/docker-compose.diun.yml
 cd webapp/docker
-docker compose -f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml \
+docker compose -f docker-compose.yml -f docker-compose.traefik.yml \
               -f docker-compose.override.yml -f docker-compose.diun.yml up -d --build
 ```
 
@@ -594,14 +510,14 @@ The data dirs (`db/`, `backups/`, `storage/`) stay at `/mnt/user/appdata/kinboar
 
 #### Watchtower migration (deprecated path)
 
-The previous `docker-compose.watchtower.yml.example` overlay still works for backwards compatibility but is **deprecated**: containrrr/watchtower was archived upstream in 2024, and even before that it only updated images — it did NOT git-pull new compose/kong.yml or re-run `setup.sh`, so any release that shipped config alongside the image silently left Watchtower-driven installs in a broken state. To migrate:
+The previous `docker-compose.watchtower.yml.example` overlay still works for backwards compatibility but is **deprecated**: containrrr/watchtower was archived upstream in 2024, and even before that it only updated images — it did NOT git-pull new compose files or re-run `setup.sh`, so any release that shipped config alongside the image silently left Watchtower-driven installs in a broken state. To migrate:
 
 ```bash
 cd webapp/docker
 cp docker-compose.watchtower.yml docker-compose.watchtower.yml.disabled  # keep as a backup
 cp docker-compose.diun.yml.example docker-compose.diun.yml
 # Update your COMPOSE_FILES to swap watchtower → diun
-COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.diun.yml" \
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.diun.yml" \
   ./start.sh up
 docker rm -f kinboard-watchtower
 ```
@@ -645,7 +561,7 @@ KINBOARD_TAG=1.6.0-rc.1
 - Keep `WEBAPP_PORT=3001` (or expose any port you like).
 - No HTTPS — fine inside a trusted network. **Don't expose this to the internet without auth in front.**
 
-> **Trade-off without HTTPS: push notifications and PWA install won't work.** Browsers gate the Service Worker API, Push API, and the install prompt on a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts) (HTTPS, or `http://localhost` from the *same* machine). On a phone visiting `http://192.168.x.x:3001`, registering for push silently fails and "Add to Home Screen" produces a regular shortcut without offline support. Everything else (live sync via Supabase Realtime, all integrations, all UI) keeps working — push + PWA install are the only features lost. If you need them on a LAN-only setup, the easiest paths are: (a) issue a self-signed cert and trust it on every device (rough); (b) use a [Cloudflare Tunnel](#reverse-proxied-via-cloudflare-tunnel) which gives you HTTPS without opening ports; or (c) terminate TLS on the NAS itself with Traefik + a private CA you control. See [Notifications → Requirements](Notifications#requirements-read-this-first) for the full constraint list.
+> **Trade-off without HTTPS: push notifications and PWA install won't work.** Browsers gate the Service Worker API, Push API, and the install prompt on a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts) (HTTPS, or `http://localhost` from the *same* machine). On a phone visiting `http://192.168.x.x:3001`, registering for push silently fails and "Add to Home Screen" produces a regular shortcut without offline support. Everything else (live sync between screens, all integrations, all UI) keeps working — push + PWA install are the only features lost. If you need them on a LAN-only setup, the easiest paths are: (a) issue a self-signed cert and trust it on every device (rough); (b) use a [Cloudflare Tunnel](#reverse-proxied-via-cloudflare-tunnel) which gives you HTTPS without opening ports; or (c) terminate TLS on the NAS itself with Traefik + a private CA you control. See [Notifications → Requirements](Notifications#requirements-read-this-first) for the full constraint list.
 
 ### Behind Traefik with Cloudflare DNS-01
 
@@ -657,7 +573,7 @@ KINBOARD_TAG=1.6.0-rc.1
 
 A Cloudflare Tunnel makes Kinboard reachable at `https://kinboard.example.com` from anywhere, without opening a port on your router. You get HTTPS for free, and with it push notifications and "Add to Home Screen" as a real app.
 
-Since 1.13 the tunnel needs **one route**, to Kong, which serves the app and its API at the same address. Your screens at home can keep using the LAN address at the same time: every device talks to Kinboard at the address it opened it from.
+The tunnel needs **one route**, to the webapp, which serves the app and its API at the same address. Your screens at home can keep using the LAN address at the same time: every device talks to Kinboard at the address it opened it from.
 
 You need a domain whose DNS is managed by Cloudflare (a free plan is enough) and a running Kinboard.
 
@@ -690,7 +606,7 @@ You need a domain whose DNS is managed by Cloudflare (a free plan is enough) and
          - kinboard
    ```
 
-   It joins Kinboard's own Docker network, so it can reach the webapp and Kong by name.
+   It joins Kinboard's own Docker network, so it can reach the webapp by name.
 
 3. Start it. Pass the same `-f` files you always use, plus the override:
 
@@ -705,47 +621,24 @@ You need a domain whose DNS is managed by Cloudflare (a free plan is enough) and
 
 #### Step 3: Add the route
 
-Check that Kong is your front door: `webapp/docker/.env` should say `KINBOARD_ENTRY=kong`. New installs do. An install from before 1.13 gets there by itself on its next update or `./start.sh up`; to do it now, set the line, run `./setup.sh` from the repo root and `docker restart kinboard-kong`. See [Installs from before 1.13](#installs-from-before-113).
-
 Under **Public Hostname**, add one entry:
 
 | Subdomain / Domain | Path | Service type | URL |
 |---|---|---|---|
-| `kinboard` / `example.com` | *(empty)* | HTTP | `kinboard-kong:8000` |
+| `kinboard` / `example.com` | *(empty)* | HTTP | `kinboard-webapp:3000` |
 
 Using a config file instead of the dashboard? The same route looks like this:
 
 ```yaml
 ingress:
   - hostname: kinboard.example.com
-    service: http://kinboard-kong:8000
-  - service: http_status:404
-```
-
-If you changed `PROJECT_NAME` in `.env`, the container is called `<PROJECT_NAME>-kong`. If `cloudflared` runs on another machine, use `http://<server-ip>:3001`.
-
-<details>
-<summary>Keeping the webapp on its own port (<code>KINBOARD_ENTRY=webapp</code>)? Then it takes two routes.</summary>
-
-Add **two** entries with the same hostname, **in this order**, because Cloudflare checks them from top to bottom:
-
-| # | Subdomain / Domain | Path | Service type | URL |
-|---|---|---|---|---|
-| 1 | `kinboard` / `example.com` | `^/(rest\|auth\|storage\|realtime)/` | HTTP | `kinboard-kong:8000` |
-| 2 | `kinboard` / `example.com` | *(empty)* | HTTP | `kinboard-webapp:3000` |
-
-```yaml
-ingress:
-  - hostname: kinboard.example.com
-    path: ^/(rest|auth|storage|realtime)/
-    service: http://kinboard-kong:8000
-  - hostname: kinboard.example.com
     service: http://kinboard-webapp:3000
   - service: http_status:404
 ```
 
-In this layout the browser calls the API at `API_EXTERNAL_URL`, so set that to `https://kinboard.example.com` as well in step 4, and screens at home have to use the domain too (step 6).
-</details>
+If you changed `PROJECT_NAME` in `.env`, the container is called `<PROJECT_NAME>-webapp`. If `cloudflared` runs on another machine, use `http://<server-ip>:3001`.
+
+> **Set up before 1.15?** Your route may point at `kinboard-kong:8000`, or you may have two routes (`^/(rest|auth|storage|realtime)/` to Kong, the rest to the webapp). Kong is gone: replace them with the single route above, or the tunnel answers with a 502.
 
 #### Step 4: Tell Kinboard its new address
 
@@ -755,16 +648,14 @@ From the repo root, run:
 ./setup.sh --url https://kinboard.example.com
 ```
 
-That sets `SITE_URL` (and `ADDITIONAL_REDIRECT_URLS`), the address Kinboard puts into links it hands to other apps, such as the calendar feed. Then restart the webapp so it picks up the new `SITE_URL`: `cd webapp/docker && ./start.sh up`.
-
-`API_EXTERNAL_URL` stays empty **on an install set up with 1.13 or later**. On an install from before 1.13 that still has an API address in `.env`, `--url` keeps its old meaning and sets `API_EXTERNAL_URL` to the domain too. Leave it: it is the address the browser needs while the webapp still answers on 3001, and because it is on the same host as `SITE_URL`, the browser ignores it once Kong is the front door and uses the page's own address. (Setting `same-origin` on such an install changes nothing: `setup.sh` puts a working address back until the move.)
+That sets `SITE_URL`, the address Kinboard puts into links it hands to other apps, such as the calendar feed. Then restart the webapp so it picks up the new `SITE_URL`: `cd webapp/docker && ./start.sh up`.
 
 #### Step 5: Check it
 
 1. Open `https://kinboard.example.com` on your phone with Wi-Fi switched off, so the request really comes from outside.
 2. Join with the family code. Your calendar, tasks and so on should appear.
 3. If something is off:
-   - The tunnel shows Kong's `{"message":"no Route matched with those values"}`: Kong doesn't have its front-door route yet. Run `./setup.sh` and `docker restart kinboard-kong`.
+   - The tunnel shows a 502 or "Bad gateway": the route still points at `kinboard-kong`, or at a container name that doesn't match your `PROJECT_NAME`. Point it at `kinboard-webapp:3000`.
    - Nothing loads at all: check `docker logs kinboard-cloudflared`.
 
 #### Step 6: Screens at home
@@ -794,11 +685,10 @@ Live WebRTC camera streams use UDP, which a tunnel doesn't carry, so they only p
 ## Pitfalls and gotchas
 
 - **`docker-compose up -d --no-deps webapp` won't pick up override files**: Compose only auto-loads `docker-compose.override.yml`, not `docker-compose.traefik.yml`. Always pass `-f` flags explicitly when restarting individual services.
-- **The `storage` container's healthcheck is flaky upstream**: it sometimes shows `unhealthy` even while serving requests fine. This is a known Supabase issue, not a Kinboard regression.
 - **Internal subnet `10.200.0.0/24`**: collides with some VPNs. Override via `NETWORK_SUBNET` in `.env`.
-- **`init.sql` runs once on first DB init**, never again. Subsequent schema changes ship as `webapp/docker/migration*.sql` files; `start.sh up` applies them on every boot (idempotent — guarded with `IF NOT EXISTS`).
-- **`kong.yml` placeholders**: if you cloned a fresh repo, kong starts with `REPLACE_WITH_*` literals as JWTs. `setup.sh` (and `migrate-prod.sh`) substitute the real values from `.env`. If you skip that step, every API call returns 401.
-- **Browser shows 400 on `/rest/v1/devices?...&hardware_id=eq...`**: the migration that adds `devices.hardware_id` and `devices.fingerprint` didn't run. Run `cd webapp/docker && ./start.sh migrate` to apply all pending migrations + reload PostgREST's schema cache. (Fresh installs since the auto-migrate change shouldn't hit this — `start.sh up` calls `migrate` for you.)
+- **`init.sql` runs once on first DB init**, never again. Subsequent schema changes ship as `webapp/docker/migrations/NNN_topic.sql` files; the webapp container applies the ones it hasn't applied yet on every start and records them in `kinboard.schema_migrations`.
+- **`webapp/docker/kong.yml` is unused since 1.15.** It stays in the repo so that `git pull --ff-only` keeps working on installs whose copy holds real keys. Leave it alone; nothing reads it.
+- **Browser shows 400 on `/rest/v1/devices?...&hardware_id=eq...`**: the migration that adds `devices.hardware_id` and `devices.fingerprint` didn't run. Run `cd webapp/docker && ./start.sh migrate` to apply all pending migrations + reload PostgREST's schema cache. (Normally the webapp does this on start; check `docker logs kinboard-webapp` for `[migrate]` lines if it didn't.)
 
 ## Related
 

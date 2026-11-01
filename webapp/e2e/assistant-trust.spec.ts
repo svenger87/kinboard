@@ -532,7 +532,7 @@ test.describe("an assistant cannot trust itself", () => {
 });
 
 test.describe("the migration", () => {
-  const sql = readFileSync(join(__dirname, "..", "docker", "migration_zzzzzzzzzzz_assistant_trust.sql"), "utf8");
+  const sql = readFileSync(join(__dirname, "..", "docker", "migrations/080_assistant_trust.sql"), "utf8");
   const code = sql.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n");
 
   test("grants nothing to anyone, and runs safely twice at once", () => {
@@ -552,7 +552,7 @@ test.describe("the migration", () => {
   });
 
   test("sorts after the reward-decision kind, in byte order and under an en_US collation", () => {
-    const names = ["migration_zzzzzzzzzz_reward_decision_kind.sql", "migration_zzzzzzzzzzz_assistant_trust.sql"];
+    const names = ["migrations/079_reward_decision_kind.sql", "migrations/080_assistant_trust.sql"];
     expect([...names].sort()).toEqual(names);
     expect([...names].sort(new Intl.Collator("en-US").compare)).toEqual(names);
   });

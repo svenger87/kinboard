@@ -45,11 +45,11 @@ This makes Playwright run `npm run dev` itself and wait for port 3000 before tes
 
 The smoke suite fails the test if any `console.error` or `pageerror` event fires while a route loads. Known-noisy patterns (HMR chatter, React DevTools install hint) are filtered in `IGNORED_CONSOLE_PATTERNS` at the top of `smoke.spec.ts`. Keep that list short — every entry is a thing we've explicitly chosen to tolerate. If a real error is being silenced, add a comment explaining why.
 
-A failed smoke test on `/meals` with a 400-shaped error in the console almost certainly means a PostgREST `on_conflict=` write is hitting a missing UNIQUE constraint — same root cause as the bug fixed by `migration_unique_constraints.sql`.
+A failed smoke test on `/meals` with a 400-shaped error in the console almost certainly means a PostgREST `on_conflict=` write is hitting a missing UNIQUE constraint — same root cause as the bug fixed by `migrations/045_unique_constraints.sql`.
 
 ## CI
 
-Phase B (not yet wired): a workflow that boots the full Docker stack, waits for kong + postgrest to be healthy, runs `npm run test:e2e:smoke`, and tears down. Tracked as a separate task. Until then, smoke runs on the maintainer's machine before each release cut.
+Phase B (not yet wired): a workflow that boots the full Docker stack, waits for the webapp and postgrest to be healthy, runs `npm run test:e2e:smoke`, and tears down. Tracked as a separate task. Until then, smoke runs on the maintainer's machine before each release cut.
 
 ## Producing wiki screenshots
 

@@ -1,35 +1,12 @@
-# Self-hoster overlay: use the published image from GitHub Container
-# Registry instead of building locally. Drop ~5 min off the bring-up
-# and ~2 GB off the source clone.
-#
-# Usage (alongside the normal docker-compose.yml + your traefik overlay):
-#
-#   cd webapp/docker
-#   ./setup.sh                                     # one-time secrets
-#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml -f docker-compose.traefik.yml" \
-#     ./start.sh up
-#
-# IMPORTANT: bring up via `start.sh up`, NOT bare `docker compose up`. start.sh
-# realigns the supabase role passwords against POSTGRES_PASSWORD on every up,
-# which is required because the official supabase Postgres image seeds those
-# roles with empty passwords from /etc/postgresql.schema.sql (doesn't run
-# reliably on every version). Skipping the alignment step makes auth, rest,
-# and storage crash-loop with `password authentication failed`.
-#
-# Pin a specific version with KINBOARD_TAG (defaults to :latest):
-#
-#   KINBOARD_TAG=1.0.4 COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml" ./start.sh up
-#
-# This pulls a multi-arch (amd64 + arm64) image, so it Just Works on
-# Raspberry Pi-class hardware too.
+# Kept so COMPOSE_FILES lines that name it keep working; since 1.15 it adds
+# only one thing. docker-compose.yml itself runs the published image
+# (ghcr.io/svenger87/kinboard:${KINBOARD_TAG}) — this file used to switch to
+# it from a source build, and leaving it out quietly fell back to building
+# whatever was on disk (#106). To build from source now, use
+# docker-compose.build.yml instead.
 
 services:
   webapp:
-    image: ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest}
-    # Strip out the build block so docker-compose doesn't try to build
-    # over the pulled image.
-    build: !reset null
-    # Pull from GHCR even if a local image with the same tag exists,
-    # so users always get the published version they asked for.
+    # Pull from GHCR even if a local image with the same tag exists, so an
+    # install always runs the published version it asked for.
     pull_policy: always
-

@@ -3,6 +3,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { createAdminClient } from "@/lib/supabase/server";
 import { readHeartbeat } from "@/lib/heartbeat";
+import { realtimeHealth } from "@/lib/realtime/hub";
 
 export const dynamic = "force-dynamic";
 
@@ -45,39 +46,17 @@ async function probeDb(): Promise<boolean> {
 // genuinely stopped rather than hiccuped.
 export const WORKER_STALE_AFTER_MS = 5 * 60 * 1000;
 
-// Realtime's own health endpoint, on the internal network. Overridable for
-// deployments that do not use the bundled compose stack; an empty value turns
-// the probe off rather than reporting a permanent failure.
-const REALTIME_HEALTH_URL =
-  process.env.REALTIME_HEALTH_URL ?? "http://realtime:4000/api/tenants/realtime-dev/health";
-
 /**
- * Is realtime running?
+ * Are live updates flowing?
  *
- * The first attempt at this asked the database for realtime's logical
- * replication slots, on the reasoning that it holds them while connected. That
- * is wrong: a slot appears when a *client subscribes* to postgres_changes, not
- * when realtime starts. A healthy instance that nobody is looking at has none,
- * so it reported degraded forever — caught only by running it on a fresh
- * install, where realtime was healthy and the slot count was zero.
- *
- * Any HTTP response proves the process is up and serving. The endpoint wants a
- * bearer token which is deliberately not sent: a 401 or 403 answers the
- * liveness question exactly as well as a 200, and a health probe that needs a
- * secret is one more thing to misconfigure. Only a transport failure —
- * refused, unresolvable, timed out — means down.
+ * Live updates are this process's own LISTEN connection (lib/realtime/hub.ts),
+ * so there is nothing to probe over the network: the hub knows. `null` until a
+ * screen has opened the feed since the process started — nothing is listening
+ * yet, which is not a fault — then whether the connection is up. Not a 503
+ * when it is down: the hub reconnects by itself, and a restart would not help.
  */
 async function probeRealtime(): Promise<boolean | null> {
-  if (!REALTIME_HEALTH_URL) return null;
-  try {
-    await fetch(REALTIME_HEALTH_URL, {
-      signal: AbortSignal.timeout(DB_PROBE_TIMEOUT_MS),
-      cache: "no-store",
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return realtimeHealth();
 }
 
 async function probeWorker(): Promise<boolean | null> {

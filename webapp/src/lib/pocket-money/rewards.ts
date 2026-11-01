@@ -3,7 +3,7 @@
  * per child and with no pocket-money account needed): the catalogue's input
  * rules, and the two database calls -- a child's request and a parent's
  * decision -- turned into HTTP answers. The rules themselves are in
- * docker/migration_zzzzzzzz_pocket_money_creatures_out.sql; the client comes
+ * docker/migrations/074_pocket_money_creatures_out.sql; the client comes
  * in as a parameter so a spec can hand it the real admin client or a fake.
  */
 

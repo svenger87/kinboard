@@ -105,7 +105,7 @@ export interface ReconcileResult {
  *
  * Only events with a `google_event_id` -- Google's copies -- are deleted, and
  * hard-deleted: `events` is deliberately outside the soft delete
- * (migration_zzz_soft_delete.sql), and the next sync of a re-ticked calendar
+ * (migrations/056_soft_delete.sql), and the next sync of a re-ticked calendar
  * fetches them again. Events created in Kinboard that never reached Google
  * are kept (see below). No table holds a foreign key to `events`.
  *

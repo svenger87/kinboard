@@ -9,7 +9,7 @@ import {
 import { dueIndex, isDueDay, monthDay, prevDueDay } from "../src/lib/todo-turns";
 
 /**
- * migration_zzzzzy_todo_turns.sql against a real database (#341): turns,
+ * migrations/066_todo_turns.sql against a real database (#341): turns,
  * ticks and un-ticks, missed days, edits that apply from the next due day,
  * points to whoever's turn it was, and the task log. The schedule functions
  * themselves are mirrored in lib/todo-turns.ts and checked against the same
@@ -36,7 +36,7 @@ let migrated = false;
 function applyMigration(): void {
   if (migrated) return;
   // instance_settings first: family_time_zone() reads it.
-  for (const file of ["migration_zzzzzx_instance_settings.sql", "migration_zzzzzy_todo_turns.sql"]) {
+  for (const file of ["migrations/065_instance_settings.sql", "migrations/066_todo_turns.sql"]) {
     for (let attempt = 1; ; attempt++) {
       try {
         execFileSync("bash", ["-c",

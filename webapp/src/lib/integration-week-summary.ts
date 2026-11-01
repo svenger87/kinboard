@@ -5,7 +5,7 @@
  *
  * WHERE EACH PART COMES FROM
  *
- *   tasks       todo_events, the task log (migration_zzzzzy_todo_turns.sql):
+ *   tasks       todo_events, the task log (migrations/066_todo_turns.sql):
  *               every tick and un-tick, with whose turn it was. A day ticked
  *               and taken back again does not count. Missed days are the
  *               written-down ones (todo_occurrences, status missed), which

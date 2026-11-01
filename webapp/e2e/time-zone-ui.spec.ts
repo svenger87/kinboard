@@ -4,6 +4,9 @@ import { CURRENT_ZONE_NAMES } from "../src/lib/time-zones";
 import { establishSession } from "./session";
 import { acquireWholeDatabase, dbContainer, releaseWholeDatabase } from "./whole-database";
 
+// page.route below must see /api/realtime; a service worker would answer first.
+test.use({ serviceWorkers: "block" });
+
 /**
  * Settings → Language → Time zone, against a running stack: the picker saves
  * the family's zone and the database's "today" follows it, Automatic deletes
@@ -66,7 +69,9 @@ test("Settings → Language sets the family's time zone, and the database's toda
   await establishSession(page, familyCode!, DEVICE);
   // No realtime: its settings broadcast would refresh the zone on this device
   // too, and hide a save that forgot to invalidate the query.
-  await page.routeWebSocket(/\/realtime\/v1\//, (ws) => ws.close());
+  // The service worker is blocked for this file (test.use below), or it would
+  // answer the request before the route sees it.
+  await page.route("**/api/realtime", (route) => route.abort());
   const server = ((await (await page.request.get("/api/time-zone")).json()) as { server: string }).server;
   expect(() => new Intl.DateTimeFormat("en-US", { timeZone: server })).not.toThrow();
 

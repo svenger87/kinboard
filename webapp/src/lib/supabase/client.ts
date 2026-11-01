@@ -1,7 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
 import { getFamilyToken, invalidateFamilyToken } from "@/lib/supabase/family-token";
-import { resolveBrowserBase } from "@/lib/supabase/api-base";
 
 // Runtime env injected by app/layout.tsx via <script>window.__ENV=...</script>.
 // Reading from window.__ENV first (when set) lets the published Docker image
@@ -29,23 +28,14 @@ function publicEnv(key: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_ANON_
 }
 
 /**
- * The API base for this browser: the page's own origin in same-origin mode,
- * otherwise the configured address. The runtime value always beats the
- * build-time one, so `same-origin` can never fall through to a baked
- * localhost.
+ * The API base for this browser: the page's own origin, always (1.15 —
+ * `/rest/v1` is served by the webapp itself, see lib/supabase/api-base.ts).
  */
 export function browserApiBase(): string {
   // Server render of a client component: nothing is fetched there (queries
-  // run in effects), but the constructor insists on a URL, and a same-origin
-  // stack has no NEXT_PUBLIC_SUPABASE_URL to give it.
-  if (typeof window === "undefined") {
-    return process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "http://localhost";
-  }
-  return resolveBrowserBase(
-    window.__ENV?.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    window.location.origin,
-  );
+  // run in effects), but the constructor insists on a URL.
+  if (typeof window === "undefined") return "http://localhost";
+  return window.location.origin;
 }
 
 export function createClient() {
@@ -53,31 +43,10 @@ export function createClient() {
     browserApiBase(),
     publicEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     {
-      /**
-       * The same family-scoped token, for the realtime WebSocket.
-       *
-       * The custom `fetch` below covers every HTTP call, but a WebSocket never
-       * goes through fetch. supabase-js resolves the socket's token separately,
-       * in `_getAccessToken()`: it uses this option when set, and otherwise
-       * falls back to `auth.getSession()` and finally to the anon key.
-       *
-       * Kinboard doesn't use GoTrue at all — it has its own device sessions —
-       * so there was never a session to find and the socket connected with the
-       * anon key. That key carries no `family_id` claim, `current_family_id()`
-       * resolves to NULL inside `realtime.apply_rls()`, and every policy
-       * filters every row away. The socket connected happily and delivered
-       * nothing, which is why this went unnoticed since row-level security
-       * landed in 1.6.0: the "live updates paused" indicator watches the
-       * connection, and the connection was fine.
-       *
-       * Falls back to the anon key rather than null so an anonymous page (the
-       * join screen) still opens a socket and behaves exactly as before.
-       *
-       * Setting this makes the client's `auth` namespace unusable. Nothing here
-       * uses it — see require-session.ts for how the app actually authenticates.
-       */
-      accessToken: async () =>
-        (await getFamilyToken()) ?? publicEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+      // No `accessToken` option: it existed only for the Supabase Realtime
+      // WebSocket, which never goes through `fetch`. Live updates now come
+      // from /api/realtime, authenticated by the session cookie
+      // (hooks/use-realtime.ts).
       global: {
         /**
          * Attach the family-scoped token to every direct Supabase call.

@@ -1,0 +1,16 @@
+# For development and CI, never production: publishes PostgREST on loopback.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db db-init rest
+#
+# Two things need PostgREST directly rather than through the webapp's
+# /rest/v1, which refuses the service_role key from outside:
+#   - `next dev` on the host: POSTGREST_URL=http://localhost:${POSTGREST_PORT}
+#     in webapp/.env.local, so the dev server's own /rest/v1 and its
+#     server-side clients have somewhere to go;
+#   - the live e2e specs, whose admin client (createAdminClient) uses the
+#     service_role key.
+
+services:
+  rest:
+    ports:
+      - "127.0.0.1:${POSTGREST_PORT:-3010}:3000"

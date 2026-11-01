@@ -21,7 +21,7 @@ import { DB_CONTAINER, SKIP_WITHOUT_DATABASE, dbContainer } from "./whole-databa
  */
 
 const DOCKER = join(__dirname, "..", "docker");
-const SELF = "migration_camera_takeovers.sql";
+const SELF = "migrations/009_camera_takeovers.sql";
 const migration = codeOnly(readFileSync(join(DOCKER, SELF), "utf8"), { sql: true });
 
 test.describe("migration", () => {
@@ -36,9 +36,9 @@ test.describe("migration", () => {
   });
 
   test("no migration that runs later grants a write back", () => {
-    const later = readdirSync(DOCKER).filter((f) => /^migration.*\.sql$/.test(f) && f > SELF).sort();
+    const later = readdirSync(join(DOCKER, "migrations")).map((f) => `migrations/${f}`).filter((f) => /^migrations\/\d{3}_.*\.sql$/.test(f) && f > SELF).sort();
     // Guard the guard: the RLS file, which puts the table on the family policy, sorts after this one.
-    expect(later).toContain("migration_zz_row_level_security.sql");
+    expect(later).toContain("migrations/049_row_level_security.sql");
     for (const f of later) {
       const code = codeOnly(readFileSync(join(DOCKER, f), "utf8"), { sql: true });
       expect(code, `${f} grants on camera_takeovers`).not.toMatch(/GRANT[^;]*\bcamera_takeovers\b/i);

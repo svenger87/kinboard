@@ -56,7 +56,7 @@ fi
 
 (
   cd "$INSTALL_DIR/webapp/docker"
-  COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml" ./start.sh up
+  ./start.sh up
 )
 
 site_url=$(grep -E '^SITE_URL=' "$INSTALL_DIR/webapp/docker/.env" | head -n1 | cut -d= -f2-)
