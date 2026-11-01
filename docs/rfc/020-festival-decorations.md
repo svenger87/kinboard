@@ -339,17 +339,62 @@ The detail is paid for once, when the festival starts, not 30 times a
 second. Glows, such as the red nose or a lantern's light, are drawn into the
 sprite too, because live canvas blur is slow on a Pi.
 
-**One visual language.** Visitors, dressing and outfits are drawn in the
-soft, rounded style of RFC-016's creatures (*Gumdrop*), with the same light
-from the top left, so the sleigh looks like it belongs to the same world as
-the Drake and the Unicorn. The mockups in this RFC show placement and motion,
-not this level of finish.
+**One visual language.** Visitors, dressing and outfits use the palette and
+the soft, round shapes of RFC-016's creatures, with *Storybook*'s gradients,
+soft shadows and highlights for depth, and the same light from the top left.
+That way the sleigh belongs to the same world as the Drake and the Unicorn.
+There are no outlines, so the art reads the same on dark and light themes.
+
+**Natural movement.** A part that only swings at one joint looks wooden, so
+the rig has the joints a body has:
+
+- **Legs in two segments.** Shoulder to knee and knee to hoof at the front;
+  hip to hock and hock to hoof behind.
+- **A gallop as curves, not poses.** Every joint follows its own smooth
+  periodic curve through keyframes (Catmull-Rom, in `art/parts.json`). The
+  front knees fold to tuck the hooves back on the lift, then reach out
+  extended. The hocks drive back extended, then fold to swing through. Front
+  reach meets hind drive, so the team alternates between stretched and
+  gathered, as a gallop does, instead of trotting on the spot.
+- **The rest follows the legs.** The body pitches and rises once a stride,
+  the head counters the pitch to stay level, the tail flicks twice a stride,
+  and the second reindeer runs out of step with the first. The sleigh rides
+  the stride with a lag, and Santa's arm moves with the reins.
+- **Secondary motion.** The whole team banks with its path and drifts in the
+  weather's gust (§2.1). The reins are drawn live between the hands and the
+  rings, so they sag and tighten. The Sankt Martin lanterns bob with each
+  step and swing behind it like a pendulum, each child a little out of step.
+
+![The sleigh team galloping: two-segment legs, the body pitching and rising, the head countering, the tail flicking, snow in front and behind](020/art/team.svg)
+
+![Sankt Martin's lanterns carried on sticks, bobbing with each step and swinging behind it](020/art/lanterns.svg)
+
+### 5.2 Groundwork already in this PR
+
+Not product code, but enough that step 1 starts from drawn, rigged and
+measured art rather than from a blank page:
+
+![Every part of the art, laid out, and one moment of the gallop posed by the rig: the sleigh with Santa, two reindeer, the parts one by one, Nikolaus's boot empty and filled, and the three Sankt Martin lanterns](020/art/sheet.svg)
+
+| What | Where | What it gives step 1 |
+|---|---|---|
+| **The art, part by part** | `020/art/*.svg`, from `020/art.py` | the sleigh, Santa and his arm; a reindeer as body, head (plain and the lead's glowing nose), tail and eight leg segments (near and far); Nikolaus's boot, empty and filled; Sankt Martin's sun, moon and star lanterns. Each in its own coordinates with a pivot |
+| **The rig and the gait** | `020/art/parts.json` | where each part sits on its parent, and the gallop and lantern swing as keyframed curves. The canvas and the mockups read the same file |
+| **Moving references** | `020/art/team.svg`, `020/art/lanterns.svg`, `020/art/sheet.svg` | the motion, viewable in any browser or on GitHub, and every part laid out |
+| **The pipeline, running** | `020/prototype/scene.html`, from `020/bench.py` | §5.1 end to end: parts rasterised once to `ImageBitmap`s, rigged on a canvas at 30 fps, reins live, snow behind and in front, one shared wind. It is also the Pi benchmark (§7.1) |
+| **Mockups on the real app** | `020/capture.cjs`, `020/mockups.py` | screenshots of Kinboard with the festival layers placed on measured card positions |
+
+What step 1 still has to build: `lib/festivals.ts` and its specs, the
+setting, `data-festival`, the colour wash, the scene in
+`components/weather-effects.tsx`, the tap target, and the outfits in
+`items.tsx`. The art is drawn to be ported as it is: each part becomes a
+string or a component the loop rasterises.
 
 ## 6. Steps
 
 | Step | What | When it's worth having |
 |---|---|---|
-| 1 | `lib/festivals.ts` with all dates, the pre-tick table and specs; the setting; `data-festival`; the colour wash; **Christmas**: the sleigh with its tap, snow-capped cards, the Santa hat | before the 1st of Advent, **29 Nov 2026** |
+| 1 | `lib/festivals.ts` with all dates, the pre-tick table and specs; the setting; `data-festival`; the colour wash; **Christmas**: the sleigh with its tap (art, rig and gait already drawn, §5.2), snow-capped cards, the Santa hat | before the 1st of Advent, **29 Nov 2026** |
 | 2 | **Germany: Nikolaus and Sankt Martin** (decision 7). Nikolaus is low effort and can follow step 1 in time for 6 Dec 2026. Sankt Martin needs its lantern walk drawn | Nikolaus **6 Dec 2026**; Sankt Martin **11 Nov 2027** (2026 only if the work starts in the first week of November) |
 | 3 | New Year's Eve: fireworks at the family's midnight | 31 Dec 2026 |
 | 4 | Lunar New Year, Easter (Western and Orthodox) | 17 Feb 2027 / Mar–Apr 2027 |
@@ -382,6 +427,64 @@ and the sleigh can follow in December.
   when it ends, never for festivals that aren't on.
 - **Keeping it fresh.** The Diwali table needs a reminder that fails in time
   (§3.2). Every other date is computed.
+
+### 7.1 Pi performance: what we know, and what we don't
+
+Nobody on the project has a spare Raspberry Pi, so the first numbers are an
+**estimate**. They come from `020/prototype/scene.html` (§5.2) in headless
+Chromium 147 on a 4-core i5-13400 VM, at 1920×1080, with the CPU throttled.
+Each scene ran 20 s after a 2 s warm-up, at Kinboard's 30 fps cap, with 160
+flakes behind the widgets and 36 in front. To be harsh, the sleigh flies
+**continuously** here; in use it flies 10 s in every 120.
+
+| CPU throttle | Snow only (today) | Snow + sleigh, cached images (§5.1) | Snow + sleigh, live SVG |
+|---|---|---|---|
+| 1× | 30 fps · 0.3 ms script | 30 fps · 0.6 ms | 30 fps · 0.5 ms |
+| 4× | 30 fps · 1.5 ms | 30 fps · 2.3 ms | 29.9 fps · 2.2 ms |
+| 6× | 29.9 fps · 1 dropped frame | **28 fps** · 19 dropped · 4.3 ms | **24.2 fps** · 34 dropped · 3.8 ms |
+
+Preparing the images, done once when a festival starts, took 60 ms at 1×,
+234 ms at 4× and 391 ms at 6×.
+
+What it says:
+
+- **The cached-image pipeline adds little.** Up to 4× it costs under a
+  millisecond of script a frame over snow alone, with no dropped frames.
+- **Live SVG falls behind first,** even though its own script time is
+  *lower*. Its cost is in the browser's style and repaint work, which a
+  script timer doesn't see. That bears out §5.1.
+- **At 6× both start dropping frames,** and the drops aren't script: 4.3 ms
+  is far inside the 33 ms budget. They're the cost of filling two
+  full-screen canvases in software. So step 1 should: clear and redraw only
+  the visitor's box on the front layer, not the whole screen; create that
+  layer only for a pass; and prepare the images in idle time
+  (`requestIdleCallback`), not on the frame that starts the festival.
+
+What it can't say:
+
+- **This isn't a Pi.** DevTools throttling slows only the page's main thread.
+  Rasterising and compositing still run at this CPU's speed. Headless
+  Chromium here draws through SwiftShader, in software, while a Pi has a
+  real GPU with drivers of varying quality. Very roughly, a Pi 4's cores
+  are 5–7× slower than this one single-threaded, and a Pi 5's 2.5–3×, so
+  4× and 6× bracket them. That's an educated guess, not a measurement.
+- **It's not the whole app.** Kinboard itself, with React, realtime and the
+  widgets, runs alongside on a real display; the benchmark has a screenshot
+  of Home as its backdrop.
+
+**Real numbers, from people who have a Pi.** `scene.html` is a single file
+with no server and no network, so anyone with a Pi wall display can run it:
+
+```bash
+# from main once this RFC is merged; until then, replace main with docs/rfc-holiday-decorations
+curl -LO https://raw.githubusercontent.com/svenger87/kinboard/main/docs/rfc/020/prototype/scene.html
+chromium scene.html          # or open it in the kiosk browser
+```
+
+It runs about 70 s and ends with a table and a *Copy results* button. The
+JSON it copies has the browser, cores, memory, screen and pixel ratio, so
+reports from different Pis can be compared. **Proposed:** step 1 waits for
+numbers from at least a Pi 4 and a Pi 5.
 
 ## 8. Decisions (owner, 2026-11-01)
 

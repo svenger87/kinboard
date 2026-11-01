@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 190" width="120" height="190" data-pivot="60 0">
+<defs><radialGradient id="paper" cx="0.5" cy="0.5" r="0.5" fx="0.45" fy="0.45"><stop offset="0" stop-color="#FFF6D0"/><stop offset="0.45" stop-color="#FF8A5B"/><stop offset="1" stop-color="#FF8A5B" stop-opacity="0.85"/></radialGradient><radialGradient id="halo" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FF8A5B" stop-opacity="0.55"/><stop offset="1" stop-color="#FF8A5B" stop-opacity="0"/></radialGradient><radialGradient id="flame" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.4" stop-color="#FFE27A"/><stop offset="1" stop-color="#FF9A1F"/></radialGradient><linearGradient id="stick" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#C9A46E"/><stop offset="1" stop-color="#8A6236"/></linearGradient><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="8"/></filter></defs>
+<path d="M60,0 L60,72" stroke="url(#stick)" stroke-width="4" stroke-linecap="round"/>
+<path d="M60,72 C54,78 54,82 60,84 C66,82 66,78 60,72" stroke="#3B2A1E" stroke-width="1.4" fill="none"/>
+<circle cx="60" cy="122" r="58" fill="url(#halo)" filter="url(#glow)"/>
+<polygon points="60.0,78.0 70.6,105.4 99.9,107.0 77.1,125.6 84.7,154.0 60.0,138.0 35.3,154.0 42.9,125.6 20.1,107.0 49.4,105.4" fill="url(#paper)"/>
+<ellipse cx="60" cy="128" rx="5" ry="9" fill="url(#flame)" opacity="0.85"/>
+<ellipse cx="50" cy="104" rx="10" ry="6" fill="#FFFFFF" opacity="0.35" transform="rotate(-25 50 104)"/>
+</svg>
