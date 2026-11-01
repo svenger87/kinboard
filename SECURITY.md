@@ -20,7 +20,7 @@ When reporting, include:
 Kinboard is designed for **a single trusted home network**. The default security model assumes:
 
 - All devices on the same LAN are trusted
-- The Supabase admin credentials and service-role key are protected by the host's filesystem permissions
+- The database admin credentials and service-role key are protected by the host's filesystem permissions
 - The webapp is **not** exposed directly to the public internet
 
 If you put Kinboard on the open internet, you're responsible for adding a reverse proxy with authentication in front of it (Authelia, Authentik, Traefik forward-auth, Cloudflare Access, etc.). The 6-character family join code is intended as a low-friction LAN onboarding mechanism, not as an internet-facing auth boundary.
@@ -28,7 +28,7 @@ If you put Kinboard on the open internet, you're responsible for adding a revers
 ## What's in scope
 
 - The Next.js webapp (`webapp/src/`) and its API routes (`webapp/src/app/api/`)
-- The bundled Docker stack (`webapp/docker/`) including kong configuration and CORS allowlists
+- The bundled Docker stack (`webapp/docker/`), including the webapp's forwarding of `/rest/v1` to PostgREST (and its refusal of the `service_role` key from outside) and the serving of uploaded files at `/storage/v1/…`
 - Database schema (`webapp/docker/init.sql` + `migrations/*.sql`)
 - The auth boundary: a device joins with the family code and receives a server-issued, HttpOnly session cookie; that cookie is exchanged at `/api/session/token` for a short-lived family-scoped JWT, and **row-level security in Postgres enforces isolation** using the `family_id` claim on that token (`webapp/docker/migrations/049_row_level_security.sql`). `service_role` keeps `BYPASSRLS`, so the API routes and cron jobs establish the family server-side instead.
 

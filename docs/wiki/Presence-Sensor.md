@@ -124,7 +124,7 @@ USB-UART adapter (FTDI / CH340)
 presence-sensor.py
     ├──► POST {presence, distance, device_id} → /api/presence
     │       └─► Kinboard webapp updates `devices.last_presence` in DB
-    │             └─► Realtime → other clients see the state change
+    │             └─► live updates → other clients see the state change
     │
     └──► On no-presence > DISPLAY_OFF_DELAY:
             SendMessage(SC_MONITORPOWER, 2)   (Windows: turn display off)

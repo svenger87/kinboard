@@ -16,7 +16,7 @@ You'll need:
   which is what Node 20 bundles. `cd webapp && corepack enable npm` activates the pinned version
   from `packageManager` in `package.json` (the explicit `npm` argument is required; plain
   `corepack enable` only shims yarn and pnpm).
-- **Docker** (for the bundled Supabase stack)
+- **Docker** (for the bundled Postgres + PostgREST stack)
 - A POSIX shell — the helper scripts assume `bash`. On Windows, use WSL2 or Git Bash
 
 ```bash
@@ -25,7 +25,7 @@ git clone https://github.com/svenger87/kinboard.git
 cd kinboard
 ./setup.sh   # generates .env files and random secrets
 
-# Bring up the Supabase stack
+# Bring up the stack (Postgres, PostgREST, and the published webapp on :3001)
 cd webapp/docker
 ./start.sh up
 
@@ -36,6 +36,8 @@ npm run dev
 ```
 
 Open `http://localhost:3000` and follow the in-app onboarding to create your first family.
+
+The dev server talks to PostgREST directly on the server side, so it needs `POSTGREST_URL` in `webapp/.env.local` pointing at a PostgREST the host can reach. The stack does not publish `rest`'s port by default (inside the stack the webapp reaches it as `http://rest:3000`); the dev overlay does, on loopback: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db db-init rest` from `webapp/docker`, then `POSTGREST_URL=http://localhost:3010` (plus the `POSTGRES_*` and `FILES_DIR` lines from `webapp/.env.example`, for live updates and uploads). The browser needs no API address at all: it uses `/rest/v1` on the page's own origin, which the dev server forwards the same way the container does.
 
 ## Code style
 
@@ -53,7 +55,7 @@ The repo follows a few conventions worth knowing about:
 - **Translations.** All user-facing strings live in `webapp/messages/{en,de,fr}.json`. New strings need entries in all locales. Use `useTranslations("namespace")` rather than hardcoding text.
 - **Date formatting.** Use `date-fns` with `de | enUS` locales rather than hardcoded month/day names.
 - **Server vs. client state.** Server state goes through TanStack Query (`webapp/src/hooks/`). UI state goes through Zustand (`webapp/src/stores/`).
-- **Database changes.** Schema changes ship as new `webapp/docker/migrations/NNN_topic.sql` files (idempotent — guarded with `IF NOT EXISTS` / type checks). `init.sql` is reserved for fresh installs and runs once. `start.sh up` applies migrations on every boot.
+- **Database changes.** Schema changes ship as new `webapp/docker/migrations/NNN_topic.sql` files — take the next free number. `migrate.sh` applies them in numeric order and records each one, with a checksum, in `kinboard.schema_migrations`; the webapp container runs it on every start, and `./start.sh migrate` runs it by hand. A file whose content changes is applied again, so every migration must stay idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`, type checks). `init.sql` is reserved for fresh installs and runs once. A migration that adds a table which should stream live needs nothing restarted any more: live updates come from the webapp itself.
 - **Settings pages share one frame.** A page under `webapp/src/app/settings/<name>/page.tsx` opens with the shell every other one uses:
 
   ```tsx

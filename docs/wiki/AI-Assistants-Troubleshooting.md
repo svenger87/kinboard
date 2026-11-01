@@ -174,9 +174,10 @@ Also check:
   nothing is sent to the screens; the assistant is told straight away that
   the family has no settings PIN and nothing was done. Set one under
   **Settings**.
-- **After an upgrade**, the realtime container has to be restarted before
-  screens get new requests. See [Self-hosting
-  notes](AI-Assistants-Self-Hosting#upgrading).
+- **After an upgrade**, a screen still on the previous version may not show
+  new kinds of request; reload it. See [Self-hosting
+  notes](AI-Assistants-Self-Hosting#upgrading). (Before 1.15 the realtime
+  container also had to be restarted; it no longer exists.)
 - **Phones**: only phones with notifications switched on get the push. See
   [Notifications](Notifications).
 - **It expired.** A request lasts 2 minutes. Ask again when someone is near

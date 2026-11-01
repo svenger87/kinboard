@@ -65,9 +65,15 @@ cd webapp/docker
 ```
 
 That is the image-based path used by the one-line installer. If your existing
-installation intentionally builds a modified webapp from source, keep using
-`COMPOSE_FILES="-f docker-compose.yml" ./start.sh restart`; the installer does
-not change that checkout or its configuration.
+installation intentionally builds a modified webapp from source, add the build
+overlay: `COMPOSE_FILES="-f docker-compose.yml -f docker-compose.build.yml" ./start.sh up`
+(since 1.15 `docker-compose.yml` on its own runs the published image); the
+installer does not change that checkout or its configuration.
+
+**Upgrading to 1.15** retires five containers (Kong, GoTrue, Realtime, Storage,
+imgproxy); the webapp now serves everything itself. The auto-update and
+`./start.sh up` handle it; custom compose overlays and reverse-proxy rules may
+need a look first. See [UPGRADING.md](UPGRADING.md#115--one-container-serves-everything).
 
 **Trying a release candidate** — set `KINBOARD_TAG=next` in `webapp/docker/.env` and bring the stack up again. That follows the pre-release channel; remove the line (or set `latest`) to go back to stable. Release candidates are announced on the [Releases](https://github.com/svenger87/kinboard/releases) page and are where feedback is most useful. See [Self-hosting → Pre-release channel](https://github.com/svenger87/kinboard/wiki/Self-hosting#pre-release-channel).
 
@@ -85,7 +91,7 @@ For production self-hosting (Traefik + custom domain + backups + updates), see [
   offline-capable shopping list for poor mobile coverage.
 - Optional Home Assistant, Google Calendar, CalDAV, Immich, DLNA, iCloud,
   OpenWeatherMap, Bring!, and camera integrations.
-- Local data in a bundled Supabase stack, with backups and no hosted account or
+- Local data in a bundled Postgres stack, with backups and no hosted account or
   telemetry.
 - Touch-first layouts, installable PWAs, English, German, and French.
 
@@ -140,7 +146,7 @@ Every screenshot has a light-mode variant with a `-light` suffix, and the phone-
 
 | Service | Purpose | Required? |
 | --- | --- | --- |
-| Supabase (self-hosted) | Database + realtime sync | Yes (bundled) |
+| PostgreSQL + PostgREST | Database and its API (live sync is served by the webapp) | Yes (bundled) |
 | OpenWeatherMap | Weather forecasts + radar | Optional, free tier OK |
 | Google Calendar | Two-way calendar sync | Optional |
 | CalDAV (Nextcloud, Radicale, Fastmail, iCloud, …) | Two-way calendar sync without Google | Optional |
@@ -223,7 +229,8 @@ Niche integrations (Tesla Fleet, Zendure SolarFlow batteries, etc.) ship as opt-
 - **[Next.js](https://nextjs.org/) 16** (App Router) + **[React](https://react.dev/) 19**
 - **[shadcn/ui](https://ui.shadcn.com/)** + **[Tailwind CSS](https://tailwindcss.com/)** for UI
 - **[TanStack Query](https://tanstack.com/query)** (server state) + **[Zustand](https://zustand-demo.pmnd.rs/)** (client state)
-- **[Supabase](https://supabase.com/)** (Postgres + Realtime) — self-hosted
+- **PostgreSQL** (the [Supabase](https://supabase.com/) Postgres image) + **[PostgREST](https://postgrest.org/)**, queried with `supabase-js` — self-hosted; uploads and live updates (Server-Sent Events over Postgres `LISTEN`/`NOTIFY`) are served by the Next.js app itself
+- **Six containers**: `db`, `db-init` (one-shot), `rest`, `webapp`, `cron` (Ofelia), `go2rtc` — the family opens one address on one port
 - **[next-intl](https://next-intl.dev/)** for i18n (EN/DE/FR)
 - **[Framer Motion](https://www.framer.com/motion/)** for transitions
 - **Service worker + IndexedDB** for offline shopping
@@ -311,7 +318,8 @@ Kinboard is built and maintained on personal time. If it's useful to your family
 
 Kinboard stands on the shoulders of an incredible amount of open-source work:
 
-- **[Supabase](https://supabase.com/)** — the entire self-hosted backend stack (Postgres, Realtime, GoTrue, PostgREST, Storage)
+- **[Supabase](https://supabase.com/)** — the Postgres image and the `supabase-js` client Kinboard is built on (and, until 1.15, much more of its self-hosted stack)
+- **[PostgREST](https://postgrest.org/)** — the database API the browser talks to
 - **[Next.js](https://nextjs.org/)** + **[Vercel](https://vercel.com/)** — the application framework
 - **[shadcn/ui](https://ui.shadcn.com/)** — the component primitives. UI quality starts here.
 - **[Lucide](https://lucide.dev/)** — every icon in the app

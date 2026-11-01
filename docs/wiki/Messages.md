@@ -14,7 +14,7 @@ somebody confirms they saw it.
 2. Select **Say something**.
 3. Enter up to 200 characters and select **Send**.
 
-Every other active family screen receives the message over Realtime. For its
+Every other active family screen receives the message over the live-update feed. For its
 first minute it appears as a large panel above the dashboard widgets. It then
 collapses into the Messages widget and stays there until acknowledged. The
 screensaver does not cover a message while it has the large attention state.
@@ -39,7 +39,7 @@ already acknowledged it, Kinboard explains that it has already been seen.
 
 Messages are sent even during configured quiet hours because they are written
 by a person at that moment rather than scheduled by Kinboard. A push failure
-does not discard the message: connected screens still receive it over Realtime.
+does not discard the message: connected screens still receive it over the live-update feed.
 
 ## Settings and troubleshooting
 
@@ -49,7 +49,7 @@ dashboard.
 
 | Problem | Check |
 |---|---|
-| A screen does not update immediately | Confirm Realtime is healthy and reload once; the client also polls as a fallback. |
+| A screen does not update immediately | Check Settings → Diagnostics for the live-update status and reload once; the client also polls as a fallback. |
 | No phone notification | Enable notifications on that device and use **Settings → Notifications → Send test**. |
 | The sender gets no takeover | This is intentional; the sender sees a waiting row instead. |
 | A message vanished everywhere | Another device acknowledged it, or the sender withdrew it. |

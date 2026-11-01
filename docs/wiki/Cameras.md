@@ -100,7 +100,7 @@ Credentials are stored in `settings.cameras[].auth` and only used server-side; t
 
 ## WebRTC + Traefik
 
-If you put go2rtc behind Traefik for public access, the override file `docker-compose.traefik.yml.example` ships a TCP router for port 8555 (WebRTC TCP fallback). Configure a `webrtc` entrypoint in your Traefik static config:
+If you put go2rtc behind Traefik for public access, the overlay `docker-compose.traefik.yml` ships a commented-out TCP router for port 8555 (WebRTC TCP fallback). Configure a `webrtc` entrypoint in your Traefik static config:
 
 ```yaml
 # traefik.yml

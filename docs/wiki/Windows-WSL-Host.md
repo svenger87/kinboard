@@ -74,66 +74,26 @@ cd webapp/docker
 ./start.sh up
 ```
 
-`setup.sh` asks one question — the address you will open Kinboard at. **On
-WSL, answer `http://localhost:8100`.** Recent versions suggest that by
-themselves; older ones suggested your public IP, which does not work (see
-below).
+`setup.sh` asks no questions about addresses. On WSL it suggests
+`http://localhost:3001` and stores it as `SITE_URL`, which is only used for
+links Kinboard hands to other apps (the calendar feed).
 
 Then open **`http://localhost:3001`** in the Windows browser. WSL forwards
 localhost from Windows into the VM, so it reaches the stack without further
 configuration.
 
-## The second address
+## One address
 
-> **Since 1.13 there is no second address on a new install.** Kong answers on
-> port 3001 with the page and its data (`KINBOARD_ENTRY=kong` in
-> `webapp/docker/.env`), so the browser fetches everything from the address
-> you typed, and `API_EXTERNAL_URL` stays empty. Everything below applies to an
-> install that still has `KINBOARD_ENTRY=webapp`, or no such line yet. See
-> [Self-hosting → What URL should I use?](Self-hosting#what-url-should-i-use).
+Kinboard answers on one port, `3001`: the page, your family's data, uploaded
+pictures and live updates all come from the address you typed. There is no
+second address to get right. (Until 1.15 there could be one — `API_EXTERNAL_URL`
+on port 8100 — and a wrong value there loaded the page and then failed with
+"Can't reach the Kinboard server". Since 1.15 that setting is ignored; a line
+left in `.env` does no harm.)
 
-This is the part that is easy to get wrong, and the error you get does not
-point at it.
-
-Kinboard uses two addresses. The **page** comes from wherever you typed —
-`localhost:3001`. But everything the page does after that — loading your
-family's data, saving, live updates — goes from the browser to a second,
-fixed address: `API_EXTERNAL_URL` in `webapp/docker/.env`, which `setup.sh`
-wrote. If that address is not reachable from your browser, the page loads,
-the first step of setting up a family works (it goes through the page's own
-address), and then:
-
-- **"Kinboard-Server nicht erreichbar" / "Can't reach the Kinboard server"**
-  after the family-name step, sometimes only after a couple of minutes, and
-- **"Live-Updates pausiert" / "Live updates paused"** permanently at the bottom,
-  and nothing you enter is saved.
-
-Those minutes are timeouts. Check what is configured:
-
-```bash
-cd ~/kinboard/webapp/docker
-grep -E "API_EXTERNAL_URL|SITE_URL" .env
-```
-
-For a server you use from the same Windows PC, it should read:
-
-```
-API_EXTERNAL_URL=http://localhost:8100
-SITE_URL=http://localhost:3001
-ADDITIONAL_REDIRECT_URLS=http://localhost:3001
-```
-
-If it does not, edit those three lines and run `./start.sh up` again. Running
-`setup.sh` again will **not** fix it: once an address is written, setup keeps
-it. If the browser still shows the old behaviour, clear the site data for
-`localhost:3001` — Kinboard installs an offline cache that can remember the
-page as it was.
-
-Before 1.11, `setup.sh` suggested your **public** IP here on WSL — and on most
-home servers — because it treated "public address differs from local address"
-as a sign of a cloud server, when behind a home router the two always differ.
-If you installed with an older version and pressed Enter, that is what you
-have.
+If the browser still behaves like an older version after an upgrade, clear the
+site data for `localhost:3001` — Kinboard installs an offline cache that can
+remember the page as it was.
 
 For everything after that — integrations, the family code, adding the wall
 panel — follow [Quick start](Quick-start) from step 3.
@@ -168,7 +128,7 @@ Kinboard from the internet. The obstacle here is inside the Windows machine.
   On older Windows without mirrored mode, the fallback is a port proxy from
   the PC's address to WSL's — `netsh interface portproxy add v4tov4
   listenport=3001 listenaddress=0.0.0.0 connectport=3001
-  connectaddress=<wsl-ip>`, and the same for 8100 — with the catch that WSL's
+  connectaddress=<wsl-ip>` — with the catch that WSL's
   address changes on every restart and the rules have to follow it.
 
 ### 2. The firewall has to let it in
@@ -176,7 +136,7 @@ Kinboard from the internet. The obstacle here is inside the Windows machine.
 From an **administrator** PowerShell:
 
 ```powershell
-New-NetFirewallRule -DisplayName "Kinboard" -Direction Inbound -Protocol TCP -LocalPort 3001,8100 -Action Allow -Profile Private
+New-NetFirewallRule -DisplayName "Kinboard" -Direction Inbound -Protocol TCP -LocalPort 3001 -Action Allow -Profile Private
 ```
 
 That rule only applies while your network is set to **Private** — check
@@ -187,62 +147,36 @@ In mirrored mode Windows puts a second firewall in front of WSL, the Hyper-V
 firewall. If the phone still times out after the rule above:
 
 ```powershell
-New-NetFirewallHyperVRule -Name "Kinboard" -DisplayName "Kinboard" -Direction Inbound -VMCreatorId '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -Protocol TCP -LocalPorts 3001,8100
+New-NetFirewallHyperVRule -Name "Kinboard" -DisplayName "Kinboard" -Direction Inbound -VMCreatorId '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -Protocol TCP -LocalPorts 3001
 ```
 
 (The GUID identifies WSL; it is the same on every machine.)
 
-### 3. Kinboard has to be told the address
+### 3. Open it at the PC's address
 
-This is [the second address](#the-second-address) again, and it is the step
-that gets missed. The phone loads the page from `http://<PC-IP>:3001`, then
-sends every data request to `API_EXTERNAL_URL` — and if that still reads
-`localhost`, the phone looks for its data on *itself*.
+Open `http://<PC-IP>:3001` on the phone and join with the family code. Point
+the panel at the same address rather than `localhost`. There is nothing to
+configure in Kinboard for this: every device talks to it at the address it
+opened it from.
 
-It is not only that line. Kong only accepts requests from pages it has been
-told about, and that list is written by `setup.sh` from the same address. So:
+If you want the links Kinboard hands to other apps (the calendar feed) to use
+that address too, set it once from the project root, then restart:
 
 ```bash
-# 1. the address, in webapp/docker/.env — mind the port, it is 8100:
-#      API_EXTERNAL_URL=http://<PC-IP>:8100
-nano ~/kinboard/webapp/docker/.env
-
-# 2. setup.sh lives in the PROJECT ROOT
 cd ~/kinboard
-./setup.sh --non-interactive
+./setup.sh --url http://<PC-IP>:3001
 
-# 3. start.sh lives in webapp/docker
 cd ~/kinboard/webapp/docker
 ./start.sh up
-docker restart kinboard-kong
 ```
 
 **The two scripts live in different directories** — `setup.sh` at the top of
 the project, `start.sh` under `webapp/docker` — so each block here changes
 directory before it calls one.
 
-**And mind the two ports.** They are easy to swap and the failure is silent:
-
-| | port |
-|---|---|
-| the page you open in a browser | **3001** |
-| the API address (`API_EXTERNAL_URL`) | **8100** |
-
-`8001` is not a Kinboard port. Since 1.11.1, `./start.sh up` warns when the
-port in `API_EXTERNAL_URL` is not the one Kong is published on.
-
-`setup.sh` keeps an address you have written by hand, derives `SITE_URL` and
-`ADDITIONAL_REDIRECT_URLS` from it, and rewrites Kong's allowed origin. Kong
-reads that file only when it starts, which is what the restart is for — skip
-it and the phone's browser blocks every request with a CORS error.
-
-Then open `http://<PC-IP>:3001` on the phone and join with the family code.
-Point the panel at the same address rather than `localhost`, so everything
-uses one address.
-
-**Give the PC a fixed IP** — a DHCP reservation on your router. The address
-is now written into the configuration, and if the router hands out a
-different one, every device stops working again.
+**Give the PC a fixed IP** — a DHCP reservation on your router. The phone
+and the panel have the address bookmarked, and if the router hands out a
+different one, every device stops finding it.
 
 If the panel on the wall **is** this PC and nothing else needs to reach it,
 none of this section applies — localhost is correct.
@@ -250,8 +184,7 @@ none of this section applies — localhost is correct.
 ### Why this is so much work
 
 All three steps exist only because the server runs inside WSL on Windows:
-WSL's own network, the extra firewall, and an address that has to be written
-down. On a Raspberry Pi, a NAS or any small Linux machine the stack sits on
+WSL's own network, the extra firewall, and an address that has to stay put. On a Raspberry Pi, a NAS or any small Linux machine the stack sits on
 your home network directly, a phone reaches it without any of this, and
 `setup.sh` suggests the right address by itself. If you have one, that is the
 better host; the Windows PC can stay the display.
@@ -264,13 +197,11 @@ covered for a Linux host in [Self-hosting](Self-hosting), and it is not worth
 attempting on a WSL host without a strong reason.
 
 The low-effort way to use it from outside is a VPN such as Tailscale on the
-PC and the phone: no router changes, no domain, no certificate. One catch,
-and it is [the second address](#the-second-address) again: `API_EXTERNAL_URL`
-is your LAN IP, so the phone has to be able to reach that LAN IP when it is
-away as well. Share your home network as a Tailscale **subnet route** from a
-device that is always on, and approve the route in Tailscale's admin console
-(see Tailscale's documentation on subnet routers). Without that, the page
-loads from outside and then says it cannot reach the server.
+PC and the phone: no router changes, no domain, no certificate. Open Kinboard
+on the phone at an address Tailscale can reach — the PC's Tailscale address,
+or your LAN IP if you share your home network as a Tailscale **subnet route**
+from a device that is always on (see Tailscale's documentation on subnet
+routers).
 
 ## When it does not work
 
@@ -286,9 +217,12 @@ address is answering: step 1 or 2 of
 [Reaching it from other devices](#reaching-it-from-other-devices). With Docker
 Engine inside WSL and no mirrored networking, this is guaranteed.
 
-**The phone loads the page, then "can't reach the Kinboard server"** — the
-page is reachable, the data address is not: step 3. `API_EXTERNAL_URL` still
-says `localhost`, or Kong was not restarted after `setup.sh`.
+**The phone loads the page, then "can't reach the Kinboard server"** — on an
+install older than 1.15, `API_EXTERNAL_URL` in `webapp/docker/.env` still says
+`localhost`; upgrading takes that setting out of the picture. On 1.15 or later
+the page and its data come from the same address, so clear the site data once
+(the offline cache may hold an older page) and check
+`docker logs kinboard-webapp`.
 
 **You do not need to install PostgreSQL.** It runs in a container, as do all
 the other services. A PostgreSQL installed on Windows will not help, and if it

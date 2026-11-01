@@ -4,7 +4,7 @@
 
 ![Kinboard dashboard — kitchen-kiosk portrait view](images/dashboard-portrait.png)
 
-Kinboard runs on your hardware, in your house. No cloud account, no telemetry, no subscription. The kitchen-wall display, your phone, the kids' tablets — they all show the same family state, kept in sync by a self-hosted Supabase Realtime backend.
+Kinboard runs on your hardware, in your house. No cloud account, no telemetry, no subscription. The kitchen-wall display, your phone, the kids' tablets — they all show the same family state, kept in sync live by a backend that runs on your own machine.
 
 ### It's on your phone too
 

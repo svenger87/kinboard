@@ -59,7 +59,6 @@ For the typical home deployment:
 
 ### Recommended
 
-- **Disable signup if you self-host Supabase Auth.** Kinboard doesn't actually use GoTrue auth flows for the family identity model, so leaving signup off avoids accidental account creation. Set `GOTRUE_DISABLE_SIGNUP=true` in `webapp/docker/.env`.
 - **Limit the Postgres port to localhost.** The default `docker-compose.yml` exposes 5432 to the host network so you can `psql` for ops. If you don't need that, change `"5432:5432"` to `"127.0.0.1:5432:5432"`.
 - **Rotate the family join code occasionally.** Settings → the join-code card has a "Rotate" action, plus an opt-in expiry (never / 1 hour / 24 hours / 7 days) — expired codes are rejected at join time.
 
@@ -78,7 +77,7 @@ Once set, the PIN persists for the browser session via `sessionStorage`. Closing
 
 ## Integration credentials
 
-OAuth tokens (Google, Home Assistant), CalDAV passwords, and API keys (Immich, Unsplash, Bring!) live in `public.integration_secrets`, a table with `anon`/`authenticated` database privileges revoked and excluded from the Realtime publication — only the server's service-role client can read it. Before v1.4.0 these lived in the same `settings` table as everything else, which every screen of the family can read by design (so the dashboard can live-sync); that meant any device on the network could read another family member's Google refresh token or Home Assistant long-lived token via PostgREST. Settings pages now read a merged, secret-stripped view to show "connected" status without the browser ever receiving the actual token. Existing installs migrate their previously-exposed credentials into the locked-down table automatically on upgrade — no reconnecting required.
+OAuth tokens (Google, Home Assistant), CalDAV passwords, and API keys (Immich, Unsplash, Bring!) live in `public.integration_secrets`, a table with `anon`/`authenticated` database privileges revoked and never streamed live — only the server's service-role client can read it. Before v1.4.0 these lived in the same `settings` table as everything else, which every screen of the family can read by design (so the dashboard can live-sync); that meant any device on the network could read another family member's Google refresh token or Home Assistant long-lived token via PostgREST. Settings pages now read a merged, secret-stripped view to show "connected" status without the browser ever receiving the actual token. Existing installs migrate their previously-exposed credentials into the locked-down table automatically on upgrade — no reconnecting required.
 
 ## How device recognition works
 

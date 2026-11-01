@@ -70,10 +70,9 @@ one bucket.
 
 ## Reverse proxy
 
-- **Send everything except Kong's paths to the webapp.** The Traefik overlay
-  that ships with Kinboard already does: `/rest`, `/auth`, `/storage` and
-  `/realtime` go to Kong, and everything else, `/api/oauth/…` and
-  `/.well-known/…` included, goes to the webapp. See
+- **Send everything to the webapp.** Since 1.15 it serves every path,
+  `/api/oauth/…` and `/.well-known/…` included. The Traefik overlay that ships
+  with Kinboard already does this with a single route. See
   [Self-hosting](Self-hosting#behind-traefik).
 - **Don't let the proxy answer `/.well-known/` itself.** Some proxies and
   NAS front ends serve that whole prefix for certificate challenges. Only
@@ -139,22 +138,17 @@ assistant will fail too.
 ## Upgrading
 
 Assistant support adds tables and columns, and the confirmation prompts on
-the screens arrive through realtime. When you upgrade to a version that adds
-or changes them:
+the screens arrive through the live-update feed. When you upgrade to a version
+that adds or changes them:
 
-1. **Let the migrations run.** The webapp container applies every migration
+1. **Let the migrations run.** The webapp container applies new migrations
    when it starts and tells PostgREST to reload its schema afterwards; it
    refuses to start against a half-applied schema. If you run them by hand
    instead (`cd webapp/docker && ./start.sh migrate`), that reloads the
    schema too. See [Self-hosting: Updates](Self-hosting#updates).
-2. **Restart realtime:** `docker compose restart realtime` (with your usual
-   `-f` files). Realtime reads which tables it streams when it starts, so a
-   table or a column added while it was running doesn't reach the screens
-   until it restarts. Nothing reports this: the screens open their live
-   connection as usual and simply never receive the confirmation requests.
-3. **Restart `rest` if an error mentions a missing column.** That means
+2. **Restart `rest` if an error mentions a missing column.** That means
    PostgREST is still on the old schema: `docker compose restart rest`.
-4. **Reload every household screen** (or leave them idle; they take a new
+3. **Reload every household screen** (or leave them idle; they take a new
    version on their own) before an assistant asks for its first pocket-money
    booking. A screen still on the previous version can't describe a
    pocket-money request: it shows a generic line with no amount or child,

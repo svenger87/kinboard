@@ -1,6 +1,6 @@
 # Troubleshooting
 
-A growing list of common breakages and fixes. This page is an **index**: genuinely cross-cutting issues (stack won't start, ports, CORS/origin, real-time sync, deployment, performance, data) are documented here in full. Per-integration issues live on that integration's own page — this page links to them. If your problem isn't here, open an issue with reproduction steps.
+A growing list of common breakages and fixes. This page is an **index**: genuinely cross-cutting issues (stack won't start, ports, reachability, real-time sync, deployment, performance, data) are documented here in full. Per-integration issues live on that integration's own page — this page links to them. If your problem isn't here, open an issue with reproduction steps.
 
 ## Setup / first run
 
@@ -59,21 +59,14 @@ You pull, you restart, everything comes up clean — and Settings still shows th
 Check what compose actually resolved:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.image.yml config | grep -A1 "^  webapp:"
+docker compose $COMPOSE_FILES config | grep -A1 "^  webapp:"
 ```
 
-If you see `build:` rather than `image: ghcr.io/svenger87/kinboard:...`, compose is **building the webapp from the source checkout in that directory** and ignoring the image you pulled. A checkout that hasn't been `git pull`ed rebuilds the version it was already on, so the upgrade appears to do nothing.
-
-`docker compose` only auto-loads `docker-compose.yml` and `docker-compose.override.yml`. The published image is defined in `docker-compose.image.yml`, so it has to be named:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.image.yml pull
-./start.sh up
-```
-
-`start.sh` adds the overlay automatically, which is why it works where a bare `docker compose up -d` doesn't.
+Since 1.15 `docker-compose.yml` runs the published image (`image: ghcr.io/svenger87/kinboard:...`) on its own. If you see `image: kinboard-webapp:local` and a `build:` section instead, `docker-compose.build.yml` is in your `COMPOSE_FILES`, and compose is **building the webapp from the source checkout in that directory**. A checkout that hasn't been `git pull`ed rebuilds the version it was already on, so the upgrade appears to do nothing. Drop that file from `COMPOSE_FILES` to run the published image again.
 
 If you genuinely want to build from source, that's fine — just `git pull --ff-only origin main` first, or you will rebuild the version you already have.
+
+Also check `KINBOARD_TAG` in `.env`: a pinned version (`KINBOARD_TAG=1.14.0`) stays where it is however often you pull.
 
 ### Stack starts but webapp returns 404 on every URL
 
@@ -92,19 +85,17 @@ export COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml"
 
 If you're hitting Kinboard directly (no Traefik), check that `WEBAPP_PORT` in `.env` matches the URL you're using.
 
-### Kong returns 401 on every API call
+### Logs show `password authentication failed for user "authenticator"` (rest crash-loops)
 
-`kong.yml` still has the placeholder JWTs (`REPLACE_WITH_ANON_KEY` / `REPLACE_WITH_SERVICE_ROLE_KEY`). After pasting your Supabase keys into `.env`, re-run `setup.sh` — it substitutes them into kong.yml automatically.
+PostgREST's login role (`authenticator`) ships with an empty password in the Supabase Postgres image and needs aligning to `POSTGRES_PASSWORD`. The one-shot `db-init` service does that before `rest` starts, so a plain `docker compose up -d` works. If you see this, check `docker logs kinboard-db-init`: it must end with `authenticator password aligned.` A `POSTGRES_PASSWORD` changed in `.env` after the database was created is the usual cause — the database keeps the password it was created with.
 
-### App misbehaves (blocked requests, mismatched origin) when opened via `localhost` or a different hostname than expected
+### The page loads, but photos or uploads fail (503)
 
-This only happens on an install that keeps a separate API address (`KINBOARD_ENTRY=webapp` with `API_EXTERNAL_URL` set): with Kong as the front door, the API is on the page's own origin and CORS never comes into it ([Self-hosting → What URL should I use?](Self-hosting#what-url-should-i-use)).
+The webapp keeps uploaded files in `${DATA_DIR}/storage/files/`, mounted into the container at `/var/lib/storage`. An image from 1.15 on running with an older `docker-compose.yml` (typically an install that Watchtower updates without a `git pull`) has no such mount: existing pictures still load through the old storage container, but every upload answers 503. `git pull`, then `cd webapp/docker && ./start.sh up` (or `docker compose ... up -d --remove-orphans`). See [UPGRADING.md](https://github.com/svenger87/kinboard/blob/main/UPGRADING.md#115--one-container-serves-everything).
 
-Kong's `cors` plugin allows only the single origin baked in from `SITE_URL` at setup time (see the `# webapp_origin` line per plugin block in `kong.yml`). If you're opening Kinboard through a hostname `setup.sh` wasn't last run with, or your `kong.yml` predates the current template, requests from that origin get silently rejected. Re-run `./setup.sh` (with `--url` if needed), then `docker restart kinboard-kong` — `kong reload` doesn't fully re-parse declarative config in DB-less mode.
+### `docker compose up` fails with `service "kong" has neither an image nor a build context specified`
 
-### Logs show `password authentication failed for user "authenticator"` (auth/rest/storage/realtime crash-loop)
-
-The Supabase service roles (`authenticator`, `supabase_auth_admin`, `supabase_storage_admin`) ship with empty passwords and need aligning to `POSTGRES_PASSWORD`. **Fixed in current images** by a one-shot `db-init` service that runs before those containers start, so a plain `docker compose up -d` now works. If you're on an older `docker-compose.yml`, either `git pull` to get the `db-init` service, or run the stack via `./start.sh up` (which previously did this alignment from the host).
+An overlay of yours (`docker-compose.override.yml`, an old `docker-compose.traefik.yml`, …) still adds labels or settings to `kong`, `storage`, `realtime`, `auth` or `imgproxy`. Those services were removed from `docker-compose.yml` in 1.15, so the overlay's block is now a service with no image. Delete those blocks and run `./start.sh up` again. Until you do, the install stays on the version it was on, untouched.
 
 ### `crypto.randomUUID is not a function` — setup wizard (or other pages) crash on a LAN HTTP address
 
@@ -112,21 +103,14 @@ The Supabase service roles (`authenticator`, `supabase_auth_admin`, `supabase_st
 
 ### Can't open Kinboard from phones / tablets — only works on the machine running it
 
-Your install still answers on the webapp container (`KINBOARD_ENTRY=webapp`, or no such line in `webapp/docker/.env`) and its `API_EXTERNAL_URL` is `http://localhost:8100`, which only resolves on the server itself. Either let Kong be the front door, after which every device uses the address it opened Kinboard from:
+Every device talks to Kinboard at the address it opened it from, so this is a reachability problem, not a setting: the phone has to reach the server on `WEBAPP_PORT` (3001). Check that you're opening `http://<server-LAN-IP>:3001` and not `localhost`, and that no firewall on the server blocks the port. Under WSL, see [Windows (WSL) as a host](Windows-WSL-Host).
 
-```bash
-# in webapp/docker/.env: KINBOARD_ENTRY=kong
-./setup.sh                                  # adds Kong's front-door route if missing
-docker restart kinboard-kong
-cd webapp/docker && ./start.sh up
-```
-
-or keep the old layout and give it a reachable API address: `./setup.sh --api-url http://192.168.1.50:8100`, then `cd webapp/docker && ./start.sh up`. See [Self-hosting → What URL should I use?](Self-hosting#what-url-should-i-use).
+An old `API_EXTERNAL_URL=http://localhost:8100` in `.env` is not the cause any more: since 1.15 nothing reads it.
 
 ### "Database is empty / can't load" on dashboard
 
 Either:
-- The DB volume bind path changed when you upgraded to the templated `docker-compose.yml`. Check `DATA_DIR` in `.env` matches your existing data path. (For an existing prod deploy, use `webapp/docker/migrate-prod.sh` to add the variable safely.)
+- The DB volume bind path changed when you upgraded to the templated `docker-compose.yml`. Check `DATA_DIR` in `.env` matches your existing data path.
 - Cookies are stale. Clear cookies for the site (specifically the `family-store` cookie) and rejoin via `/join`.
 
 ## Real-time sync
@@ -134,12 +118,8 @@ Either:
 ### Edits on one device don't appear on the other
 
 1. Check that both devices are connected to the same family — Settings → top of page → join code matches
-2. Open the browser dev tools → Network → WS tab. You should see an open WebSocket to `/realtime/v1/websocket`. If it's closed/erroring, the issue is reaching the realtime container — check `kinboard-realtime` health
-3. If the WS is open but no messages arrive when you edit on the other device, the table may not be in the realtime publication. See [Architecture](Architecture#real-time-invalidation) → Real-time invalidation.
-
-### Storage container is "unhealthy"
-
-**Fixed in current images.** The `storage` healthcheck probed `http://localhost:5000`, which resolves to IPv6 `[::1]` in that image while the server binds IPv4 (`0.0.0.0:5000`) — so the probe got connection-refused and the container reported unhealthy forever despite serving fine. The healthcheck now uses `127.0.0.1`. If you still see it, `git pull` + `docker compose pull` (or `./start.sh up`) to get the updated `docker-compose.yml`. Storage was always functional regardless — the report was a false negative.
+2. Open the browser dev tools → Network and look for the request to `/api/realtime`. It is a long-lived Server-Sent Events stream (type `eventsource`) that should stay open. If it keeps failing, check the webapp's log (`docker logs kinboard-webapp`), and if you're behind a reverse proxy, make sure it doesn't buffer responses or cut long-lived connections short.
+3. If the stream is open but nothing arrives when you edit on the other device, see [Architecture → Real-time invalidation](Architecture#real-time-invalidation). Reloading the page always fetches the current data.
 
 ## Integrations
 
@@ -168,17 +148,12 @@ The Docker build step does `next build` which runs `tsc --noEmit`. If you have t
 
 To preempt this: run `npx tsc --noEmit` from `webapp/` before deploying.
 
-### `migrate-prod.sh` says ".env not found"
-
-Run from the `webapp/docker/` directory of the live deploy, not from your dev machine. The script operates on the `.env` it sits next to.
-
 ### After deploy, all routes 404
 
-If `deploy.sh` recreated the webapp container with only the base compose file (no Traefik override), Traefik dropped the route. Run `migrate-prod.sh` on the host to render the Traefik override, then restart with all overlays:
+If `deploy.sh` recreated the webapp container with only the base compose file (no Traefik override), Traefik dropped the route. Restart with all overlays:
 
 ```bash
 cd webapp/docker
-./migrate-prod.sh
 docker compose -f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.override.yml up -d --no-deps webapp
 ```
 
@@ -221,19 +196,16 @@ pg_dump: detail: Query was: LOCK TABLE _realtime.feature_flags IN ACCESS SHARE M
 ```
 
 You're dumping as `postgres`, which is **not** a superuser in the Supabase
-image — `supabase_admin` is. The `_realtime` schema is split between the two
-owners, and `pg_dump` takes an `ACCESS SHARE` lock on every table, so it aborts
-on the first one `postgres` doesn't own. Dump as `supabase_admin` instead:
+image — `supabase_admin` is. Some schemas belong to `supabase_admin` (on an
+install that ran the old realtime container, `_realtime` is one of them), and
+`pg_dump` takes an `ACCESS SHARE` lock on every table, so it aborts on the
+first one `postgres` doesn't own. Dump as `supabase_admin` instead:
 
 ```bash
 docker exec kinboard-db pg_dump -U supabase_admin -F c postgres > /backups/kinboard.pgdump
 ```
 
 The same applies to `pg_dumpall`.
-
-Which tables sit under which owner changes with the realtime image version, so
-this can appear after a stack upgrade on a setup that had been backing up fine
-for months.
 
 **Check any backups taken since your last upgrade.** The failure is quiet: the
 dump aborts, but the redirect has already created the file, leaving a couple of
@@ -269,7 +241,7 @@ above.
 cd webapp/docker
 ./start.sh status > /tmp/kinboard-status.txt
 docker logs kinboard-webapp --tail 200 > /tmp/kinboard-webapp.log
-docker logs kinboard-realtime --tail 100 > /tmp/kinboard-realtime.log
+docker logs kinboard-rest --tail 100 > /tmp/kinboard-rest.log
 
 # File an issue with all three attached
 ```
