@@ -36,21 +36,37 @@ async function relative(url: string | null): Promise<string | null> {
   return data as string | null;
 }
 
+/**
+ * Since 1.15 nothing writes storage.objects (uploads are plain files), and a
+ * fresh install has no storage schema at all: supabase/postgres does not
+ * create it, storage-api did. 071 is a one-time rewrite of URLs stored before
+ * 1.13, so it only ever has work on an install upgraded from one that ran
+ * storage-api — which still has the table. There the objects are seeded as
+ * rows; on a stack without the table, the tests that need "our own object"
+ * skip, and the function's pass-through is what is checked.
+ */
+let hasStorage = false;
+const psql = (sql: string) =>
+  execFileSync("docker", ["exec", "-i", dbContainer(), "psql", "-U", "supabase_admin", "-d", "postgres", "-tAq", "-v", "ON_ERROR_STOP=1"], {
+    input: sql,
+    encoding: "utf8",
+  }).trim();
+
 test.beforeAll(async () => {
   db = createAdminClient();
-  const png = readFileSync("public/favicon.png");
-  const { error } = await db.storage.from(BUCKET).upload(NAME, png, { contentType: "image/png", upsert: true });
-  expect(error).toBeNull();
-  const priv = await db.storage.from(PRIVATE_BUCKET).upload(NAME, png, { contentType: "image/png", upsert: true });
-  expect(priv.error).toBeNull();
+  hasStorage = psql("SELECT to_regclass('storage.objects') IS NOT NULL AND to_regclass('storage.buckets') IS NOT NULL;") === "t";
+  if (!hasStorage) return;
+  for (const bucket of [BUCKET, PRIVATE_BUCKET]) {
+    psql(`INSERT INTO storage.objects (bucket_id, name) VALUES ('${bucket}', '${NAME}');`);
+  }
 });
 
 test.afterAll(async () => {
-  await db?.storage.from(BUCKET).remove([NAME]);
-  await db?.storage.from(PRIVATE_BUCKET).remove([NAME]);
+  if (hasStorage) psql(`DELETE FROM storage.objects WHERE name = '${NAME}';`);
 });
 
 test("our own object becomes relative, under any host it was stored with", async () => {
+  test.skip(!hasStorage, "no storage schema on this stack (fresh 1.15): nothing was ever stored with an absolute URL");
   for (const host of ["http://192.168.1.10:8100", "https://kinboard.example.com", "http://kong:8000", "HTTP://LAN:3001"]) {
     expect(await relative(`${host}${PATH}`)).toBe(PATH);
   }
@@ -89,6 +105,7 @@ test("idempotent: the relative form maps to itself", async () => {
  */
 test("the migration's UPDATE, run as postgres, rewrites only our own row, and a second run changes nothing", async () => {
   test.skip(!process.env.FAMILY_CODE, "needs FAMILY_CODE for a family to own the rows");
+  test.skip(!hasStorage, "no storage schema on this stack (fresh 1.15): nothing was ever stored with an absolute URL");
   const { data: fam } = await db.from("families").select("id").eq("join_code", process.env.FAMILY_CODE).single();
   const ours = `http://192.168.1.10:8100${PATH}`;
   const foreign = `https://other.supabase.co${PATH}`.replace(NAME, "e2e-relative/not-ours.png");

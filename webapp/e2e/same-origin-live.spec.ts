@@ -25,7 +25,7 @@ interface Screen {
   apiRequests: string[];
   failures: string[];
   corsErrors: string[];
-  /** Bodies of /rest/v1/messages responses, newest last. */
+  /** Bodies of message reads (/api/messages, /rest/v1/messages), newest last. */
   messageReads: string[];
   close: () => Promise<void>;
 }
@@ -54,7 +54,8 @@ async function screenAt(browser: Browser, base: string, name: string): Promise<S
     if (/cors|access-control-allow-origin/i.test(m.text())) screen.corsErrors.push(m.text());
   });
   page.on("response", (r) => {
-    if (new URL(r.url()).pathname.startsWith("/rest/v1/messages")) {
+    const path = new URL(r.url()).pathname;
+    if (path.startsWith("/rest/v1/messages") || path.startsWith("/api/messages")) {
       void r.text().then((t) => screen.messageReads.push(t), () => {});
     }
   });
@@ -97,7 +98,7 @@ test.describe("one stack, two addresses (RFC-018)", () => {
       }
 
       // A message sent on screen A reaches screen B: B's stream announces the
-      // change and B reads the new row through its own /rest/v1.
+      // change and B reads the new row again, from its own origin.
       const body = `same-origin-${tag}`;
       await a.page.evaluate(async (text) => {
         const raw = decodeURIComponent(document.cookie.split("; ").find((c) => c.startsWith("family-calendar-storage="))!.split("=")[1]);
