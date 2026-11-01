@@ -550,6 +550,16 @@ body = [f'<rect width="{W}" height="{H}" fill="#1b140e"/>', f'<defs>{symbols(ALL
 with open(os.path.join(OUT, "team.svg"), "w") as f:
     f.write(doc(W, H, "The sleigh team galloping: two-segment legs, body pitch and bob, head and tail motion", SNOW_CSS + team_css(), "".join(body)))
 
+# ---------------------------------------------------------------- the team alone, for the mockups to fly
+# Transparent, cropped to the team: team-only.svg gallops (the same CSS as
+# team.svg), team-pose.svg is one moment of it. mockups.py places them over
+# screenshots of Kinboard.
+TB = (-30, -40, 1000, 330)  # the team's bounds: x, y, w, h
+for fname, animated in (("team-only.svg", True), ("team-pose.svg", False)):
+    with open(os.path.join(OUT, fname), "w") as f:
+        f.write(doc(TB[2], TB[3], "The sleigh team", team_css() if animated else "",
+                    f'<g transform="translate({-TB[0]},{-TB[1]})"><defs>{symbols(ALL_PARTS)}</defs>{team(0, 0, 1.0, animated, 0.3)}</g>'))
+
 # ---------------------------------------------------------------- lanterns.svg: Sankt Martin's walk
 L = RIG["lantern"]
 W, H = 1200, 330

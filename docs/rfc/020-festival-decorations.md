@@ -44,6 +44,10 @@ are the real CSS and the real creatures, with the festival item swapped into
 the creature's head slot. The sleigh, snow and flames are animated in a
 browser and stop when the viewer asks for reduced motion.*
 
+*The sleigh in the mockups is the real art from §5.1, galloping: see
+[the team on its own](020/art/team.svg), [the Sankt Martin lanterns](020/art/lanterns.svg),
+[every part laid out](020/art/sheet.svg), and the part-by-part index in §5.2.*
+
 ## 2. What it looks like
 
 Four layers. A festival can use any of them.
@@ -383,6 +387,23 @@ measured art rather than from a blank page:
 | **Moving references** | `020/art/team.svg`, `020/art/lanterns.svg`, `020/art/sheet.svg` | the motion, viewable in any browser or on GitHub, and every part laid out |
 | **The pipeline, running** | `020/prototype/scene.html`, from `020/bench.py` | §5.1 end to end: parts rasterised once to `ImageBitmap`s, rigged on a canvas at 30 fps, reins live, snow behind and in front, one shared wind. It is also the Pi benchmark (§7.1) |
 | **Mockups on the real app** | `020/capture.cjs`, `020/mockups.py` | screenshots of Kinboard with the festival layers placed on measured card positions |
+
+**Every part, linked.** Each part is a standalone SVG. Its pivot and where it
+sits on its parent are in [`parts.json`](020/art/parts.json).
+
+| | Parts |
+|---|---|
+| Sleigh and Santa | [sleigh](020/art/sleigh.svg), [santa-arm](020/art/santa-arm.svg) |
+| Reindeer | [reindeer-body](020/art/reindeer-body.svg), [reindeer-head](020/art/reindeer-head.svg), [reindeer-head-lead](020/art/reindeer-head-lead.svg), [reindeer-tail](020/art/reindeer-tail.svg) |
+| Reindeer legs, near | [reindeer-front-upper](020/art/reindeer-front-upper.svg), [reindeer-front-lower](020/art/reindeer-front-lower.svg), [reindeer-back-upper](020/art/reindeer-back-upper.svg), [reindeer-back-lower](020/art/reindeer-back-lower.svg) |
+| Reindeer legs, far | [reindeer-front-upper-far](020/art/reindeer-front-upper-far.svg), [reindeer-front-lower-far](020/art/reindeer-front-lower-far.svg), [reindeer-back-upper-far](020/art/reindeer-back-upper-far.svg), [reindeer-back-lower-far](020/art/reindeer-back-lower-far.svg) |
+| Nikolaus | [boot-empty](020/art/boot-empty.svg), [boot-filled](020/art/boot-filled.svg) |
+| Sankt Martin | [lantern-sun](020/art/lantern-sun.svg), [lantern-moon](020/art/lantern-moon.svg), [lantern-star](020/art/lantern-star.svg) |
+| Moving and assembled | [team](020/art/team.svg) (galloping), [lanterns](020/art/lanterns.svg) (the walk), [sheet](020/art/sheet.svg) (all parts), [team-only](020/art/team-only.svg) and [team-pose](020/art/team-pose.svg) (what the mockups place) |
+| The prototype | [prototype/scene.html](020/prototype/scene.html): download it and open it in a browser; GitHub shows its source |
+
+The mockups (§1–§2) place `team-only.svg` and `team-pose.svg` over the
+screenshots, so they show this art and its gallop, not a stand-in.
 
 What step 1 still has to build: `lib/festivals.ts` and its specs, the
 setting, `data-festival`, the colour wash, the scene in

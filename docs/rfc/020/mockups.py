@@ -99,43 +99,6 @@ def light_string(x, y, w, sag=10, n=11):
     return "\n".join(out)
 
 
-def sleigh(scale=1.0):
-    """Santa's sleigh and two reindeer flying right, ~250 x 70 at scale 1, origin top-left."""
-    deer = []
-    for i, cx in enumerate((150, 215)):
-        lead = i == 1
-        deer.append(f'''
-      <g>
-        <path d="M{cx-14},38 L{cx-26},50 M{cx-6},38 L{cx-16},52 M{cx+10},38 L{cx+22},48 M{cx+16},37 L{cx+30},43" stroke="#8a5a32" stroke-width="3.5" stroke-linecap="round"/>
-        <ellipse cx="{cx}" cy="30" rx="24" ry="10" fill="#b07a45"/>
-        <ellipse cx="{cx-2}" cy="33" rx="14" ry="5" fill="#b07a45"/>
-        <path d="M{cx+14},26 Q{cx+22},18 {cx+27},11" stroke="#b07a45" stroke-width="9" stroke-linecap="round" fill="none"/>
-        <ellipse cx="{cx+32}" cy="9" rx="9" ry="6" fill="#b07a45"/>
-        <circle cx="{cx+33}" cy="6" r="1.6" fill="#1a1a1a"/>
-        <path d="M{cx+27},4 L{cx+22},-8 M{cx+24},-3 L{cx+17},-6 M{cx+23},-6 L{cx+26},-13 M{cx+31},3 L{cx+31},-10 M{cx+31},-5 L{cx+36},-10" stroke="#e2cfa8" stroke-width="2.2" stroke-linecap="round"/>
-        {f'<circle cx="{cx+41}" cy="10" r="7" fill="#ff4d4d" opacity="0.3"/><circle cx="{cx+41}" cy="10" r="3.2" fill="#ff4d4d"/>' if lead else f'<circle cx="{cx+41}" cy="10" r="2.6" fill="#3a2414"/>'}
-        <path d="M{cx-20},28 Q{cx-28},22 {cx-26},31" fill="#f1e6d2"/>
-      </g>''')
-    return f'''<g transform="scale({scale})">
-      <path d="M62,8 Q110,2 182,9 M62,10 Q140,14 247,9" stroke="#d9c3a0" stroke-width="1.2" fill="none"/>
-      {"".join(deer)}
-      <path d="M0,22 L72,22 Q90,22 92,42 L22,50 Q4,50 0,22 Z" fill="#e04848"/>
-      <path d="M4,26 L70,26" stroke="#f0c75e" stroke-width="2"/>
-      <path d="M10,60 L88,60 Q104,60 101,46" stroke="#e3b341" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-      <path d="M26,50 L24,60 M72,46 L74,60" stroke="#e3b341" stroke-width="2.5"/>
-      <circle cx="18" cy="12" r="14" fill="#7a4b2a"/>
-      <rect x="6" y="-4" width="12" height="11" rx="2" fill="#4aa8ff"/><rect x="11" y="-4" width="2" height="11" fill="#ffd24a"/>
-      <rect x="20" y="-8" width="11" height="14" rx="2" fill="#4ad66d"/><rect x="20" y="-2" width="11" height="2" fill="#ff5a5a"/>
-      <circle cx="54" cy="14" r="13" fill="#d23b44"/>
-      <circle cx="58" cy="-1" r="7.5" fill="#f2c9a5"/>
-      <path d="M51,1 Q58,14 65,1 Q62,8 58,9 Q54,8 51,1 Z" fill="#ffffff"/>
-      <path d="M50,-4 Q57,-22 70,-12 L64,-4 Z" fill="#d23b44"/>
-      <rect x="49" y="-6" width="17" height="4" rx="2" fill="#ffffff"/>
-      <circle cx="71" cy="-12" r="3" fill="#ffffff"/>
-      <path d="M62,4 L80,10" stroke="#d23b44" stroke-width="4" stroke-linecap="round"/>
-    </g>'''
-
-
 def sparkle_trail():
     out = []
     for i in range(9):
@@ -266,6 +229,24 @@ def legend_band(items, y, w, size=26, step=46):
     return "\n".join(out)
 
 
+ART = os.path.join(os.path.dirname(os.path.abspath(__file__)), "art")
+
+
+def art_team(width, animated=True, pose=False, defs=True):
+    """The sleigh team from art/ (art.py), `width` wide, top-left at the current origin: galloping, or one posed moment.
+    `defs=False` leaves out the parts, for a second team in a document that has them already."""
+    with open(os.path.join(ART, "team-pose.svg" if pose else "team-only.svg")) as f:
+        s_ = f.read()
+    vb = re.search(r'viewBox="([^"]+)"', s_).group(1)
+    w, h = map(float, vb.split()[2:])
+    inner = s_.split(">", 1)[1].rsplit("</svg>", 1)[0]
+    inner = re.sub(r"<title>.*?</title>", "", inner, flags=re.S)
+    inner = re.sub(r"@media \(prefers-reduced-motion[^}]*\}\s*\}", "", inner)  # the mockup keeps its own
+    if not defs:
+        inner = re.sub(r"<defs><symbol.*</symbol></defs>", "", inner, flags=re.S)
+    return f'<svg width="{width:.0f}" height="{width * h / w:.0f}" viewBox="{vb}" overflow="visible">{inner}</svg>'
+
+
 def big_marker(n, x, y):
     return (f'<g><circle cx="{x}" cy="{y}" r="20" fill="{AMBER}"/>'
             f'<text x="{x}" y="{y+7}" text-anchor="middle" font-size="21" font-weight="700" fill="#1b1405">{n}</text></g>')
@@ -298,7 +279,7 @@ def home():
     body.append(light_string(ev["x"] + 16, ev["y"] + 1, ev["w"] - 32, sag=7, n=13))
     # the sleigh flies over the widgets; a tap drops presents and stars
     body.append(f'<path d="M-60,760 Q500,560 1000,600 T2000,560" fill="none" stroke="{AMBER}" stroke-opacity="0.55" stroke-width="3" stroke-dasharray="10 12"/>')
-    body.append(f'<g class="sleigh" transform="translate(980,540)">{sparkle_trail()}{sleigh(1.6)}</g>')
+    body.append(f'<g class="sleigh" transform="translate(980,540)"><g transform="translate(0,40) scale(2.2)">{sparkle_trail()}</g>{art_team(620)}</g>')
     body.append(presents_and_stars(1400, 790, 1.0))
     cr = CARDS["Creatures"]
     body.append(big_marker(1, 880, 548) + big_marker(2, ev["x"] + ev["w"] - 30, ev["y"] - 16) + big_marker(3, cr["x"] + 40, cr["y"] + 170) +
@@ -309,8 +290,8 @@ def home():
                              ("4", "Tap", "tapping the sleigh drops presents and stars; the creatures cheer"),
                              ("5", "Colour wash", "Christmas red from the top, pine green from the bottom")], SH, SW))
     style = (FLAKE_CSS +
-             "@keyframes fly { 0% { transform: translate(-520px,700px); } 22% { transform: translate(300px,600px); }"
-             " 45% { transform: translate(1000px,540px); } 68% { transform: translate(2000px,520px); } 69%,100% { transform: translate(2060px,520px); opacity: 0; } }"
+             "@keyframes fly { 0% { transform: translate(-520px,700px); opacity: 1; } 22% { transform: translate(300px,600px); }"
+             " 45% { transform: translate(1000px,540px); } 68% { transform: translate(2000px,520px); opacity: 1; } 69%,100% { transform: translate(2060px,520px); opacity: 0; } }"
              ".sleigh { animation: fly 14s linear infinite; animation-delay: -2.4s; }")
     save("home-christmas.svg", svg(W, H, "\n".join(body), style,
          "Mockup on a screenshot of Kinboard's Home: the sleigh flies over the widgets, snow on the cards, the creatures in Santa hats, presents and stars from a tap, and a red and green colour wash"))
@@ -321,12 +302,12 @@ def screensaver():
     W, H = SW, SH
     body = [image(jpeg("screensaver.png", quality=78), 0, 0, SW, SH)]
     body.append(f'<g>{snowflakes(SW, SH, 110, seed=9)}</g>')
-    body.append(f'<g class="sleigh" transform="translate(900,330)">{sparkle_trail()}{sleigh(1.9)}</g>')
+    body.append(f'<g class="sleigh" transform="translate(900,330)"><g transform="translate(0,40) scale(2.4)">{sparkle_trail()}</g>{art_team(700)}</g>')
     body.append(f'<rect x="32" y="24" width="452" height="50" rx="25" fill="#000" opacity="0.4"/>'
                 f'<text x="58" y="58" font-size="24" fill="#fff">Screensaver · a pass every 2 min</text>')
     style = (FLAKE_CSS +
-             "@keyframes fly { 0% { transform: translate(-560px,520px); } 30% { transform: translate(400px,400px); }"
-             " 55% { transform: translate(1100px,320px); } 80% { transform: translate(2000px,220px); } 81%,100% { transform: translate(2060px,220px); opacity: 0; } }"
+             "@keyframes fly { 0% { transform: translate(-560px,520px); opacity: 1; } 30% { transform: translate(400px,400px); }"
+             " 55% { transform: translate(1100px,320px); } 80% { transform: translate(2000px,220px); opacity: 1; } 81%,100% { transform: translate(2060px,220px); opacity: 0; } }"
              ".sleigh { animation: fly 14s linear infinite; animation-delay: -2s; }")
     save("screensaver-christmas.svg", svg(W, H, "\n".join(body), style,
          "Mockup on a screenshot of Kinboard's screensaver: the sleigh crosses the middle of the screen while snow falls"))
@@ -429,8 +410,8 @@ def visitors():
         body.append(image(bg, x, y, fw, fh))
         if i == 0:
             body.append(f'<path d="M{x-10},{y+row1+60} Q{x+fw*0.45},{y+row1+5} {x+fw+10},{y+row1+20}" {path}/>')
-            for px, py, op in ((x + 10, y + row1 + 26, 0.3), (x + 130, y + row1 + 2, 0.55), (x + 250, y + row1 + 4, 1)):
-                body.append(f'<g transform="translate({px},{py})" opacity="{op}">{sleigh(0.36)}</g>')
+            for n_, (px, py, op) in enumerate(((x + 10, y + row1 + 26, 0.3), (x + 130, y + row1 + 2, 0.55), (x + 250, y + row1 + 4, 1))):
+                body.append(f'<g transform="translate({px},{py - 14})" opacity="{op}">{art_team(118, pose=True, defs=n_ == 0)}</g>')
         elif i == 1:
             base = y + row1 + 10
             hops = " ".join(f"Q{x+30+j*60+30},{base-40} {x+30+(j+1)*60},{base}" for j in range(5))
