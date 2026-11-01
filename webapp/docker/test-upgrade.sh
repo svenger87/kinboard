@@ -152,7 +152,13 @@ assert_head_schema() {
   # objects must be created BY the upgrade, not inherited.
   local triggers cols funcs
   triggers=$(psql_rig -c "SELECT count(*) FROM pg_trigger WHERE tgname LIKE '%soft_delete%' AND NOT tgisinternal;")
-  cols=$(psql_rig -c "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND column_name='deleted_at';")
+  # Only the recycle-bin tables: bring_removals (#407) has a deleted_at of its
+  # own that records a Bring! removal and has nothing to do with soft delete.
+  cols=$(psql_rig -c "SELECT count(*) FROM information_schema.columns c
+                       WHERE c.table_schema='public' AND c.column_name='deleted_at'
+                         AND EXISTS (SELECT 1 FROM pg_trigger t
+                                      WHERE t.tgrelid = ('public.' || quote_ident(c.table_name))::regclass
+                                        AND t.tgname LIKE '%soft_delete%' AND NOT t.tgisinternal);")
   funcs=$(psql_rig -c "SELECT count(*) FROM pg_proc WHERE proname IN ('purge_deleted','purge_expired');")
 
   [ "$triggers" = "9" ] && pass "9 soft-delete triggers"        || fail "soft-delete triggers: got '$triggers', want 9"
