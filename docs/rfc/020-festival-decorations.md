@@ -143,6 +143,7 @@ per offered country. It is reviewed whenever a region is added.
 | Thanksgiving | its weekend | 4th Thursday of November | US |
 | Carnival | the week up to Shrove Tuesday | Easter − 47 days (Ash Wednesday is − 46) | BR |
 | St Nicholas | 5–6 Dec | fixed | NL, BE, LU, DE, AT, CH, CZ, SK, PL |
+| St Martin's Day | 11 Nov, from dusk | fixed | DE, NL, AT, CH |
 | St Patrick's Day | 17 Mar | fixed | IE |
 | Midsummer | its eve and day | per country | SE, EE, LV, LT |
 | Lunar New Year | eve → Lantern Festival (15th day) | `Intl` `chinese`, month 1 day 1 (2026-02-17, 2027-02-07 ✓) | — |
@@ -197,7 +198,7 @@ RFC-017's shop.
 | Festival | Visitor | Dressing | Outfit | Wash | Date | Effort |
 |---|---|---|---|---|---|---|
 | **Advent → Christmas** | the sleigh | snow caps; one more candle lit in a card's corner each Advent Sunday | Santa hat, `snow` background | red / pine green | fixed; Advent from 25 Dec | high (the sleigh), then low |
-| **St Nicholas** | none; on the morning of 6 Dec a boot full of sweets stands on the Tasks card | the boot | `scarf` | red / gold | fixed | low |
+| **St Nicholas** (Nikolaus) | none | on the evening of 5 Dec an empty boot stands by the Tasks card; on the morning of 6 Dec it's filled with an orange, nuts and chocolate | `scarf` | red / gold | fixed | low |
 | **Hanukkah** | a dreidel spins across the bottom | a row of eight lights along a card's edge, one more lit each night | knitted blue hat | blue / silver | `Intl` `hebrew`, Kislev 25 | medium |
 | **Yalda** | none | pomegranates and a slice of watermelon in a corner | `scarf` | deep red / night blue | `Intl` `persian`, Azar 30 | low |
 | **New Year's Eve** | fireworks over the clock at the family's midnight | confetti at the cards' corners | party hat, `star_glasses` | gold / midnight blue | fixed | medium |
@@ -239,7 +240,7 @@ RFC-017's shop.
 | **Diwali** | sky lanterns rise; diyas light along the cards | marigold garlands, diyas | marigold garland | saffron / magenta | **a date table** | medium |
 | **Halloween** | bats out of a corner | a cobweb, a pumpkin | `wizard_hat` | orange / purple | fixed | low |
 | **Día de Muertos** | marigold petals drift down | papel picado bunting | a marigold crown | marigold / magenta | fixed | medium |
-| **St Martin's Day** (DE, NL, AT, CH) | children's lanterns walk along the bottom at dusk | none | none | amber / night blue | fixed, 11 Nov | medium |
+| **St Martin's Day** (Sankt Martin; DE, NL, AT, CH) | the lantern walk: children's paper lanterns (sun, moon, star) bob along the bottom at dusk | paper lanterns hanging from the cards from dusk | a paper lantern beside the creature (background slot) | amber / night blue | fixed, 11 Nov; from sunset (weather data; 17:00 without it) | medium |
 | **Thanksgiving** (US) | autumn leaves blow across | leaves and a pie in a corner | leaf crown | amber / brown | 4th Thursday of November | low |
 
 #### Left out, and why
@@ -300,9 +301,10 @@ Pi in step 1, not assumed.
 | Step | What | When it's worth having |
 |---|---|---|
 | 1 | `lib/festivals.ts` with all dates, the pre-tick table and specs; the setting; `data-festival`; the colour wash; **Christmas**: the sleigh with its tap, snow-capped cards, the Santa hat | before the 1st of Advent, **29 Nov 2026** |
-| 2 | New Year's Eve: fireworks at the family's midnight | 31 Dec 2026 |
-| 3 | Lunar New Year, Easter (Western and Orthodox) | 17 Feb 2027 / Mar–Apr 2027 |
-| 4 | The rest of §3.1 and the kits in §3.3, low effort first, as each one's artwork is ready | through 2027 |
+| 2 | **Germany: Nikolaus and Sankt Martin** (decision 7). Nikolaus is low effort and can follow step 1 in time for 6 Dec 2026. Sankt Martin needs its lantern walk drawn | Nikolaus **6 Dec 2026**; Sankt Martin **11 Nov 2027** (2026 only if the work starts in the first week of November) |
+| 3 | New Year's Eve: fireworks at the family's midnight | 31 Dec 2026 |
+| 4 | Lunar New Year, Easter (Western and Orthodox) | 17 Feb 2027 / Mar–Apr 2027 |
+| 5 | The rest of §3.1 and the kits in §3.3, low effort first, as each one's artwork is ready | through 2027 |
 
 Step 1 is small in code and large in drawing. If the sleigh isn't good enough
 by mid-November, the wash, the snow-capped cards and the hat can ship alone,
@@ -337,6 +339,7 @@ and the sleigh can follow in December.
    creatures cheer.
 5. **Nothing on birthdays.**
 6. **The colour wash changes** with the festival (§2.4).
+7. **Sankt Martin and Nikolaus come next, for Germany**, right after step 1 (§6).
 
 ## 9. Not in this RFC
 
