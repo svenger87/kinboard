@@ -49,7 +49,7 @@ A failed smoke test on `/meals` with a 400-shaped error in the console almost ce
 
 ## CI
 
-Phase B (not yet wired): a workflow that boots the full Docker stack, waits for kong + postgrest to be healthy, runs `npm run test:e2e:smoke`, and tears down. Tracked as a separate task. Until then, smoke runs on the maintainer's machine before each release cut.
+Phase B (not yet wired): a workflow that boots the full Docker stack, waits for the webapp and postgrest to be healthy, runs `npm run test:e2e:smoke`, and tears down. Tracked as a separate task. Until then, smoke runs on the maintainer's machine before each release cut.
 
 ## Producing wiki screenshots
 

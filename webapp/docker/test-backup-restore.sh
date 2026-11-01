@@ -50,8 +50,6 @@ RIG_PROJECT="kbbak"
 RIG_DATA="${RIG_DATA:-/mnt/user/appdata/kinboard-backup-data}"
 RIG_WEBAPP_PORT=3041
 RIG_POSTGRES_PORT=5472
-RIG_KONG_HTTP_PORT=8140
-RIG_KONG_HTTPS_PORT=8583
 RIG_GO2RTC_HTTP_PORT=1996
 RIG_GO2RTC_WEBRTC_PORT=8586
 RIG_NETWORK_SUBNET="10.222.0.0/24"
@@ -60,7 +58,7 @@ RIG_DEMO_CODE="BKUP01"
 # shellcheck source=test-rig-common.sh
 . "$SCRIPT_DIR/test-rig-common.sh"
 
-RIG_COMPOSE=(-f docker-compose.yml)
+RIG_COMPOSE=(-f docker-compose.yml -f docker-compose.build.yml)
 DUMP_DIR="$(mktemp -d)"
 DUMP="$DUMP_DIR/kinboard.sql"
 STORAGE_TAR="$DUMP_DIR/storage.tar.gz"
@@ -70,12 +68,13 @@ STORAGE_TAR="$DUMP_DIR/storage.tar.gz"
 # is being tested is whether it comes back.
 RIG_JPEG_B64='/9j/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAACAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAABAb/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCIAOr3/9k='
 RIG_PHOTO_OBJECT=""
+RIG_FAMILY=""
 
 # The storage directory belongs to the container that writes it, so on a CI
 # runner — where this does not run as root — reading it is fine and writing
 # into it after a teardown is not. `rig_destroy_data` has the same problem and
-# solves it with a container; this uses sudo, because what is needed here is
-# GNU tar with --xattrs and busybox tar does not have it.
+# solves it with a container; this uses sudo. (Until 1.15 it also needed GNU
+# tar for --xattrs; uploaded files are plain files now and need nothing.)
 #
 # On the Unraid host this is already root and the prefix stays empty, which
 # matters because sudo is not installed there.
@@ -83,42 +82,36 @@ rig_tar() {
   if [ "$(id -u)" -eq 0 ]; then tar "$@"; else sudo tar "$@"; fi
 }
 
-rig_service_key() { grep -E '^SERVICE_ROLE_KEY=' "$SCRIPT_DIR/.env" | cut -d= -f2- | tr -d '"'; }
-rig_storage_url() { printf 'http://localhost:%s/storage/v1' "$RIG_KONG_HTTP_PORT"; }
-
-# Put one photo in the library, the way the upload route does: straight into
-# the private bucket with service_role, plus the row that names it.
+# Put one photo in the library the way a family does: joined as a device,
+# uploaded through the app's own route.
 seed_photo() {
-  local family key
-  family=$(psql_rig -c 'SELECT id FROM families ORDER BY created_at LIMIT 1;')
-  [ -n "$family" ] || return 1
-  key=$(rig_service_key)
-  RIG_PHOTO_OBJECT="${family}/rig-photo.jpg"
-
   printf '%s' "$RIG_JPEG_B64" | base64 -d > "$DUMP_DIR/rig-photo.jpg" || return 1
-
-  curl -sf -X POST "$(rig_storage_url)/object/family-photos/${RIG_PHOTO_OBJECT}" \
-    -H "apikey: $key" -H "Authorization: Bearer $key" \
-    -H "Content-Type: image/jpeg" \
-    --data-binary "@$DUMP_DIR/rig-photo.jpg" >/dev/null || return 1
-
-  psql_rig -c "INSERT INTO family_photos
-      (family_id, storage_path, mime_type, byte_size, width, height)
-      VALUES ('${family}', '${RIG_PHOTO_OBJECT}', 'image/jpeg', 269, 2, 2);" >/dev/null || return 1
+  curl -s -c "$DUMP_DIR/jar" -X POST "$BASE_URL/api/session/join" -H 'content-type: application/json' \
+    -d '{"joinCode":"DEMO01","hardwareId":"claude-backup-rig","deviceName":"claude-backup-rig"}' > "$DUMP_DIR/join.json"
+  RIG_FAMILY=$(sed -n 's/.*"family":{"id":"\([^"]*\)".*/\1/p' "$DUMP_DIR/join.json")
+  [ -n "$RIG_FAMILY" ] || return 1
+  curl -s -b "$DUMP_DIR/jar" -F "photo=@$DUMP_DIR/rig-photo.jpg;type=image/jpeg" -F "family_id=$RIG_FAMILY" \
+    "$BASE_URL/api/photos/upload" > "$DUMP_DIR/photo.json"
+  RIG_PHOTO_OBJECT=$(sed -n 's/.*"storage_path":"\([^"]*\)".*/\1/p' "$DUMP_DIR/photo.json")
+  [ -n "$RIG_PHOTO_OBJECT" ]
 }
 
-# Can the photo actually be fetched? This is the assertion that matters, and
-# the only one that catches the failure a file-count check misses: extended
-# attributes carry each object's content type, a plain tar drops them, and
-# storage then answers 500 {"code":"ENODATA"} for a file that is present,
-# correctly sized and correctly named.
+# Can the photo actually be fetched? The assertion that matters: a file-count
+# check passes on files that are present and unreadable. Through the app, as
+# the photo page does it: the library hands out a signed URL, which must load.
+# The device row came back with the restore, so the cookie still works.
 photo_is_served() {
-  local key code
-  key=$(rig_service_key)
-  code=$(curl -s -o /dev/null -w '%{http_code}' \
-    "$(rig_storage_url)/object/family-photos/${RIG_PHOTO_OBJECT}" \
-    -H "apikey: $key" -H "Authorization: Bearer $key")
+  local url code
+  url=$(curl -s -b "$DUMP_DIR/jar" "$BASE_URL/api/photos?family_id=$RIG_FAMILY" \
+        | sed -n 's/.*"url":"\([^"]*\)".*/\1/p' | head -1)
+  [ -n "$url" ] || return 1
+  code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL$url")
   [ "$code" = "200" ]
+}
+
+# The uploaded files on disk, as the backup sees them.
+count_files() {
+  docker run --rm -v "$RIG_DATA":/data:ro alpine:3 sh -c 'find /data/storage/files -type f ! -name ".*" 2>/dev/null | wc -l'
 }
 
 cleanup() { rm -rf "$DUMP_DIR"; }
@@ -181,7 +174,7 @@ run_cycle() {
   fi
 
   local objects_before
-  objects_before="$(psql_rig -c "SELECT count(*) FROM storage.objects WHERE bucket_id='family-photos';")"
+  objects_before="$(count_files)"
   if ! photo_is_served; then
     fail "cycle $n: the seeded photo is not served before the backup even starts"
     return 1
@@ -224,14 +217,12 @@ run_cycle() {
   # No uploaded byte is in the dump above; the files live under the storage
   # bind mount.
   #
-  # --xattrs is load-bearing. Storage keeps each object's content type and
-  # cache headers in extended attributes on the file itself
-  # (user.supabase.content-type, user.supabase.cache-control). A plain tar
-  # copies the bytes and drops those, and the restore then looks perfect --
-  # right files, right sizes, right paths, matching rows -- while every image
-  # answers 500 {"code":"ENODATA"}. That is exactly what `photo_is_served`
-  # below is here to catch, so the flags and the assertion are a pair.
-  if ! rig_tar --xattrs --xattrs-include='*' -czf "$STORAGE_TAR" \
+  # A plain tar, as the wiki documents since 1.15. Before, storage-api kept
+  # each object's content type in an extended attribute, a plain tar dropped
+  # it, and every restored image answered 500 ENODATA; the files are plain
+  # files now, typed by their names. `photo_is_served` below still checks the
+  # result through the app rather than trusting the archive.
+  if ! rig_tar -czf "$STORAGE_TAR" \
        -C "$RIG_DATA" storage 2>/dev/null; then
     fail "cycle $n: could not archive the storage directory"
     return 1
@@ -268,33 +259,15 @@ run_cycle() {
     > "$DUMP_DIR/restore.out" 2> "$DUMP_DIR/restore.err" < "$DUMP"
   local restore_rc=$?
 
-  # The storage half, restored the way the wiki now documents it.
-  #
-  # `-t objects` and not the whole schema: storage.buckets has already been
-  # populated by the migrations that ran when this stack came up, so restoring
-  # the schema wholesale collides with them. And `-n public` on its own does
-  # not select storage at all -- `pg_restore -l --data-only -n public` lists
-  # zero storage entries -- which is why the records need their own pass
-  # rather than arriving with everything else.
-  docker exec -i "${RIG_PROJECT}-db" pg_restore -U supabase_admin -d postgres \
-    --data-only --disable-triggers -n storage -t objects \
-    >> "$DUMP_DIR/restore.out" 2>> "$DUMP_DIR/restore.err" < "$DUMP"
-
   # Errors are kept rather than discarded: the first version of this sent them
   # to /dev/null and the failure read as "could not restore the storage
   # directory" with nothing saying why — which was a permission error the
   # whole time.
-  if ! rig_tar --xattrs --xattrs-include='*' -xzf "$STORAGE_TAR" -C "$RIG_DATA" \
+  if ! rig_tar -xzf "$STORAGE_TAR" -C "$RIG_DATA" \
        2> "$DUMP_DIR/untar.err"; then
     fail "cycle $n: could not restore the storage directory"
     head -3 "$DUMP_DIR/untar.err" | sed 's/^/     /'
   fi
-
-  # The storage container caches nothing about which files exist, but it does
-  # hold open handles into the directory it was started with; a restart is the
-  # cheap way to be sure it is reading what was just put back.
-  docker restart "${RIG_PROJECT}-storage" >/dev/null 2>&1 || true
-  sleep 3
 
   # `grep -c` prints 0 and exits non-zero when nothing matches, so the usual
   # `|| echo 0` appends a second 0 and the comparison below dies on "0\n0".
@@ -335,11 +308,11 @@ run_cycle() {
   fi
 
   local objects_after
-  objects_after="$(psql_rig -c "SELECT count(*) FROM storage.objects WHERE bucket_id='family-photos';")"
+  objects_after="$(count_files)"
   if [ "${objects_after:-0}" != "${objects_before:-0}" ]; then
-    fail "cycle $n: storage.objects ${objects_before} -> ${objects_after}"
+    fail "cycle $n: uploaded files ${objects_before} -> ${objects_after}"
   else
-    pass "the photo's storage record survived (${objects_after})"
+    pass "the uploaded files came back (${objects_after})"
   fi
 
   if photo_is_served; then

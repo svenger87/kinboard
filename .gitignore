@@ -104,3 +104,6 @@ webapp/docker/docker-compose.upgrade-target.yml
 *.entry-tmp.*
 webapp/docker/.env.pre-entry
 webapp/docker/.env.entry-state
+
+# `next dev` uploads (FILES_DIR in webapp/.env.local)
+webapp/.files/

@@ -195,7 +195,7 @@ Local `main` keeps full history; `origin` (gitlab) gets the regular push later.
 Write the upgrade command as:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.image.yml pull
+git pull --ff-only
 ./start.sh up
 ```
 
@@ -230,7 +230,7 @@ Should show both `amd64` and `arm64`. If only one arch is present, the merge job
 
 ## Post-release
 
-- [ ] Test the published image on a fresh box (`docker compose -f docker-compose.yml -f docker-compose.image.yml pull && up -d`)
+- [ ] Test the published image on a fresh box (`docker compose pull && docker compose up -d`)
 - [ ] Tweet / Mastodon post / Discussions announcement (link to the GitHub Release page, mention 1–2 highlights)
 - [ ] If breaking change: write a wiki migration note linked from the release notes
 - [ ] If the release forces users to re-authenticate, or changes what the

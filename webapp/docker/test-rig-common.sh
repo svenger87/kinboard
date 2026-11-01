@@ -9,13 +9,16 @@
 #
 # Port and subnet allocation on this host — check here before adding a rig:
 #
-#   stack            project   webapp  postgres  kong   subnet
-#   ---------------- --------- ------- --------- ------ ------------
-#   production       kinboard    3002      5433   8101   10.201.0.0/24
-#   UX audit         kbaudit     3010      5442   8110   10.209.0.0/24
-#   upgrade paths    kbupg       3021      5452   8120   10.220.0.0/24
-#   fresh installs   kbfresh     3031      5462   8130   10.221.0.0/24
-#   backup/restore   kbbak       3041      5472   8140   10.222.0.0/24
+#   stack            project   webapp  postgres  old kong  subnet
+#   ---------------- --------- ------- --------- --------- ------------
+#   production       kinboard    3002      5433      8101  10.201.0.0/24
+#   UX audit         kbaudit     3010      5442      8110  10.209.0.0/24
+#   upgrade paths    kbupg       3021      5452      8120  10.220.0.0/24
+#   fresh installs   kbfresh     3031      5462      8130  10.221.0.0/24
+#   backup/restore   kbbak       3041      5472      8140  10.222.0.0/24
+#
+# Kong left the stack in 1.15. Its port column stays for the upgrade rig,
+# whose "before" half still runs a release that has Kong.
 #
 # A caller sets its RIG_* block and then sources this file.
 
@@ -107,7 +110,7 @@ rig_wait_healthy() {
 # fault. Say plainly which rig or service is squatting instead.
 rig_require_free_ports() {
   local busy=()
-  for p in "$RIG_WEBAPP_PORT" "$RIG_POSTGRES_PORT" "$RIG_KONG_HTTP_PORT"; do
+  for p in "$RIG_WEBAPP_PORT" "$RIG_POSTGRES_PORT" ${RIG_KONG_HTTP_PORT:+"$RIG_KONG_HTTP_PORT"}; do
     if ss -lnt 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${p}\$"; then
       busy+=("$p")
     fi
@@ -123,7 +126,8 @@ rig_require_free_ports() {
 rig_prepare_env() {
   say "Preparing an isolated .env"
   if [ ! -f "$SCRIPT_DIR/.env" ]; then
-    # setup.sh substitutes real JWTs into kong.yml (and touches diun.yml).
+    # setup.sh substitutes a secret into diun.yml (and, before 1.15, real
+    # JWTs into kong.yml).
     # Production marks both skip-worktree so they can never be committed;
     # a fresh worktree gets them as ordinary tracked files, so `git add -A`
     # here would commit generated keys. Mirror production's protection
@@ -143,8 +147,8 @@ rig_prepare_env() {
     [DATA_DIR]="$RIG_DATA"
     [WEBAPP_PORT]="$RIG_WEBAPP_PORT"
     [POSTGRES_PORT]="$RIG_POSTGRES_PORT"
-    [KONG_HTTP_PORT]="$RIG_KONG_HTTP_PORT"
-    [KONG_HTTPS_PORT]="$RIG_KONG_HTTPS_PORT"
+    [KONG_HTTP_PORT]="${RIG_KONG_HTTP_PORT:-8199}"
+    [KONG_HTTPS_PORT]="${RIG_KONG_HTTPS_PORT:-8599}"
     [GO2RTC_HTTP_PORT]="$RIG_GO2RTC_HTTP_PORT"
     [GO2RTC_WEBRTC_PORT]="$RIG_GO2RTC_WEBRTC_PORT"
     [KINBOARD_PROJECT_DIR]="$REPO_ROOT"
@@ -162,8 +166,8 @@ rig_prepare_env() {
   # COMPOSE_FILES in .env would override the explicit -f lists the rigs pass.
   sed -i '/^COMPOSE_FILES=/d' "$SCRIPT_DIR/.env"
 
-  # setup.sh copies webapp/.env.example to webapp/.env.local verbatim, and that
-  # file carries NEXT_PUBLIC_SUPABASE_URL=http://localhost:8000. Next inlines
+  # setup.sh copies webapp/.env.example to webapp/.env.local verbatim, and
+  # nothing here needs it. Next inlines
   # NEXT_PUBLIC_* at BUILD time. .dockerignore now keeps it out of the build
   # context, but a rig that builds should not depend on that single layer, and
   # nothing here needs the file.
@@ -171,6 +175,6 @@ rig_prepare_env() {
     rm -f "$REPO_ROOT/webapp/.env.local"
     step "removed webapp/.env.local that setup.sh created"
   fi
-  step "ports: webapp=$RIG_WEBAPP_PORT db=$RIG_POSTGRES_PORT kong=$RIG_KONG_HTTP_PORT"
+  step "ports: webapp=$RIG_WEBAPP_PORT db=$RIG_POSTGRES_PORT"
   step "data:  $RIG_DATA"
 }

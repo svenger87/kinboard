@@ -44,7 +44,7 @@
 # Required env / mounts (configured by docker-compose.diun.yml.example):
 #   PROJECT_DIR    project root (bind-mounted from host)
 #   COMPOSE_FILES  space-separated -f flags for the host's stack overlay
-#                  set, e.g. "-f docker-compose.yml -f docker-compose.image.yml -f ..."
+#                  set, e.g. "-f docker-compose.yml -f docker-compose.traefik.yml -f ..."
 #   /var/run/docker.sock  bind-mounted so we can talk to the host docker
 
 set -eu
@@ -256,7 +256,7 @@ DIUN_BEFORE="$(stat -c %Y webapp/docker/diun/diun.yml 2>/dev/null || echo 0)"
 
 if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
   log "pulling $LOCAL_SHA → $REMOTE_SHA"
-  # The git pull brings new compose/kong files. The IMAGE pull below (steps 3-4)
+  # The git pull brings new compose files and migrations. The IMAGE pull below (steps 3-4)
   # is what carries the actual release, and it must not be held hostage to the
   # working tree being clean — so a git failure here logs loudly and continues,
   # rather than aborting under `set -e` and leaving the container on the old,
@@ -354,7 +354,7 @@ fi
 # Exclude webhook + diun from the recreate. The script is currently
 # executing INSIDE the webhook container — if compose recreates it, the
 # script gets SIGKILL'd mid-flight and can't finish (half-done state,
-# kong restart skipped, etc.). Self-updating those two services is
+# scheduler not refreshed, etc.). Self-updating those two services is
 # done out-of-band via `docker compose build webhook && docker compose
 # up -d webhook diun` from the host when their definitions change.
 # shellcheck disable=SC2086

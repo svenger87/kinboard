@@ -44,8 +44,6 @@ RIG_PROJECT="kbfresh"
 RIG_DATA="${RIG_DATA:-/mnt/user/appdata/kinboard-fresh-data}"
 RIG_WEBAPP_PORT=3031
 RIG_POSTGRES_PORT=5462
-RIG_KONG_HTTP_PORT=8130
-RIG_KONG_HTTPS_PORT=8573
 RIG_GO2RTC_HTTP_PORT=1995
 RIG_GO2RTC_WEBRTC_PORT=8585
 RIG_NETWORK_SUBNET="10.221.0.0/24"
@@ -57,7 +55,7 @@ RIG_DEMO_CODE="FRSH01"
 # A fresh install uses whatever this checkout builds, which is the thing under
 # test. Overridable so the same rig can check that a published release still
 # installs cleanly.
-INSTALL_COMPOSE=(-f docker-compose.yml)
+INSTALL_COMPOSE=(-f docker-compose.yml -f docker-compose.build.yml)
 if [ -n "${KINBOARD_TAG:-}" ]; then
   INSTALL_COMPOSE=(-f docker-compose.yml -f docker-compose.image.yml)
 fi
@@ -84,13 +82,17 @@ assert_schema_complete() {
   [ "${tables:-0}" -ge 20 ] 2>/dev/null || { fail "run $n: only ${tables:-?} public tables"; ok=0; }
   [ "${policies:-0}" -ge 10 ] 2>/dev/null || { fail "run $n: only ${policies:-?} RLS policies"; ok=0; }
 
-  # The storage buckets are the other half of #152: the recipe, savings-goal
-  # and vehicle image buckets race the storage service on a first boot.
-  local buckets
-  buckets=$(psql_rig -c "SELECT count(*) FROM storage.buckets;" 2>/dev/null)
-  [ "${buckets:-0}" -ge 1 ] 2>/dev/null || { fail "run $n: no storage buckets created"; ok=0; }
+  # The other half of #152 was the image buckets racing the storage service on
+  # a first boot. Since 1.15 uploads are files the webapp owns; what a first
+  # boot must get right is that directory, writable by the server's own user.
+  docker exec -u nextjs "${RIG_PROJECT}-webapp" test -w /var/lib/storage/files 2>/dev/null \
+    || { fail "run $n: the uploaded-files directory is not writable by the server"; ok=0; }
+  local recorded
+  recorded=$(psql_rig -c "SELECT count(*) FROM kinboard.schema_migrations;" 2>/dev/null)
+  [ "${recorded:-0}" = "$(ls "$SCRIPT_DIR"/migrations/[0-9]*.sql | wc -l)" ] \
+    || { fail "run $n: ${recorded:-0} migrations recorded"; ok=0; }
 
-  [ "$ok" = "1" ] && step "schema: ${tables} tables, ${policies} policies, ${triggers} triggers, ${buckets} buckets"
+  [ "$ok" = "1" ] && step "schema: ${tables} tables, ${policies} policies, ${triggers} triggers, ${recorded} migrations recorded"
   return $((1 - ok))
 }
 

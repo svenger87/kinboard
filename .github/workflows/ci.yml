@@ -174,12 +174,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: bash -n on shipped scripts
         run: |
-          for f in install.sh setup.sh webapp/deploy.sh webapp/docker/start.sh webapp/docker/test-entry-switch.sh; do
+          for f in install.sh setup.sh webapp/deploy.sh webapp/docker/start.sh; do
             echo "checking $f"
             bash -n "$f"
           done
           # POSIX sh: these run inside the Alpine webhook container.
-          for f in webapp/docker/kinboard-self-update.sh webapp/docker/kinboard-entry.sh; do
+          for f in webapp/docker/kinboard-self-update.sh webapp/docker/kinboard-entry.sh webapp/docker/migrate.sh webapp/docker/webapp-entrypoint.sh; do
             echo "checking $f"
             sh -n "$f"
           done
@@ -330,6 +330,5 @@ jobs:
         # The real build needs these at compile time; the values are irrelevant
         # here because nothing is served, but their absence fails the build.
         env:
-          NEXT_PUBLIC_SUPABASE_URL: http://localhost:8000
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
         run: npm run build

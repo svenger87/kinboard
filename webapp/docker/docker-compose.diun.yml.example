@@ -1,18 +1,18 @@
 # Auto-update overlay — Diun image-update notifier + webhook executor
 # of kinboard-self-update.sh. Replaces the deprecated Watchtower overlay
 # (containrrr/watchtower was archived in 2024 and only updates images,
-# not the surrounding compose / kong.yml / setup.sh substitutions that
+# not the surrounding compose files, migrations and setup.sh steps that
 # real Kinboard releases need).
 #
 # What this stack does, end-to-end:
 #
 #   ghcr.io ──new digest──▶ Diun ──webhook + HMAC token──▶ webhook ──exec──▶ kinboard-self-update.sh
 #                                                                                       │
-#                                                                                       ├── git pull (compose / kong.yml / migrations)
-#                                                                                       ├── setup.sh --non-interactive (re-substitute kong.yml)
+#                                                                                       ├── git pull (compose files / migrations)      
+#                                                                                       ├── setup.sh --non-interactive (new .env keys)        
 #                                                                                       ├── docker compose pull
-#                                                                                       ├── docker compose up -d (entrypoint re-applies migrations)
-#                                                                                       └── docker restart kinboard-kong (only if kong.yml changed)
+#                                                                                       ├── docker compose up -d --remove-orphans (migrations on boot)
+#                                                                                       └── recreate cron if the webapp changed               
 #
 # Usage (alongside the normal stack):
 #
@@ -20,8 +20,8 @@
 #   cp docker-compose.diun.yml.example docker-compose.diun.yml
 #   # Optionally edit diun/diun.yml to change the cron schedule.
 #   # `setup.sh` generates DIUN_WEBHOOK_SECRET into .env on first run.
-#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.image.yml \
-#                  -f docker-compose.traefik.yml -f docker-compose.diun.yml" \
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml \
+#                  -f docker-compose.diun.yml" \
 #     ./start.sh up
 #
 # Required: a git checkout of the kinboard repo at $PROJECT_DIR (the

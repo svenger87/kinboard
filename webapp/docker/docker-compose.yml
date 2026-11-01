@@ -23,7 +23,7 @@
 # deprecation warning on every up; omitted intentionally.)
 
 # Container logs are unbounded by default: Docker's json-file driver keeps
-# writing until the disk fills. Kong alone logs one line per API request,
+# writing until the disk fills. Kong alone (before 1.15) logged one line per API request,
 # which on a dashboard that polls comes to roughly 10-15 MB a day — a few
 # gigabytes a year, inside Docker's storage, on a box that is meant to run
 # untouched for years.
