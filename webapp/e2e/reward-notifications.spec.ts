@@ -220,7 +220,7 @@ test.describe("quiet hours and the Rewards switch apply, per device", () => {
     expect(route).toContain("case REWARD_DECIDED:");
     // Owners unreadable: nobody, never everybody.
     expect(route).toMatch(/if \(devicesError \|\| childrenError\) \{[\s\S]*?subscriptions = \[\];/);
-    const migration = readFileSync(join(__dirname, "..", "docker", "migration_zzzzzzzz_reward_notifications.sql"), "utf8");
+    const migration = readFileSync(join(__dirname, "..", "docker", "migrations/076_reward_notifications.sql"), "utf8");
     expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS reward_requests BOOLEAN DEFAULT true/);
     const page = readFileSync(join(__dirname, "..", "src", "app", "settings", "notifications", "page.tsx"), "utf8");
     expect(page).toContain('handlePreferenceChange("reward_requests", checked)');

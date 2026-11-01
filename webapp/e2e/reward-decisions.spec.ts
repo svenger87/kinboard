@@ -702,7 +702,7 @@ test.describe("guards", () => {
   });
 
   test("the migration widens the kind CHECK, takes no browser privilege, and is safe to run twice at once", () => {
-    const sql = read("docker", "migration_zzzzzzzzzz_reward_decision_kind.sql");
+    const sql = read("docker", "migrations/079_reward_decision_kind.sql");
     expect(sql).toContain("CHECK (kind IN ('home', 'pocket_money', 'reward_decision'))");
     expect(sql).toContain("assistant_action_requests_reward_decision_fields_check");
     expect(sql).toMatch(/pg_advisory_lock\(hashtextextended\('migration_zzzzzzzzzz_reward_decision_kind', 0\)\)/);
@@ -710,13 +710,13 @@ test.describe("guards", () => {
     expect(sql).not.toMatch(/^\s*GRANT|POLICY|DISABLE ROW LEVEL/im);
     expect(sql).not.toMatch(/ALTER TABLE public\.point_redemptions/);
     // After the files that create `kind` and the pocket-money CHECK, in byte order and under a locale glob.
-    const files = readdirSync(join(__dirname, "..", "docker")).filter((f) => /^migration.*\.sql$/.test(f));
+    const files = readdirSync(join(join(__dirname, "..", "docker"), "migrations")).map((f) => `migrations/${f}`).filter((f) => /^migrations\/\d{3}_.*\.sql$/.test(f));
     const byte = [...files].sort();
     const locale = [...files].sort((a, b) => a.localeCompare(b, "en-US"));
     for (const order of [byte, locale]) {
-      const at = order.indexOf("migration_zzzzzzzzzz_reward_decision_kind.sql");
-      expect(at).toBeGreaterThan(order.indexOf("migration_zzzzz_action_request_kind.sql"));
-      expect(at).toBeGreaterThan(order.indexOf("migration_zzzzz_pocket_money_booking.sql"));
+      const at = order.indexOf("migrations/079_reward_decision_kind.sql");
+      expect(at).toBeGreaterThan(order.indexOf("migrations/062_action_request_kind.sql"));
+      expect(at).toBeGreaterThan(order.indexOf("migrations/063_pocket_money_booking.sql"));
     }
   });
 });

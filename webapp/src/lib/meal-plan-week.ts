@@ -16,7 +16,7 @@
  * Reading (`GET /meals`) is unaffected: like the client's `useMealPlan`, it
  * selects by the entry's own `date` through `meal_plans!inner`, never by
  * `meal_plan_id`, so entries render correctly regardless of how their row
- * happens to be keyed (see `migration_zzzz_meal_plan_week_start.sql`).
+ * happens to be keyed (see `migrations/059_meal_plan_week_start.sql`).
  */
 
 import { createAdminClient } from "@/lib/supabase/server";

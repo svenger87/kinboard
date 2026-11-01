@@ -12,7 +12,7 @@ import { recurrenceWeekdays } from "@/lib/todo-recurrence";
  * until the next one arrives; a tick always lands on the open day, and once
  * the next one comes, the old one is closed.
  *
- * The rules live in the database (docker/migration_zzzzzy_todo_turns.sql),
+ * The rules live in the database (docker/migrations/066_todo_turns.sql),
  * which writes `schedule_start_day`, `schedule_anchor_day`, `rotation_offset`,
  * `carry_day` and the history. This file
  * is their mirror for the screens, line for line -- a change there is a change

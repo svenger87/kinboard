@@ -13,7 +13,7 @@ import { codeOnly } from "./source-helpers";
  *
  * Each of those statements therefore runs only while `creatures` does not
  * exist: on an install from before the creatures moved out, where
- * migration_zzzzzzzz_pocket_money_creatures_out.sql still has to build the
+ * migrations/074_pocket_money_creatures_out.sql still has to build the
  * creatures from them. No database needed.
  */
 
@@ -22,8 +22,8 @@ const sqlOf = (f: string) => codeOnly(readFileSync(join(DIR, f), "utf8"), { sql:
 
 /** What each file must only do before the creatures moved out. */
 const GUARDED: Record<string, RegExp[]> = {
-  "migration_pocket_money_best_tier.sql": [/ADD COLUMN best_tier\b/, /UPDATE public\.pocket_money_accounts\s+SET best_tier/, /SET last_seen_tier/],
-  "migration_zzzzzzz_point_rewards.sql": [
+  "migrations/032_pocket_money_best_tier.sql": [/ADD COLUMN best_tier\b/, /UPDATE public\.pocket_money_accounts\s+SET best_tier/, /SET last_seen_tier/],
+  "migrations/070_point_rewards.sql": [
     /ADD COLUMN IF NOT EXISTS reward_mode\b/,
     /ADD CONSTRAINT pocket_money_accounts_reward_mode_check/,
     /CREATE OR REPLACE FUNCTION public\.pocket_money_best_tier_only_climbs\(/,
@@ -31,8 +31,8 @@ const GUARDED: Record<string, RegExp[]> = {
     /UPDATE public\.pocket_money_accounts SET best_tier = best_tier/,
     /ADD CONSTRAINT pocket_money_accounts_best_tier_range/,
   ],
-  "migration_zzzzzzzz_pocket_money_avatar_style.sql": [/ADD COLUMN IF NOT EXISTS avatar_style\b/, /ADD CONSTRAINT pocket_money_accounts_avatar_style_check/],
-  "migration_zzzzzzzz_pocket_money_avatar_style_look.sql": [/ADD COLUMN IF NOT EXISTS avatar_look\b/, /ADD CONSTRAINT pocket_money_accounts_avatar_look_check/],
+  "migrations/072_pocket_money_avatar_style.sql": [/ADD COLUMN IF NOT EXISTS avatar_style\b/, /ADD CONSTRAINT pocket_money_accounts_avatar_style_check/],
+  "migrations/073_pocket_money_avatar_style_look.sql": [/ADD COLUMN IF NOT EXISTS avatar_look\b/, /ADD CONSTRAINT pocket_money_accounts_avatar_look_check/],
 };
 
 /**
@@ -74,7 +74,7 @@ test("the four migrations that add the creature's old account columns run only b
 });
 
 test("guard the guard: without the guard, or with it closed early, the statement is reported", () => {
-  const f = "migration_zzzzzzzz_pocket_money_avatar_style.sql";
+  const f = "migrations/072_pocket_money_avatar_style.sql";
   const without = { ...files, [f]: files[f].replace("IF to_regclass('public.creatures') IS NOT NULL THEN RETURN; END IF;", "") };
   expect(unguarded(without)).toEqual([
     `${f}: ${GUARDED[f][0].source} unguarded`,
@@ -88,7 +88,7 @@ test("guard the guard: without the guard, or with it closed early, the statement
 });
 
 test("creatures_out still builds the creatures from those columns, after all four", () => {
-  const OUT = "migration_zzzzzzzz_pocket_money_creatures_out.sql";
+  const OUT = "migrations/074_pocket_money_creatures_out.sql";
   for (const f of Object.keys(GUARDED)) expect(f < OUT, f).toBe(true);
   const out = sqlOf(OUT);
   const create = out.indexOf("IF to_regclass('public.creatures') IS NULL THEN\n    CREATE TABLE public.creatures");

@@ -43,7 +43,7 @@ export async function createClient() {
 //
 // `actor` names who is acting, for the task log: the Integration API passes
 // "integration", which the database reads from the request headers
-// (todo_actor() in migration_zzzzzy_todo_turns.sql). Without it a write
+// (todo_actor() in migrations/066_todo_turns.sql). Without it a write
 // with this key is logged as the server's.
 export function createAdminClient(options?: { actor?: "integration" }) {
   const supabaseUrl = serverSupabaseUrl();

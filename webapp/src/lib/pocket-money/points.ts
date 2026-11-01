@@ -3,8 +3,8 @@
  * points buy rewards from the family's catalogue. Per child since RFC-017: a
  * child's points are theirs, with or without a pocket-money account. The
  * database is the authority -- point_person_totals() in
- * docker/migration_zzzzzzzzz_point_purchases.sql, and decide_point_redemption()
- * in docker/migration_zzzzzzzz_pocket_money_creatures_out.sql -- and this file
+ * docker/migrations/078_point_purchases.sql, and decide_point_redemption()
+ * in docker/migrations/074_pocket_money_creatures_out.sql -- and this file
  * is its mirror for the screens.
  */
 

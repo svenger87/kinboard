@@ -36,7 +36,7 @@ function exifTakenAt(raw: string | undefined): string | null {
  * Upload one photo into the family's library. RFC-009 §3.3.
  *
  * The only way into the `family-photos` bucket: it has no client-facing write
- * policy, for the reasons migration_zzzz_storage_write_policies.sql records at
+ * policy, for the reasons migrations/061_storage_write_policies.sql records at
  * length. This route holds `createAdminClient()` (service_role, bypasses RLS)
  * and is therefore the thing that has to check the session and the family.
  */

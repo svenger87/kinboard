@@ -135,7 +135,7 @@ test("an import adds the region before the id map is built", () => {
 });
 
 test("the migration is idempotent and only ever inserts", () => {
-  const sql = codeOnly(readFileSync(join(process.cwd(), "docker/migration_holiday_region.sql"), "utf8"), { sql: true });
+  const sql = codeOnly(readFileSync(join(process.cwd(), "docker/migrations/019_holiday_region.sql"), "utf8"), { sql: true });
   expect(sql).toContain("ON CONFLICT (family_id, key) DO NOTHING");
   expect(sql).not.toMatch(/\bUPDATE\b|\bDELETE\b|\bDROP\b/i);
 });

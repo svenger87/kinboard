@@ -19,7 +19,7 @@
  * has no before, so it never cheers for it.
  *
  * The rules mirror the points trigger (record_todo_points in
- * docker/migration_zzzzzy_todo_turns.sql) so a creature cheers for exactly the
+ * docker/migrations/066_todo_turns.sql) so a creature cheers for exactly the
  * changes that would earn points, except that a task worth 0 points still
  * gets hearts.
  */
@@ -33,7 +33,7 @@ export interface TickRow extends TurnFields {
   id: string;
   completed?: boolean | null;
   last_completed?: string | null;
-  /** Who did it, when the tick said (migration_zzzzzzzzzzzzz_todo_done_by.sql). */
+  /** Who did it, when the tick said (migrations/083_todo_done_by.sql). */
   last_completed_by?: string | null;
   points?: number | null;
 }

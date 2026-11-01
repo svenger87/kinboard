@@ -25,7 +25,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * because every query here says so.
  *
  * DELETE cannot judge success by the rows a `.delete()` returns. The
- * soft-delete trigger (`migration_zzz_soft_delete.sql`) is a BEFORE DELETE
+ * soft-delete trigger (`migrations/056_soft_delete.sql`) is a BEFORE DELETE
  * trigger that stamps `deleted_at` and returns NULL — and returning NULL
  * from a BEFORE DELETE trigger tells Postgres to skip the row, which cancels
  * the physical delete *and* empties its RETURNING clause. A successful soft

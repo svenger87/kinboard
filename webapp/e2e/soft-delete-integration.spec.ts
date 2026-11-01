@@ -7,7 +7,7 @@ import { dbContainer } from "./whole-database";
  * The double-DELETE guard, against a real database.
  *
  * Tasks, notes and meal entries soft-delete: a BEFORE DELETE trigger stamps
- * `deleted_at` and cancels the delete (`migration_zzz_soft_delete.sql`). But
+ * `deleted_at` and cancels the delete (`migrations/056_soft_delete.sql`). But
  * the trigger lets a DELETE through once `deleted_at` is already set — that
  * is how the recycle bin purges — so an Integration API DELETE that forgot
  * `.is("deleted_at", null)` would purge a binned row on the second call.

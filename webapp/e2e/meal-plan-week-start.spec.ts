@@ -18,7 +18,7 @@ import { getWeekStart, getWeekDates } from "../src/hooks/use-meal-planner";
  * required turned the bug into four compiler errors.
  *
  * The rows already written are re-partitioned by
- * docker/migration_zzzz_meal_plan_week_start.sql.
+ * docker/migrations/059_meal_plan_week_start.sql.
  */
 
 const SUNDAY = 0 as const;
@@ -113,7 +113,7 @@ test.describe("nothing can be stranded by the key", () => {
 });
 
 test.describe("the migration", () => {
-  const sql = readFileSync("docker/migration_zzzz_meal_plan_week_start.sql", "utf8");
+  const sql = readFileSync("docker/migrations/059_meal_plan_week_start.sql", "utf8");
   /*
     The statements alone, with `--` comments dropped.
 

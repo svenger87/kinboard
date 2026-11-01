@@ -5,7 +5,7 @@ import { createAdminClient } from "../src/lib/supabase/server";
 import { dbContainer } from "./whole-database";
 
 /**
- * RFC-018 §4 against a real database: migration_zzzzzzzz_image_urls_relative.sql
+ * RFC-018 §4 against a real database: migrations/071_image_urls_relative.sql
  * turns a stored picture link into the relative form only when it names an
  * object that is really in this install's storage — whatever host it carries,
  * because an install that changed address has rows under several hosts, all
@@ -101,7 +101,7 @@ test("the migration's UPDATE, run as postgres, rewrites only our own row, and a 
     .select("id, image_url");
   expect(error).toBeNull();
   const ids = (rows as { id: string }[]).map((r) => r.id);
-  const migration = readFileSync("docker/migration_zzzzzzzz_image_urls_relative.sql", "utf8");
+  const migration = readFileSync("docker/migrations/071_image_urls_relative.sql", "utf8");
   const run = () =>
     execFileSync("docker", ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q"], {
       input: migration,

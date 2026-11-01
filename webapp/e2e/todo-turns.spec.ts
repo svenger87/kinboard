@@ -26,7 +26,7 @@ import { codeOnly } from "./source-helpers";
 
 /**
  * lib/todo-turns.ts is the screens' mirror of the schedule functions in
- * docker/migration_zzzzzy_todo_turns.sql (#341). The expected values here
+ * docker/migrations/066_todo_turns.sql (#341). The expected values here
  * are the ones those SQL functions return for the same arguments --
  * todo-turns-db.spec.ts runs the SQL side against a real database -- so a
  * change on one side that is not made on the other fails one of the two.

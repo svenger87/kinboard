@@ -45,7 +45,7 @@ This makes Playwright run `npm run dev` itself and wait for port 3000 before tes
 
 The smoke suite fails the test if any `console.error` or `pageerror` event fires while a route loads. Known-noisy patterns (HMR chatter, React DevTools install hint) are filtered in `IGNORED_CONSOLE_PATTERNS` at the top of `smoke.spec.ts`. Keep that list short — every entry is a thing we've explicitly chosen to tolerate. If a real error is being silenced, add a comment explaining why.
 
-A failed smoke test on `/meals` with a 400-shaped error in the console almost certainly means a PostgREST `on_conflict=` write is hitting a missing UNIQUE constraint — same root cause as the bug fixed by `migration_unique_constraints.sql`.
+A failed smoke test on `/meals` with a 400-shaped error in the console almost certainly means a PostgREST `on_conflict=` write is hitting a missing UNIQUE constraint — same root cause as the bug fixed by `migrations/045_unique_constraints.sql`.
 
 ## CI
 

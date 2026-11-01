@@ -1,7 +1,7 @@
 /**
  * The creature shop's one write (RFC-017 §5): a child buys an item with
  * their task points. purchase_person_point_item() in
- * docker/migration_zzzzzzzzz_point_purchases.sql does every check under the
+ * docker/migrations/078_point_purchases.sql does every check under the
  * child's lock; this turns its answer into an HTTP one. The price comes from
  * the catalogue (lib/pocket-money/creatures/shop.ts), never from the request.
  * A parent can refund a purchase (refundPurchase, behind the settings PIN).

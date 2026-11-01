@@ -20,7 +20,7 @@ const CRON_SECRET = process.env.CRON_SECRET;
  * Written down rather than worked out on read, so that history never changes
  * under an edit. The work is one `close_todo_days()` call: the schedule
  * lives in the database, next to the trigger that applies it to ticks
- * (migration_zzzzzy_todo_turns.sql). Each family's own `timezone` setting
+ * (migrations/066_todo_turns.sql). Each family's own `timezone` setting
  * decides when its day ends; the server's TZ stands in for a family without
  * one, as everywhere else on the server.
  */

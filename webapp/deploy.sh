@@ -62,8 +62,8 @@ SCP_CMD="scp -i $SSH_KEY -o StrictHostKeyChecking=no -P $PORT"
 # =========================================
 echo "[1/6] Applying database migrations..."
 
-# Run all migration*.sql files from docker/ directory
-for migration in "$SCRIPT_DIR"/docker/migration*.sql; do
+# Run all docker/migrations/NNN_*.sql files, in order
+for migration in "$SCRIPT_DIR"/docker/migrations/[0-9]*.sql; do
     [ -f "$migration" ] || continue
     name=$(basename "$migration")
     echo "  → $name"

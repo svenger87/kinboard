@@ -796,7 +796,7 @@ Live WebRTC camera streams use UDP, which a tunnel doesn't carry, so they only p
 - **`docker-compose up -d --no-deps webapp` won't pick up override files**: Compose only auto-loads `docker-compose.override.yml`, not `docker-compose.traefik.yml`. Always pass `-f` flags explicitly when restarting individual services.
 - **The `storage` container's healthcheck is flaky upstream**: it sometimes shows `unhealthy` even while serving requests fine. This is a known Supabase issue, not a Kinboard regression.
 - **Internal subnet `10.200.0.0/24`**: collides with some VPNs. Override via `NETWORK_SUBNET` in `.env`.
-- **`init.sql` runs once on first DB init**, never again. Subsequent schema changes ship as `webapp/docker/migration*.sql` files; `start.sh up` applies them on every boot (idempotent — guarded with `IF NOT EXISTS`).
+- **`init.sql` runs once on first DB init**, never again. Subsequent schema changes ship as `webapp/docker/migrations/NNN_topic.sql` files; `start.sh up` applies them on every boot (idempotent — guarded with `IF NOT EXISTS`).
 - **`kong.yml` placeholders**: if you cloned a fresh repo, kong starts with `REPLACE_WITH_*` literals as JWTs. `setup.sh` (and `migrate-prod.sh`) substitute the real values from `.env`. If you skip that step, every API call returns 401.
 - **Browser shows 400 on `/rest/v1/devices?...&hardware_id=eq...`**: the migration that adds `devices.hardware_id` and `devices.fingerprint` didn't run. Run `cd webapp/docker && ./start.sh migrate` to apply all pending migrations + reload PostgREST's schema cache. (Fresh installs since the auto-migrate change shouldn't hit this — `start.sh up` calls `migrate` for you.)
 

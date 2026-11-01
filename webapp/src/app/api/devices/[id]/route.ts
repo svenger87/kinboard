@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
  * A parent's setting, behind the settings PIN like the rest of Settings ->
  * Devices -- and the only way to write it: the browser roles hold no INSERT
  * or UPDATE privilege on devices.person_id
- * (migration_zzzzzzzzz_device_owner.sql), so a child's own phone cannot hand
+ * (migrations/077_device_owner.sql), so a child's own phone cannot hand
  * itself to a sibling, or to nobody, by writing the column directly.
  *
  * The device and the person must both be the session's family's, and the

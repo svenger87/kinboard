@@ -20,7 +20,7 @@ import {
  * database can show. The series key (an event points only at a series of its
  * own calendar, whoever writes it), one row per day of a series, the triggers
  * that keep a browser's own changes and deletes, the two write functions
- * (docker/migration_zzzzzzzzzzzzz_event_series.sql), the nightly top-up, and
+ * (docker/migrations/082_event_series.sql), the nightly top-up, and
  * the domain events. The writes go through lib/event-series.ts as the routes
  * call it; a browser is the anon key with a family token, as on a screen.
  *

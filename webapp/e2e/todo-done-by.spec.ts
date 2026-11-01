@@ -6,7 +6,7 @@ import { detectTaskTick, type TickRow } from "../src/lib/pocket-money/creature-r
 import { codeOnly } from "./source-helpers";
 
 /**
- * "Who did it?" (migration_zzzzzzzzzzzzz_todo_done_by.sql, lib/done-by.ts).
+ * "Who did it?" (migrations/083_todo_done_by.sql, lib/done-by.ts).
  * A task's points went to its assignee or whoever's turn it was, so Jonas
  * doing Mira's dishes earned Mira the points. A tick worth points now asks,
  * and the database pays whoever is picked. The trigger itself is exercised
@@ -64,7 +64,7 @@ test.describe("the creature that cheers", () => {
 
 test.describe("the migration", () => {
   const sql = codeOnly(
-    readFileSync(join(__dirname, "..", "docker", "migration_zzzzzzzzzzzzz_todo_done_by.sql"), "utf8"),
+    readFileSync(join(__dirname, "..", "docker", "migrations/083_todo_done_by.sql"), "utf8"),
     { sql: true },
   );
 
@@ -91,6 +91,6 @@ test.describe("the migration", () => {
   });
 
   test("sorts after the turns migration whose function it replaces", () => {
-    expect("migration_zzzzzzzzzzzzz_todo_done_by.sql" > "migration_zzzzzy_todo_turns.sql").toBe(true);
+    expect("migrations/083_todo_done_by.sql" > "migrations/066_todo_turns.sql").toBe(true);
   });
 });

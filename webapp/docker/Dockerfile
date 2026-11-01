@@ -219,16 +219,15 @@ RUN test -f ./licenses/NOTICE && test -f ./licenses/date-holidays-LICENSE && tes
  && test -f ./licenses/fonts/bricolage-grotesque-OFL.txt && test -f ./licenses/fonts/hanken-grotesk-OFL.txt \
  && test -f ./licenses/fonts/space-mono-OFL.txt
 
-# Bake migrations + entrypoint script into the image. The entrypoint
-# applies migrations against the db before exec'ing the Next.js
-# server — see webapp/docker/webapp-entrypoint.sh. This is the path
-# Watchtower-driven self-hoster updates rely on (the alternative,
-# webapp/docker/start.sh's run_migrations(), is host-driven and only
-# fires when the operator manually invokes the script).
-COPY --chown=nextjs:nodejs docker/migration*.sql ./migrations/
-COPY --chown=nextjs:nodejs docker/webapp-entrypoint.sh ./webapp-entrypoint.sh
+# Bake migrations, their runner and the entrypoint into the image. The
+# entrypoint applies migrations against the db before exec'ing the Next.js
+# server — see webapp/docker/webapp-entrypoint.sh. This is the path every
+# self-hoster update relies on; `./start.sh migrate` runs the same migrate.sh
+# from the host.
+COPY --chown=nextjs:nodejs docker/migrations/ ./migrations/
+COPY --chown=nextjs:nodejs docker/migrate.sh docker/webapp-entrypoint.sh ./
 USER root
-RUN chmod +x ./webapp-entrypoint.sh
+RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh
 USER nextjs
 
 EXPOSE 3000

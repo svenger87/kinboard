@@ -11,7 +11,7 @@ import {
 } from "./whole-database";
 
 /**
- * migration_zzzzzzzz_pocket_money_avatar_style_look.sql: every account gets
+ * migrations/073_pocket_money_avatar_style_look.sql: every account gets
  * avatar_look '{}' -- the creature's own look, so nothing changes until a
  * child picks something -- and the column only ever holds a JSON object.
  *
@@ -20,17 +20,17 @@ import {
  * migration twice, probe the CHECK, roll everything back.
  */
 
-const FILE = "migration_zzzzzzzz_pocket_money_avatar_style_look.sql";
+const FILE = "migrations/073_pocket_money_avatar_style_look.sql";
 const DIR = join(process.cwd(), "docker");
 const MIGRATION = readFileSync(join(DIR, FILE), "utf8");
 
 test.describe("the file", () => {
   test("sorts after every other migration that changes pocket_money_accounts", () => {
-    const files = readdirSync(DIR).filter((f) => /^migration.*\.sql$/.test(f)).sort();
+    const files = readdirSync(join(DIR, "migrations")).map((f) => `migrations/${f}`).filter((f) => /^migrations\/\d{3}_.*\.sql$/.test(f)).sort();
     const at = files.indexOf(FILE);
     expect(at).toBeGreaterThan(-1);
     const altering = files.filter((f) => f !== FILE && /ALTER TABLE (public\.)?pocket_money_accounts/.test(readFileSync(join(DIR, f), "utf8")));
-    expect(altering).toContain("migration_zzzzzzzz_pocket_money_avatar_style.sql");
+    expect(altering).toContain("migrations/072_pocket_money_avatar_style.sql");
     for (const other of altering) expect(files.indexOf(other), `${other} must sort before ${FILE}`).toBeLessThan(at);
   });
 

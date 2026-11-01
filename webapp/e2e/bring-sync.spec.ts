@@ -335,7 +335,7 @@ test.describe("wiring", () => {
   });
 
   test("deletions are recorded by a trigger, for every path that deletes", () => {
-    const sql = read("docker", "migration_bring_pull_sync.sql");
+    const sql = read("docker", "migrations/005_bring_pull_sync.sql");
     expect(sql).toContain("AFTER DELETE ON public.shopping_items");
     expect(sql).toContain("WHEN (OLD.bring_item_id IS NOT NULL AND OLD.checked IS NOT TRUE)");
   });

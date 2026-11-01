@@ -326,8 +326,8 @@ test.describe("the migration", () => {
   test.afterEach(releaseWholeDatabase);
 
   test("applies on a database without it, then again as a no-op, and keeps what was bought", () => {
-    const migration = readFileSync(join(process.cwd(), "docker", "migration_zzzzzzzzz_point_purchases.sql"), "utf8");
-    const step1 = readFileSync(join(process.cwd(), "docker", "migration_zzzzzzzz_pocket_money_creatures_out.sql"), "utf8");
+    const migration = readFileSync(join(process.cwd(), "docker", "migrations/078_point_purchases.sql"), "utf8");
+    const step1 = readFileSync(join(process.cwd(), "docker", "migrations/074_pocket_money_creatures_out.sql"), "utf8");
     reset(100);
     const out = psql(`BEGIN;
 SET LOCAL client_min_messages = warning;

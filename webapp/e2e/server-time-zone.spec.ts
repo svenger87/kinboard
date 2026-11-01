@@ -21,7 +21,7 @@ const read = (file: string) => readFileSync(join(DOCKER, file), "utf8");
 
 test("the entrypoint records the server's zone after the migrations, as a psql variable", () => {
   const sh = read("webapp-entrypoint.sh");
-  const migrations = sh.indexOf("apply_migrations; do");
+  const migrations = sh.indexOf("sh /app/migrate.sh; do");
   const record = sh.indexOf("server_timezone");
   expect(migrations).toBeGreaterThan(0);
   expect(record).toBeGreaterThan(migrations);
@@ -34,24 +34,24 @@ test("the entrypoint records the server's zone after the migrations, as a psql v
 });
 
 test("instance_settings is the server's alone", () => {
-  const sql = codeOnly(read("migration_zzzzzx_instance_settings.sql"), { sql: true });
+  const sql = codeOnly(read("migrations/065_instance_settings.sql"), { sql: true });
   expect(sql).toMatch(/ALTER TABLE public\.instance_settings ENABLE ROW LEVEL SECURITY/);
   expect(sql).not.toMatch(/CREATE POLICY/);
   expect(sql).toMatch(/REVOKE ALL ON TABLE public\.instance_settings FROM anon/);
   expect(sql).toMatch(/REVOKE ALL ON TABLE public\.instance_settings FROM authenticated/);
   // family_time_zone() reads it, so it must exist first.
-  expect("migration_zzzzzx_instance_settings.sql" < "migration_zzzzzy_todo_turns.sql").toBe(true);
+  expect("migrations/065_instance_settings.sql" < "migrations/066_todo_turns.sql").toBe(true);
 });
 
 test("the family's zone comes first, then the server's, then Berlin", () => {
-  const sql = codeOnly(read("migration_zzzzzy_todo_turns.sql"), { sql: true });
+  const sql = codeOnly(read("migrations/066_todo_turns.sql"), { sql: true });
   const fn = /FUNCTION public\.family_time_zone[\s\S]*?END \$\$;/.exec(sql)?.[0] ?? "";
   expect(fn).toMatch(/ARRAY\[own, p_fallback, server, 'Europe\/Berlin'\]/);
   expect(sql).toMatch(/'public\.family_time_zone\(uuid, text\)'/);
 });
 
 test("a tick's day is the family's, not the one the screen sent", () => {
-  const sql = codeOnly(read("migration_zzzzzy_todo_turns.sql"), { sql: true });
+  const sql = codeOnly(read("migrations/066_todo_turns.sql"), { sql: true });
   const trigger = /FUNCTION public\.todo_schedule_update[\s\S]*?END \$\$;/.exec(sql)?.[0] ?? "";
   expect(trigger.length).toBeGreaterThan(1000);
   expect(trigger).not.toMatch(/today\s*:=\s*NEW\.last_completed_day/);

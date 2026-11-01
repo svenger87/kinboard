@@ -492,7 +492,7 @@ export async function POST(request: NextRequest) {
   async function rollback(): Promise<void> {
     // Every imported table cascades (directly or transitively) from
     // `families.id ON DELETE CASCADE` — verified against init.sql +
-    // migration_vehicles.sql / migration_tickers.sql / migration_pocket_money.sql.
+    // migrations/046_vehicles.sql / migrations/041_tickers.sql / migrations/031_pocket_money.sql.
     // Deleting the new family row is therefore sufficient to wipe
     // everything inserted so far; no child table needs an explicit delete.
     // It goes through delete_family, which sets kinboard.hard_delete: a plain
@@ -528,7 +528,7 @@ export async function POST(request: NextRequest) {
 
   // A backup from before RFC-017 has no creatures: derive them from its
   // accounts by the migration's own rule (creatures_from_accounts in
-  // migration_zzzzzzzz_pocket_money_creatures_out.sql), so a restored child
+  // migrations/074_pocket_money_creatures_out.sql), so a restored child
   // has the creature they had. A backup that carries the key -- even empty,
   // a family with none switched on -- is taken as it is.
   if (!backupHasCreatures(payload.data)) {

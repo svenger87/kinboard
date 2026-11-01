@@ -7,7 +7,7 @@
 #   ./start.sh restart   # rebuild webapp + restart
 #   ./start.sh logs      # tail logs
 #   ./start.sh status    # show container state
-#   ./start.sh migrate   # apply migration*.sql files
+#   ./start.sh migrate   # apply migrations/NNN_*.sql (migrate.sh)
 #   ./start.sh seed-demo # load optional demo family + subjects
 #
 # Compose file selection: defaults to `docker-compose.yml`. If you
@@ -82,72 +82,22 @@ unset KINBOARD_ENTRY
 # makes a bare `docker compose up` work without this script. We no longer
 # align passwords from the host here.
 
-# Apply every webapp/docker/migration*.sql to the running DB, by hand.
+# Apply the migrations to the running DB from the host, by hand.
 #
 # THIS IS NOT THE PATH MIGRATIONS NORMALLY TAKE. The webapp container applies
-# them itself on every start (webapp-entrypoint.sh), which is the one runner:
-# it works for image-only deployments and Watchtower-driven updates, where
-# start.sh is never invoked, and it refuses to start the app if a migration
-# fails rather than serving against a half-applied schema.
+# them itself on every start (webapp-entrypoint.sh), and refuses to start the
+# app if one fails rather than serving against a half-applied schema. This is
+# the escape hatch for when it could not (no POSTGRES_PASSWORD in the webapp
+# environment), and for a dev box running `next dev` with no webapp container.
 #
-# This function stays as `./start.sh migrate` — an explicit escape hatch for
-# when the entrypoint could not run them (no POSTGRES_PASSWORD in the webapp
-# environment) or when an operator wants to re-apply them without a restart.
-# `up` no longer calls it: running it there meant two runners applying the
-# same files concurrently, which collided (issue #152).
+# Same runner, same files, same order: migrate.sh, reading migrations/NNN_*.sql
+# and recording each in kinboard.schema_migrations. Running it twice is safe;
+# the second run applies nothing.
 #
-# ORDERING CONVENTION — migrations apply in alphabetical order (bash glob).
-# That has two real implications when adding a new migration file:
-#
-#   1. If migration B depends on a table/column created in migration A
-#      (e.g. `migration_vehicles_image.sql` ALTERs the `vehicles` table
-#      that `migration_vehicles.sql` creates), B's filename must sort
-#      AFTER A's. Use a `_<topic>` suffix matching the parent — Postgres'
-#      ASCII has `.` (46) < `_` (95), so `migration_vehicles.sql` sorts
-#      before `migration_vehicles_image.sql`. Subject suffixes that don't
-#      share the parent prefix (e.g. `migration_unique_constraints.sql`)
-#      can interleave, so check the resulting order with `ls migration*.sql`
-#      before committing.
-#
-#   2. The unsuffixed `migration.sql` is the historical catch-all from
-#      pre-1.0 — it sorts FIRST and folds in everything pre-dating the
-#      `migration_<topic>.sql` convention. New migrations should always
-#      use the `_<topic>` suffix; do not touch `migration.sql`.
-#
-# The entrypoint applies the same files in the same order. Keep the two in
-# sync — this one exists so an operator is never locked out, not as a second
-# opinion on what the schema should be.
+# Adding a migration: the next free number, `NNN_topic.sql`, idempotent
+# (IF NOT EXISTS, guarded DO blocks) because an edited file is applied again.
 run_migrations() {
-  set +e
-  local found=0 migration
-  local -a failed=()
-  for migration in migration*.sql; do
-    [[ -f "$migration" ]] || continue
-    found=1
-    echo "→ $migration"
-    # ON_ERROR_STOP so a broken statement fails its file instead of psql
-    # shrugging and running the rest of it.
-    docker exec -i "${PROJECT_NAME:-kinboard}-db" \
-      psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$migration" || failed+=("$migration")
-  done
-  if [[ $found -eq 1 ]]; then
-    docker exec "${PROJECT_NAME:-kinboard}-db" \
-      psql -U postgres -d postgres -c "NOTIFY pgrst, 'reload schema';" >/dev/null 2>&1 || true
-    docker restart "${PROJECT_NAME:-kinboard}-rest" >/dev/null 2>&1 || true
-  fi
-  set -e
-
-  # This used to discard every psql exit code, so a migration that failed
-  # outright looked exactly like one that applied. Every file is still
-  # attempted — one failure should not hide the rest — but the summary and the
-  # non-zero exit are what make it visible.
-  if [[ ${#failed[@]} -gt 0 ]]; then
-    echo >&2
-    echo "error: ${#failed[@]} migration(s) failed:" >&2
-    printf '         %s\n' "${failed[@]}" >&2
-    echo "       The schema is not what the app expects. Fix these before using the stack." >&2
-    return 1
-  fi
+  PSQL="docker exec -i ${PROJECT_NAME:-kinboard}-db psql -U postgres -d postgres" ./migrate.sh
 }
 
 # Report on the migrations the webapp container runs at startup.

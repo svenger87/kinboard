@@ -24,7 +24,7 @@ const docker = join(__dirname, "..", "docker");
 const sql = (name: string) => readFileSync(join(docker, name), "utf8");
 
 /** Every migration, so a future file can't re-grant what this one revokes. */
-const allSql = readdirSync(docker)
+const allSql = [...readdirSync(docker), ...readdirSync(join(docker, "migrations")).map((f) => `migrations/${f}`)]
   .filter((f) => f.endsWith(".sql"))
   .map((f) => ({ name: f, body: readFileSync(join(docker, f), "utf8") }));
 
@@ -40,7 +40,7 @@ test("no migration grants the browser roles access to device_sessions", () => {
 });
 
 test("device_sessions is explicitly revoked and granted to service_role", () => {
-  const body = sql("migration_device_sessions.sql");
+  const body = sql("migrations/012_device_sessions.sql");
   expect(body).toMatch(/REVOKE ALL ON TABLE public\.device_sessions FROM PUBLIC/i);
   expect(body).toMatch(/REVOKE ALL ON TABLE public\.device_sessions FROM anon/i);
   expect(body).toMatch(/REVOKE ALL ON TABLE public\.device_sessions FROM authenticated/i);
@@ -51,7 +51,7 @@ test("deleting a device takes its sessions with it", () => {
   // ON DELETE SET NULL here meant removing a device in Settings left a working
   // credential behind. The database is the only place that can guarantee this:
   // devices are deleted straight from the browser through PostgREST.
-  const body = sql("migration_device_sessions_cascade.sql");
+  const body = sql("migrations/013_device_sessions_cascade.sql");
   expect(body).toMatch(
     /FOREIGN KEY \(device_id\) REFERENCES public\.devices\(id\) ON DELETE CASCADE/i,
   );
@@ -60,7 +60,7 @@ test("deleting a device takes its sessions with it", () => {
 
 test("a session cannot exist without a device", () => {
   // A null device_id has nothing to cascade from, so it would reopen the gap.
-  expect(sql("migration_device_sessions_cascade.sql")).toMatch(
+  expect(sql("migrations/013_device_sessions_cascade.sql")).toMatch(
     /ALTER COLUMN device_id SET NOT NULL/i,
   );
   // ...and the server can't create one either.

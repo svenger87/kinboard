@@ -53,7 +53,7 @@ The repo follows a few conventions worth knowing about:
 - **Translations.** All user-facing strings live in `webapp/messages/{en,de,fr}.json`. New strings need entries in all locales. Use `useTranslations("namespace")` rather than hardcoding text.
 - **Date formatting.** Use `date-fns` with `de | enUS` locales rather than hardcoded month/day names.
 - **Server vs. client state.** Server state goes through TanStack Query (`webapp/src/hooks/`). UI state goes through Zustand (`webapp/src/stores/`).
-- **Database changes.** Schema changes ship as new `webapp/docker/migration*.sql` files (idempotent — guarded with `IF NOT EXISTS` / type checks). `init.sql` is reserved for fresh installs and runs once. `start.sh up` applies migrations on every boot.
+- **Database changes.** Schema changes ship as new `webapp/docker/migrations/NNN_topic.sql` files (idempotent — guarded with `IF NOT EXISTS` / type checks). `init.sql` is reserved for fresh installs and runs once. `start.sh up` applies migrations on every boot.
 - **Settings pages share one frame.** A page under `webapp/src/app/settings/<name>/page.tsx` opens with the shell every other one uses:
 
   ```tsx
@@ -66,7 +66,7 @@ The repo follows a few conventions worth knowing about:
 
 - **Never pass `backHref="/settings"` to `PageHeader` on a settings sub-page.** The layout already renders that control for you, so passing it again gives the page two back buttons pointing at the same place. (A `backHref` to a *different* parent, as `settings/caldav` does, is a separate case and fine.)
 
-- **A new table the browser reads needs an explicit `GRANT`.** `ALTER DEFAULT PRIVILEGES` in this database grants new tables to `service_role`, `authenticator` and the supabase admin roles — and to nobody else. Without `GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.<table> TO anon, authenticated;` in the same migration, the table is invisible to the app however correct its RLS policy is, and the symptom is a form that silently does nothing. This has now been hit twice; see the header of `migration_zy_schema_hardening.sql`.
+- **A new table the browser reads needs an explicit `GRANT`.** `ALTER DEFAULT PRIVILEGES` in this database grants new tables to `service_role`, `authenticator` and the supabase admin roles — and to nobody else. Without `GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.<table> TO anon, authenticated;` in the same migration, the table is invisible to the app however correct its RLS policy is, and the symptom is a form that silently does nothing. This has now been hit twice; see the header of `migrations/048_schema_hardening.sql`.
 
 - **Conventional Commits.** Commit messages follow the [Conventional Commits](https://www.conventionalcommits.org/) format: `feat(scope): …`, `fix(scope): …`, `docs(scope): …`, `ci(scope): …`, `refactor(scope): …`, `test(scope): …`, `chore(scope): …`. The scope (`weather`, `realtime`, `settings`, …) is optional but encouraged. This keeps the commit log scannable and unblocks future automation (`release-please` etc.).
 

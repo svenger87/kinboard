@@ -10,7 +10,7 @@ import { keepsSchedule, type TurnFields } from "@/lib/todo-turns";
  * recurring task writes `last_completed_day` as a calendar day in the
  * *family's* time zone, matching `app/todos/page.tsx`'s
  * `handleToggleTask` exactly — the points trigger
- * (`migration_zzz_todo_points.sql`) keys an award on that same column, so a
+ * (`migrations/057_todo_points.sql`) keys an award on that same column, so a
  * route computing the day differently would silently award (or skip) points
  * out of step with the UI.
  *
@@ -23,7 +23,7 @@ import { keepsSchedule, type TurnFields } from "@/lib/todo-turns";
  *
  * A recurring task that takes turns or tracks whether it was done (#341)
  * does have one: the open due day. Clearing `last_completed` asks the
- * database to take that day's "done" back (migration_zzzzzy_todo_turns.sql),
+ * database to take that day's "done" back (migrations/066_todo_turns.sql),
  * with the caller's day alongside so it knows which day "today" is.
  */
 export function completionUpdate(

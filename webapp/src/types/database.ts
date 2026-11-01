@@ -18,7 +18,7 @@ export interface Database {
           setup_completed: boolean;
           created_at: string;
           updated_at: string;
-          // When migration_rooms.sql reconciled this family's rooms out of the
+          // When migrations/034_rooms.sql reconciled this family's rooms out of the
           // legacy stores. Null means it hasn't yet; set means never again,
           // however many times the migration is re-applied. Nothing in the app
           // reads or writes it — the migration owns it.
@@ -389,7 +389,7 @@ export interface Database {
           carry_day: string | null;
           /**
            * Who did it, sent with a tick and cleared by the database at once
-           * (migration_zzzzzzzzzzzzz_todo_done_by.sql). Always null on read.
+           * (migrations/083_todo_done_by.sql). Always null on read.
            */
           done_by?: string | null;
           /** Who did the latest completion, when the tick said. Database-set. */

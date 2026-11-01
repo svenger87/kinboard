@@ -10,7 +10,7 @@ function psql(sql: string): string {
 }
 function applyMigration(): void {
   execFileSync("bash", ["-c",
-    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migration_oauth_mcp.sql`],
+    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migrations/027_oauth_mcp.sql`],
     { cwd: ROOT, encoding: "utf8" });
 }
 

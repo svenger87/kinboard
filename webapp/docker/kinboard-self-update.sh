@@ -16,8 +16,8 @@
 #      the storage directory, taken only when the pull actually brought a
 #      new image, and before anything is recreated. See below.
 #   4. docker compose up -d                — recreates only services
-#      whose image changed. The webapp's entrypoint re-applies all
-#      migration_*.sql on boot (idempotent).
+#      whose image changed. The webapp's entrypoint applies new migrations
+#      on boot (migrate.sh).
 #   4b. docker compose up -d --force-recreate cron — only when step 4
 #      recreated the webapp: ofelia reads job labels only at start.
 #   5. docker restart kinboard-kong        — Kong's DB-less mode doesn't

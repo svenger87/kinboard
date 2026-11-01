@@ -13,7 +13,7 @@ import { codeOnly } from "./source-helpers";
 const read = (file: string) => readFileSync(join(process.cwd(), file), "utf8");
 
 test("the migration adds the pause columns, idempotently", () => {
-  const sql = codeOnly(read("docker/migration_timers_pause.sql"), { sql: true });
+  const sql = codeOnly(read("docker/migrations/043_timers_pause.sql"), { sql: true });
   expect(sql).toContain("ALTER TABLE public.timers ADD COLUMN IF NOT EXISTS paused_at TIMESTAMPTZ;");
   expect(sql).toContain("ALTER TABLE public.timers ADD COLUMN IF NOT EXISTS paused_seconds INTEGER NOT NULL DEFAULT 0;");
   expect(sql).toContain("CHECK (paused_seconds >= 0)");

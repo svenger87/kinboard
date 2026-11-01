@@ -145,7 +145,7 @@ jobs:
           done
 
       - name: Re-run migrations (belt-and-suspenders for first-boot race)
-        # During local-dev verification we hit a race where migration.sql
+        # During local-dev verification we hit a race where migrations/001_base.sql
         # (the original, no-suffix file) didn't apply on the very first
         # boot, leaving devices.hardware_id missing. Symptom: PostgREST
         # 400 on every /api/devices?hardware_id=eq.* call. Re-running
@@ -184,7 +184,7 @@ jobs:
       #
       # pocket-money-live and event-search-live call the SQL functions and
       # PostgREST directly with the service role, which is the only place CI
-      # runs migration_zzzzz_pocket_money_booking.sql's guards (overdraw,
+      # runs migrations/063_pocket_money_booking.sql's guards (overdraw,
       # allowance claim, double decide) against a real database; the fast
       # suite drives them through fakes. They read the key and Kong's port
       # from the .env setup.sh just wrote, exported for this step only.

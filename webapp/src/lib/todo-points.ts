@@ -1,8 +1,8 @@
 /**
  * Task points, as the screens count them.
  *
- * The database awards them (docker/migration_zzz_todo_points.sql, extended by
- * migration_zzzzzy_todo_turns.sql): a child's task with points writes one
+ * The database awards them (docker/migrations/057_todo_points.sql, extended by
+ * migrations/066_todo_turns.sql): a child's task with points writes one
  * `todo_point_awards` row per completion, and un-ticking takes it back. A
  * child's total is the sum of their rows -- the tasks page, the tasks widget
  * and a child's profile all count it here, so they cannot disagree.

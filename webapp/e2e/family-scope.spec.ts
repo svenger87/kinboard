@@ -157,7 +157,7 @@ test("no dynamic API route uses the admin client without a family filter", () =>
     if (/family_id|familyIdFrom|rowInFamily|accountInFamily/.test(source)) return false;
     // A route that hands the session's own family to a database function
     // that filters on it (p_family_id in
-    // migration_zzzzzzzz_pocket_money_creatures_out.sql), so no family_id
+    // migrations/074_pocket_money_creatures_out.sql), so no family_id
     // appears in its source. Named, so a new route cannot pass on
     // `auth.session.familyId` alone.
     const rel = file.slice(root.length + 1);

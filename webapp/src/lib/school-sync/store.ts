@@ -8,7 +8,7 @@ import { parseSyncSetting, type SchoolSyncSetting, type SchoolSyncStore } from "
 /**
  * The sync's store, on the admin client. Every query names the family; the
  * only write to school_holidays is the apply_school_holiday_sync function
- * (migration_zzzzz_school_holiday_sync.sql), which cannot match a manual row.
+ * (migrations/064_school_holiday_sync.sql), which cannot match a manual row.
  * The sync's status goes through that function (success, with the rows) and
  * record_school_holiday_sync_error (failure): both merge into the setting
  * as it is, so neither can write back a switch flipped meanwhile.

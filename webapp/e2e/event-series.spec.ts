@@ -267,7 +267,7 @@ test("the nightly job is wired like the others, and the migration keeps writes o
   expect(compose).toContain('ofelia.job-exec.extend-event-series.command: "/usr/local/bin/extend-event-series"');
   expect(compose).toContain('ofelia.job-exec.extend-event-series.no-overlap: "true"');
   expect(read("docker/ofelia.demo.ini")).toContain('[job-exec "extend-event-series"]');
-  const migration = codeOnly(read("docker/migration_zzzzzzzzzzzzz_event_series.sql"), { sql: true });
+  const migration = codeOnly(read("docker/migrations/082_event_series.sql"), { sql: true });
   expect(migration).toContain("CREATE TABLE IF NOT EXISTS public.event_series (");
   expect(migration).toContain("ALTER TABLE public.event_series ENABLE ROW LEVEL SECURITY;");
   expect(migration).toMatch(/REVOKE ALL ON TABLE public\.event_series FROM authenticated;\s*GRANT SELECT ON TABLE public\.event_series TO authenticated;/);
@@ -293,7 +293,7 @@ test("the nightly job is wired like the others, and the migration keeps writes o
   // Writes made by another trigger (a person, a calendar, a family deleted) are not a screen's.
   expect(migration.match(/current_setting\('kinboard\.series_write', true\) = 'on' OR pg_trigger_depth\(\) > 1/g)?.length).toBe(2);
   // A series is one event created for integrations, not one per occurrence.
-  const domain = codeOnly(read("docker/migration_zzy_domain_events.sql"), { sql: true });
+  const domain = codeOnly(read("docker/migrations/053_domain_events.sql"), { sql: true });
   expect(domain).toMatch(/BEGIN\s*IF current_setting\('kinboard\.series_write', true\) = 'on' THEN\s*RETURN NEW;\s*END IF;\s*IF NEW\.caldav_href IS NOT NULL/);
   expect(migration).toMatch(/IF creating THEN[\s\S]*?emit_domain_event\([\s\S]*?'kinboard_family_event_created'/);
   expect(migration).toContain("NOTIFY pgrst, 'reload schema';");

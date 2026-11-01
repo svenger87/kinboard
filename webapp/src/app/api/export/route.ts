@@ -177,17 +177,17 @@ export async function GET(request: NextRequest) {
       q.from("item_catalog").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
 
-    // Vehicles plugin (migration_vehicles.sql) — standalone, family-scoped.
+    // Vehicles plugin (migrations/046_vehicles.sql) — standalone, family-scoped.
     const vehicles = await fetchAll(db, (q, from, to) =>
       q.from("vehicles").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
 
-    // Stonks plugin (migration_tickers.sql) — standalone, family-scoped.
+    // Stonks plugin (migrations/041_tickers.sql) — standalone, family-scoped.
     const tickers = await fetchAll(db, (q, from, to) =>
       q.from("tickers").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
 
-    // Pocket Money plugin (migration_pocket_money.sql). Accounts carry
+    // Pocket Money plugin (migrations/031_pocket_money.sql). Accounts carry
     // family_id directly (in addition to a UNIQUE person_id), so they're
     // scoped the same way as every other family-owned table; the three
     // child tables have no family_id of their own and are scoped via the
@@ -199,7 +199,7 @@ export async function GET(request: NextRequest) {
     const pocket_money_goals = await fetchAllByIds(db, "pocket_money_goals", "account_id", pocketMoneyAccountIds);
     const pocket_money_transactions = await fetchAllByIds(db, "pocket_money_transactions", "account_id", pocketMoneyAccountIds);
     const pocket_money_withdrawal_requests = await fetchAllByIds(db, "pocket_money_withdrawal_requests", "account_id", pocketMoneyAccountIds);
-    // Rewards bought with task points (migration_zzzzzzz_point_rewards.sql).
+    // Rewards bought with task points (migrations/070_point_rewards.sql).
     // The requests are what makes a points balance: without them a restore
     // would hand back every point already spent.
     const point_rewards = await fetchAll(db, (q, from, to) =>

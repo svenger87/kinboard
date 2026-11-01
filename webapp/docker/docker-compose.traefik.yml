@@ -39,7 +39,7 @@ services:
       - "traefik.http.routers.${PROJECT_NAME:-kinboard}-api.middlewares=${PROJECT_NAME:-kinboard}-rolegate@docker"
       - "traefik.http.middlewares.${PROJECT_NAME:-kinboard}-rolegate.forwardauth.address=http://${PROJECT_NAME:-kinboard}-webapp:3000/api/internal/rest-gate"
       # Published to the internet deliberately. What protects it is row-level
-      # security (docker/migration_zz_row_level_security.sql): the anon key that ships in
+      # security (docker/migrations/049_row_level_security.sql): the anon key that ships in
       # the browser bundle carries no family claim, so it reads nothing, and a
       # device gets a family-scoped token only after joining with the family
       # code. Before RLS this router was restricted to private networks,

@@ -193,7 +193,7 @@ CREATE TABLE IF NOT EXISTS public.settings (
 
 -- Writes to settings must go through the Next.js server (which enforces
 -- family membership and splits secret-bearing keys into
--- integration_secrets). See migration_settings_write_lockdown.sql for
+-- integration_secrets). See migrations/039_settings_write_lockdown.sql for
 -- rationale — this mirrors that migration's REVOKE for fresh installs.
 -- SELECT stays granted: useSetting() reads directly via PostgREST, and
 -- Realtime broadcasts on this table are unaffected.
@@ -207,7 +207,7 @@ DO $$ BEGIN
 END $$;
 
 -- Integration secrets (server-only; not in the realtime publication, not
--- readable by anon/authenticated). See migration_integration_secrets.sql
+-- readable by anon/authenticated). See migrations/020_integration_secrets.sql
 -- for rationale — this mirrors that migration's CREATE TABLE for fresh
 -- installs, without the one-time data moves (nothing to move yet).
 CREATE TABLE IF NOT EXISTS public.integration_secrets (
@@ -256,7 +256,7 @@ CREATE INDEX IF NOT EXISTS idx_settings_family ON public.settings(family_id);
 -- ROW LEVEL SECURITY
 -- ===================
 --
--- Enabled, and defined in migration_zz_row_level_security.sql — not here. The entrypoint
+-- Enabled, and defined in migrations/049_row_level_security.sql — not here. The entrypoint
 -- applies every migration on boot, so that file is the single definition of
 -- who can see what.
 --
@@ -622,7 +622,7 @@ CREATE INDEX IF NOT EXISTS idx_notification_logs_family ON public.notification_l
 -- ROW-LEVEL SECURITY
 -- ===================
 --
--- Not defined here. It lives in migration_zz_row_level_security.sql, which the entrypoint
+-- Not defined here. It lives in migrations/049_row_level_security.sql, which the entrypoint
 -- applies on every boot, so there is exactly one definition of who can see
 -- what.
 --
@@ -637,7 +637,7 @@ CREATE INDEX IF NOT EXISTS idx_notification_logs_family ON public.notification_l
 -- Do not add policies here. A policy defined in two places is a policy that
 -- will disagree with itself, and permissive policies are OR'd — so the more
 -- generous copy silently wins. That is exactly how a `USING (family_id IS NOT
--- NULL)` policy in migration_server_notifications.sql leaked every
+-- NULL)` policy in migrations/037_server_notifications.sql leaked every
 -- household's reminders to every other household.
 
 CREATE TRIGGER update_recipes_updated_at
@@ -765,16 +765,16 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.notification_preferences;
 --
 -- The image's entrypoint runs this file through /docker-entrypoint-initdb.d
 -- as its bootstrap superuser, `supabase_admin`, so every table created here is
--- owned by supabase_admin. The webapp then applies migration*.sql as
+-- owned by supabase_admin. The webapp then applies migrations/*.sql as
 -- `postgres`, which is deliberately NOT a superuser in the supabase image — so
--- the first `ALTER TABLE` in migration.sql fails with:
+-- the first `ALTER TABLE` in migrations/001_base.sql fails with:
 --
 --     ERROR: must be owner of table calendars
 --
 -- and the entrypoint refuses to start rather than run on a half-migrated
 -- schema. The result is a boot loop that only affects FRESH installs; an
 -- existing database is unaffected, because its tables were created by
--- migration.sql itself and are already owned by postgres. That asymmetry is
+-- migrations/001_base.sql itself and are already owned by postgres. That asymmetry is
 -- why this survived until the image was bumped and CI booted a clean stack.
 --
 -- Idempotent: re-running finds nothing left to change.
@@ -803,7 +803,7 @@ BEGIN
         );
     END LOOP;
 
-    -- Functions, procedures and aggregates. migration_server_notifications.sql
+    -- Functions, procedures and aggregates. migrations/037_server_notifications.sql
     -- does CREATE OR REPLACE on trigger functions this file already defined,
     -- and that needs ownership just as ALTER TABLE does.
     FOR obj IN

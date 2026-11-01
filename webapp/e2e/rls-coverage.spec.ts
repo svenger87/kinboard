@@ -20,7 +20,7 @@ const DOCKER = join(__dirname, "..", "docker");
 /** Tables created with a `family_id` column, across every migration. */
 function familyScopedTables(): Set<string> {
   const found = new Set<string>();
-  for (const file of readdirSync(DOCKER).filter((f) => f.endsWith(".sql"))) {
+  for (const file of [...readdirSync(DOCKER), ...readdirSync(join(DOCKER, "migrations")).map((f) => `migrations/${f}`)].filter((f) => f.endsWith(".sql"))) {
     const sql = codeOnly(readFileSync(join(DOCKER, file), "utf8"), { sql: true });
     for (const m of sql.matchAll(
       /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?([a-z_]+)\s*\(([\s\S]*?)\n\s*\);/gi,
@@ -33,7 +33,7 @@ function familyScopedTables(): Set<string> {
 
 function directTables(): Set<string> {
   const sql = codeOnly(
-    readFileSync(join(DOCKER, "migration_zz_row_level_security.sql"), "utf8"),
+    readFileSync(join(DOCKER, "migrations/049_row_level_security.sql"), "utf8"),
     { sql: true },
   );
   const arr = /direct_tables\s+TEXT\[\]\s*:=\s*ARRAY\[([\s\S]*?)\]/.exec(sql);
@@ -56,37 +56,37 @@ test("every family-scoped table is under row-level security", () => {
     "pocket_money_transactions", "pocket_money_goals",
   ]);
 
-  // Tables covered outside migration_zz_row_level_security.sql entirely,
+  // Tables covered outside migrations/049_row_level_security.sql entirely,
   // by files that sort after it (`zzy`) and so were never candidates for the
   // array. Each is verified, not assumed:
   //
   // - context_rules / attention_items: their own RLS + a `_family_scope`
-  //   policy, in migration_zzy_attention.sql — "ALTER TABLE public.context_rules
+  //   policy, in migrations/050_attention.sql — "ALTER TABLE public.context_rules
   //   ENABLE ROW LEVEL SECURITY;" / "CREATE POLICY context_rules_family_scope
   //   ON public.context_rules ... USING (family_id = public.current_family_id())"
   //   and the same pair for attention_items. The DROP-old-policies loop in
-  //   migration_zz_row_level_security.sql excludes anything named
+  //   migrations/049_row_level_security.sql excludes anything named
   //   `%_family_scope`, so it can't undo this even though this migration
   //   sorts after that one.
   // - integration_tokens / integration_clients: no RLS at all, but stronger —
   //   "REVOKE ALL ON TABLE public.integration_tokens FROM anon;" (and
-  //   `authenticated`) in migration_integration_tokens.sql, GRANT only to
+  //   `authenticated`) in migrations/021_integration_tokens.sql, GRANT only to
   //   service_role. PostgREST has no privilege to touch the table, so there
   //   is no row to leak regardless of policy.
   // - integration_idempotency / domain_events: the same REVOKE-from-anon /
   //   REVOKE-from-authenticated / GRANT-to-service_role-only shape, in
-  //   migration_zzy_integration_idempotency.sql and
-  //   migration_zzy_domain_events.sql respectively.
+  //   migrations/054_integration_idempotency.sql and
+  //   migrations/053_domain_events.sql respectively.
   // - todo_point_awards: its own RLS + todo_point_awards_family_read policy
-  //   in migration_zzz_todo_points.sql, which runs after the central RLS
+  //   in migrations/057_todo_points.sql, which runs after the central RLS
   //   migration and scopes reads to public.current_family_id().
   // - oauth_authorization_requests: no RLS, REVOKE-from-anon/authenticated and
-  //   GRANT-to-service_role-only in migration_oauth_mcp.sql, like
+  //   GRANT-to-service_role-only in migrations/027_oauth_mcp.sql, like
   //   integration_tokens above.
   // - assistant_action_requests: its own RLS + a family-scoped SELECT-only
   //   policy, REVOKE ALL from anon/authenticated and only SELECT given back to
   //   authenticated (realtime needs it), in
-  //   migration_zzzz_assistant_actions.sql — verified below. A screen's token
+  //   migrations/058_assistant_actions.sql — verified below. A screen's token
   //   must never be able to UPDATE a request into "approved" past the PIN.
   const coveredElsewhere = new Set([
     "context_rules", "attention_items",
@@ -105,10 +105,10 @@ test("every family-scoped table is under row-level security", () => {
 
   // - event_series: repeating events in local calendars. Its own RLS + a
   //   family-scoped SELECT-only policy, REVOKE ALL from anon/authenticated and
-  //   only SELECT given back, in migration_zzzzzzzzzzzzz_event_series.sql.
+  //   only SELECT given back, in migrations/082_event_series.sql.
   //   Every write is the service role's, in the routes under
   //   /api/calendar/series and the nightly extend-event-series job.
-  const seriesSql = codeOnly(readFileSync(join(DOCKER, "migration_zzzzzzzzzzzzz_event_series.sql"), "utf8"), { sql: true });
+  const seriesSql = codeOnly(readFileSync(join(DOCKER, "migrations/082_event_series.sql"), "utf8"), { sql: true });
   expect(seriesSql).toMatch(/ALTER TABLE public\.event_series ENABLE ROW LEVEL SECURITY;/i);
   expect(seriesSql).toMatch(/CREATE POLICY event_series_family_read ON public\.event_series\s+FOR SELECT USING \(family_id = public\.current_family_id\(\)\);/i);
   expect(seriesSql).toMatch(/REVOKE ALL ON TABLE public\.event_series FROM anon;/i);
@@ -117,9 +117,9 @@ test("every family-scoped table is under row-level security", () => {
 
   // - bring_removals (#407): what the Bring! sync still has to take off the
   //   Bring! list. RLS on with no policy, REVOKE ALL from anon/authenticated
-  //   and GRANT to service_role only, in migration_bring_pull_sync.sql: only
+  //   and GRANT to service_role only, in migrations/005_bring_pull_sync.sql: only
   //   the sync reads it, and the trigger that writes it runs as its owner.
-  const bringSql = codeOnly(readFileSync(join(DOCKER, "migration_bring_pull_sync.sql"), "utf8"), { sql: true });
+  const bringSql = codeOnly(readFileSync(join(DOCKER, "migrations/005_bring_pull_sync.sql"), "utf8"), { sql: true });
   expect(bringSql).toMatch(/ALTER TABLE public\.bring_removals ENABLE ROW LEVEL SECURITY;/i);
   expect(bringSql).toMatch(/REVOKE ALL ON TABLE public\.bring_removals FROM anon;/i);
   expect(bringSql).toMatch(/REVOKE ALL ON TABLE public\.bring_removals FROM authenticated;/i);
@@ -129,10 +129,10 @@ test("every family-scoped table is under row-level security", () => {
 
   // - todo_occurrences / todo_events (#341): their own RLS + a family-scoped
   //   SELECT-only policy, REVOKE ALL from anon/authenticated and only SELECT
-  //   given back, in migration_zzzzzy_todo_turns.sql. Every write is a
+  //   given back, in migrations/066_todo_turns.sql. Every write is a
   //   trigger's, run as its owner: a screen must not write itself a history.
   const turnsSql = codeOnly(
-    readFileSync(join(DOCKER, "migration_zzzzzy_todo_turns.sql"), "utf8"),
+    readFileSync(join(DOCKER, "migrations/066_todo_turns.sql"), "utf8"),
     { sql: true },
   );
   for (const table of ["todo_occurrences", "todo_events"]) {
@@ -141,15 +141,15 @@ test("every family-scoped table is under row-level security", () => {
     expect(turnsSql).toMatch(new RegExp(`REVOKE ALL ON TABLE public\\.${table} FROM authenticated;`, "i"));
     expect(browserWriteGrants(turnsSql, table), table).toEqual([]);
   }
-  expect("migration_zzzzzy_todo_turns.sql" > "migration_zz_row_level_security.sql").toBe(true);
+  expect("migrations/066_todo_turns.sql" > "migrations/049_row_level_security.sql").toBe(true);
 
   // - point_rewards / point_redemptions (#349): their own RLS + a
   //   family-scoped SELECT-only policy, REVOKE ALL from anon/authenticated and
-  //   only SELECT given back, in migration_zzzzzzz_point_rewards.sql. Every
+  //   only SELECT given back, in migrations/070_point_rewards.sql. Every
   //   write goes through a server route on the service role: a child's screen
   //   must not be able to approve its own reward.
   const rewardsSql = codeOnly(
-    readFileSync(join(DOCKER, "migration_zzzzzzz_point_rewards.sql"), "utf8"),
+    readFileSync(join(DOCKER, "migrations/070_point_rewards.sql"), "utf8"),
     { sql: true },
   );
   for (const table of ["point_rewards", "point_redemptions"]) {
@@ -158,16 +158,16 @@ test("every family-scoped table is under row-level security", () => {
     expect(rewardsSql).toMatch(new RegExp(`REVOKE ALL ON TABLE public\\.${table} FROM authenticated;`, "i"));
     expect(browserWriteGrants(rewardsSql, table), table).toEqual([]);
   }
-  expect("migration_zzzzzzz_point_rewards.sql" > "migration_zz_row_level_security.sql").toBe(true);
+  expect("migrations/070_point_rewards.sql" > "migrations/049_row_level_security.sql").toBe(true);
 
   // - creatures (RFC-017): its own RLS + a family-scoped SELECT-only policy
   //   that also hides a binned child's creature, REVOKE ALL from
   //   anon/authenticated and only SELECT given back, in
-  //   migration_zzzzzzzz_pocket_money_creatures_out.sql. Every write is a
+  //   migrations/074_pocket_money_creatures_out.sql. Every write is a
   //   server route on the service role: a child's screen must not switch its
   //   own creature on, or grow it, past the PIN. The same file re-creates the
   //   point_redemptions read policy, still family-scoped.
-  const creaturesFile = "migration_zzzzzzzz_pocket_money_creatures_out.sql";
+  const creaturesFile = "migrations/074_pocket_money_creatures_out.sql";
   const creaturesSql = codeOnly(readFileSync(join(DOCKER, creaturesFile), "utf8"), { sql: true });
   expect(creaturesSql).toMatch(/ALTER TABLE public\.creatures ENABLE ROW LEVEL SECURITY;/i);
   expect(creaturesSql).toMatch(/CREATE POLICY creatures_family_read ON public\.creatures\s+FOR SELECT USING \(family_id = public\.current_family_id\(\) AND/i);
@@ -177,16 +177,16 @@ test("every family-scoped table is under row-level security", () => {
   expect(browserWriteGrants(creaturesSql, "creatures")).toEqual([]);
   expect(creaturesSql).toMatch(/CREATE POLICY point_redemptions_family_read ON public\.point_redemptions\s+FOR SELECT USING \(family_id = public\.current_family_id\(\) AND/i);
   expect(browserWriteGrants(creaturesSql, "point_redemptions")).toEqual([]);
-  expect(creaturesFile > "migration_zz_row_level_security.sql").toBe(true);
-  expect(creaturesFile > "migration_zzzzzzz_point_rewards.sql").toBe(true);
+  expect(creaturesFile > "migrations/049_row_level_security.sql").toBe(true);
+  expect(creaturesFile > "migrations/070_point_rewards.sql").toBe(true);
 
   // - point_purchases (RFC-017 §5, the creature shop): its own RLS + a
   //   family-scoped SELECT-only policy that also hides a binned child's
   //   purchases, REVOKE ALL from anon/authenticated and only SELECT given
-  //   back, in migration_zzzzzzzzz_point_purchases.sql. Every write is the
+  //   back, in migrations/078_point_purchases.sql. Every write is the
   //   purchase route on the service role: a child's screen must not hand
   //   itself an item it did not pay for.
-  const shopFile = "migration_zzzzzzzzz_point_purchases.sql";
+  const shopFile = "migrations/078_point_purchases.sql";
   const shopSql = codeOnly(readFileSync(join(DOCKER, shopFile), "utf8"), { sql: true });
   expect(shopSql).toMatch(/ALTER TABLE public\.point_purchases ENABLE ROW LEVEL SECURITY;/i);
   expect(shopSql).toMatch(/CREATE POLICY point_purchases_family_read ON public\.point_purchases\s+FOR SELECT USING \(family_id = public\.current_family_id\(\) AND/i);
@@ -194,20 +194,20 @@ test("every family-scoped table is under row-level security", () => {
   expect(shopSql).toMatch(/REVOKE ALL ON TABLE public\.point_purchases FROM authenticated;/i);
   expect(shopSql).toMatch(/GRANT SELECT ON TABLE public\.point_purchases TO authenticated;/i);
   expect(browserWriteGrants(shopSql, "point_purchases")).toEqual([]);
-  expect(shopFile > "migration_zz_row_level_security.sql").toBe(true);
+  expect(shopFile > "migrations/049_row_level_security.sql").toBe(true);
 
   // - pocket_money_* keep their FOR ALL `_family_scope` policies (above), but
-  //   migration_zzzzzzzz_pocket_money_server_only.sql REVOKEs INSERT, UPDATE,
+  //   migrations/075_pocket_money_server_only.sql REVOKEs INSERT, UPDATE,
   //   DELETE and TRUNCATE from anon/authenticated on every one of them. Every
   //   write is a server route on the service role: a screen must not be able to
   //   give itself money or a stage past the PIN. No migration that runs after
   //   the revoke may hand a browser role a write on them again.
-  const pmOnly = "migration_zzzzzzzz_pocket_money_server_only.sql";
+  const pmOnly = "migrations/075_pocket_money_server_only.sql";
   const pmSql = codeOnly(readFileSync(join(DOCKER, pmOnly), "utf8"), { sql: true });
   expect(pmSql).toMatch(/REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON TABLE public\.%I FROM %I/);
   expect(pmSql).toMatch(/LIKE 'pocket\\_money\\_%'/);
-  expect(pmOnly > "migration_zzzzzzz_point_rewards.sql").toBe(true);
-  for (const file of readdirSync(DOCKER).filter((f) => f.startsWith("migration") && f.endsWith(".sql") && f >= pmOnly)) {
+  expect(pmOnly > "migrations/070_point_rewards.sql").toBe(true);
+  for (const file of readdirSync(join(DOCKER, "migrations")).map((f) => `migrations/${f}`).filter((f) => f >= pmOnly)) {
     const sql = codeOnly(readFileSync(join(DOCKER, file), "utf8"), { sql: true });
     for (const table of ["pocket_money_accounts", "pocket_money_goals", "pocket_money_transactions", "pocket_money_withdrawal_requests"]) {
       expect(browserWriteGrants(sql, table), `${file}: ${table}`).toEqual([]);
@@ -215,7 +215,7 @@ test("every family-scoped table is under row-level security", () => {
   }
 
   const actionsSql = codeOnly(
-    readFileSync(join(DOCKER, "migration_zzzz_assistant_actions.sql"), "utf8"),
+    readFileSync(join(DOCKER, "migrations/058_assistant_actions.sql"), "utf8"),
     { sql: true },
   );
   expect(actionsSql).toMatch(/ALTER TABLE public\.assistant_action_requests ENABLE ROW LEVEL SECURITY;/i);
@@ -225,10 +225,10 @@ test("every family-scoped table is under row-level security", () => {
   expect(actionsSql).toMatch(/GRANT SELECT ON TABLE public\.assistant_action_requests TO authenticated;/i);
   expect(browserWriteGrants(actionsSql, "assistant_action_requests")).toEqual([]);
   // Sorts after the RLS migration, whose clean-up loop drops non-`_family_scope` policies.
-  expect("migration_zzzz_assistant_actions.sql" > "migration_zz_row_level_security.sql").toBe(true);
+  expect("migrations/058_assistant_actions.sql" > "migrations/049_row_level_security.sql").toBe(true);
 
   const awardsSql = codeOnly(
-    readFileSync(join(DOCKER, "migration_zzz_todo_points.sql"), "utf8"),
+    readFileSync(join(DOCKER, "migrations/057_todo_points.sql"), "utf8"),
     { sql: true },
   );
   expect(awardsSql).toMatch(/ALTER TABLE public\.todo_point_awards ENABLE ROW LEVEL SECURITY;/i);

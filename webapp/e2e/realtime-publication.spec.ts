@@ -28,7 +28,7 @@ function subscribedTables(): string[] {
 
 function publishedTables(): Set<string> {
   const published = new Set<string>();
-  for (const file of readdirSync(DOCKER).filter((f) => f.endsWith(".sql"))) {
+  for (const file of [...readdirSync(DOCKER), ...readdirSync(join(DOCKER, "migrations")).map((f) => `migrations/${f}`)].filter((f) => f.endsWith(".sql"))) {
     const sql = codeOnly(readFileSync(join(DOCKER, file), "utf8"), { sql: true });
     for (const m of sql.matchAll(/ALTER\s+PUBLICATION\s+supabase_realtime\s+ADD\s+TABLE\s+(?:public\.)?([a-z_]+)/gi)) {
       published.add(m[1]);
@@ -76,9 +76,9 @@ test("pocket money and rewards are subscribed to and published", () => {
 });
 
 test("the pocket-money publication sorts after every file that creates those tables, in byte order and under en_US", () => {
-  const publishing = "migration_zzzzzzz_pocket_money_realtime.sql";
-  const creating = readdirSync(DOCKER)
-    .filter((f) => /^migration.*\.sql$/.test(f) && f !== publishing)
+  const publishing = "migrations/069_pocket_money_realtime.sql";
+  const creating = readdirSync(join(DOCKER, "migrations")).map((f) => `migrations/${f}`)
+    .filter((f) => /^migrations\/\d{3}_.*\.sql$/.test(f) && f !== publishing)
     .filter((f) => /CREATE TABLE(?: IF NOT EXISTS)? (?:public\.)?pocket_money_/i.test(codeOnly(readFileSync(join(DOCKER, f), "utf8"), { sql: true })));
   // Guard the guard: the tables are created somewhere.
   expect(creating.length).toBeGreaterThan(0);

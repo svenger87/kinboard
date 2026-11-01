@@ -6,7 +6,7 @@ import { familyIdFrom } from "@/lib/family-scope";
 
 export const dynamic = "force-dynamic";
 
-// Mirrors the DB CHECK constraint in migration_media_players.sql. Kept in
+// Mirrors the DB CHECK constraint in migrations/023_media_players.sql. Kept in
 // sync by hand — Postgres has no ADD CONSTRAINT IF NOT EXISTS for CHECKs, so
 // a new driver already means editing that migration; add it here too.
 const VALID_DRIVERS = new Set(["home_assistant"]);

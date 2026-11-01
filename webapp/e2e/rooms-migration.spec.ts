@@ -24,7 +24,7 @@ function psql(sql: string): string {
 
 function applyMigration(): void {
   execFileSync("bash", ["-c",
-    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migration_rooms.sql`],
+    `docker exec -i ${dbContainer()} psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 < webapp/docker/migrations/034_rooms.sql`],
     { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8" });
 }
 

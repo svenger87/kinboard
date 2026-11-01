@@ -17,7 +17,7 @@ import {
  * soft_delete() triggers turned every cascaded delete into a binning UPDATE:
  * the family's rows stayed behind pointing at nothing, and a task assigned to
  * someone already in the bin failed the delete with todos_family_id_fkey.
- * migration_zzzzzz_delete_family.sql adds delete_family(), which sets
+ * migrations/067_delete_family.sql adds delete_family(), which sets
  * kinboard.hard_delete for its transaction as purge_deleted() does, and
  * cleans up what earlier deletes left behind. Every caller goes through it.
  *
@@ -25,7 +25,7 @@ import {
  */
 
 const SRC = join(__dirname, "..", "src");
-const MIGRATION = join(__dirname, "..", "docker", "migration_zzzzzz_delete_family.sql");
+const MIGRATION = join(__dirname, "..", "docker", "migrations/067_delete_family.sql");
 
 /** The three places that delete a family: the route, and two rollbacks. */
 const CALLERS = [

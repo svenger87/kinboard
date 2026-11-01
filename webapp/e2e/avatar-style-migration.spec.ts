@@ -12,7 +12,7 @@ import {
 } from "./whole-database";
 
 /**
- * migration_zzzzzzzz_pocket_money_avatar_style.sql: every account gets
+ * migrations/072_pocket_money_avatar_style.sql: every account gets
  * avatar_style 'classic' -- so nothing changes until a child picks a look --
  * and the database takes only the four styles the app knows.
  *
@@ -23,17 +23,17 @@ import {
  * alters a table every family shares.
  */
 
-const FILE = "migration_zzzzzzzz_pocket_money_avatar_style.sql";
+const FILE = "migrations/072_pocket_money_avatar_style.sql";
 const DIR = join(process.cwd(), "docker");
 const MIGRATION = readFileSync(join(DIR, FILE), "utf8");
 
 test.describe("the file", () => {
   test("sorts after the last migration that changed pocket_money_accounts", () => {
-    const files = readdirSync(DIR).filter((f) => /^migration.*\.sql$/.test(f)).sort();
+    const files = readdirSync(join(DIR, "migrations")).map((f) => `migrations/${f}`).filter((f) => /^migrations\/\d{3}_.*\.sql$/.test(f)).sort();
     const at = files.indexOf(FILE);
     expect(at).toBeGreaterThan(-1);
     // The look (Step 3) builds on the style and sorts after it on purpose.
-    const LOOK = "migration_zzzzzzzz_pocket_money_avatar_style_look.sql";
+    const LOOK = "migrations/073_pocket_money_avatar_style_look.sql";
     expect(files.indexOf(LOOK)).toBeGreaterThan(at);
     const touching = files.filter((f) => f !== FILE && f !== LOOK && /pocket_money_accounts/.test(readFileSync(join(DIR, f), "utf8")));
     for (const other of touching.filter((f) => /ALTER TABLE (public\.)?pocket_money_accounts/.test(readFileSync(join(DIR, f), "utf8")))) {

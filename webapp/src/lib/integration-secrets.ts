@@ -29,7 +29,7 @@ export const SECRET_FIELDS: Record<string, string[]> = {
   // returned by /api/settings to every device, readable through PostgREST
   // by anything on the LAN (SELECT on `settings` is granted to anon), and
   // written verbatim into every backup — and /api/export has no PIN, so
-  // the settings PIN did not protect them either. migration_caldav.sql
+  // the settings PIN did not protect them either. migrations/006_caldav.sql
   // names this exact hazard: "a password column here would be a password
   // handed to every device in the family".
   //

@@ -594,7 +594,7 @@ services:
       # leave it unset.
       KINBOARD_DEMO_FAMILY_CODE: ${KINBOARD_DEMO_FAMILY_CODE:-}
       # Postgres credentials for the entrypoint's migration runner. The
-      # entrypoint applies webapp/docker/migration*.sql on container start
+      # entrypoint applies webapp/docker/migrations/ on container start
       # so Watchtower-driven updates pick up new schema without needing
       # the operator to run `start.sh migrate` from the host.
       POSTGRES_HOST: db

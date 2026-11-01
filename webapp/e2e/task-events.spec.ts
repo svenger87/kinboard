@@ -139,7 +139,7 @@ test("both task dialogs carry the option, and save, reset and refill it", () => 
 });
 
 test("the column is added by a migration the entrypoint can run again, and typed", () => {
-  const sql = codeOnly(read("docker/migration_todos_show_in_events.sql"), { sql: true });
+  const sql = codeOnly(read("docker/migrations/044_todos_show_in_events.sql"), { sql: true });
   expect(sql).toContain("ALTER TABLE public.todos ADD COLUMN IF NOT EXISTS show_in_events BOOLEAN NOT NULL DEFAULT false;");
   expect(sql).toContain("NOTIFY pgrst, 'reload schema';");
   const types = codeOnly(read("src/types/database.ts"));

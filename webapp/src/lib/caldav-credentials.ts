@@ -13,7 +13,7 @@ import { createAdminClient } from "@/lib/supabase/server";
  *
  * What's kept from that module's model is the part that matters: the row
  * lives in public.integration_secrets, which is REVOKEd from anon and
- * authenticated (migration_integration_secrets.sql) and reachable only via
+ * authenticated (migrations/020_integration_secrets.sql) and reachable only via
  * service_role. Credentials therefore never leave the server — no API
  * response includes them, and the settings UI re-collects the password to
  * change it rather than round-tripping a masked value.

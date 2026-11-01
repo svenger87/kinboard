@@ -2,7 +2,7 @@
  * A parent adds or removes a child's points by hand (discussion #349): a
  * bonus, or a correction for a task that was given the wrong points.
  * adjust_person_points() and remove_person_point_adjustment() in
- * docker/migration_zzzzzzzzzzzz_point_adjustments.sql do it under the child's
+ * docker/migrations/081_point_adjustments.sql do it under the child's
  * lock; this turns their answers into HTTP ones. The routes check the
  * settings PIN before getting here. The client is a parameter so a spec can
  * hand it a fake.

@@ -21,8 +21,8 @@ import { DB_CONTAINER, SKIP_WITHOUT_DATABASE, dbContainer } from "./whole-databa
 const DOCKER = join(__dirname, "..", "docker");
 const SRC = join(__dirname, "..", "src");
 
-const rls = codeOnly(readFileSync(join(DOCKER, "migration_zz_row_level_security.sql"), "utf8"), { sql: true });
-const revoke = codeOnly(readFileSync(join(DOCKER, "migration_zzzzzz_families_server_only.sql"), "utf8"), { sql: true });
+const rls = codeOnly(readFileSync(join(DOCKER, "migrations/049_row_level_security.sql"), "utf8"), { sql: true });
+const revoke = codeOnly(readFileSync(join(DOCKER, "migrations/068_families_server_only.sql"), "utf8"), { sql: true });
 
 /** Every CREATE POLICY statement on public.families, as written. */
 function familiesPolicies(sql: string): string[] {
@@ -53,9 +53,9 @@ test.describe("migrations", () => {
   });
 
   test("the revoke sorts after every migration that touches families", () => {
-    const self = "migration_zzzzzz_families_server_only.sql";
-    const touching = readdirSync(DOCKER)
-      .filter((f) => /^migration.*\.sql$/.test(f) && f !== self)
+    const self = "migrations/068_families_server_only.sql";
+    const touching = readdirSync(join(DOCKER, "migrations")).map((f) => `migrations/${f}`)
+      .filter((f) => /^migrations\/\d{3}_.*\.sql$/.test(f) && f !== self)
       // A foreign key to families (`REFERENCES public.families(id)`) grants
       // nothing on it, so a later table that belongs to a family need not
       // sort before the revoke; anything else naming the table does.
@@ -63,7 +63,7 @@ test.describe("migrations", () => {
         codeOnly(readFileSync(join(DOCKER, f), "utf8"), { sql: true })
           .replace(/\bREFERENCES\s+public\.families\s*\(\s*id\s*\)/gi, "")))
       .sort();
-    expect(touching).toContain("migration_zz_row_level_security.sql");
+    expect(touching).toContain("migrations/049_row_level_security.sql");
     for (const f of touching) expect(f < self, `${f} sorts after ${self}`).toBe(true);
   });
 });

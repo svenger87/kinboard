@@ -90,7 +90,7 @@ Since 1.13 Kong is the front door ([RFC-018](https://github.com/svenger87/kinboa
 │   └── docker/                  # docker-compose stack + helpers
 │       ├── docker-compose.yml
 │       ├── docker-compose.traefik.yml.example
-│       ├── init.sql                 # Base schema (RLS comes from migration_zz_row_level_security.sql)
+│       ├── init.sql                 # Base schema (RLS comes from migrations/049_row_level_security.sql)
 │       ├── seed-demo.sql            # Optional demo dataset
 │       ├── start.sh                 # up/down/logs/restart/migrate/seed-demo
 │       ├── kinboard-self-update.sh  # Live-host upgrade helper (Diun webhook or by hand)
@@ -137,15 +137,15 @@ The browser talks to PostgREST directly, so the Next.js API is not in that reque
 - **A device that has joined gets a family-scoped token** from `/api/session/token`, which is gated by the HttpOnly device-session cookie. The token is signed with the stack's JWT secret, lasts an hour, and the client refreshes it well before then, so a kiosk never needs attention (`src/lib/family-jwt.ts`, `src/lib/supabase/family-token.ts`).
 - **The service role bypasses RLS.** Every API route and cron job uses it and establishes the family server-side, so RLS is the backstop for the direct-PostgREST path, not a replacement for the `family_id` filtering in the routes.
 
-The policies live in `webapp/docker/migration_zz_row_level_security.sql`. It sorts after every other migration on purpose: it drops any policy that isn't one of its own family-scope policies, so a later migration that creates a policy is cleaned up instead of quietly widening access.
+The policies live in `webapp/docker/migrations/049_row_level_security.sql`. It sorts after every other migration on purpose: it drops any policy that isn't one of its own family-scope policies, so a later migration that creates a policy is cleaned up instead of quietly widening access.
 
 **Some tables only the server writes.** Row-level security limits a token to its own family, but within that family it would let any screen write anything, a child's wall panel included. Where a rule matters, the browser roles have no write privilege at all and the change goes through an API route that enforces it:
 
-- `families`: no insert or delete from the browser (`migration_zzzzzz_families_server_only.sql`); creating and deleting a family go through `/api/family`.
-- Pocket money, points, rewards and creatures: read-only from the browser (`migration_zzzzzzzz_pocket_money_server_only.sql` and the points/creatures migrations), so a balance, a purchase or a reward decision can't be written past the settings PIN.
+- `families`: no insert or delete from the browser (`migrations/068_families_server_only.sql`); creating and deleting a family go through `/api/family`.
+- Pocket money, points, rewards and creatures: read-only from the browser (`migrations/075_pocket_money_server_only.sql` and the points/creatures migrations), so a balance, a purchase or a reward decision can't be written past the settings PIN.
 - `settings`, `device_sessions`, `todo_occurrences` and `todo_events` are written only by the server too, and `devices` is created and changed only by it (a screen can still remove a device of its own family).
 
-**The seven tables without RLS have no browser privileges at all**: `integration_tokens`, `integration_clients`, `integration_idempotency`, the two OAuth tables, `domain_events` and `system_heartbeats`. `integration_secrets` has RLS on *and* its privileges revoked. And no browser role holds `TRUNCATE` on anything (`migration_zzzz_revoke_truncate.sql`): it isn't a row operation, so no policy would stop it emptying a table for every family on the instance.
+**The seven tables without RLS have no browser privileges at all**: `integration_tokens`, `integration_clients`, `integration_idempotency`, the two OAuth tables, `domain_events` and `system_heartbeats`. `integration_secrets` has RLS on *and* its privileges revoked. And no browser role holds `TRUNCATE` on anything (`migrations/060_revoke_truncate.sql`): it isn't a row operation, so no policy would stop it emptying a table for every family on the instance.
 
 The join code is still the household's key: anyone who has it can join a device and get a token for that family. RLS stops the *public* key and other families from reaching your data; it does not make the join code less important. [Security-and-Threat-Model](Security-and-Threat-Model) covers what that means in practice.
 
@@ -161,11 +161,11 @@ Purging is the inverse and needs every trigger to stand down at once, cascades i
 
 `events` is deliberately out of scope: the syncers reconcile against the upstream calendar, and a soft-deleted event either returns on the next sync or fights it. `recipe_ingredients` and `recipe_tag_assignments` are out because editing a recipe deletes and re-inserts them, which would fill the bin on every save.
 
-The migration is `migration_zzz_soft_delete.sql`, named to sort **after** `migration_zz_row_level_security.sql` — that one recreates every family-scope policy on each boot, so anything amending those policies has to run last. Retention lives in `settings` under `recycle_bin`; the nightly `purge-recycle-bin` job enforces it. User-facing docs: [Recycle-Bin](Recycle-Bin).
+The migration is `migrations/056_soft_delete.sql`, named to sort **after** `migrations/049_row_level_security.sql` — that one recreates every family-scope policy on each boot, so anything amending those policies has to run last. Retention lives in `settings` under `recycle_bin`; the nightly `purge-recycle-bin` job enforces it. User-facing docs: [Recycle-Bin](Recycle-Bin).
 
 ### Migrations
 
-`webapp/docker/init.sql` runs **once**, on first DB init. Every schema change since ships as a `webapp/docker/migration*.sql` file, and each uses `IF NOT EXISTS` / `IF EXISTS` guards so re-applying is a no-op.
+`webapp/docker/init.sql` runs **once**, on first DB init. Every schema change since ships as a `webapp/docker/migrations/NNN_topic.sql` file, and each uses `IF NOT EXISTS` / `IF EXISTS` guards so re-applying is a no-op.
 
 **The webapp container applies them, on every start**, from `webapp-entrypoint.sh` — one runner, deliberately. It works for deployments that never invoke `start.sh` (image-only, Watchtower, Diun), and it refuses to start the app if a migration fails rather than serving against a half-applied schema. It then issues `NOTIFY pgrst, 'reload schema'` so new columns are queryable without restarting PostgREST. `start.sh up` watches that log rather than applying anything itself: until 1.8.0 it applied the same files from the host *at the same time*, and the two runners collided (issue #152). See `webapp/docker/migration*.sql` for the current, always-up-to-date list; `./start.sh migrate` re-applies them by hand if you ever need to (rarely — `up` already does it).
 
@@ -222,7 +222,7 @@ The schema is intentionally not normalized into per-feature tables — settings 
 
 ### Integration credentials
 
-OAuth tokens, API keys, and the settings PIN live in `public.integration_secrets` (`family_id, key, value JSONB`), added in v1.4.0 (`webapp/docker/migration_integration_secrets.sql`, `migration_pin_secret.sql`). Unlike `settings`, this table has `anon`/`authenticated` privileges revoked and is excluded from the Realtime publication — only the service-role client (`createAdminClient()`) can read it, so a browser on the LAN can no longer read another device's Google/Home Assistant/Immich/Bring tokens or the PIN via PostgREST. Settings pages that need to show "connected" state read a merged view (`getMergedSetting`) that overlays the secret on top of the public settings shape without ever sending the secret value itself to the browser — a PUT that includes the sentinel placeholder means "keep the stored secret unchanged." Existing installs migrate their previously-exposed values into this table automatically on upgrade. Full reasoning: [Security-and-Threat-Model → Integration credentials](Security-and-Threat-Model#integration-credentials).
+OAuth tokens, API keys, and the settings PIN live in `public.integration_secrets` (`family_id, key, value JSONB`), added in v1.4.0 (`webapp/docker/migrations/020_integration_secrets.sql`, `migrations/030_pin_secret.sql`). Unlike `settings`, this table has `anon`/`authenticated` privileges revoked and is excluded from the Realtime publication — only the service-role client (`createAdminClient()`) can read it, so a browser on the LAN can no longer read another device's Google/Home Assistant/Immich/Bring tokens or the PIN via PostgREST. Settings pages that need to show "connected" state read a merged view (`getMergedSetting`) that overlays the secret on top of the public settings shape without ever sending the secret value itself to the browser — a PUT that includes the sentinel placeholder means "keep the stored secret unchanged." Existing installs migrate their previously-exposed values into this table automatically on upgrade. Full reasoning: [Security-and-Threat-Model → Integration credentials](Security-and-Threat-Model#integration-credentials).
 
 CalDAV credentials are the one entry keyed per *object* rather than per integration: each connected calendar stores its username/password under `caldav:<calendar_id>`, because a family can have calendars on different servers with different logins. That dynamic key doesn't fit `SECRET_FIELDS`' static path filter in `lib/integration-secrets.ts`, so `lib/caldav-credentials.ts` writes the row directly with the service-role client. The storage guarantee is identical — the table is the same locked-down one — and no API response ever contains a CalDAV password, which is why changing one means re-entering it rather than round-tripping a sentinel.
 

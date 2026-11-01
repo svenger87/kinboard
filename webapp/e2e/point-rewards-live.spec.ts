@@ -7,8 +7,8 @@ import { decideRedemption, requestRedemption, silentRewardNotifier } from "../sr
 
 /**
  * Rewards bought with task points (discussion #349), against PostgreSQL
- * through PostgREST (docker/migration_zzzzzzz_point_rewards.sql, per child
- * since migration_zzzzzzzz_pocket_money_creatures_out.sql), in the style of
+ * through PostgREST (docker/migrations/070_point_rewards.sql, per child
+ * since migrations/074_pocket_money_creatures_out.sql), in the style of
  * pocket-money-live.spec.ts: approved twice books once, the balance never
  * goes below zero, no pocket-money account is needed, and a browser's token
  * can read but not write.

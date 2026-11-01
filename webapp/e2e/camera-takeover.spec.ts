@@ -338,8 +338,8 @@ test.describe("show_camera: the wiring", () => {
   const read = (...path: string[]) => readFileSync(join(__dirname, "..", ...path), "utf8");
 
   test("the screens can read the table and hear about it live", () => {
-    expect(read("docker", "migration_camera_takeovers.sql")).toContain("ADD TABLE public.camera_takeovers");
-    expect(read("docker", "migration_zz_row_level_security.sql")).toContain("'camera_takeovers'");
+    expect(read("docker", "migrations/009_camera_takeovers.sql")).toContain("ADD TABLE public.camera_takeovers");
+    expect(read("docker", "migrations/049_row_level_security.sql")).toContain("'camera_takeovers'");
     expect(read("src", "hooks", "use-realtime.ts")).toMatch(/ALL_TABLES[\s\S]*"camera_takeovers"/);
   });
 

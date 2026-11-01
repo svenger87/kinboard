@@ -6,7 +6,7 @@ The Vehicles page (`/vehicles`) shows battery level, charging status, and range 
 
 ## Migrating from the legacy Tesla page
 
-If you were running Kinboard before v1.0.12, you had a `/tesla` page and a `/settings/tesla` settings page. Both now redirect (HTTP 308) to the new pages. No action is required on your part — your existing Tesla configuration was automatically migrated to the `vehicles` table by `migration_vehicles.sql`, which runs on stack startup. After the upgrade, visit `/settings/vehicles` and you should see your Tesla listed with its existing entity IDs intact.
+If you were running Kinboard before v1.0.12, you had a `/tesla` page and a `/settings/tesla` settings page. Both now redirect (HTTP 308) to the new pages. No action is required on your part — your existing Tesla configuration was automatically migrated to the `vehicles` table by `migrations/046_vehicles.sql`, which runs on stack startup. After the upgrade, visit `/settings/vehicles` and you should see your Tesla listed with its existing entity IDs intact.
 
 The `widget_visibility.tesla` flag in your saved dashboard preferences is also auto-migrated at read time: if your blob has `tesla: true` and no `vehicles` key, the dashboard treats it as `vehicles: true` so the widget keeps appearing without you touching `/settings/widgets`.
 
@@ -104,7 +104,7 @@ The Tesla driver at `webapp/src/plugins/vehicles/drivers/tesla.tsx` is the canon
 
 **1. Add `<vendor>` to the `vendor` enum**
 
-In `webapp/docker/migration_vehicles.sql`, the `vendor TEXT NOT NULL CHECK (vendor IN ('tesla', 'generic-ev'))` constraint locks the allowed values. Postgres has no `ADD CONSTRAINT IF NOT EXISTS` for CHECKs, so a new vendor needs a separate idempotent migration. Create `webapp/docker/migration_vehicle_vendor_<id>.sql`:
+In `webapp/docker/migrations/046_vehicles.sql`, the `vendor TEXT NOT NULL CHECK (vendor IN ('tesla', 'generic-ev'))` constraint locks the allowed values. Postgres has no `ADD CONSTRAINT IF NOT EXISTS` for CHECKs, so a new vendor needs a separate idempotent migration. Create `webapp/docker/migration_vehicle_vendor_<id>.sql`:
 
 ```sql
 DO $$

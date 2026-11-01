@@ -103,7 +103,7 @@ Before tagging:
 - [ ] No uncommitted local changes; `git status` is clean
 - [ ] `npm run lint` passes locally
 - [ ] CI is green on `kinboard/main`
-- [ ] If schema changed: a `migration*.sql` file landed and is idempotent
+- [ ] If schema changed: a `migrations/NNN_topic.sql` file landed and is idempotent
 - [ ] No new env vars without `.env.example` entries
 - [ ] If a breaking change: it's flagged prominently in CHANGELOG and a migration note exists in the wiki
 

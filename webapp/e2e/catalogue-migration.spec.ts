@@ -38,7 +38,7 @@ function applyMigration(): void {
   // execFileSync throws on — the way a real second migration pass failing
   // would actually surface.
   execFileSync("bash", ["-c",
-    `docker exec -i ${dbContainer()} psql -v ON_ERROR_STOP=1 -U postgres -d postgres -q < webapp/docker/migration_catalogue_items.sql`],
+    `docker exec -i ${dbContainer()} psql -v ON_ERROR_STOP=1 -U postgres -d postgres -q < webapp/docker/migrations/010_catalogue_items.sql`],
     { cwd: process.cwd().replace(/\/webapp$/, ""), encoding: "utf8" });
 }
 

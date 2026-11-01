@@ -147,7 +147,7 @@ assert_head_schema() {
 
   # The soft-delete predicate must survive migration_zz_row_level_security,
   # which recreates every family-scope policy on each boot. This is the
-  # ordering trap that made the file migration_zzz_soft_delete.sql.
+  # ordering trap that made the file migrations/056_soft_delete.sql.
   local policy
   policy=$(psql_rig -c "SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='birthdays' AND qual LIKE '%deleted_at%';")
   [ "$policy" != "0" ] && pass "RLS still carries the deleted_at predicate" \

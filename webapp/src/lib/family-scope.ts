@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
  * Confirm a row belongs to the family making the request.
  *
  * Row-Level Security IS enabled on this project — see
- * `migration_zz_row_level_security.sql` — but this file is not made
+ * `migrations/049_row_level_security.sql` — but this file is not made
  * redundant by that. These routes run on the service-role client, and
  * `service_role` has BYPASSRLS by design (that's what lets a Next.js API
  * route establish the family server-side in the first place). RLS protects
@@ -25,7 +25,7 @@ import { NextRequest } from "next/server";
  * The trap this file cannot save you from: being listed in `SCOPE` below
  * does nothing on its own to close the direct-PostgREST path. A table only
  * gets RLS (and therefore a policy) by being added to the `direct_tables`
- * array in `migration_zz_row_level_security.sql`. `media_players` shipped
+ * array in `migrations/049_row_level_security.sql`. `media_players` shipped
  * in this SCOPE map without ever being added to that array — RLS stayed
  * disabled on the table, and the anon key could read and delete any
  * family's rows through Kong, undetected because this file's guard only
