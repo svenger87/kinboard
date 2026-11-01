@@ -152,7 +152,9 @@ jobs:
         # pass to catch first-boot races, and realtime then needed a restart
         # to see newly published tables; neither exists any more.
         working-directory: ${{ github.workspace }}/webapp/docker
-        run: bash start.sh migrate | tee /tmp/migrate.log && grep -q "done: 0 applied" /tmp/migrate.log
+        run: |
+          bash start.sh migrate | tee /tmp/migrate.log
+          grep -q "done: 0 applied" /tmp/migrate.log
 
       - name: Seed demo family
         # Writes the DEMO01 family + HA/cameras/Tesla settings rows that
