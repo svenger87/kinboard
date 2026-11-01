@@ -757,19 +757,23 @@ export default function HausautomationPage() {
         {isConnected && statesError && (
           <div
             role="alert"
-            className="flex flex-wrap items-center gap-3 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3"
+            className="flex flex-col gap-3 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 md:flex-row md:items-center"
           >
-            <WifiOff className="size-5 shrink-0 text-warning" strokeWidth={1.75} aria-hidden="true" />
-            <div className="min-w-0 flex-1">
-              <p className="font-display text-base font-semibold">{t("unreachableTitle")}</p>
-              <p className="text-sm text-muted-foreground">{t("unreachableBody")}</p>
+            <div className="flex min-w-0 items-center gap-3 md:flex-1">
+              <WifiOff className="size-5 shrink-0 text-warning" strokeWidth={1.75} aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="font-display text-base font-semibold">{t("unreachableTitle")}</p>
+                <p className="text-sm text-muted-foreground">{t("unreachableBody")}</p>
+              </div>
             </div>
-            <Button variant="outline" onClick={() => void refetchStates()} disabled={fetchingStates}>
-              {t("unreachableRetry")}
-            </Button>
-            <Button variant="ghost" asChild>
-              <Link href="/settings/homeassistant">{t("unreachableSettings")}</Link>
-            </Button>
+            <div className="flex flex-wrap gap-2 md:shrink-0">
+              <Button variant="outline" className="min-h-11 md:min-h-9" onClick={() => void refetchStates()} disabled={fetchingStates}>
+                {t("unreachableRetry")}
+              </Button>
+              <Button variant="ghost" className="min-h-11 md:min-h-9" asChild>
+                <Link href="/settings/homeassistant">{t("unreachableSettings")}</Link>
+              </Button>
+            </div>
           </div>
         )}
 
