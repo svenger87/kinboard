@@ -106,6 +106,11 @@ test.describe("the media widget", () => {
   // Pin the accessible-name assertion below to a deterministic locale rather
   // than whatever Accept-Language the container/engine happens to negotiate.
   test.use({ locale: "en-US" });
+  // page.route does not beat the service worker. Once it has activated, about
+  // a second after load, it answers /api/homeassistant/states itself and the
+  // real mock (a player that IS playing) reaches the page: WebKit trace of CI
+  // run 41315221119 shows the stub at 01.5 s, then "playing" at 02.5 s.
+  test.use({ serviceWorkers: "block" });
   // Both tests share one seeded media_players row and one widget_visibility
   // override; running them concurrently would race the setup/teardown.
   test.describe.configure({ mode: "serial" });
@@ -143,12 +148,16 @@ test.describe("the media widget", () => {
 
   test("is absent when nothing is playing", async ({ page }) => {
     await establishSession(page, FAMILY_CODE, DEVICE_NAME);
-    await page.route((u) => u.pathname === "/api/homeassistant/states", (r) =>
-      r.fulfill({ json: entity("idle", 16385) }),
-    );
+    let hits = 0;
+    await page.route((u) => u.pathname === "/api/homeassistant/states", (r) => {
+      hits++;
+      return r.fulfill({ json: entity("idle", 16385) });
+    });
     await page.goto("/");
     await page.waitForTimeout(3000);
     await expect(page.getByRole("region", { name: "Media" })).toHaveCount(0);
+    // A route that never fired cannot be why this is green.
+    expect(hits).toBeGreaterThan(0);
   });
 
   // The positive control for the test above: without it, deleting the
