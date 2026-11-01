@@ -9,9 +9,13 @@
 #
 # What is applied:
 #   - a file with no row in schema_migrations,
-#   - a file whose checksum differs from the recorded one. Migrations here have
-#     always been edited in place and re-applied on the next boot; that keeps
-#     working, which is why every migration must stay idempotent.
+#   - a file whose checksum differs from the recorded one, AND every file after
+#     it. Migrations here have always been edited in place and re-applied on
+#     the next boot, when every boot re-ran every file in order — so a later
+#     file that amends what an earlier one sets up (056's soft-delete policies
+#     on top of 049's row-level security) always ran after it again. Re-running
+#     only the edited file would let it quietly undo those amendments.
+#     That is why every migration must stay idempotent.
 #   Everything else is skipped. A boot with nothing new runs no migration SQL.
 #
 # Upgrading an install that predates the table: nothing is recorded yet, so the
@@ -68,6 +72,7 @@ SQL
 
 applied=0
 skipped=0
+cascade=""
 for file in "$MIGRATIONS_DIR"/[0-9]*.sql; do
   [ -f "$file" ] || continue
   name="$(basename "$file")"
@@ -76,13 +81,16 @@ for file in "$MIGRATIONS_DIR"/[0-9]*.sql; do
   esac
   sum="$(sha256sum "$file" | cut -c1-64)"
 
-  if printf '%s\n' "$recorded" | grep -qxF "$name $sum"; then
+  if [ -z "$cascade" ] && printf '%s\n' "$recorded" | grep -qxF "$name $sum"; then
     skipped=$((skipped + 1))
     continue
   fi
 
-  if printf '%s\n' "$recorded" | grep -q "^$name "; then
+  if [ -n "$cascade" ] && printf '%s\n' "$recorded" | grep -qxF "$name $sum"; then
+    log "re-applying $name (after $cascade changed)"
+  elif printf '%s\n' "$recorded" | grep -q "^$name "; then
     log "re-applying $name (changed since it was recorded)"
+    cascade="$name"
   else
     log "applying $name"
   fi

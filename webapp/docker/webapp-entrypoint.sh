@@ -137,8 +137,9 @@ done
 # the old tree stays as it was in case anything has to be rolled back. Only
 # when a link is impossible is the file copied.
 #
-# Once, then never again: a marker file records the move. Objects already at
-# their new path are skipped, so an interrupted run simply continues. An
+# Once, then never again: a marker file records the move (see below for when
+# it is written). Objects already at their new path are skipped, so an
+# interrupted run simply continues. An
 # object whose file is missing is reported and skipped — it was already a
 # broken image before the move.
 # ---------------------------------------------------------------------------
@@ -158,8 +159,8 @@ migrate_files() {
   has_objects="$(psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAq \
                  -c "SELECT to_regclass('storage.objects') IS NOT NULL" 2>/dev/null || true)"
   if [ "$has_objects" = "f" ]; then
-    # No storage schema at all: an install that never had storage-api.
-    date -u +%FT%TZ >"$marker"
+    # No storage schema: nothing to move. No marker either, so a pre-1.15
+    # backup restored into this install later is still moved on its next start.
     return 0
   fi
   list="$(mktemp)"
@@ -202,7 +203,13 @@ SQL
   rm -f "$list"
 
   chown -R nextjs:nodejs "$FILES_DIR"
-  printf '%s moved=%s present=%s missing=%s\n' "$(date -u +%FT%TZ)" "$moved" "$present" "$missing" >"$marker"
+  # The marker only once there was something to move. An install without
+  # uploads keeps checking an empty table (one query per start), so a pre-1.15
+  # backup restored into it later is still moved. Once written, objects
+  # deleted after the move are never brought back from the old tree.
+  if [ $((moved + present + missing)) -gt 0 ]; then
+    printf '%s moved=%s present=%s missing=%s\n' "$(date -u +%FT%TZ)" "$moved" "$present" "$missing" >"$marker"
+  fi
   echo "[entrypoint] uploaded files moved out of storage-api: $moved moved, $present already there, $missing missing"
 }
 migrate_files
