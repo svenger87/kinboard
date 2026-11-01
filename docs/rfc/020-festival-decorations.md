@@ -141,7 +141,7 @@ per offered country. It is reviewed whenever a region is added.
 | Halloween | 24 → 31 Oct | fixed | US, GB, IE |
 | Día de Muertos | 31 Oct → 2 Nov | fixed | MX |
 | Thanksgiving | its weekend | 4th Thursday of November | US |
-| Carnival | the week before Ash Wednesday | Easter − 46 days | BR |
+| Carnival | the week up to Shrove Tuesday | Easter − 47 days (Ash Wednesday is − 46) | BR |
 | St Nicholas | 5–6 Dec | fixed | NL, BE, LU, DE, AT, CH, CZ, SK, PL |
 | St Patrick's Day | 17 Mar | fixed | IE |
 | Midsummer | its eve and day | per country | SE, EE, LV, LT |
@@ -175,6 +175,85 @@ calendar there would silently produce no festival rather than an error.
 - **Midnight on New Year's Eve** is the family's midnight, in the family's
   time zone (the calendar already has one), not the display's or the
   server's.
+
+### 3.3 Festival kits: feasible examples
+
+What each festival could look like in the four layers, and how much drawing
+it takes. A festival is **feasible** when two things hold. Its date can be
+computed (fixed, Easter-relative, an `Intl` calendar, the region data, or a
+short table). And it can be marked festively, without devotional imagery. The
+dates added here were checked like the ones in §3.1: Mid-Autumn 2026-09-25
+and 2027-09-15, Dragon Boat 2026-06-19 and 2027-06-09, Ramadan from
+2026-02-18 and 2027-02-08, Purim 2026-03-03 and 2027-03-23 (Adar II in a leap
+year), Sukkot 2026-09-26 and 2027-10-16, Yalda 2026-12-21.
+
+**Effort** counts new drawings: *low* reuses what exists (the shop's items,
+shapes already drawn for another festival), *medium* is a few new still
+drawings, *high* needs a new animated visitor. Items in `code` are already in
+RFC-017's shop.
+
+#### Winter
+
+| Festival | Visitor | Dressing | Outfit | Wash | Date | Effort |
+|---|---|---|---|---|---|---|
+| **Advent → Christmas** | the sleigh | snow caps; one more candle lit in a card's corner each Advent Sunday | Santa hat, `snow` background | red / pine green | fixed; Advent from 25 Dec | high (the sleigh), then low |
+| **St Nicholas** | none; on the morning of 6 Dec a boot full of sweets stands on the Tasks card | the boot | `scarf` | red / gold | fixed | low |
+| **Hanukkah** | a dreidel spins across the bottom | a row of eight lights along a card's edge, one more lit each night | knitted blue hat | blue / silver | `Intl` `hebrew`, Kislev 25 | medium |
+| **Yalda** | none | pomegranates and a slice of watermelon in a corner | `scarf` | deep red / night blue | `Intl` `persian`, Azar 30 | low |
+| **New Year's Eve** | fireworks over the clock at the family's midnight | confetti at the cards' corners | party hat, `star_glasses` | gold / midnight blue | fixed | medium |
+| **Three Kings** (ES, MX) | three crowns parade along the bottom | a ring cake in a corner | crown | gold / purple | fixed, 6 Jan | low |
+| **Orthodox Christmas** | the sleigh | snow caps | Santa hat | red / pine green | fixed, 7 Jan (Julian 25 Dec) | low (reuses Christmas) |
+| **Lunar New Year** (Seollal, Tết) | a dragon dance along the bottom; lanterns rise on the last day | red lanterns on the cards | red cap with a lantern | red / gold | `Intl` `chinese` (`dangi` for Seollal), month 1 day 1 → day 15 | high (the dragon) |
+
+#### Spring
+
+| Festival | Visitor | Dressing | Outfit | Wash | Date | Effort |
+|---|---|---|---|---|---|---|
+| **Valentine's Day** | hearts float up from the bottom | none | `heart_glasses` | rose / pink | fixed | low |
+| **Carnival** | streamers and confetti burst from the corners | paper streamers on the cards | a jester's hat or mask | purple / green / gold | Easter − 47 days, Shrove Tuesday | medium |
+| **Ramadan** | none | lanterns on the cards, **after sunset only** (from the weather data; from 18:00 without it) | none | night blue / gold | `Intl` `islamic-umalqura`, month 9 | low |
+| **Eid al-Fitr, Eid al-Adha** | lanterns and sparkles drift up | string lights and lanterns on the cards | a festive cap with a tassel | emerald / gold | `Intl` `islamic-umalqura` | medium |
+| **Purim** | noisemakers and masks tumble across | masks hanging from the cards | a mask (face slot) | purple / gold | `Intl` `hebrew`, Adar (Adar II) 14 | medium |
+| **Holi** | clouds of coloured powder burst over the widgets | colour splashes at the cards' corners | colour-splashed face | many colours | **a date table**, like Diwali | medium |
+| **St Patrick's Day** | a rainbow arcs over the widgets | shamrocks at the corners | green top hat, `rainbow` background | green / gold | fixed | low |
+| **Nowruz** | goldfish swim along the bottom | sprouting grass along a card's bottom edge | `flower_crown` | spring green / turquoise | `Intl` `persian`, Farvardin 1 | medium |
+| **Passover** | none | spring blossoms on a card's corner | none | spring green / wine red | `Intl` `hebrew`, Nisan 15 | low |
+| **Easter** (Western, Orthodox) | the bunny hops along the widgets | bunting; eggs in a corner | bunny ears | spring green / yellow | computus | medium |
+| **King's Day** (NL) | orange balloons rise | orange bunting | crown | orange / blue | region data (27 Apr, moved off Sunday) | low |
+| **Mother's Day / Father's Day** | flowers bloom up from the bottom | none | `flower_crown` / `bow_tie` | the family's choice | region data where it has the day (the curated countries), else a per-country rule (2nd Sunday of May, …) | low |
+
+#### Summer
+
+| Festival | Visitor | Dressing | Outfit | Wash | Date | Effort |
+|---|---|---|---|---|---|---|
+| **Dragon Boat** | a dragon boat paddles along the bottom | none | none | green / red | `Intl` `chinese`, month 5 day 5 | medium |
+| **Midsummer** (SE, EE, LV, LT) | none; it's light all night | flower garlands on the cards | `flower_crown` | light green / yellow | per country (eve on a fixed date or the Friday between 19 and 25 Jun) | low |
+| **National days** (US 4 July, FR 14 July, CH 1 Aug, …) | fireworks over the clock in the evening | bunting in the flag's colours | `medal` | the flag's colours | region data: the region's national holiday | medium |
+
+#### Autumn
+
+| Festival | Visitor | Dressing | Outfit | Wash | Date | Effort |
+|---|---|---|---|---|---|---|
+| **Mid-Autumn** | lanterns drift past a full moon | a rabbit and mooncakes in a corner | none | gold / night blue | `Intl` `chinese`, month 8 day 15 | medium |
+| **Sukkot** | autumn leaves drift down | fruit and leaves hanging from the cards | none | harvest gold / green | `Intl` `hebrew`, Tishri 15 | medium |
+| **Diwali** | sky lanterns rise; diyas light along the cards | marigold garlands, diyas | marigold garland | saffron / magenta | **a date table** | medium |
+| **Halloween** | bats out of a corner | a cobweb, a pumpkin | `wizard_hat` | orange / purple | fixed | low |
+| **Día de Muertos** | marigold petals drift down | papel picado bunting | a marigold crown | marigold / magenta | fixed | medium |
+| **St Martin's Day** (DE, NL, AT, CH) | children's lanterns walk along the bottom at dusk | none | none | amber / night blue | fixed, 11 Nov | medium |
+| **Thanksgiving** (US) | autumn leaves blow across | leaves and a pie in a corner | leaf crown | amber / brown | 4th Thursday of November | low |
+
+#### Left out, and why
+
+- **Solemn days**: Good Friday, Yom Kippur, Ashura, All Souls' Day,
+  Totensonntag, Remembrance and Memorial days. A sleigh-style visitor is
+  wrong for a day of mourning or fasting. The colour wash already follows
+  the month on those days, and that's enough.
+- **Mawlid** and **Vesak**: their observance differs a lot between
+  communities, and Vesak's date between traditions. Possible later with a
+  table per tradition, if a family asks.
+- **Rosh Hashanah**: feasible (`Intl` `hebrew`, Tishri 1; apples and honey in
+  a corner). It's left for a family to ask for, because it opens the solemn
+  Days of Awe that end with Yom Kippur.
 
 ## 4. Who chooses, and how much moves
 
@@ -223,7 +302,7 @@ Pi in step 1, not assumed.
 | 1 | `lib/festivals.ts` with all dates, the pre-tick table and specs; the setting; `data-festival`; the colour wash; **Christmas**: the sleigh with its tap, snow-capped cards, the Santa hat | before the 1st of Advent, **29 Nov 2026** |
 | 2 | New Year's Eve: fireworks at the family's midnight | 31 Dec 2026 |
 | 3 | Lunar New Year, Easter (Western and Orthodox) | 17 Feb 2027 / Mar–Apr 2027 |
-| 4 | The rest of §3.1, as each one's artwork is ready | through 2027 |
+| 4 | The rest of §3.1 and the kits in §3.3, low effort first, as each one's artwork is ready | through 2027 |
 
 Step 1 is small in code and large in drawing. If the sleigh isn't good enough
 by mid-November, the wash, the snow-capped cards and the hat can ship alone,
