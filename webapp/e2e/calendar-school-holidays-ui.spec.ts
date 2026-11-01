@@ -278,7 +278,9 @@ for (const locale of ["de", "fr"] as const) {
   test(`${locale}: the week view runs the break across its days as an all-day strip`, async ({ page }, testInfo) => {
     await open(page, locale, `week-${locale}`, 1280, "2026-10-28");
     await toWeekView(page, locale);
-    const strips = page.locator("[data-school-break]");
+    // The week's own strips: the day panel beside it lists the selected day's
+    // break with the same attribute, and `?date=` selects that day.
+    const strips = page.locator("[data-week-view] [data-school-break]");
     // Herbstferien covers all seven days of 26 Oct -- 1 Nov, named once.
     await expect(strips).toHaveCount(7, { timeout: 30_000 });
     await expect(strips.first()).toContainText("Herbstferien");

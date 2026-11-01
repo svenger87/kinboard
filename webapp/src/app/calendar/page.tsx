@@ -24,10 +24,6 @@ import {
 import {
   format,
   isSameDay,
-  addMonths,
-  subMonths,
-  addWeeks,
-  subWeeks,
   addDays,
   startOfWeek,
   endOfWeek,
@@ -44,6 +40,7 @@ import {
   parseISO,
 } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
+import { navigateCalendarDate } from "@/lib/calendar-navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -261,7 +258,16 @@ export default function CalendarPage() {
   // it must not clobber a color the user set afterwards via edit.
   const deepLinkColorFixedRef = useRef(false);
 
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
+    const dateParam = searchParams.get("date");
+    if (!dateParam) return null;
+    const parsed = parseISO(dateParam);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  });
+  const selectDate = useCallback((date: Date) => {
+    setCurrentDate(date);
+    setSelectedDate(date);
+  }, []);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [editMode, setEditMode] = useState(false);
@@ -361,9 +367,8 @@ export default function CalendarPage() {
   // switch, hidden rows left out, and a break a calendar already lists (a
   // holiday calendar with "Herbstferien" on its first day) dropped in favour
   // of that calendar's event. The range reaches the day panel's day too,
-  // which is today when nothing is selected and can lie outside the month
-  // being browsed.
-  const panelDayKey = toLocalDateKey(selectedDate ?? new Date());
+  // which defaults to the current displayed date when nothing is selected.
+  const panelDayKey = toLocalDateKey(selectedDate ?? currentDate);
   const gridFromKey = toLocalDateKey(new Date(dateRange.start));
   const gridToKey = toLocalDateKey(new Date(dateRange.end));
   const { entries: holidayEntryList } = useHolidayEntries(
@@ -376,15 +381,14 @@ export default function CalendarPage() {
   // Every task occurrence the calendar can show, computed once for the grid's
   // dots and the side panel's lists: the grid's own range, and -- with tasks
   // treated as events -- the selected day (today when none) and the week after
-  // it, which the panel lists and which can lie outside the month being
-  // browsed. No name in the title: the panel badges the person already.
+  // it, which the panel lists. No name in the title: the panel badges the person already.
   // With how each tracked day went, by event id, for the grid's dots.
   const { taskEvents, taskStatusById } = useMemo(() => {
     const statuses = new Map<string, DayStatus>();
     if (!showTaskMarkers && !tasksAsEvents) return { taskEvents: [] as CalendarEvent[], taskStatusById: statuses };
     const ranges: [Date, Date][] = [[new Date(dateRange.start), new Date(dateRange.end)]];
     if (tasksAsEvents) {
-      const panelDay = startOfDay(selectedDate ?? new Date());
+      const panelDay = startOfDay(selectedDate ?? currentDate);
       ranges.push([panelDay, addDays(panelDay, 8)]);
     }
     const events = taskOccurrencesIn(todos ?? [], people ?? [], ranges, TASK_UNASSIGNED_COLOR, new Date(), todoHistory).map((o): CalendarEvent => {
@@ -400,7 +404,7 @@ export default function CalendarPage() {
       };
     });
     return { taskEvents: events, taskStatusById: statuses };
-  }, [showTaskMarkers, tasksAsEvents, todos, people, dateRange.start, dateRange.end, selectedDate, t, todoHistory]);
+  }, [showTaskMarkers, tasksAsEvents, todos, people, dateRange.start, dateRange.end, selectedDate, currentDate, t, todoHistory]);
   const { data: googleStatus } = useGoogleCalendarStatus();
   const updateSetting = useUpdateSetting<string>();
   const createEvent = useCreateEvent();
@@ -625,7 +629,7 @@ export default function CalendarPage() {
     eventParamConsumedRef.current = true;
     if (deepLinkEventData) {
       isDeepLinkEventRef.current = true;
-      setCurrentDate(new Date(deepLinkEventData.start_at));
+      selectDate(new Date(deepLinkEventData.start_at));
       setSelectedEvent(toCalendarEvent(deepLinkEventData));
     } else {
       toast.error(t("eventNotFound"));
@@ -637,7 +641,7 @@ export default function CalendarPage() {
         window.history.replaceState({}, "", `${url.pathname}${url.search}`);
       }
     }
-  }, [eventParam, deepLinkFetched, deepLinkEventData, toCalendarEvent, t]);
+  }, [eventParam, deepLinkFetched, deepLinkEventData, toCalendarEvent, t, selectDate]);
 
   // Late-color resolution: if the deep-link dialog opened before `people`
   // finished loading, its color used the fallback. Once people settle,
@@ -780,30 +784,16 @@ export default function CalendarPage() {
     return panelEvents.filter((event) => eventOccursOnDay(event, day));
   };
 
-  // Get events for selected date (default to today when nothing selected)
-  const displayDate = selectedDate || new Date();
+  // Get events for selected date (default to the displayed date)
+  const displayDate = selectedDate ?? currentDate;
   const selectedDateEvents = getEventsForDay(displayDate);
 
   // Navigation - depends on view
-  const goToPrevious = () => {
-    if (view === "month") {
-      setCurrentDate(subMonths(currentDate, 1));
-    } else {
-      setCurrentDate(subWeeks(currentDate, 1));
-    }
-  };
-
-  const goToNext = () => {
-    if (view === "month") {
-      setCurrentDate(addMonths(currentDate, 1));
-    } else {
-      setCurrentDate(addWeeks(currentDate, 1));
-    }
-  };
+  const goToPrevious = () => selectDate(navigateCalendarDate(displayDate, view, -1));
+  const goToNext = () => selectDate(navigateCalendarDate(displayDate, view, 1));
 
   const goToToday = () => {
-    setCurrentDate(new Date());
-    setSelectedDate(new Date());
+    selectDate(new Date());
   };
 
   const getPersonById = (id?: string) =>
@@ -1199,7 +1189,7 @@ export default function CalendarPage() {
                         type="button"
                         onClick={() => {
                           const ev = toCalendarEvent(row);
-                          setCurrentDate(ev.start);
+                          selectDate(ev.start);
                           openEventDetail(ev);
                           setSearchQuery("");
                         }}
@@ -1280,7 +1270,7 @@ export default function CalendarPage() {
                   currentDate={currentDate}
                   selectedDate={selectedDate}
                   events={visibleEvents}
-                  onSelectDate={setSelectedDate}
+                  onSelectDate={selectDate}
                   onSelectEvent={openEventDetail}
                   holidayMarkers={holidayMarkers}
                   schoolBreaks={schoolBreakEntries}
@@ -1291,7 +1281,7 @@ export default function CalendarPage() {
                   currentDate={currentDate}
                   selectedDate={selectedDate}
                   events={visibleEvents}
-                  onSelectDate={setSelectedDate}
+                  onSelectDate={selectDate}
                   onSelectEvent={openEventDetail}
                   holidayMarkers={holidayMarkers}
                   schoolBreaks={schoolBreakEntries}
@@ -1561,12 +1551,12 @@ export default function CalendarPage() {
                                         borderLeft: `2px solid ${event.color}`,
                                       }}
                                       onClick={() => {
-                                        setSelectedDate(date);
+                                        selectDate(date);
                                       }}
                                       onKeyDown={(e) => {
                                         if (e.key === "Enter" || e.key === " ") {
                                           e.preventDefault();
-                                          setSelectedDate(date);
+                                          selectDate(date);
                                         }
                                       }}
                                     >

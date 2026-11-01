@@ -34,6 +34,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Home automation disconnection alerts fit on phones.** The message now gets the full width, with Try again and Check connection below it as touch-friendly actions; larger screens keep the compact row.
 
+- **Calendar day details follow the displayed period.** Previous and Next move the selected day with the month or week, and switching views keeps a date you picked in view. Today returns to today.
+
 - **Choosing a neutral tone does something again in light mode.** Settings → Design → Neutral tone changed the colours in dark mode only: in light mode every tone looked like Sand, and had since Graphite arrived in 1.13. The light versions of Salbei, Warm grey and Graphite were left out of the built stylesheet.
 
 - **Sending a recipe or the week's meal plan to the shopping list no longer duplicates what is already on it.** Milk from a recipe now joins the milk already on the list (1 L + 0.5 L becomes 1.5 L) instead of appearing twice, and adding the same recipe twice no longer doubles every item. Ticked items are left alone: something already bought counts as a new need. These are the same rules assistants have used since 1.13.
