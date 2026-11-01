@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="1200" height="640" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Mockup: still decorations on a widget card for six festivals">
+<title>Mockup: still decorations on a widget card for six festivals</title>
+<style>@keyframes flick { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(0.82); } } .flame { transform-box: fill-box; transform-origin: 50% 100%; animation: flick 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }</style>
+<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f1422"/><stop offset="1" stop-color="#161d30"/></linearGradient><radialGradient id="wash" cx="0.5" cy="0" r="0.8"><stop offset="0" stop-color="#3a6ea5" stop-opacity="0.18"/><stop offset="1" stop-color="#3a6ea5" stop-opacity="0"/></radialGradient></defs><rect width="1200" height="640" fill="url(#bg)"/><rect width="1200" height="640" fill="url(#wash)"/>
+<rect x="30" y="40" width="360" height="220" rx="18" fill="#1b2232" stroke="#2c3549"/>
+<rect x="48" y="60" width="26" height="26" rx="8" fill="#3a6ea5" opacity="0.85"/>
+<text x="84" y="79" font-size="17" font-weight="600" fill="#e8ebf2">Calendar</text>
+<rect x="50" y="106" width="256" height="10" rx="5" fill="#2a3347"/>
+<rect x="50" y="130" width="192" height="10" rx="5" fill="#2a3347"/>
+<rect x="50" y="154" width="224" height="10" rx="5" fill="#2a3347"/>
+<rect x="50" y="178" width="144" height="10" rx="5" fill="#2a3347"/>
+<path d="M27,54 L27,33.8 Q38.4,24.2 49.9,30.2 Q61.3,24.2 72.8,30.6 Q84.2,24.6 95.6,31.6 Q107.1,25.6 118.5,33.5 Q129.9,23.5 141.4,29.5 Q152.8,23.3 164.2,29.3 Q175.7,23.3 187.1,31.4 Q198.6,25.4 210.0,31.5 Q221.4,25.5 232.9,33.3 Q244.3,27.3 255.8,35.0 Q267.2,26.4 278.6,32.4 Q290.1,24.9 301.5,30.9 Q312.9,24.9 324.4,34.5 Q335.8,23.4 347.2,29.4 Q358.7,23.4 370.1,33.4 Q381.6,27.4 393.0,33.4 L393,54 L393.0,46.3 L370.1,52.0 L347.2,50.4 L324.4,51.3 L301.5,49.7 L278.6,46.2 L255.8,48.0 L232.9,49.0 L210.0,46.7 L187.1,51.7 L164.2,48.2 L141.4,46.9 L118.5,50.9 L95.6,46.7 L72.8,51.6 L49.9,48.7 L27.0,49.3 Z" fill="#f4f8ff"/>
+<path d="M27,54 L27,33.8 Q38.4,24.2 49.9,30.2 Q61.3,24.2 72.8,30.6 Q84.2,24.6 95.6,31.6 Q107.1,25.6 118.5,33.5 Q129.9,23.5 141.4,29.5 Q152.8,23.3 164.2,29.3 Q175.7,23.3 187.1,31.4 Q198.6,25.4 210.0,31.5 Q221.4,25.5 232.9,33.3 Q244.3,27.3 255.8,35.0 Q267.2,26.4 278.6,32.4 Q290.1,24.9 301.5,30.9 Q312.9,24.9 324.4,34.5 Q335.8,23.4 347.2,29.4 Q358.7,23.4 370.1,33.4 Q381.6,27.4 393.0,33.4 L393,54 L393.0,46.3 L370.1,52.0 L347.2,50.4 L324.4,51.3 L301.5,49.7 L278.6,46.2 L255.8,48.0 L232.9,49.0 L210.0,46.7 L187.1,51.7 L164.2,48.2 L141.4,46.9 L118.5,50.9 L95.6,46.7 L72.8,51.6 L49.9,48.7 L27.0,49.3 Z" fill="none" stroke="#c9d6ea" stroke-width="1" opacity="0.6"/>
+<path d="M159.9,48 L165.9,48 L162.9,58.4 Z" fill="#dce8f8" opacity="0.9"/>
+<path d="M113.1,48 L119.1,48 L116.1,55.3 Z" fill="#dce8f8" opacity="0.9"/>
+<path d="M316.8,48 L322.8,48 L319.8,56.6 Z" fill="#dce8f8" opacity="0.9"/>
+<path d="M291.1,48 L297.1,48 L294.1,56.5 Z" fill="#dce8f8" opacity="0.9"/><path d="M46,41 Q128.0,47 210.0,41 Q292.0,47 374,41" fill="none" stroke="#3b4a3a" stroke-width="1.5"/>
+<circle cx="60.9" cy="47.0" r="7" fill="#ff5a5a" opacity="0.25"/><ellipse cx="60.9" cy="47.0" rx="3" ry="4" fill="#ff5a5a"/>
+<circle cx="90.7" cy="49.8" r="7" fill="#ffd24a" opacity="0.25"/><ellipse cx="90.7" cy="49.8" rx="3" ry="4" fill="#ffd24a"/>
+<circle cx="120.5" cy="51.0" r="7" fill="#4ad66d" opacity="0.25"/><ellipse cx="120.5" cy="51.0" rx="3" ry="4" fill="#4ad66d"/>
+<circle cx="150.4" cy="50.6" r="7" fill="#4aa8ff" opacity="0.25"/><ellipse cx="150.4" cy="50.6" rx="3" ry="4" fill="#4aa8ff"/>
+<circle cx="180.2" cy="48.6" r="7" fill="#ff5a5a" opacity="0.25"/><ellipse cx="180.2" cy="48.6" rx="3" ry="4" fill="#ff5a5a"/>
+<circle cx="210.0" cy="45.0" r="7" fill="#ffd24a" opacity="0.25"/><ellipse cx="210.0" cy="45.0" rx="3" ry="4" fill="#ffd24a"/>
+<circle cx="239.8" cy="48.6" r="7" fill="#4ad66d" opacity="0.25"/><ellipse cx="239.8" cy="48.6" rx="3" ry="4" fill="#4ad66d"/>
+<circle cx="269.6" cy="50.6" r="7" fill="#4aa8ff" opacity="0.25"/><ellipse cx="269.6" cy="50.6" rx="3" ry="4" fill="#4aa8ff"/>
+<circle cx="299.5" cy="51.0" r="7" fill="#ff5a5a" opacity="0.25"/><ellipse cx="299.5" cy="51.0" rx="3" ry="4" fill="#ff5a5a"/>
+<circle cx="329.3" cy="49.8" r="7" fill="#ffd24a" opacity="0.25"/><ellipse cx="329.3" cy="49.8" rx="3" ry="4" fill="#ffd24a"/>
+<circle cx="359.1" cy="47.0" r="7" fill="#4ad66d" opacity="0.25"/><ellipse cx="359.1" cy="47.0" rx="3" ry="4" fill="#4ad66d"/>
+<text x="30" y="310" font-size="17" font-weight="700" fill="#e8ebf2">Christmas</text>
+<rect x="420" y="40" width="360" height="220" rx="18" fill="#1b2232" stroke="#2c3549"/>
+<rect x="438" y="60" width="26" height="26" rx="8" fill="#3a6ea5" opacity="0.85"/>
+<text x="474" y="79" font-size="17" font-weight="600" fill="#e8ebf2">Tasks</text>
+<rect x="440" y="106" width="256" height="10" rx="5" fill="#2a3347"/>
+<rect x="440" y="130" width="192" height="10" rx="5" fill="#2a3347"/>
+<rect x="440" y="154" width="224" height="10" rx="5" fill="#2a3347"/>
+<rect x="440" y="178" width="144" height="10" rx="5" fill="#2a3347"/>
+<rect x="769" y="48" width="6" height="3" fill="#c084fc" transform="rotate(84 769 48)"/>
+<rect x="462" y="51" width="6" height="3" fill="#ffd24a" transform="rotate(156 462 51)"/>
+<circle cx="754" cy="42" r="2.2" fill="#ffd24a"/>
+<rect x="732" y="52" width="6" height="3" fill="#4ad66d" transform="rotate(143 732 52)"/>
+<rect x="459" y="38" width="6" height="3" fill="#ff5a5a" transform="rotate(157 459 38)"/>
+<circle cx="472" cy="53" r="2.2" fill="#ff5a5a"/>
+<rect x="735" y="32" width="6" height="3" fill="#ff5a5a" transform="rotate(174 735 32)"/>
+<rect x="487" y="51" width="6" height="3" fill="#4aa8ff" transform="rotate(75 487 51)"/>
+<circle cx="431" cy="35" r="2.2" fill="#c084fc"/>
+<rect x="715" y="36" width="6" height="3" fill="#4aa8ff" transform="rotate(57 715 36)"/>
+<circle cx="748" cy="31" r="2.2" fill="#4aa8ff"/>
+<rect x="486" y="36" width="6" height="3" fill="#4ad66d" transform="rotate(142 486 36)"/>
+<rect x="740" y="50" width="6" height="3" fill="#4ad66d" transform="rotate(33 740 50)"/>
+<rect x="420" y="33" width="6" height="3" fill="#4ad66d" transform="rotate(64 420 33)"/>
+<circle cx="772" cy="29" r="2.2" fill="#4aa8ff"/>
+<rect x="445" y="53" width="6" height="3" fill="#ff5a5a" transform="rotate(110 445 53)"/>
+<rect x="437" y="52" width="6" height="3" fill="#c084fc" transform="rotate(123 437 52)"/>
+<circle cx="724" cy="28" r="2.2" fill="#ff5a5a"/>
+<rect x="790" y="31" width="6" height="3" fill="#ffd24a" transform="rotate(108 790 31)"/>
+<circle cx="713" cy="47" r="2.2" fill="#4aa8ff"/>
+<circle cx="762" cy="30" r="2.2" fill="#ffd24a"/>
+<circle cx="777" cy="30" r="2.2" fill="#c084fc"/>
+<rect x="719" y="38" width="6" height="3" fill="#ff5a5a" transform="rotate(76 719 38)"/>
+<circle cx="446" cy="54" r="2.2" fill="#ff5a5a"/>
+<rect x="787" y="45" width="6" height="3" fill="#4aa8ff" transform="rotate(52 787 45)"/>
+<circle cx="782" cy="29" r="2.2" fill="#c084fc"/>
+<g><path d="M751.5,34.0 L768.0,34.0" stroke="#ffd24a" stroke-width="2.4" stroke-linecap="round"/><circle cx="770.6" cy="34.0" r="1.8" fill="#ffd24a"/><path d="M750.8,36.8 L765.1,45.0" stroke="#ffd24a" stroke-width="2.4" stroke-linecap="round"/><circle cx="767.3" cy="46.3" r="1.8" fill="#ffd24a"/><path d="M748.8,38.8 L757.0,53.1" stroke="#ffd24a" stroke-width="2.4" stroke-linecap="round"/><circle cx="758.3" cy="55.3" r="1.8" fill="#ffd24a"/><path d="M746.0,39.5 L746.0,56.0" stroke="#ffd24a" stroke-width="2.4" stroke-linecap="round"/><circle cx="746.0" cy="58.6" r="1.8" fill="#ffd24a"/><path d="M743.2,38.8 L735.0,53.1" stroke="#ffd24a" stroke-width="2.4" stroke-linecap="round"/><circle cx="733.7" cy="55.3" r="1.8" fill="#ffd24a"/><path d="M741.2,36.8 L726.9,45.0" stroke="#ffd24a" stroke-width="2.4" stroke-linecap="round"/><circle cx="724.7" cy="46.3" r="1.8" fill="#ffd24a"/><path d="M740.5,34.0 L724.0,34.0" stroke="#ffd24a" stroke-width="2.4" stroke-linecap="round"/><circle cx="721.4" cy="34.0" r="1.8" fill="#ffd24a"/><path d="M741.2,31.2 L726.9,23.0" stroke="#ffd24a" stroke-width="2.4" stroke-linecap="round"/><circle cx="724.7" cy="21.7" r="1.8" fill="#ffd24a"/><path d="M743.2,29.2 L735.0,14.9" stroke="#ffd24a" stroke-width="2.4" stroke-linecap="round"/><circle cx="733.7" cy="12.7" r="1.8" fill="#ffd24a"/><path d="M746.0,28.5 L746.0,12.0" stroke="#ffd24a" stroke-width="2.4" stroke-linecap="round"/><circle cx="746.0" cy="9.4" r="1.8" fill="#ffd24a"/><path d="M748.8,29.2 L757.0,14.9" stroke="#ffd24a" stroke-width="2.4" stroke-linecap="round"/><circle cx="758.3" cy="12.7" r="1.8" fill="#ffd24a"/><path d="M750.8,31.2 L765.1,23.0" stroke="#ffd24a" stroke-width="2.4" stroke-linecap="round"/><circle cx="767.3" cy="21.7" r="1.8" fill="#ffd24a"/></g>
+<text x="420" y="310" font-size="17" font-weight="700" fill="#e8ebf2">New Year's Eve</text>
+<rect x="810" y="40" width="360" height="220" rx="18" fill="#1b2232" stroke="#2c3549"/>
+<rect x="828" y="60" width="26" height="26" rx="8" fill="#3a6ea5" opacity="0.85"/>
+<text x="864" y="79" font-size="17" font-weight="600" fill="#e8ebf2">Weather</text>
+<rect x="830" y="106" width="256" height="10" rx="5" fill="#2a3347"/>
+<rect x="830" y="130" width="192" height="10" rx="5" fill="#2a3347"/>
+<rect x="830" y="154" width="224" height="10" rx="5" fill="#2a3347"/>
+<rect x="830" y="178" width="144" height="10" rx="5" fill="#2a3347"/>
+<path d="M1040,42 Q1095,56 1156,42" stroke="#e3b341" stroke-width="1.5" fill="none"/>
+<g transform="translate(1062,76) scale(0.8)"><path d="M0,-30 L0,-14" stroke="#e3b341" stroke-width="1.5"/><ellipse cx="0" cy="0" rx="17" ry="15" fill="#ff6b4a" opacity="0.25"/><ellipse cx="0" cy="0" rx="15" ry="13" fill="#d62f2f"/><path d="M-6,-12 Q-10,0 -6,12 M6,-12 Q10,0 6,12" stroke="#a81f1f" stroke-width="1.2" fill="none"/><rect x="-7" y="-16" width="14" height="4" rx="1" fill="#e3b341"/><rect x="-7" y="12" width="14" height="4" rx="1" fill="#e3b341"/><path d="M-2,16 L-3,28 M0,16 L0,30 M2,16 L3,28" stroke="#e3b341" stroke-width="1.2"/></g><g transform="translate(1126,76) scale(0.8)"><path d="M0,-30 L0,-14" stroke="#e3b341" stroke-width="1.5"/><ellipse cx="0" cy="0" rx="17" ry="15" fill="#ff6b4a" opacity="0.25"/><ellipse cx="0" cy="0" rx="15" ry="13" fill="#d62f2f"/><path d="M-6,-12 Q-10,0 -6,12 M6,-12 Q10,0 6,12" stroke="#a81f1f" stroke-width="1.2" fill="none"/><rect x="-7" y="-16" width="14" height="4" rx="1" fill="#e3b341"/><rect x="-7" y="12" width="14" height="4" rx="1" fill="#e3b341"/><path d="M-2,16 L-3,28 M0,16 L0,30 M2,16 L3,28" stroke="#e3b341" stroke-width="1.2"/></g>
+<text x="810" y="310" font-size="17" font-weight="700" fill="#e8ebf2">Lunar New Year</text>
+<rect x="30" y="350" width="360" height="220" rx="18" fill="#1b2232" stroke="#2c3549"/>
+<rect x="48" y="370" width="26" height="26" rx="8" fill="#3a6ea5" opacity="0.85"/>
+<text x="84" y="389" font-size="17" font-weight="600" fill="#e8ebf2">Shopping</text>
+<rect x="50" y="416" width="256" height="10" rx="5" fill="#2a3347"/>
+<rect x="50" y="440" width="192" height="10" rx="5" fill="#2a3347"/>
+<rect x="50" y="464" width="224" height="10" rx="5" fill="#2a3347"/>
+<rect x="50" y="488" width="144" height="10" rx="5" fill="#2a3347"/>
+<path d="M44.0,354.7 L67.7,354.7 L55.9,367.7 Z" fill="#ffb3c4"/>
+<path d="M67.7,356.0 L91.4,356.0 L79.6,369.0 Z" fill="#a8e3c4"/>
+<path d="M91.4,357.2 L115.1,357.2 L103.3,370.2 Z" fill="#ffe08a"/>
+<path d="M115.1,358.2 L138.9,358.2 L127.0,371.2 Z" fill="#b8c6ff"/>
+<path d="M138.9,359.1 L162.6,359.1 L150.7,372.1 Z" fill="#ffcfa3"/>
+<path d="M162.6,359.7 L186.3,359.7 L174.4,372.7 Z" fill="#ffb3c4"/>
+<path d="M186.3,360.0 L210.0,360.0 L198.1,373.0 Z" fill="#a8e3c4"/>
+<path d="M210.0,360.0 L233.7,360.0 L221.9,373.0 Z" fill="#ffe08a"/>
+<path d="M233.7,359.7 L257.4,359.7 L245.6,372.7 Z" fill="#b8c6ff"/>
+<path d="M257.4,359.1 L281.1,359.1 L269.3,372.1 Z" fill="#ffcfa3"/>
+<path d="M281.1,358.2 L304.9,358.2 L293.0,371.2 Z" fill="#ffb3c4"/>
+<path d="M304.9,357.2 L328.6,357.2 L316.7,370.2 Z" fill="#a8e3c4"/>
+<path d="M328.6,356.0 L352.3,356.0 L340.4,369.0 Z" fill="#ffe08a"/>
+<path d="M352.3,354.7 L376.0,354.7 L364.1,367.7 Z" fill="#b8c6ff"/>
+<path d="M44,354 Q210.0,366 376,354" stroke="#d9d2c3" stroke-width="1.2" fill="none"/>
+<g transform="translate(376,564) scale(1.0)"><ellipse cx="0" cy="0" rx="12" ry="16" fill="#ffb3c4"/><path d="M-11,-3 L-6,-7 L-1,-3 L4,-7 L9,-3 L11,-1" stroke="#a8e3c4" stroke-width="3" fill="none"/><path d="M-11,6 Q0,10 11,6" stroke="#fff" stroke-width="2.5" fill="none" opacity="0.8"/></g><g transform="translate(350,572) scale(0.75)"><ellipse cx="0" cy="0" rx="12" ry="16" fill="#b8c6ff"/><path d="M-11,-3 L-6,-7 L-1,-3 L4,-7 L9,-3 L11,-1" stroke="#ffe08a" stroke-width="3" fill="none"/><path d="M-11,6 Q0,10 11,6" stroke="#fff" stroke-width="2.5" fill="none" opacity="0.8"/></g>
+<text x="30" y="620" font-size="17" font-weight="700" fill="#e8ebf2">Easter</text>
+<rect x="420" y="350" width="360" height="220" rx="18" fill="#1b2232" stroke="#2c3549"/>
+<rect x="438" y="370" width="26" height="26" rx="8" fill="#3a6ea5" opacity="0.85"/>
+<text x="474" y="389" font-size="17" font-weight="600" fill="#e8ebf2">Messages</text>
+<rect x="440" y="416" width="256" height="10" rx="5" fill="#2a3347"/>
+<rect x="440" y="440" width="192" height="10" rx="5" fill="#2a3347"/>
+<rect x="440" y="464" width="224" height="10" rx="5" fill="#2a3347"/>
+<rect x="440" y="488" width="144" height="10" rx="5" fill="#2a3347"/>
+<path d="M780,350 L734,350 M780,350 L740,372 M780,350 L756,390 M780,350 L780,396" stroke="#aab2c5" stroke-width="1" opacity="0.7"/><path d="M766,350 Q768.1,354.9 767.82,357.0 Q771.6,359.8 772.72,362.18 Q776.5,362.6 780,364" stroke="#aab2c5" stroke-width="1" fill="none" opacity="0.7"/><path d="M754,350 Q757.9,359.1 757.38,363.0 Q764.4,368.2 766.48,372.62 Q773.5,373.4 780,376" stroke="#aab2c5" stroke-width="1" fill="none" opacity="0.7"/><path d="M742,350 Q747.7,363.3 746.94,369.0 Q757.2,376.6 760.24,383.06 Q770.5,384.2 780,388" stroke="#aab2c5" stroke-width="1" fill="none" opacity="0.7"/>
+<g transform="translate(454,568) scale(1.05)"><ellipse cx="-11" cy="0" rx="12" ry="15" fill="#e8741c"/><ellipse cx="11" cy="0" rx="12" ry="15" fill="#e8741c"/><ellipse cx="0" cy="0" rx="12" ry="16" fill="#f08a2a"/><path d="M0,-15 Q2,-24 7,-26" stroke="#4d7a2a" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M-12,-4 L-7,-9 L-3,-4 Z M3,-4 L7,-9 L12,-4 Z" fill="#3a1a05"/><path d="M-11,5 Q0,13 11,5 L7,6 L4,9 L0,6 L-4,9 L-7,6 Z" fill="#3a1a05"/></g><g transform="translate(696,380) scale(1.0)"><path d="M0,0 Q-8,-8 -18,-6 Q-14,-2 -16,4 Q-10,0 -6,4 Q-3,0 0,3 Q3,0 6,4 Q10,0 16,4 Q14,-2 18,-6 Q8,-8 0,0 Z" fill="#7d6bb5"/><circle cx="0" cy="-1" r="3.5" fill="#7d6bb5"/><circle cx="-1.2" cy="-1.5" r="0.8" fill="#f5b84a"/><circle cx="1.2" cy="-1.5" r="0.8" fill="#f5b84a"/></g>
+<text x="420" y="620" font-size="17" font-weight="700" fill="#e8ebf2">Halloween</text>
+<rect x="810" y="350" width="360" height="220" rx="18" fill="#1b2232" stroke="#2c3549"/>
+<rect x="828" y="370" width="26" height="26" rx="8" fill="#3a6ea5" opacity="0.85"/>
+<text x="864" y="389" font-size="17" font-weight="600" fill="#e8ebf2">Meals</text>
+<rect x="830" y="416" width="256" height="10" rx="5" fill="#2a3347"/>
+<rect x="830" y="440" width="192" height="10" rx="5" fill="#2a3347"/>
+<rect x="830" y="464" width="224" height="10" rx="5" fill="#2a3347"/>
+<rect x="830" y="488" width="144" height="10" rx="5" fill="#2a3347"/>
+<path d="M824,353 Q990.0,370 1156,353" fill="none" stroke="#ff9f1c" stroke-width="8" stroke-dasharray="1 10" stroke-linecap="round"/><path d="M830,355 Q990.0,372 1150,355" fill="none" stroke="#ffd24a" stroke-width="6" stroke-dasharray="1 10" stroke-dashoffset="5" stroke-linecap="round"/>
+<g transform="translate(870,572) scale(1.0)"><ellipse cx="0" cy="-12" rx="9" ry="12" fill="#ffd24a" opacity="0.25"/><path class="flame" d="M0,-22 Q6,-12 0,-4 Q-6,-12 0,-22 Z" fill="#ffb02e"/><path d="M-15,-4 Q0,2 15,-4 Q12,8 0,9 Q-12,8 -15,-4 Z" fill="#c8572a"/><path d="M-15,-4 Q0,2 15,-4" stroke="#f0c75e" stroke-width="1.5" fill="none"/></g>
+<g transform="translate(930,572) scale(1.0)"><ellipse cx="0" cy="-12" rx="9" ry="12" fill="#ffd24a" opacity="0.25"/><path class="flame" d="M0,-22 Q6,-12 0,-4 Q-6,-12 0,-22 Z" fill="#ffb02e"/><path d="M-15,-4 Q0,2 15,-4 Q12,8 0,9 Q-12,8 -15,-4 Z" fill="#c8572a"/><path d="M-15,-4 Q0,2 15,-4" stroke="#f0c75e" stroke-width="1.5" fill="none"/></g>
+<g transform="translate(990,572) scale(1.0)"><ellipse cx="0" cy="-12" rx="9" ry="12" fill="#ffd24a" opacity="0.25"/><path class="flame" d="M0,-22 Q6,-12 0,-4 Q-6,-12 0,-22 Z" fill="#ffb02e"/><path d="M-15,-4 Q0,2 15,-4 Q12,8 0,9 Q-12,8 -15,-4 Z" fill="#c8572a"/><path d="M-15,-4 Q0,2 15,-4" stroke="#f0c75e" stroke-width="1.5" fill="none"/></g>
+<g transform="translate(1050,572) scale(1.0)"><ellipse cx="0" cy="-12" rx="9" ry="12" fill="#ffd24a" opacity="0.25"/><path class="flame" d="M0,-22 Q6,-12 0,-4 Q-6,-12 0,-22 Z" fill="#ffb02e"/><path d="M-15,-4 Q0,2 15,-4 Q12,8 0,9 Q-12,8 -15,-4 Z" fill="#c8572a"/><path d="M-15,-4 Q0,2 15,-4" stroke="#f0c75e" stroke-width="1.5" fill="none"/></g>
+<g transform="translate(1110,572) scale(1.0)"><ellipse cx="0" cy="-12" rx="9" ry="12" fill="#ffd24a" opacity="0.25"/><path class="flame" d="M0,-22 Q6,-12 0,-4 Q-6,-12 0,-22 Z" fill="#ffb02e"/><path d="M-15,-4 Q0,2 15,-4 Q12,8 0,9 Q-12,8 -15,-4 Z" fill="#c8572a"/><path d="M-15,-4 Q0,2 15,-4" stroke="#f0c75e" stroke-width="1.5" fill="none"/></g>
+<text x="810" y="620" font-size="17" font-weight="700" fill="#e8ebf2">Diwali</text>
+</svg>

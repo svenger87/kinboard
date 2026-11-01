@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 330" width="1200" height="330" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="Mockup: a creature's outfit for six festivals">
+<title>Mockup: a creature's outfit for six festivals</title>
+<style>@keyframes flick { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(0.82); } } .flame { transform-box: fill-box; transform-origin: 50% 100%; animation: flick 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }</style>
+<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f1422"/><stop offset="1" stop-color="#161d30"/></linearGradient><radialGradient id="wash" cx="0.5" cy="0" r="0.8"><stop offset="0" stop-color="#3a6ea5" stop-opacity="0.18"/><stop offset="1" stop-color="#3a6ea5" stop-opacity="0"/></radialGradient></defs><rect width="1200" height="330" fill="url(#bg)"/><rect width="1200" height="330" fill="url(#wash)"/>
+<g transform="translate(110,180) scale(1.0)">
+      <ellipse cx="0" cy="44" rx="40" ry="6" fill="#000" opacity="0.18"/>
+      <ellipse cx="-22" cy="36" rx="12" ry="8" fill="#6cc49a"/><ellipse cx="22" cy="36" rx="12" ry="8" fill="#6cc49a"/>
+      <ellipse cx="0" cy="0" rx="46" ry="42" fill="#6cc49a"/>
+      <ellipse cx="0" cy="14" rx="28" ry="22" fill="#a8e3c4"/>
+      <ellipse cx="-15" cy="-8" rx="9" ry="10" fill="#fff"/><ellipse cx="15" cy="-8" rx="9" ry="10" fill="#fff"/>
+      <circle cx="-13" cy="-6" r="5" fill="#1d2433"/><circle cx="17" cy="-6" r="5" fill="#1d2433"/>
+      <circle cx="-11" cy="-8" r="1.6" fill="#fff"/><circle cx="19" cy="-8" r="1.6" fill="#fff"/>
+      <ellipse cx="-27" cy="6" rx="6" ry="4" fill="#ff8fa3" opacity="0.6"/><ellipse cx="27" cy="6" rx="6" ry="4" fill="#ff8fa3" opacity="0.6"/>
+      <path d="M-6,8 Q0,13 6,8" stroke="#1d2433" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </g><g transform="translate(110,180) scale(1.0)"><path d="M-30,-30 Q-8,-78 30,-62 Q44,-56 46,-40 L26,-36 Q22,-52 8,-54 Q-6,-50 22,-34 Z" fill="#d23b44"/><path d="M-34,-36 Q0,-46 30,-34 L30,-26 Q0,-36 -34,-26 Z" fill="#fff"/><circle cx="47" cy="-38" r="8" fill="#fff"/></g>
+<text x="110" y="300" text-anchor="middle" font-size="16" font-weight="700" fill="#e8ebf2">Christmas</text>
+<g transform="translate(306,180) scale(1.0)">
+      <ellipse cx="0" cy="44" rx="40" ry="6" fill="#000" opacity="0.18"/>
+      <ellipse cx="-22" cy="36" rx="12" ry="8" fill="#7aa7e8"/><ellipse cx="22" cy="36" rx="12" ry="8" fill="#7aa7e8"/>
+      <ellipse cx="0" cy="0" rx="46" ry="42" fill="#7aa7e8"/>
+      <ellipse cx="0" cy="14" rx="28" ry="22" fill="#bcd3f5"/>
+      <ellipse cx="-15" cy="-8" rx="9" ry="10" fill="#fff"/><ellipse cx="15" cy="-8" rx="9" ry="10" fill="#fff"/>
+      <circle cx="-13" cy="-6" r="5" fill="#1d2433"/><circle cx="17" cy="-6" r="5" fill="#1d2433"/>
+      <circle cx="-11" cy="-8" r="1.6" fill="#fff"/><circle cx="19" cy="-8" r="1.6" fill="#fff"/>
+      <ellipse cx="-27" cy="6" rx="6" ry="4" fill="#ff8fa3" opacity="0.6"/><ellipse cx="27" cy="6" rx="6" ry="4" fill="#ff8fa3" opacity="0.6"/>
+      <path d="M-6,8 Q0,13 6,8" stroke="#1d2433" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </g><g transform="translate(306,180) scale(1.0)"><path d="M-20,-36 L4,-92 L24,-36 Z" fill="#4aa8ff"/><path d="M-12,-54 L14,-54 M-6,-70 L10,-70" stroke="#ffd24a" stroke-width="5"/><circle cx="4" cy="-94" r="7" fill="#ff5a5a"/><circle cx="-34" cy="-70" r="2.5" fill="#ffd24a"/><rect x="34" y="-82" width="5" height="5" fill="#4ad66d" transform="rotate(20 36 -80)"/><circle cx="40" cy="-58" r="2.5" fill="#ff5a5a"/></g>
+<text x="306" y="300" text-anchor="middle" font-size="16" font-weight="700" fill="#e8ebf2">New Year's Eve</text>
+<g transform="translate(502,180) scale(1.0)">
+      <ellipse cx="0" cy="44" rx="40" ry="6" fill="#000" opacity="0.18"/>
+      <ellipse cx="-22" cy="36" rx="12" ry="8" fill="#e89a6c"/><ellipse cx="22" cy="36" rx="12" ry="8" fill="#e89a6c"/>
+      <ellipse cx="0" cy="0" rx="46" ry="42" fill="#e89a6c"/>
+      <ellipse cx="0" cy="14" rx="28" ry="22" fill="#f5c9a8"/>
+      <ellipse cx="-15" cy="-8" rx="9" ry="10" fill="#fff"/><ellipse cx="15" cy="-8" rx="9" ry="10" fill="#fff"/>
+      <circle cx="-13" cy="-6" r="5" fill="#1d2433"/><circle cx="17" cy="-6" r="5" fill="#1d2433"/>
+      <circle cx="-11" cy="-8" r="1.6" fill="#fff"/><circle cx="19" cy="-8" r="1.6" fill="#fff"/>
+      <ellipse cx="-27" cy="6" rx="6" ry="4" fill="#ff8fa3" opacity="0.6"/><ellipse cx="27" cy="6" rx="6" ry="4" fill="#ff8fa3" opacity="0.6"/>
+      <path d="M-6,8 Q0,13 6,8" stroke="#1d2433" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </g><g transform="translate(502,180) scale(1.0)"><path d="M-30,-34 Q0,-70 30,-34 Z" fill="#c8323c"/><rect x="-32" y="-38" width="64" height="7" rx="3" fill="#e3b341"/><circle cx="0" cy="-60" r="6" fill="#e3b341"/><g transform="translate(56,-6)"><path d="M0,-34 L0,-22" stroke="#e3b341" stroke-width="2"/><ellipse cx="0" cy="-8" rx="14" ry="13" fill="#d62f2f"/><rect x="-7" y="-23" width="14" height="4" fill="#e3b341"/><rect x="-7" y="3" width="14" height="4" fill="#e3b341"/><path d="M0,7 L0,18" stroke="#e3b341" stroke-width="2"/></g></g>
+<text x="502" y="300" text-anchor="middle" font-size="16" font-weight="700" fill="#e8ebf2">Lunar New Year</text>
+<g transform="translate(698,180) scale(1.0)">
+      <ellipse cx="0" cy="44" rx="40" ry="6" fill="#000" opacity="0.18"/>
+      <ellipse cx="-22" cy="36" rx="12" ry="8" fill="#b08be0"/><ellipse cx="22" cy="36" rx="12" ry="8" fill="#b08be0"/>
+      <ellipse cx="0" cy="0" rx="46" ry="42" fill="#b08be0"/>
+      <ellipse cx="0" cy="14" rx="28" ry="22" fill="#d7c3f2"/>
+      <ellipse cx="-15" cy="-8" rx="9" ry="10" fill="#fff"/><ellipse cx="15" cy="-8" rx="9" ry="10" fill="#fff"/>
+      <circle cx="-13" cy="-6" r="5" fill="#1d2433"/><circle cx="17" cy="-6" r="5" fill="#1d2433"/>
+      <circle cx="-11" cy="-8" r="1.6" fill="#fff"/><circle cx="19" cy="-8" r="1.6" fill="#fff"/>
+      <ellipse cx="-27" cy="6" rx="6" ry="4" fill="#ff8fa3" opacity="0.6"/><ellipse cx="27" cy="6" rx="6" ry="4" fill="#ff8fa3" opacity="0.6"/>
+      <path d="M-6,8 Q0,13 6,8" stroke="#1d2433" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </g><g transform="translate(698,180) scale(1.0)"><path d="M-30,-36 Q-2,-44 30,-36" stroke="#f3f3f3" stroke-width="5" fill="none"/><ellipse cx="-14" cy="-70" rx="10" ry="30" fill="#f6f6f6" transform="rotate(-12 -14 -70)"/><ellipse cx="-14" cy="-68" rx="5" ry="22" fill="#ffb3c4" transform="rotate(-12 -14 -68)"/><ellipse cx="16" cy="-70" rx="10" ry="30" fill="#f6f6f6" transform="rotate(14 16 -70)"/><ellipse cx="16" cy="-68" rx="5" ry="22" fill="#ffb3c4" transform="rotate(14 16 -68)"/></g>
+<text x="698" y="300" text-anchor="middle" font-size="16" font-weight="700" fill="#e8ebf2">Easter</text>
+<g transform="translate(894,180) scale(1.0)">
+      <ellipse cx="0" cy="44" rx="40" ry="6" fill="#000" opacity="0.18"/>
+      <ellipse cx="-22" cy="36" rx="12" ry="8" fill="#8fc45f"/><ellipse cx="22" cy="36" rx="12" ry="8" fill="#8fc45f"/>
+      <ellipse cx="0" cy="0" rx="46" ry="42" fill="#8fc45f"/>
+      <ellipse cx="0" cy="14" rx="28" ry="22" fill="#c6e3a5"/>
+      <ellipse cx="-15" cy="-8" rx="9" ry="10" fill="#fff"/><ellipse cx="15" cy="-8" rx="9" ry="10" fill="#fff"/>
+      <circle cx="-13" cy="-6" r="5" fill="#1d2433"/><circle cx="17" cy="-6" r="5" fill="#1d2433"/>
+      <circle cx="-11" cy="-8" r="1.6" fill="#fff"/><circle cx="19" cy="-8" r="1.6" fill="#fff"/>
+      <ellipse cx="-27" cy="6" rx="6" ry="4" fill="#ff8fa3" opacity="0.6"/><ellipse cx="27" cy="6" rx="6" ry="4" fill="#ff8fa3" opacity="0.6"/>
+      <path d="M-6,8 Q0,13 6,8" stroke="#1d2433" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </g><g transform="translate(894,180) scale(1.0)"><ellipse cx="0" cy="-34" rx="50" ry="9" fill="#2b2140"/><path d="M-24,-36 L4,-96 Q10,-104 18,-92 L10,-86 L24,-36 Z" fill="#3b2d5c"/><rect x="-23" y="-46" width="46" height="8" fill="#f5b84a"/><rect x="-5" y="-47" width="10" height="10" rx="2" fill="none" stroke="#2b2140" stroke-width="2"/></g>
+<text x="894" y="300" text-anchor="middle" font-size="16" font-weight="700" fill="#e8ebf2">Halloween</text>
+<g transform="translate(1090,180) scale(1.0)">
+      <ellipse cx="0" cy="44" rx="40" ry="6" fill="#000" opacity="0.18"/>
+      <ellipse cx="-22" cy="36" rx="12" ry="8" fill="#e6c25a"/><ellipse cx="22" cy="36" rx="12" ry="8" fill="#e6c25a"/>
+      <ellipse cx="0" cy="0" rx="46" ry="42" fill="#e6c25a"/>
+      <ellipse cx="0" cy="14" rx="28" ry="22" fill="#f4e0a3"/>
+      <ellipse cx="-15" cy="-8" rx="9" ry="10" fill="#fff"/><ellipse cx="15" cy="-8" rx="9" ry="10" fill="#fff"/>
+      <circle cx="-13" cy="-6" r="5" fill="#1d2433"/><circle cx="17" cy="-6" r="5" fill="#1d2433"/>
+      <circle cx="-11" cy="-8" r="1.6" fill="#fff"/><circle cx="19" cy="-8" r="1.6" fill="#fff"/>
+      <ellipse cx="-27" cy="6" rx="6" ry="4" fill="#ff8fa3" opacity="0.6"/><ellipse cx="27" cy="6" rx="6" ry="4" fill="#ff8fa3" opacity="0.6"/>
+      <path d="M-6,8 Q0,13 6,8" stroke="#1d2433" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </g><g transform="translate(1090,180) scale(1.0)"><path d="M-38,-30 Q0,-52 38,-30" fill="none" stroke="#ff9f1c" stroke-width="7" stroke-dasharray="1 9" stroke-linecap="round"/><g transform="translate(58,30)"><g transform="translate(0,0) scale(1.0)"><ellipse cx="0" cy="-12" rx="9" ry="12" fill="#ffd24a" opacity="0.25"/><path class="flame" d="M0,-22 Q6,-12 0,-4 Q-6,-12 0,-22 Z" fill="#ffb02e"/><path d="M-15,-4 Q0,2 15,-4 Q12,8 0,9 Q-12,8 -15,-4 Z" fill="#c8572a"/><path d="M-15,-4 Q0,2 15,-4" stroke="#f0c75e" stroke-width="1.5" fill="none"/></g></g></g>
+<text x="1090" y="300" text-anchor="middle" font-size="16" font-weight="700" fill="#e8ebf2">Diwali</text>
+</svg>
