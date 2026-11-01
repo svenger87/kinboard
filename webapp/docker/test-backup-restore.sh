@@ -252,6 +252,12 @@ run_cycle() {
   fi
   rig_wait_healthy "cycle $n rebuilt, before restore" 70 || return 1
 
+  # The rebuilt stack's entrypoint has already recorded the server's time zone
+  # in instance_settings (#341), and a data-only restore of the backup's row
+  # then dies on the primary key. The documented restore empties it first;
+  # so does this.
+  docker exec -i "${RIG_PROJECT}-db" psql -U supabase_admin -d postgres -qc "TRUNCATE public.instance_settings" >/dev/null
+
   # --disable-triggers, so the data does not have to arrive in foreign-key
   # order. It needs superuser, which is the other reason for supabase_admin.
   docker exec -i "${RIG_PROJECT}-db" pg_restore -U supabase_admin -d postgres \

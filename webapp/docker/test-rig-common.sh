@@ -14,7 +14,11 @@
 #   production       kinboard    3002      5433      8101  10.201.0.0/24
 #   UX audit         kbaudit     3010      5442      8110  10.209.0.0/24
 #   upgrade paths    kbupg       3021      5452      8120  10.220.0.0/24
-#   fresh installs   kbfresh     3031      5462      8130  10.221.0.0/24
+#   devbox dev stack kbfresh     (next dev :3000) 5462 (8130) 10.221.0.0/24
+#   fresh installs   kbinstall   3033      5464         -  10.223.0.0/24
+#     (also test-integration-api.sh; renamed from kbfresh, whose name, port
+#     and /mnt/user/appdata/kinboard-fresh-data the devbox's own stack uses —
+#     a rig teardown there is `down -v` plus deleting the data directory)
 #   backup/restore   kbbak       3041      5472      8140  10.222.0.0/24
 #
 # Kong left the stack in 1.15. Its port column stays for the upgrade rig,

@@ -291,7 +291,10 @@ cd webapp/docker
 ./start.sh up
 # wait until http://localhost:3001/api/health answers
 
-# 2. put the data back
+# 2. put the data back. The new stack has already written its own
+#    instance settings (the server's time zone) on start; the backup's
+#    replace them, and the next start records the time zone again.
+docker exec -i kinboard-db psql -U supabase_admin -d postgres -c "TRUNCATE public.instance_settings"
 docker exec -i kinboard-db pg_restore -U supabase_admin -d postgres \
   --data-only --disable-triggers -n public < /backups/kinboard-2026-08-09.pgdump
 

@@ -38,15 +38,15 @@ cd "$SCRIPT_DIR"
 
 ITERATIONS="${1:-20}"
 
-RIG_PROJECT="kbfresh"
+RIG_PROJECT="kbinstall"
 # Overridable so the same rig runs on a CI runner, which has no
 # /mnt/user. The default stays the Unraid path this is developed on.
-RIG_DATA="${RIG_DATA:-/mnt/user/appdata/kinboard-fresh-data}"
-RIG_WEBAPP_PORT=3031
-RIG_POSTGRES_PORT=5462
-RIG_GO2RTC_HTTP_PORT=1995
-RIG_GO2RTC_WEBRTC_PORT=8585
-RIG_NETWORK_SUBNET="10.221.0.0/24"
+RIG_DATA="${RIG_DATA:-/mnt/user/appdata/kinboard-install-rig}"
+RIG_WEBAPP_PORT=3033
+RIG_POSTGRES_PORT=5464
+RIG_GO2RTC_HTTP_PORT=1997
+RIG_GO2RTC_WEBRTC_PORT=8587
+RIG_NETWORK_SUBNET="10.223.0.0/24"
 RIG_DEMO_CODE="FRSH01"
 
 # shellcheck source=test-rig-common.sh
