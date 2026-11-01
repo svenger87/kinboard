@@ -125,8 +125,9 @@ test.describe("the service worker on a same-origin API", () => {
     expect(intercepted("/rest/v1/events?select=*")).toBe(false);
     expect(intercepted("/auth/v1/user")).toBe(false);
     expect(intercepted("/realtime/v1/websocket")).toBe(false);
-    expect(intercepted("/storage/v1/object/sign/family-photos/f/a.jpg?exp=1&sig=ab", "image")).toBe(false);
+    // The live-updates stream: a cached or held event stream is no stream.
     expect(intercepted("/api/realtime")).toBe(false);
+    expect(intercepted("/storage/v1/object/sign/family-photos/f/a.jpg?exp=1&sig=ab", "image")).toBe(false);
   });
 
   test("public bucket images are cached like any other image", () => {

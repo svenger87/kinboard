@@ -1,7 +1,6 @@
 import { test, expect, request as pwRequest, type APIRequestContext, type APIResponse, type Browser, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { createClient, type RealtimeChannel, type SupabaseClient } from "@supabase/supabase-js";
 import { dbContainer } from "./whole-database";
 import { postJoin } from "./session";
 import en from "../messages/en.json";
@@ -9,8 +8,8 @@ import de from "../messages/de.json";
 import fr from "../messages/fr.json";
 
 /**
- * Pocket money reaches every screen as it changes, on a running server, the
- * real database and the real realtime service.
+ * Pocket money reaches every screen as it changes, on a running server and
+ * the real database.
  *
  * What happened on 2026-10-08: an assistant booked a €2.23 withdrawal, a
  * parent allowed it on the wall display with the PIN, the database had it
@@ -21,21 +20,16 @@ import fr from "../messages/fr.json";
  * Here: a phone on the pocket-money page and a wall display on another page,
  * both joined to one family. An assistant asks for the same withdrawal, the
  * wall allows it with the PIN, and the phone must show the new balance within
- * seconds, without reloading. Also: the publication itself, that publishing
- * granted the browser roles nothing, and that a family's socket gets its own
- * rows and never another family's (realtime applies the tables' row-level
- * security as the subscriber).
- *
- * After the migration on a stack whose realtime was already running, restart
- * realtime first (`docker restart kinboard-realtime`, or the realtime container of
- * whatever compose project runs the stack): it reads
- * the publication when it starts.
+ * seconds, without reloading. Also: that the tables announce their changes
+ * (the change-feed trigger, migrations/084_change_feed.sql), that this
+ * granted the browser roles nothing, and that a family's /api/realtime
+ * stream gets its own rows and never another family's (the stream filters by
+ * the session's family; three of the four tables find theirs through the
+ * account).
  *
  * In two families of its own, `claude-pmrt` and `claude-pmrt-other`, created
  * here and removed afterwards with their tokens, devices, requests and
- * ledgers. Needs a running stack: FAMILY_CODE says there is one; the socket
- * test also needs SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (e2e.yml
- * exports both).
+ * ledgers. Needs a running stack: FAMILY_CODE says there is one.
  */
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
@@ -156,11 +150,12 @@ test.afterAll(async () => {
   expect(psql(`SELECT count(*) FROM devices WHERE hardware_id LIKE 'claude-pmrt-%'`)).toBe("0");
 });
 
-test("the four pocket-money tables are published, and the browser roles still only read them", () => {
-  expect(psql(`SELECT string_agg(tablename, ' ' ORDER BY tablename) FROM pg_publication_tables
-    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename LIKE 'pocket\\_money\\_%'`))
+test("the four pocket-money tables announce their changes, and the browser roles still only read them", () => {
+  expect(psql(`SELECT string_agg(c.relname, ' ' ORDER BY c.relname) FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE t.tgname = 'kinboard_change_feed' AND n.nspname = 'public' AND c.relname LIKE 'pocket\\_money\\_%'`))
     .toBe(POCKET_MONEY_TABLES.join(" "));
-  // Publishing is not granting: SELECT, as before, and no write.
+  // Announcing is not granting: SELECT, as before, and no write.
   // has_table_privilege, not information_schema: it sees grants made by any role.
   const held = psql(`SELECT string_agg(t || ':' || r || ':' || p, ' ' ORDER BY t, r, p)
     FROM unnest(ARRAY['${POCKET_MONEY_TABLES.join("','")}']) t,
@@ -170,53 +165,60 @@ test("the four pocket-money tables are published, and the browser roles still on
   expect(held).toBe(POCKET_MONEY_TABLES.flatMap((t) => [`${t}:anon:SELECT`, `${t}:authenticated:SELECT`]).join(" "));
 });
 
-test("a family's socket receives its own pocket-money rows and never another family's", async () => {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  expect(url && anon, "SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY").toBeTruthy();
-
-  // Each family's own short-lived token, minted the way a screen gets one.
-  const familyToken = async (joinCode: string, name: string) => {
+test("a family's stream receives its own pocket-money rows and never another family's", async () => {
+  // Each family's own screen: a session cookie, as a joined device has, and
+  // the /api/realtime stream it opens. Read here by hand, since Playwright's
+  // request context cannot stream a response.
+  const listen = async (joinCode: string, name: string) => {
     const ctx = await pwRequest.newContext({ baseURL: BASE });
+    let cookie: string;
     try {
       const joined = await postJoin(ctx, { joinCode, hardwareId: `claude-pmrt-${name}`, deviceName: `claude-pmrt-${name}` });
       expect(joined.status(), await joined.text()).toBe(200);
-      return ((await (await ctx.get("/api/session/token")).json()) as { token: string }).token;
+      cookie = (await ctx.storageState()).cookies.map((c) => `${c.name}=${c.value}`).join("; ");
     } finally {
       await ctx.dispose();
     }
-  };
-  const listen = async (bearer: string) => {
-    const seen: { table: string; family_id?: unknown; account_id?: unknown; id?: unknown }[] = [];
-    const client: SupabaseClient = createClient(url!, anon!, { accessToken: async () => bearer });
-    // Before the channel joins: otherwise the join can go out with the anon
-    // key, which carries no family, and RLS would filter every row away —
-    // a red here that says nothing about the publication.
-    await client.realtime.setAuth(bearer);
-    const channel: RealtimeChannel = client.channel(`claude-pmrt-${randomUUID()}`);
-    for (const table of POCKET_MONEY_TABLES) {
-      channel.on("postgres_changes", { event: "*", schema: "public", table }, (payload) => {
-        const row = (payload.new ?? {}) as Record<string, unknown>;
-        seen.push({ table, family_id: row.family_id, account_id: row.account_id, id: row.id });
-      });
-    }
-    await new Promise<void>((resolve, reject) => {
-      channel.subscribe((status, err) => {
-        if (status === "SUBSCRIBED") resolve();
-        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reject(err ?? new Error(status));
-      });
-    });
-    return { seen, close: () => client.removeAllChannels() };
+    const abort = new AbortController();
+    const res = await fetch(`${BASE}/api/realtime`, { headers: { cookie, accept: "text/event-stream" }, signal: abort.signal });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    const seen: { table: string; id?: unknown }[] = [];
+    void (async () => {
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) return;
+          buffer += decoder.decode(value, { stream: true });
+          let end: number;
+          while ((end = buffer.indexOf("\n\n")) >= 0) {
+            const block = buffer.slice(0, end);
+            buffer = buffer.slice(end + 2);
+            const event = /^event: (.*)$/m.exec(block)?.[1];
+            const data = /^data: (.*)$/m.exec(block)?.[1];
+            if (event !== "change" || !data) continue;
+            const change = JSON.parse(data) as { table: string; new: { id?: unknown }; old: { id?: unknown } };
+            seen.push({ table: change.table, id: change.new.id ?? change.old.id });
+          }
+        }
+      } catch {
+        // Aborted by close().
+      }
+    })();
+    return { seen, close: () => abort.abort() };
   };
 
-  const mine = await listen(await familyToken(JOIN_CODE, "socket-mine"));
-  const theirs = await listen(await familyToken(OTHER_JOIN_CODE, "socket-theirs"));
+  const mine = await listen(JOIN_CODE, "socket-mine");
+  const theirs = await listen(OTHER_JOIN_CODE, "socket-theirs");
   try {
     // A booking in each family, through the booking function the server uses.
     const book = (family: string, account: string, cents: number) =>
       psql(`SELECT book_pocket_money('${family}', '${account}', ${cents}, 'manual_deposit', 'claude-pmrt')`);
-    // A just-subscribed channel can miss the first change while realtime sets
-    // it up, so book until it arrives rather than once and hope.
+    // Book until it arrives rather than once and hope: the first request to a
+    // dev server compiles the route.
     await expect.poll(() => {
       book(FAMILY, ACCOUNT, 1);
       return mine.seen.some((s) => s.table === "pocket_money_accounts" && s.id === ACCOUNT);
@@ -228,12 +230,23 @@ test("a family's socket receives its own pocket-money rows and never another fam
     // Let anything still in flight land before judging what each one got.
     await new Promise((r) => setTimeout(r, 2_000));
 
-    expect(mine.seen.some((s) => s.table === "pocket_money_transactions" && s.account_id === ACCOUNT)).toBe(true);
-    expect(mine.seen.filter((s) => s.id === OTHER_ACCOUNT || s.account_id === OTHER_ACCOUNT || s.family_id === OTHER_FAMILY)).toEqual([]);
-    expect(theirs.seen.filter((s) => s.id === ACCOUNT || s.account_id === ACCOUNT || s.family_id === FAMILY)).toEqual([]);
+    // The ledger rows carry no family of their own; the trigger finds it
+    // through the account. Every one each stream saw is its own family's.
+    const ledger = (account: string) =>
+      new Set(psql(`SELECT id FROM pocket_money_transactions WHERE account_id = '${account}'`).split("\n").filter(Boolean));
+    const mineTx = mine.seen.filter((s) => s.table === "pocket_money_transactions");
+    const theirsTx = theirs.seen.filter((s) => s.table === "pocket_money_transactions");
+    expect(mineTx.length).toBeGreaterThan(0);
+    expect(theirsTx.length).toBeGreaterThan(0);
+    const myLedger = ledger(ACCOUNT);
+    const theirLedger = ledger(OTHER_ACCOUNT);
+    expect(mineTx.filter((s) => !myLedger.has(String(s.id)))).toEqual([]);
+    expect(theirsTx.filter((s) => !theirLedger.has(String(s.id)))).toEqual([]);
+    expect(mine.seen.filter((s) => s.id === OTHER_ACCOUNT)).toEqual([]);
+    expect(theirs.seen.filter((s) => s.id === ACCOUNT)).toEqual([]);
   } finally {
-    await mine.close();
-    await theirs.close();
+    mine.close();
+    theirs.close();
     psql(`DELETE FROM devices WHERE hardware_id IN ('claude-pmrt-socket-mine', 'claude-pmrt-socket-theirs')`);
   }
 });

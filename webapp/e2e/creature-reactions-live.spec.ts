@@ -117,7 +117,7 @@ async function screen(browser: Browser, device: string) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const widget = page.locator("[data-testid=creature-reaction-host]").first();
   await expect(widget).toBeVisible({ timeout: 30_000 });
-  // Realtime subscribed: the socket is up once the family channel joins.
+  // Live updates connected: the /api/realtime stream is open.
   await page.waitForTimeout(3_000);
   return { context, page, widget };
 }
