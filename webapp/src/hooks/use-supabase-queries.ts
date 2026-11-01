@@ -2443,7 +2443,7 @@ export async function fetchSetting<T>(
   return (data as { value: unknown }).value as T;
 }
 
-export function useSetting<T>(key: string, defaultValue: T) {
+export function useSetting<T>(key: string, defaultValue: T, options: { refetchInterval?: number } = {}) {
   const supabase = createClient();
   const { family } = useFamilyStore();
 
@@ -2451,6 +2451,7 @@ export function useSetting<T>(key: string, defaultValue: T) {
     queryKey: queryKeys.settings(family?.id ?? "", key),
     queryFn: async () => fetchSetting<T>(supabase, requireFamilyId(family), key, defaultValue),
     enabled: !!family?.id,
+    refetchInterval: options.refetchInterval,
   });
 }
 

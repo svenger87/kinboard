@@ -9,6 +9,7 @@ import {
   DEFAULT_WEATHER_EFFECTS,
   PREVIEW_MS,
   activeEffects,
+  currentSlot,
   normalizeWeatherEffects,
   parsePreview,
   type EffectIntensity,
@@ -40,13 +41,16 @@ import {
 const PREVIEW_STORE = "kinboard.weatherPreview";
 
 export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] } = {}) {
-  const { data: stored } = useSetting<unknown>(SETTINGS_KEYS.weatherEffects, DEFAULT_WEATHER_EFFECTS);
+  // Re-read every minute: a change made on another screen reaches this one.
+  const { data: stored } = useSetting<unknown>(SETTINGS_KEYS.weatherEffects, DEFAULT_WEATHER_EFFECTS, { refetchInterval: 60_000 });
   const settings = useMemo(() => normalizeWeatherEffects(stored), [stored]);
   const { data: weather } = useWeather();
   // The chance of rain is the forecast's: its next slot, the next few hours.
   // The weather widget's query; asked for here only when the rain effect is on.
   const { data: forecast } = useWeatherForecast({ enabled: settings.enabled && settings.effects.rain });
-  const slot = forecast?.hourly?.[0];
+  // The slot under way, picked again every minute as the clock moves on.
+  const now = useMinuteClock();
+  const slot = currentSlot(forecast?.hourly, now);
   const reading = useMemo(
     () => (weather ? { ...weather, nextSlot: slot ? { chance: slot.precipProbability, conditionMain: slot.conditionMain } : undefined } : weather),
     [weather, slot],
@@ -124,6 +128,16 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
       {on.has("storm") && !reducedMotion && <StormGlow strength={strength} />}
     </div>
   );
+}
+
+/** Now, to the minute: a state that moves on by itself once a minute. */
+function useMinuteClock(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return now;
 }
 
 /** Tells the canvas to draw a bolt, so the glow and the bolt come together. */

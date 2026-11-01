@@ -4,7 +4,9 @@ import { join } from "path";
 import {
   DEFAULT_WEATHER_EFFECTS,
   WEATHER_EFFECTS,
+  SLOT_MS,
   activeEffects,
+  currentSlot,
   displayThreshold,
   normalizeWeatherEffects,
   parsePreview,
@@ -101,10 +103,10 @@ test("the chance counts only for a slot that is rain: snow forecast at 90% is sn
   }
 });
 
-test("the overlay takes the forecast's next slot, and asks for the forecast only when the rain effect is on", () => {
+test("the overlay takes the forecast's slot under way, and asks for the forecast only when the rain effect is on", () => {
   const overlay = codeOnly(read("src/components/weather-effects.tsx"));
   expect(overlay).toContain("const { data: forecast } = useWeatherForecast({ enabled: settings.enabled && settings.effects.rain });");
-  expect(overlay).toContain("const slot = forecast?.hourly?.[0];");
+  expect(overlay).toContain("const slot = currentSlot(forecast?.hourly, now);");
   expect(overlay).toContain("nextSlot: slot ? { chance: slot.precipProbability, conditionMain: slot.conditionMain } : undefined");
   const hook = codeOnly(read("src/hooks/use-weather.ts"));
   expect(hook).toContain("export function useWeatherForecast(options: { enabled?: boolean } = {}) {");
@@ -113,6 +115,35 @@ test("the overlay takes the forecast's next slot, and asks for the forecast only
   const settings = codeOnly(read("src/components/settings/weather-effects-settings.tsx"));
   expect(settings).toContain('const THRESHOLDS: ThresholdKey[] = ["freezingAtC", "heatAtC", "windAtKmh", "rainChanceAt"];');
   expect(settings).toContain('key === "rainChanceAt" ? "%"');
+});
+
+test("the slot that matters is the one under way, or the next; picked again as time passes", () => {
+  const t0 = Date.UTC(2026, 10, 1, 18);
+  const slots = [0, 1, 2].map((k) => ({ at: t0 + k * SLOT_MS, id: k }));
+  expect(currentSlot(slots, t0 - 60_000)?.id).toBe(0); // before the first: the next one
+  expect(currentSlot(slots, t0)?.id).toBe(0);
+  expect(currentSlot(slots, t0 + SLOT_MS - 1)?.id).toBe(0);
+  expect(currentSlot(slots, t0 + SLOT_MS)?.id).toBe(1); // the rainy slot begins: it is the one now
+  expect(currentSlot(slots, t0 + 2 * SLOT_MS + 1)?.id).toBe(2);
+  expect(currentSlot(slots, t0 + 3 * SLOT_MS)).toBeUndefined(); // all of it in the past: nothing
+  expect(currentSlot([], t0)).toBeUndefined();
+  expect(currentSlot(undefined, t0)).toBeUndefined();
+  // A forecast without slot times (an older server): its first slot, as before.
+  expect(currentSlot([{ id: 7 }, { id: 8 }] as Array<{ at?: number; id: number }>, t0)?.id).toBe(7);
+});
+
+test("a wall display follows by itself: the clock re-picks the slot, and the weather, forecast and settings are asked again", () => {
+  const overlay = codeOnly(read("src/components/weather-effects.tsx"));
+  expect(overlay).toContain("const slot = currentSlot(forecast?.hourly, now);");
+  expect(overlay).toContain("const timer = window.setInterval(() => setNow(Date.now()), 60_000);");
+  expect(overlay).toContain("useSetting<unknown>(SETTINGS_KEYS.weatherEffects, DEFAULT_WEATHER_EFFECTS, { refetchInterval: 60_000 })");
+  const hook = codeOnly(read("src/hooks/use-weather.ts"));
+  // As often as the server's copies change (lib/weather-provider.ts): 10 and 30 minutes.
+  expect(hook).toContain("refetchInterval: 10 * 60 * 1000,");
+  expect(hook).toContain("refetchInterval: 30 * 60 * 1000,");
+  const provider = codeOnly(read("src/lib/weather-provider.ts"));
+  expect(provider).toMatch(/weather: 600,[\s\S]*?forecast: 1800,/);
+  expect(codeOnly(read("src/app/api/weather/forecast/route.ts"))).toContain("at: item.dt * 1000,");
 });
 
 test("feels like, when chosen; each effect switched off on its own", () => {

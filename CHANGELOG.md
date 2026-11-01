@@ -8,6 +8,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Weather effects follow the weather without a reload.** A wall display re-checks every minute which forecast slot is under way, so the rain comes on when the rainy hours begin; it asks for the weather every 10 minutes and the forecast every 30 (as often as the server's copies change), and Home re-reads the effect settings every minute. Each hourly forecast slot now carries its start time (`at`).
 - **The rain effect has a threshold.** Settings → Weather → Weather effects on Home: rain shows when it is raining, or when the forecast's next three-hour slot is rain, drizzle or a thunderstorm and its chance of precipitation reaches the family's threshold, 50% by default, set from 1 to 100% (a snow forecast never counts). The forecast is only asked for while the rain effect is on.
 - **A Home Assistant dashboard tab can use the microphone.** A voice-recorder or intercom card in a dashboard tab failed with "No permission to record", because Kinboard turned the microphone off for every page and every frame in it. Each dashboard under Settings → Home Assistant → Home Assistant dashboards now has an *Allow the microphone* switch, off by default. Only a tab switched on passes the microphone to Home Assistant; the browser still asks once, naming Kinboard rather than Home Assistant, and it only works when Kinboard is opened over https://. Camera and location stay off everywhere (#425).
 

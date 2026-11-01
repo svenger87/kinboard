@@ -112,6 +112,23 @@ export interface WeatherReading {
   nextSlot?: { chance: number; conditionMain?: string };
 }
 
+/** OpenWeatherMap's forecast slots are three hours long. */
+export const SLOT_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * The forecast slot that matters now: the one under way (started, less than
+ * three hours ago), or else the next one. Picked again as time passes, so a
+ * display reaches the rainy slot when it begins without asking for the
+ * forecast again. A forecast without slot times (an older server) gives its
+ * first slot, as before.
+ */
+export function currentSlot<T extends { at?: number }>(slots: readonly T[] | null | undefined, now: number): T | undefined {
+  if (!slots || slots.length === 0) return undefined;
+  if (slots.some((s) => typeof s.at !== "number")) return slots[0];
+  const underway = [...slots].reverse().find((s) => s.at! <= now && now < s.at! + SLOT_MS);
+  return underway ?? slots.find((s) => s.at! > now);
+}
+
 /** A forecast slot whose precipitation is rain. */
 const RAIN_SLOT = new Set(["Rain", "Drizzle", "Thunderstorm"]);
 
