@@ -97,9 +97,12 @@ export default defineFestival({
     // Presents from under the sleigh, where Santa sits.
     tap: { presents: true, at: [150 / (R.first[0] + R.spacing + 270), 150 / 320] },
   },
-  // Snow resting on each card's top edge: it rises 9px above the edge (the
-  // grid's gap is 16px or more) and reaches 12px down, above the title row,
-  // which starts at the card's 16px padding.
+  // Snow resting on each card's top edge, entirely in the grid's gap (16px or
+  // more) above it. It used to reach 12px down into the card, over its
+  // padding — but a full-bleed card (a camera, a photo) has content right at
+  // its edge, and the snow sat on the picture (festivals-ui, CI's camera
+  // mock). Same art, scaled to 16px; its last pixel lies on the card's 1px
+  // border, so it rests on the card instead of floating over it.
   dressing: (s) => css`
     ${s.cards} {
       position: relative;
@@ -108,16 +111,16 @@ export default defineFestival({
       content: "";
       position: absolute;
       z-index: 2;
-      top: -9px;
+      top: -15px;
       left: -2px;
       right: -2px;
-      height: 21px;
+      height: 16px;
       border-radius: 14px 14px 6px 6px;
-      background: ${s.art("snow-cap")} repeat-x 0 0 / 120px 21px;
+      background: ${s.art("snow-cap")} repeat-x 0 0 / 91px 16px;
       pointer-events: none;
     }
     ${s.cards}:nth-child(odd)::before {
-      background-position: -47px 0;
+      background-position: -36px 0;
     }
   `,
   outfit: [
