@@ -4,6 +4,7 @@
  * and one line here. Nothing else goes in this file, so two festivals added
  * at once merge cleanly.
  */
+export { default as carnival } from "./carnival";
 export { default as christmas } from "./christmas";
 export { default as newYearsEve } from "./new-years-eve";
 export { default as stMartin } from "./st-martin";
