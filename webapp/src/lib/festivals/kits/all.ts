@@ -6,6 +6,7 @@
  */
 export { default as christmas } from "./christmas";
 export { default as easter } from "./easter";
+export { default as fathersDay } from "./fathers-day";
 export { default as kingsDay } from "./kings-day";
 export { default as mothersDay } from "./mothers-day";
 export { default as newYearsEve } from "./new-years-eve";
