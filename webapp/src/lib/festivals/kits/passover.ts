@@ -25,10 +25,10 @@ export default defineFestival({
       content: "";
       position: absolute;
       z-index: 2;
-      top: -20px;
+      top: -17px;
       right: -10px;
-      width: 54px;
-      height: 20px;
+      width: 43px;
+      height: 16px;
       background: ${s.art("blossom-corner")} center / contain no-repeat;
       pointer-events: none;
     }
@@ -36,6 +36,14 @@ export default defineFestival({
       right: auto;
       left: -10px;
       transform: scaleX(-1);
+    }
+    /* As tall as the gap above: 16px on a phone, 24px from md. */
+    @media (min-width: 768px) {
+      ${s.cards}::after {
+        top: -25px;
+        width: 65px;
+        height: 24px;
+      }
     }
   `,
   outfit: [],

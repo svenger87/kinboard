@@ -180,6 +180,13 @@ export interface WalkSpec extends VisitorBase {
   /** The members' extent around their origin, art units: the tap target. */
   extent: { left: number; right: number; top: number; bottom: number };
   direction?: "alternate" | "ltr" | "rtl";
+  /**
+   * The way the art faces. `"right"`: drawn walking left to right, so it is
+   * mirrored on the passes that go the other way (a bunny, a dragon). Leave it
+   * out for art that reads the same both ways, or must not be mirrored
+   * (lanterns, a dreidel's letter).
+   */
+  faces?: "right";
 }
 
 /** Particles: many small sprites, one shared engine (rise, drift, burst). */

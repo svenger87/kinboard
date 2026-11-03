@@ -3,7 +3,8 @@
  * clear of the navigation bar, each a little out of step with the one
  * before: bobbing, swinging like a pendulum in the wind, turning. St Martin's
  * lantern walk; a parade, a hopping bunny, a dreidel, a dragon dance,
- * goldfish, a dragon boat. Alternate passes walk the other way.
+ * goldfish, a dragon boat. Alternate passes walk the other way, and art that
+ * `faces: "right"` turns round for them.
  */
 
 import { RAD, Tapping, applyLight, fogAlpha, union } from "./common";
@@ -16,8 +17,12 @@ export function walkPass(spec: WalkSpec, sprites: VisitorSprites, env: PassEnv):
   const sc = sprites.scale;
   const parts = spec.parts ?? {};
   const plan = walkPlan(spec, env, sc);
+  // Art that faces right is mirrored on a right-to-left pass, and with it its extent and where a tap drops from.
+  const mirror = spec.faces === "right" && plan.dir < 0 ? -1 : 1;
   const tapping = new Tapping(sprites, spec.tap);
-  const { left, right, top: above, bottom: below } = spec.extent;
+  tapping.mirrored = mirror < 0;
+  const { left, right } = mirror < 0 ? { left: spec.extent.right, right: spec.extent.left } : spec.extent;
+  const { top: above, bottom: below } = spec.extent;
   let gone = false;
 
   return {
@@ -53,7 +58,7 @@ export function walkPass(spec: WalkSpec, sprites: VisitorSprites, env: PassEnv):
           ctx.save();
           ctx.translate(m.x, m.y);
           ctx.rotate(m.swing * RAD);
-          ctx.scale(sc * (spec.turn ? m.turn : 1), sc);
+          ctx.scale(mirror * sc * (spec.turn ? m.turn : 1), sc);
           const body = spec.members[i];
           if (typeof body === "string") {
             const p = parts[body];

@@ -21,12 +21,21 @@ export default defineFestival({
       content: "";
       position: absolute;
       z-index: 2;
-      top: -38px;
+      /* Standing on the card's top edge, up only as far as the gap is tall
+         (16px on a phone, 24px from md), the rest of the boot in front of the
+         card's corner, short of the card's heading: taller would reach into
+         the card above. */
+      top: -17px;
       right: 18px;
-      width: 40px;
-      height: 45px;
+      width: 34px;
+      height: 38px;
       background: ${s.art("boot-filled")} center top / contain no-repeat;
       pointer-events: none;
+    }
+    @media (min-width: 768px) {
+      ${s.tasks}::after {
+        top: -25px;
+      }
     }
     ${s.tasksAt("eve")}::after {
       background-image: ${s.art("boot-empty")};

@@ -65,8 +65,8 @@ export default defineFestival({
     // Swimming: a gentle rise and fall (a wave, not a hop), pitching with it.
     bob: { amp: 7 },
     swing: { amp: 3, lag: 0.2, wind: 0.3 },
-    // The fish face right.
-    direction: "ltr",
+    // The fish face right, and turn round for the passes that go left.
+    faces: "right",
     // The fan behind, the dorsal fin above, a stroke's rise.
     extent: { left: 175, right: 80, top: 80, bottom: 62 },
     tap: { drops: ["apple", "coin", "egg"], at: [0.5, 0.5] },

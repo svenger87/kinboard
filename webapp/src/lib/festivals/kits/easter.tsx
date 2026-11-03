@@ -96,8 +96,8 @@ export const BUNNIES: WalkSpec = {
   lag: 0.45,
   // One hop a step, as high as the bunny's back.
   bob: { amp: 58, hop: true },
-  // The bunnies face right.
-  direction: "ltr",
+  // The bunnies face right, and turn round for the passes that go left.
+  faces: "right",
   // Tail and pushing feet behind, nose and reaching paws in front; the ears and the hop above.
   extent: { left: 140, right: 115, top: 300, bottom: 12 },
   tap: { drops: ["egg-blue", "egg-pink", "egg-yellow"], at: [0.6, 0.75] },
@@ -137,16 +137,24 @@ export function easterDressing(s: DressingSelectors, art: (name: string) => stri
       content: "";
       position: absolute;
       z-index: 2;
-      bottom: -20px;
+      bottom: -17px;
       right: 14px;
-      width: 46px;
-      height: 20px;
+      width: 37px;
+      height: 16px;
       background: ${art(nest)} center / contain no-repeat;
       pointer-events: none;
     }
     ${s.cards}:nth-child(even)::after {
       right: auto;
       left: 14px;
+    }
+    /* The nest as tall as the gap below: 16px on a phone, 24px from md. */
+    @media (min-width: 768px) {
+      ${s.cards}::after {
+        bottom: -25px;
+        width: 55px;
+        height: 24px;
+      }
     }
   `;
 }

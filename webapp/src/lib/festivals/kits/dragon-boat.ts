@@ -82,8 +82,8 @@ export default defineFestival({
     duration: 13_000,
     period: R.period,
     bob: { amp: 1.5 },
-    // The dragon looks ahead: always left to right.
-    direction: "ltr",
+    // The dragon looks ahead: drawn facing right, turned round for the passes that go left.
+    faces: "right",
     extent: { left: 0, right: 710, top: 50, bottom: 140 },
     tap: { at: [0.5, 0.45] },
   },

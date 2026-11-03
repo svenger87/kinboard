@@ -9,8 +9,8 @@
  * rise instead. Red lanterns hang from the cards, the creatures wear a red
  * cap with a lantern, and the wash is red from the top over gold.
  *
- * The dragon always dances left to right: `walk` doesn't mirror its members
- * on the passes that go the other way, and a head is not symmetric.
+ * The dragon is drawn dancing left to right (`faces: "right"`): on the passes
+ * that go the other way `walk` turns it round, head and pearl first.
  *
  * Art: webapp/scripts/festival-art/lunar-new-year.py
  * (public/festivals/lunar-new-year/, ./lunar-new-year.art.json). The cap is
@@ -77,7 +77,7 @@ const DRAGON: VisitorSpec = {
   bob: { amp: D.bob },
   // The poles too: what the pass draws is what it clears.
   extent: { left: 114, right: 280, top: 172, bottom: 180 },
-  direction: "ltr",
+  faces: "right",
   tap: { drops: DROPS, at: [0.85, 0.3] },
 };
 

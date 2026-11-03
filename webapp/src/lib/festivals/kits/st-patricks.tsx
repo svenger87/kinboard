@@ -68,21 +68,34 @@ export default defineFestival({
       content: "";
       position: absolute;
       z-index: 2;
-      height: 20px;
+      height: 16px;
+      width: 35px;
       background: center / contain no-repeat;
       pointer-events: none;
     }
     ${s.cards}::before {
-      top: -20px;
+      top: -17px;
       left: -11px;
-      width: 44px;
       background-image: ${s.art("shamrocks-top")};
     }
     ${s.cards}::after {
-      bottom: -20px;
+      bottom: -17px;
       right: -11px;
-      width: 44px;
       background-image: ${s.art("shamrocks-bottom")};
+    }
+    /* As tall as the gap: 16px on a phone, 24px from md. */
+    @media (min-width: 768px) {
+      ${s.cards}::before,
+      ${s.cards}::after {
+        height: 24px;
+        width: 53px;
+      }
+      ${s.cards}::before {
+        top: -25px;
+      }
+      ${s.cards}::after {
+        bottom: -25px;
+      }
     }
   `,
   outfit: [
