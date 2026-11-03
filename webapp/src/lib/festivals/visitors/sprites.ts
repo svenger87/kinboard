@@ -24,8 +24,9 @@ export interface VisitorSprites {
   /** Presents (three colours) and a star, for the tap. */
   presents: Bitmap[];
   star: Bitmap;
-  /** Fireworks: a soft spark per colour, drawn once. */
+  /** Fireworks: a soft spark per colour, drawn once, and a streak for its trail. */
   sparks: Bitmap[];
+  streaks: Bitmap[];
   /** How long rasterising took, ms: reported by the benchmark (§7.1). */
   ms: number;
 }
@@ -130,9 +131,9 @@ async function starSprite(k: number): Promise<Bitmap> {
 }
 
 /**
- * A firework's spark: a white-hot core in a glow of its colour, 16 CSS px
- * across at `dpr`. Drawn once per colour, so a burst of a hundred sparks is a
- * hundred drawImage calls, no gradients per frame.
+ * A firework's spark: a white-hot core, a ring of its colour, and a wide soft
+ * halo, 16 CSS px across at `dpr`. Drawn once per colour, so a burst of a
+ * hundred sparks is a hundred drawImage calls, no gradients per frame.
  */
 async function sparkSprite(dpr: number, color: string): Promise<Bitmap> {
   const s = 16;
@@ -141,12 +142,61 @@ async function sparkSprite(dpr: number, color: string): Promise<Bitmap> {
     ctx.scale(dpr, dpr);
     const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
     g.addColorStop(0, "rgba(255, 255, 255, 1)");
-    g.addColorStop(0.18, color);
-    g.addColorStop(0.45, color);
+    g.addColorStop(0.12, "rgba(255, 255, 255, 0.95)");
+    g.addColorStop(0.26, color);
+    g.addColorStop(0.5, color);
     g.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = g;
     ctx.globalAlpha = 0.95;
     ctx.fillRect(0, 0, s, s);
+    // A wider, fainter halo round it, so a burst glows rather than dots.
+    const h = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    h.addColorStop(0, color);
+    h.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = h;
+    ctx.fillRect(0, 0, s, s);
+  }
+  return toBitmap(c);
+}
+
+/**
+ * A spark's trail: a comet 64 x 12 CSS px, its head at the right, white-hot,
+ * fading through its colour to nothing at the tail, with a soft glow round
+ * it. Drawn once per colour and stretched along each spark's path a frame:
+ * one drawImage, however long the trail (a willow's hangs a long way).
+ */
+async function streakSprite(dpr: number, color: string): Promise<Bitmap> {
+  const w = 64;
+  const h = 12;
+  const [c, ctx] = canvas(w * dpr, h * dpr);
+  if (ctx) {
+    ctx.scale(dpr, dpr);
+    const along = (alpha: number) => {
+      const g = ctx.createLinearGradient(0, 0, w, 0);
+      g.addColorStop(0, "rgba(0, 0, 0, 0)");
+      g.addColorStop(0.55, color);
+      g.addColorStop(0.9, "rgba(255, 255, 255, 0.95)");
+      g.addColorStop(1, "rgba(255, 255, 255, 1)");
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = g;
+    };
+    // The glow: a wide taper, faint.
+    along(0.3);
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2);
+    ctx.quadraticCurveTo(w * 0.7, 0, w - h / 2, 0);
+    ctx.arc(w - h / 2, h / 2, h / 2, -Math.PI / 2, Math.PI / 2);
+    ctx.quadraticCurveTo(w * 0.7, h, 0, h / 2);
+    ctx.fill();
+    // The core: a thin taper, bright.
+    along(1);
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2);
+    ctx.quadraticCurveTo(w * 0.75, h / 2 - 2, w - 3, h / 2 - 1.6);
+    ctx.arc(w - 3, h / 2, 1.6, -Math.PI / 2, Math.PI / 2);
+    ctx.quadraticCurveTo(w * 0.75, h / 2 + 2, 0, h / 2);
+    ctx.fill();
   }
   return toBitmap(c);
 }
@@ -181,6 +231,7 @@ export function prepareVisitorSprites(festival: FestivalId, spec: VisitorSpec, s
         : [];
       const star = await starSprite(k * 1.6);
       const sparks = spec.archetype === "fireworks" ? await Promise.all(spec.colors.map((c) => sparkSprite(dpr, c))) : [];
+      const streaks = spec.archetype === "fireworks" ? await Promise.all(spec.colors.map((c) => streakSprite(dpr, c))) : [];
       return {
         festival,
         scale,
@@ -188,6 +239,7 @@ export function prepareVisitorSprites(festival: FestivalId, spec: VisitorSpec, s
         presents,
         star,
         sparks,
+        streaks,
         ms: performance.now() - started,
       };
     })();
@@ -206,7 +258,7 @@ export function releaseVisitorSprites(keep?: (festival: FestivalId, scale: numbe
     cache.delete(key);
     void ready
       .then((s) => {
-        for (const b of [...Object.values(s.parts), ...s.presents, s.star, ...s.sparks]) if ("close" in b) b.close();
+        for (const b of [...Object.values(s.parts), ...s.presents, s.star, ...s.sparks, ...s.streaks]) if ("close" in b) b.close();
       })
       .catch(() => undefined);
   }

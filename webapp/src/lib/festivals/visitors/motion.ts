@@ -6,7 +6,7 @@
  * the archetypes' own files.
  */
 
-import type { ArcSpec, BurstFrom, BurstSpec, Curve, DriftSpec, FireworksSpec, FlySpec, PassEnv, RiseSpec, Size, WalkSpec } from "./types";
+import type { ArcSpec, BurstFrom, BurstSpec, Curve, DriftSpec, FireworksSpec, FlySpec, PassEnv, RiseSpec, ShellKind, Size, WalkSpec } from "./types";
 
 /** How long a pass takes, ms: about ten seconds (§2.1). */
 export const PASS_MS = 10_000;
@@ -395,6 +395,11 @@ export interface Shell {
   cx: number;
   cy: number;
   color: number;
+  /** A peony's pistil: the inner sphere's colour. */
+  color2: number;
+  kind: ShellKind;
+  /** A ring's tilt, radians. */
+  tilt: number;
   radius: number;
   /** Each spark's direction (radians) and its share of the radius. */
   sparks: Array<[number, number]>;
@@ -427,6 +432,11 @@ export function fireworksPlan(spec: FireworksSpec, env: PassEnv, rand: Rand = Ma
       const u = rand();
       sparks.push([(k / n) * Math.PI * 2 + rand() * 0.25, 1 - 0.6 * u * u * u]);
     }
+    const colors = Math.max(1, spec.colors.length);
+    const kinds = spec.kinds?.length ? spec.kinds : (["peony"] as const);
+    const kind = kinds[(i + env.seed) % kinds.length];
+    // A ring is all rim.
+    if (kind === "ring") for (const sp of sparks) sp[1] = 1;
     shells.push({
       launch,
       burst: launch + CLIMB_S,
@@ -434,7 +444,11 @@ export function fireworksPlan(spec: FireworksSpec, env: PassEnv, rand: Rand = Ma
       y0: env.height - env.bottom,
       cx,
       cy,
-      color: i % Math.max(1, spec.colors.length),
+      // A willow is the first colour (gold, as willows are).
+      color: kind === "willow" ? 0 : i % colors,
+      color2: (i + 2) % colors,
+      kind,
+      tilt: ((i * 0.618 + env.seed * 0.37) % 1 - 0.5) * 1.1,
       radius: radius * (0.75 + rand() * 0.25),
       sparks,
     });
