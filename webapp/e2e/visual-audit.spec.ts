@@ -1,8 +1,8 @@
 /**
  * Visual audit script for the kinboard webapp.
  *
- * Joins a family ONCE via code from FAMILY_CODE env var, saves auth
- * state, then screenshots every page reusing that session. Screenshots
+ * Establishes a family session once per worker from FAMILY_CODE, then
+ * screenshots every page in a fresh context with those cookies. Screenshots
  * land in e2e/screenshots/.
  *
  * Usage:
@@ -11,10 +11,9 @@
  *   FAMILY_CODE=ABC123 npx playwright test e2e/visual-audit.spec.ts   # both
  */
 
-import { test, expect, Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import path from "path";
-import fs from "fs";
-import { joinFamilyViaUI } from "./helpers";
+import { establishSession } from "./session";
 
 const FAMILY_CODE = process.env.FAMILY_CODE ?? "";
 if (!FAMILY_CODE) {
@@ -22,7 +21,6 @@ if (!FAMILY_CODE) {
 }
 const DEVICE_NAME = "Kinboard Visual Audit";
 const SCREENSHOT_DIR = path.join(__dirname, "screenshots");
-const AUTH_STATE_FILE = path.join(__dirname, ".auth-state.json");
 
 // Authenticated routes that render without a record ID.
 const ROUTES = [
@@ -82,14 +80,16 @@ const ROUTES = [
 test.describe("Visual Audit", () => {
   test.describe.configure({ mode: "serial" });
 
-  test.beforeEach(async ({ context }) => {
-    if (fs.existsSync(AUTH_STATE_FILE)) {
-      await context.addCookies(JSON.parse(fs.readFileSync(AUTH_STATE_FILE, "utf-8")));
-    }
+  test.beforeEach(async ({ page, context }) => {
+    await establishSession(page, FAMILY_CODE, DEVICE_NAME);
+    const cookieNames = (await context.cookies()).map((cookie) => cookie.name);
+    expect(cookieNames, "audit must establish both session cookies before capture").toEqual(
+      expect.arrayContaining(["kinboard_session", "family-calendar-storage"]),
+    );
   });
 
   for (const route of ROUTES) {
-    test(`capture ${route}`, async ({ page, context }, testInfo) => {
+    test(`capture ${route}`, async ({ page }, testInfo) => {
       const browserErrors: string[] = [];
       const requestErrors: string[] = [];
       const serverErrors: string[] = [];
@@ -114,11 +114,6 @@ test.describe("Visual Audit", () => {
       });
       const navigation = await page.goto(route);
       test.skip(navigation?.status() === 404, `${route} is unavailable for this family's plugin configuration`);
-      if (page.url().includes("/join")) {
-        await joinFamilyViaUI(page, FAMILY_CODE, DEVICE_NAME);
-        fs.writeFileSync(AUTH_STATE_FILE, JSON.stringify(await context.cookies(), null, 2));
-        await page.goto(route);
-      }
       await page.waitForLoadState("networkidle");
       await expect(page, `${route} redirected away from the authenticated page`).toHaveURL(
         new RegExp(`${route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/?$`),
