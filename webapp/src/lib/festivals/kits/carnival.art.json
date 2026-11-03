@@ -1,0 +1,84 @@
+{
+ "parts": {
+  "streamer-purple": {
+   "w": 160,
+   "h": 70,
+   "pivot": [
+    80,
+    35
+   ]
+  },
+  "streamer-green": {
+   "w": 160,
+   "h": 70,
+   "pivot": [
+    80,
+    35
+   ]
+  },
+  "streamer-gold": {
+   "w": 160,
+   "h": 70,
+   "pivot": [
+    80,
+    35
+   ]
+  },
+  "streamer-pink": {
+   "w": 160,
+   "h": 70,
+   "pivot": [
+    80,
+    35
+   ]
+  },
+  "confetti-purple": {
+   "w": 24,
+   "h": 24,
+   "pivot": [
+    12,
+    12
+   ]
+  },
+  "confetti-green": {
+   "w": 24,
+   "h": 24,
+   "pivot": [
+    12,
+    12
+   ]
+  },
+  "confetti-gold": {
+   "w": 24,
+   "h": 24,
+   "pivot": [
+    12,
+    12
+   ]
+  },
+  "confetti-pink": {
+   "w": 24,
+   "h": 24,
+   "pivot": [
+    12,
+    12
+   ]
+  },
+  "confetti-gold-round": {
+   "w": 24,
+   "h": 24,
+   "pivot": [
+    12,
+    12
+   ]
+  },
+  "sweet": {
+   "w": 60,
+   "h": 60,
+   "pivot": [
+    30,
+    30
+   ]
+  }
+ }
+}

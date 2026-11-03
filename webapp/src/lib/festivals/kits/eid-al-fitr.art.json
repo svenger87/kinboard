@@ -1,0 +1,60 @@
+{
+ "parts": {
+  "lantern-emerald": {
+   "w": 80,
+   "h": 120,
+   "pivot": [
+    40,
+    10
+   ]
+  },
+  "lantern-amber": {
+   "w": 80,
+   "h": 120,
+   "pivot": [
+    40,
+    10
+   ]
+  },
+  "lantern-rose": {
+   "w": 80,
+   "h": 120,
+   "pivot": [
+    40,
+    10
+   ]
+  },
+  "lantern-turquoise": {
+   "w": 80,
+   "h": 120,
+   "pivot": [
+    40,
+    10
+   ]
+  },
+  "sparkle-gold": {
+   "w": 40,
+   "h": 40,
+   "pivot": [
+    20,
+    20
+   ]
+  },
+  "sparkle-white": {
+   "w": 40,
+   "h": 40,
+   "pivot": [
+    20,
+    20
+   ]
+  },
+  "sparkle-emerald": {
+   "w": 40,
+   "h": 40,
+   "pivot": [
+    20,
+    20
+   ]
+  }
+ }
+}

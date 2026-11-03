@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 112" width="120" height="112" data-pivot="60 52">
+<defs><radialGradient id="hf" cx="0.36" cy="0.32" r="0.78" fx="0.3" fy="0.26"><stop offset="0" stop-color="#FF8FA6"/><stop offset="0.5" stop-color="#E8455F"/><stop offset="1" stop-color="#A8213B"/></radialGradient><linearGradient id="hd" x1="0.2" y1="0.2" x2="0.9" y2="1"><stop offset="0" stop-color="#A8213B" stop-opacity="0"/><stop offset="1" stop-color="#A8213B" stop-opacity="0.55"/></linearGradient><radialGradient id="hh" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#E8455F" stop-opacity="0.5"/><stop offset="1" stop-color="#E8455F" stop-opacity="0"/></radialGradient><filter id="hb" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter></defs>
+<g transform="translate(10 8)"><path d="M50,88 C22,68 4,50 4,30 C4,14 16,4 30,4 C40,4 47,10 50,19 C53,10 60,4 70,4 C84,4 96,14 96,30 C96,50 78,68 50,88 Z" fill="url(#hh)" transform="translate(50 46) scale(1.18) translate(-50 -46)" filter="url(#hb)"/>
+<path d="M50,88 C22,68 4,50 4,30 C4,14 16,4 30,4 C40,4 47,10 50,19 C53,10 60,4 70,4 C84,4 96,14 96,30 C96,50 78,68 50,88 Z" fill="url(#hf)"/>
+<path d="M96,30 C96,50 78,68 50,88 C66,70 84,52 86,30 C87,20 82,12 76,8 C88,10 96,18 96,30 Z" fill="url(#hd)"/>
+<path d="M14,30 C14,20 20,13 29,12 C22,16 18,22 18,32 Z" fill="#FFFFFF" opacity="0.6"/>
+<ellipse cx="66" cy="15" rx="5" ry="3" fill="#FFFFFF" opacity="0.5" transform="rotate(-15 66 15)"/>
+<circle cx="24" cy="38" r="2" fill="#FFFFFF" opacity="0.45"/></g>
+</svg>
