@@ -38,6 +38,28 @@ export function browserApiBase(): string {
   return window.location.origin;
 }
 
+/**
+ * How long a read may take before it is given up and React Query retries it.
+ *
+ * Without a limit, a request that never answers — a connection that died
+ * while a wall display slept, a proxy that stalled — kept its widget on
+ * "loading" until somebody changed page. Reads only: an abandoned write may
+ * still have reached the database, and retrying it could apply it twice.
+ * Browsers without AbortSignal.any (before Safari 17.4) keep the old
+ * behaviour rather than lose the caller's own signal.
+ */
+const READ_TIMEOUT_MS = 30_000;
+
+export function withReadTimeout(init?: RequestInit): RequestInit | undefined {
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD") return init;
+  if (typeof AbortSignal === "undefined" || typeof AbortSignal.timeout !== "function") return init;
+  const timeout = AbortSignal.timeout(READ_TIMEOUT_MS);
+  if (!init?.signal) return { ...init, signal: timeout };
+  if (typeof AbortSignal.any !== "function") return init;
+  return { ...init, signal: AbortSignal.any([init.signal, timeout]) };
+}
+
 export function createClient() {
   return createBrowserClient<Database>(
     browserApiBase(),
@@ -66,7 +88,8 @@ export function createClient() {
          * at all); the Authorization header is what PostgREST verifies and what
          * the policies read.
          */
-        fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+        fetch: async (input: RequestInfo | URL, rawInit?: RequestInit) => {
+          const init = withReadTimeout(rawInit);
           const token = await getFamilyToken();
           if (!token) return fetch(input, init);
 
