@@ -103,7 +103,9 @@ export default defineFestival({
   // its edge, and the snow sat on the picture (festivals-ui, CI's camera
   // mock). Same art, scaled to 16px, ending exactly at the card's edge:
   // a full-bleed card's picture starts on that very line, so not even the
-  // border row is free (CI measured a 1px overlap at -15px).
+  // border row is free (CI measured a 1px overlap at -15px). -17px, since
+  // the offset counts from inside the 1px border and card heights can be
+  // fractional: the cap ends on the border line.
   dressing: (s) => css`
     ${s.cards} {
       position: relative;
@@ -112,7 +114,7 @@ export default defineFestival({
       content: "";
       position: absolute;
       z-index: 2;
-      top: -16px;
+      top: -17px;
       left: -2px;
       right: -2px;
       height: 16px;

@@ -39,7 +39,9 @@ export default defineFestival({
     tap: { at: [0.5, 0.4] },
   },
   // Three paper lanterns hanging from each card's bottom edge, into the gap
-  // below; alternate cards hang them on the other side.
+  // below; alternate cards hang them on the other side. -29px for a 28px
+  // drawing: the offset counts from inside the card's 1px border, and a
+  // full-bleed card's picture reaches that line (festivals-ui).
   dressing: (s) => css`
     ${s.cards} {
       position: relative;
@@ -48,7 +50,7 @@ export default defineFestival({
       content: "";
       position: absolute;
       z-index: 2;
-      bottom: -26px;
+      bottom: -29px;
       right: 22px;
       width: 90px;
       height: 28px;

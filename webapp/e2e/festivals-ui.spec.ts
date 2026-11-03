@@ -36,6 +36,21 @@ async function dressingOverContent(page: Page) {
   return page.evaluate(() => {
     const hits: string[] = [];
     let pieces = 0;
+    // A full-bleed card, whose content starts on its very first pixel row and
+    // ends on its last (a camera, a photo). CI's demo has one and the devbox
+    // families do not, so three decorations passed here and failed there,
+    // one CI round each. This one card makes every stack the strictest case.
+    const grid = document.querySelector<HTMLElement>(".festival-grid");
+    const model = grid?.firstElementChild as HTMLElement | null;
+    if (grid && model && !grid.querySelector("[data-test-full-bleed]")) {
+      const card = document.createElement("div");
+      card.className = model.className;
+      card.setAttribute("data-test-full-bleed", "");
+      card.style.padding = "0";
+      card.style.overflow = "hidden";
+      card.innerHTML = '<img alt="" style="display:block;width:100%;height:220px;margin:0" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">';
+      grid.appendChild(card);
+    }
     for (const card of Array.from(document.querySelectorAll<HTMLElement>(".festival-grid > *, .festival-tasks"))) {
       const box = card.getBoundingClientRect();
       if (box.height === 0) continue;

@@ -35,8 +35,13 @@ export default defineFestival({
     tap: {},
   },
   // Confetti at two corners of each card: top left and bottom right, then the
-  // other two on the next card. A 64 x 20 px strip along the edge, entirely
-  // in the gap above (or below) the card, ending at its edge: a full-bleed
+  // other two on the next card. A 51 x 16 px strip along the edge, entirely
+  // in the gap above (or below) the card, ending at its edge. 16px because
+  // that is the grid's gap at 320px: taller, a strip in the gap reached into
+  // the next card down. -17px, not -16: the offset counts from inside the
+  // card's 1px border, and with fractional card heights at 320px a strip
+  // ending exactly on that line still lay 1px over the content. And never
+  // over the edge either: a full-bleed
   // card (a camera, a photo) has content from its very first pixel row, so the
   // 6px the strip used to reach over the edge lay on the picture (CI's camera
   // mock, as with Christmas's snow).
@@ -49,17 +54,17 @@ export default defineFestival({
       content: "";
       position: absolute;
       z-index: 2;
-      width: 64px;
-      height: 20px;
+      width: 51px;
+      height: 16px;
       background: ${s.art("confetti-corner")} center / contain no-repeat;
       pointer-events: none;
     }
     ${s.cards}::before {
-      top: -20px;
+      top: -17px;
       left: -16px;
     }
     ${s.cards}::after {
-      bottom: -20px;
+      bottom: -17px;
       right: -16px;
       transform: scale(-1, -1);
     }
