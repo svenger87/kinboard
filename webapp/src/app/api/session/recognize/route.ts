@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { hitLimit, clientIp } from "@/lib/rate-limit";
+import { hitLimit, clientIp, sessionAttemptLimit } from "@/lib/rate-limit";
 
 /**
  * "Is this device one we have seen before?" — asked by /join, before anyone is
@@ -52,7 +52,7 @@ export interface RecognizedDeviceSummary {
 }
 
 export async function POST(request: NextRequest) {
-  const limited = hitLimit(`recognize:${clientIp(request)}`, 20, 60_000);
+  const limited = hitLimit(`recognize:${clientIp(request)}`, sessionAttemptLimit(20), 60_000);
   if (limited.limited) {
     return NextResponse.json({ error: "too many requests" }, { status: 429 });
   }
