@@ -82,9 +82,16 @@ export function currentFestival(
  * St Nicholas's boot stands empty on the evening of the 5th and is filled on
  * the morning of the 6th (§3.3).
  */
-export function festivalStage(active: Pick<ActiveFestival, "id" | "day" | "start"> | null): "eve" | "day" | null {
+/** `eve`/`day`: St Nicholas's boot. `day`/`dusk`: St Martin before and after the walk starts. */
+export type FestivalStage = "eve" | "day" | "dusk";
+
+export function festivalStage(
+  active: Pick<ActiveFestival, "id" | "day" | "start" | "visitorReady"> | null,
+): FestivalStage | null {
   if (!active) return null;
   if (active.id === "st-nicholas") return active.day === active.start ? "eve" : "day";
+  // St Martin: the wash and the hanging lanterns all day; the walk from dusk.
+  if (active.id === "st-martin") return active.visitorReady ? "dusk" : "day";
   return null;
 }
 
@@ -134,4 +141,4 @@ export const FESTIVAL_STORAGE_KEY = "kinboard_festival";
  */
 export const FESTIVAL_INIT_SCRIPT = `(function(){try{var f=JSON.parse(localStorage.getItem(${JSON.stringify(
   FESTIVAL_STORAGE_KEY
-)})||"null");if(!f||typeof f.id!=="string"||!/^[a-z-]+$/.test(f.id))return;var d=new Date(),t=d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2);if(t<f.start||t>f.end)return;var h=document.documentElement;h.setAttribute("data-festival",f.id);if(f.stage==="eve"||f.stage==="day")h.setAttribute("data-festival-stage",f.stage)}catch(e){}})();`;
+)})||"null");if(!f||typeof f.id!=="string"||!/^[a-z-]+$/.test(f.id))return;var d=new Date(),t=d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2);if(t<f.start||t>f.end)return;var h=document.documentElement;h.setAttribute("data-festival",f.id);if(f.stage==="eve"||f.stage==="day"||f.stage==="dusk")h.setAttribute("data-festival-stage",f.stage)}catch(e){}})();`;

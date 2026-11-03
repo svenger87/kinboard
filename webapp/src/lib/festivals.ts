@@ -52,10 +52,10 @@ export interface FestivalWindow {
   start: string;
   end: string;
   /**
-   * From this time of day on the first day, `HH:MM` (St Martin's lantern walk
-   * starts at dusk). Absent: from midnight.
+   * The visitor waits for dusk on the first day (St Martin's lantern walk).
+   * The festival itself — the wash, the dressing — is on all day.
    */
-  from?: "dusk";
+  visitorFrom?: "dusk";
 }
 
 /* ---------------------------------------------------------------- the pre-tick table (§3.1) */
@@ -267,7 +267,7 @@ export function festivalDates(id: FestivalId, year: number, country?: string | n
     case "st-nicholas":
       return [{ start: iso(year, 12, 5), end: iso(year, 12, 6) }];
     case "st-martin":
-      return [{ ...span(iso(year, 11, 11), 1), from: "dusk" }];
+      return [{ ...span(iso(year, 11, 11), 1), visitorFrom: "dusk" }];
     case "st-patricks":
       return [span(iso(year, 3, 17), 1)];
     case "midsummer": {
@@ -349,6 +349,8 @@ export interface ActiveFestival {
   /** The window it is in. */
   start: string;
   end: string;
+  /** Whether the visitor may fly yet: false before dusk on a `visitorFrom: "dusk"` day. */
+  visitorReady: boolean;
 }
 
 export interface ActiveOptions {
@@ -378,15 +380,17 @@ export function activeFestival(
   const { day, minutes } = familyClock(now, timeZone);
   const year = Number(day.slice(0, 4));
   let best: { id: FestivalId; window: FestivalWindow; length: number } | null = null;
+  const dusk = options.duskMinutes ?? DUSK_FALLBACK_MINUTES;
   for (const id of FESTIVALS) {
     if (!chosen.includes(id)) continue;
     // A window that started last year can still be on (Christmas into January).
     for (const window of [...festivalDates(id, year - 1, options.country), ...festivalDates(id, year, options.country)]) {
       if (day < window.start || day > window.end) continue;
-      if (window.from === "dusk" && day === window.start && minutes < (options.duskMinutes ?? DUSK_FALLBACK_MINUTES)) continue;
       const length = lengthOf(window);
       if (!best || length < best.length) best = { id, window, length };
     }
   }
-  return best ? { id: best.id, day, start: best.window.start, end: best.window.end } : null;
+  if (!best) return null;
+  const waiting = best.window.visitorFrom === "dusk" && day === best.window.start && minutes < dusk;
+  return { id: best.id, day, start: best.window.start, end: best.window.end, visitorReady: !waiting };
 }

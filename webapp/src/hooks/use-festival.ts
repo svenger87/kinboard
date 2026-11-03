@@ -11,7 +11,7 @@ import { useMotion } from "@/hooks/use-motion";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { MINUTE_MS } from "@/lib/minute-clock";
 import { parseClockTime, type FestivalId } from "@/lib/festivals";
-import {
+import { type FestivalStage,
   DEFAULT_FESTIVAL_SETTINGS,
   FESTIVAL_KITS,
   FESTIVAL_PREVIEW_MS,
@@ -37,7 +37,7 @@ import { releaseVisitorSprites } from "@/components/festival-visitors";
 
 export interface ShownFestival {
   id: FestivalId;
-  stage: "eve" | "day" | null;
+  stage: FestivalStage | null;
   kit: FestivalKit;
   /** A preview (§4): shown whatever the date. */
   preview: boolean;
@@ -45,7 +45,7 @@ export interface ShownFestival {
 
 interface FestivalState {
   /** The family's festival now, from the clock; undefined until the setting has loaded. */
-  active: { id: FestivalId; stage: "eve" | "day" | null } | null | undefined;
+  active: { id: FestivalId; stage: FestivalStage | null } | null | undefined;
   /** A preview, until a time. */
   preview: { id: FestivalId; until: number } | null;
 }
@@ -85,7 +85,10 @@ export function useFestival(): ShownFestival | null {
       return kit ? { id: preview.id, stage: preview.id === "st-nicholas" ? "day" : null, kit, preview: true } : null;
     }
     const kit = active ? FESTIVAL_KITS[active.id] : undefined;
-    return active && kit ? { ...active, kit, preview: false } : null;
+    if (!active || !kit) return null;
+    // St Martin before dusk: the wash and the dressing, but the walk waits.
+    if (active.id === "st-martin" && active.stage !== "dusk") return { ...active, kit: { ...kit, visitor: null }, preview: false };
+    return { ...active, kit, preview: false };
   }, [active, preview]);
 }
 

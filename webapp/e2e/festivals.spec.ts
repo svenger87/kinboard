@@ -59,7 +59,7 @@ test("Christmas runs from the first of Advent to Epiphany, across the new year",
 });
 
 test("fixed days and weekday rules", () => {
-  expect(first("st-martin", 2026)).toEqual({ start: "2026-11-11", end: "2026-11-11", from: "dusk" });
+  expect(first("st-martin", 2026)).toEqual({ start: "2026-11-11", end: "2026-11-11", visitorFrom: "dusk" });
   expect(first("st-nicholas", 2026)).toEqual({ start: "2026-12-05", end: "2026-12-06" });
   expect(first("new-years-eve", 2026)).toEqual({ start: "2026-12-31", end: "2026-12-31" });
   expect(first("halloween", 2026)).toEqual({ start: "2026-10-24", end: "2026-10-31" });
@@ -135,14 +135,24 @@ test("the family's day, in the family's zone", () => {
   expect(activeFestival(at("2026-11-28T10:00:00Z"), ["christmas"], BERLIN)).toBeNull();
 });
 
-test("St Martin's Day starts at dusk: the weather's sunset, else 17:00", () => {
+test("St Martin's Day is on all day; its lantern walk waits for dusk (the weather's sunset, else 17:00)", () => {
   const chosen: FestivalId[] = ["st-martin"];
-  // 15:59 UTC is 16:59 in Berlin.
-  expect(activeFestival(at("2026-11-11T15:59:00Z"), chosen, BERLIN)).toBeNull();
-  expect(activeFestival(at("2026-11-11T16:00:00Z"), chosen, BERLIN)?.id).toBe("st-martin");
-  expect(activeFestival(at("2026-11-11T15:59:00Z"), chosen, BERLIN, { duskMinutes: 16 * 60 + 30 })?.id).toBe("st-martin");
-  expect(activeFestival(at("2026-11-11T22:59:00Z"), chosen, BERLIN)?.id).toBe("st-martin");
-  expect(activeFestival(at("2026-11-11T23:00:00Z"), chosen, BERLIN)).toBeNull();
+  const at11 = (iso: string, opts = {}) => activeFestival(at(iso), chosen, BERLIN, opts);
+  // Midnight to midnight in Berlin: the wash and the dressing.
+  expect(at11("2026-11-10T23:00:00Z")?.id).toBe("st-martin");
+  expect(at11("2026-11-11T22:59:00Z")?.id).toBe("st-martin");
+  expect(at11("2026-11-11T23:00:00Z")).toBeNull();
+  // 15:59 UTC is 16:59 in Berlin: the walk waits for 17:00 ...
+  expect(at11("2026-11-11T15:59:00Z")?.visitorReady).toBe(false);
+  expect(at11("2026-11-11T16:00:00Z")?.visitorReady).toBe(true);
+  // ... or for the weather's sunset, when a screen has it.
+  expect(at11("2026-11-11T15:31:00Z", { duskMinutes: 16 * 60 + 30 })?.visitorReady).toBe(true);
+  expect(at11("2026-11-11T15:29:00Z", { duskMinutes: 16 * 60 + 30 })?.visitorReady).toBe(false);
+  // Festivals without a dusk rule fly all day.
+  expect(activeFestival(at("2026-12-20T08:00:00Z"), ["christmas"], BERLIN)?.visitorReady).toBe(true);
+  // The stage the screens key on.
+  expect(festivalStage(at11("2026-11-11T09:00:00Z"))).toBe("day");
+  expect(festivalStage(at11("2026-11-11T17:00:00Z"))).toBe("dusk");
   expect(parseClockTime("16:42")).toBe(16 * 60 + 42);
   expect(parseClockTime("4:42 PM")).toBe(16 * 60 + 42);
   expect(parseClockTime("12:05 AM")).toBe(5);
