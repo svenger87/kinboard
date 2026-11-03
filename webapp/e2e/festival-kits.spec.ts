@@ -130,7 +130,9 @@ test("every drawing a kit uses is there, as SVG, and comes from its art script",
     // The dressing's drawings.
     const dressing = kit.dressing ? kit.dressing(dressingSelectors(kit.id)) : "";
     for (const [, path] of dressing.matchAll(/url\("(\/festivals\/[^"]+)"\)/g)) {
-      expect(path.startsWith(`/festivals/${kit.id}/`), `${kit.id}: ${path} from its own folder`).toBe(true);
+      // Its own folder, or the one its visitor borrows (Orthodox Easter hangs Easter's bunting).
+      const folders = [kit.id, kit.visitor?.art].filter(Boolean);
+      expect(folders.some((f) => path.startsWith(`/festivals/${f}/`)), `${kit.id}: ${path} from its own folder or its visitor's`).toBe(true);
       expect(svg(`public${path}`), `${kit.id}: ${path}`).toBe(true);
     }
   }

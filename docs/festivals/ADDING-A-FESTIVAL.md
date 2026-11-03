@@ -69,7 +69,9 @@ export default defineFestival({
   are scoped to your festival and to Animations On and Reduced:
   `s.cards` (every widget card on Home), `s.cardsAt(stage)`, `s.tasks` (the
   Tasks card alone), `s.tasksAt(stage)`, `s.root`, `s.stage(stage)`, and
-  `s.art(name)` for `url("/festivals/<id>/<name>.svg")`. Put drawings on
+  `s.art(name)` for `url("/festivals/<id>/<name>.svg")` (a kit whose visitor
+  borrows another festival's art, `art: "easter"`, may hang that folder's
+  drawings too, with its own `url(...)`). Put drawings on
   `::before` and `::after`, `position: absolute`, `pointer-events: none`.
   `:nth-child(odd)` / `(even)` varies them card to card.
 - **outfit**: the creatures' items, at most one per slot (`head`, `face`,
