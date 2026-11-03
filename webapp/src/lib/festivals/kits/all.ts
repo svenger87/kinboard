@@ -6,6 +6,7 @@
  */
 export { default as carnival } from "./carnival";
 export { default as christmas } from "./christmas";
+export { default as eidAlFitr } from "./eid-al-fitr";
 export { default as newYearsEve } from "./new-years-eve";
 export { default as ramadan } from "./ramadan";
 export { default as stMartin } from "./st-martin";
