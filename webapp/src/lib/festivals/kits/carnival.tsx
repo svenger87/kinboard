@@ -30,7 +30,6 @@ const bell = (x: number, y: number, silver = false) => (
 
 export default defineFestival({
   id: "carnival",
-  draft: true,
   wash: { light: ["268 58% 44%", "146 55% 34%"], dark: ["268 66% 64%", "146 48% 48%"] },
   visitor: {
     archetype: "burst",

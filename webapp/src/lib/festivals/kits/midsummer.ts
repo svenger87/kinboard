@@ -12,7 +12,6 @@ import { css, defineFestival } from "@/lib/festivals/kit";
 
 export default defineFestival({
   id: "midsummer",
-  draft: true,
   wash: { light: ["95 50% 38%", "50 90% 46%"], dark: ["95 48% 56%", "50 92% 60%"] },
   visitor: null,
   // Every piece lies in the grid's gap, outside the card, and ends on the

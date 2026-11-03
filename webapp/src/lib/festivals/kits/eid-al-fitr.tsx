@@ -112,7 +112,6 @@ export const eidCap = (st: StyleSpec) => (
 export function eidKit(id: "eid-al-fitr" | "eid-al-adha", cap: string): FestivalKit {
   return defineFestival({
     id,
-    draft: true,
     wash: EID_WASH,
     visitor: EID_VISITOR,
     dressing: eidDressing,

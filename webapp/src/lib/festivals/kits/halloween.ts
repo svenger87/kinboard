@@ -15,7 +15,6 @@ import ART from "./halloween.art.json";
 
 export default defineFestival({
   id: "halloween",
-  draft: true,
   wash: { light: ["26 92% 48%", "272 48% 34%"], dark: ["28 94% 56%", "272 50% 58%"] },
   visitor: {
     archetype: "burst",

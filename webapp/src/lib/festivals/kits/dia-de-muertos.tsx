@@ -22,7 +22,6 @@ const INNER = [0, 1, 2, 3, 4, 5].map((i) => [Math.cos((i * Math.PI) / 3 + 0.5) *
 
 export default defineFestival({
   id: "dia-de-muertos",
-  draft: true,
   wash: { light: ["32 95% 48%", "322 70% 42%"], dark: ["34 95% 58%", "322 70% 60%"] },
   visitor: {
     archetype: "drift",

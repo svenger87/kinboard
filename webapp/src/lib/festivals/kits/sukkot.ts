@@ -13,7 +13,6 @@ import ART from "./sukkot.art.json";
 
 export default defineFestival({
   id: "sukkot",
-  draft: true,
   wash: { light: ["40 85% 44%", "118 40% 30%"], dark: ["42 90% 58%", "112 38% 46%"] },
   visitor: {
     archetype: "drift",

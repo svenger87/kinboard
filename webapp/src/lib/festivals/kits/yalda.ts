@@ -12,7 +12,6 @@ import { css, defineFestival } from "@/lib/festivals/kit";
 
 export default defineFestival({
   id: "yalda",
-  draft: true,
   wash: { light: ["350 66% 38%", "228 55% 26%"], dark: ["350 70% 54%", "228 52% 50%"] },
   visitor: null,
   // The fruit stands on each card's top edge, in a corner: the full

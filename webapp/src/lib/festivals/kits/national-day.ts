@@ -91,7 +91,6 @@ const STAGES = Object.keys(WASH);
 
 export default defineFestival({
   id: "national-day",
-  draft: true,
   // Without a country (never by the date; only a stage-less preview): gold over blue.
   wash: wash(GOLD, BLUE),
   washByStage: WASH,

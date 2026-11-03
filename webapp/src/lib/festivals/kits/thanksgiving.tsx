@@ -32,7 +32,6 @@ const CROWN: ReadonlyArray<[string, string, string]> = [
 
 export default defineFestival({
   id: "thanksgiving",
-  draft: true,
   wash: { light: ["36 90% 46%", "24 45% 30%"], dark: ["38 92% 56%", "24 40% 46%"] },
   visitor: {
     archetype: "drift",

@@ -17,7 +17,6 @@ import { css, defineFestival } from "@/lib/festivals/kit";
 
 export default defineFestival({
   id: "ramadan",
-  draft: true,
   wash: { light: ["226 55% 30%", "42 82% 46%"], dark: ["226 58% 56%", "44 88% 58%"] },
   visitor: null,
   // Nothing reaches into a card (its content can start at its first pixel

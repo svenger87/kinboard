@@ -34,7 +34,6 @@ function shamrock(x: number, y: number, r: number) {
 
 export default defineFestival({
   id: "st-patricks",
-  draft: true,
   // Shamrock green from the top, the pot's gold rising from below.
   wash: { light: ["142 58% 34%", "44 90% 46%"], dark: ["142 50% 48%", "45 92% 58%"] },
   visitor: {

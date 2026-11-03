@@ -46,7 +46,6 @@ function goldfish(coat: "" | "-calico", size = 1): Rig {
 
 export default defineFestival({
   id: "nowruz",
-  draft: true,
   // The sabzeh's spring green from the top, the goldfish bowl's turquoise from below.
   wash: { light: ["100 55% 36%", "176 62% 34%"], dark: ["100 48% 52%", "175 55% 50%"] },
   visitor: {

@@ -57,7 +57,6 @@ function knit(y: number, from: number, to: number, color: string) {
 
 export default defineFestival({
   id: "hanukkah",
-  draft: true,
   wash: { light: ["216 72% 42%", "214 16% 60%"], dark: ["216 76% 60%", "214 20% 74%"] },
   visitor: {
     archetype: "walk",

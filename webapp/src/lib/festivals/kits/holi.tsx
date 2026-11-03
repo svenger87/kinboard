@@ -30,7 +30,6 @@ const dab = (x: number, y: number, s: number, fill: string, turn: number) => (
 
 export default defineFestival({
   id: "holi",
-  draft: true,
   wash: { light: ["322 72% 48%", "38 92% 50%"], dark: ["322 78% 64%", "40 95% 60%"] },
   visitor: {
     archetype: "burst",
