@@ -169,6 +169,8 @@ test.describe("festivals on Home", () => {
 });
 
 test("this browser has the calendars the dates come from", async ({ page }) => {
+  // The stack jobs install the browsers; the pure Specs job has none to launch.
+  test.skip(!FAMILY_CODE, "runs in the e2e jobs, with Chromium and WebKit");
   // A missing calendar would silently mean no festival (RFC-020 §3.1): check the engine itself.
   const parts = await page.evaluate(() => {
     const at = (cal: string, day: string, month: "numeric" | "long") =>
