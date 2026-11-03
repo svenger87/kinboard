@@ -1,0 +1,60 @@
+{
+ "parts": {
+  "crown-points": {
+   "w": 150,
+   "h": 150,
+   "pivot": [
+    75,
+    146
+   ]
+  },
+  "crown-arches": {
+   "w": 150,
+   "h": 150,
+   "pivot": [
+    75,
+    146
+   ]
+  },
+  "crown-rays": {
+   "w": 150,
+   "h": 150,
+   "pivot": [
+    75,
+    146
+   ]
+  },
+  "sweet-red": {
+   "w": 44,
+   "h": 44,
+   "pivot": [
+    22,
+    22
+   ]
+  },
+  "sweet-gold": {
+   "w": 44,
+   "h": 44,
+   "pivot": [
+    22,
+    22
+   ]
+  },
+  "sweet-violet": {
+   "w": 44,
+   "h": 44,
+   "pivot": [
+    22,
+    22
+   ]
+  }
+ },
+ "rig": {
+  "walk": {
+   "period": 0.9,
+   "bob": 5.0,
+   "swing": 3.5,
+   "lag": 0.33
+  }
+ }
+}

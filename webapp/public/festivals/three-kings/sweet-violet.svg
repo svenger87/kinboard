@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44" data-pivot="22 22">
+<defs><radialGradient id="wrap" cx="0.5" cy="0.5" r="0.5" fx="0.35" fy="0.3"><stop offset="0" stop-color="#E6CCFF"/><stop offset="0.6" stop-color="#8E44D8"/><stop offset="1" stop-color="#4A1A78"/></radialGradient><linearGradient id="ends" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E6CCFF"/><stop offset="1" stop-color="#4A1A78"/></linearGradient></defs>
+<path d="M14,22 L3,13 Q1,17 4,20 Q0,22 4,25 Q1,28 3,31 Z" fill="url(#ends)"/>
+<path d="M30,22 L41,13 Q43,17 40,20 Q44,22 40,25 Q43,28 41,31 Z" fill="url(#ends)"/>
+<path d="M5,16 L13,21 M5,28 L13,23 M39,16 L31,21 M39,28 L31,23" stroke="#FFFFFF" stroke-width="0.9" opacity="0.5"/>
+<ellipse cx="22" cy="22" rx="11" ry="9" fill="url(#wrap)"/>
+<path d="M14,17 Q22,24 30,17" stroke="#FFFFFF" stroke-width="2.2" fill="none" opacity="0.55"/>
+<ellipse cx="18" cy="18" rx="4" ry="2.2" fill="#FFFFFF" opacity="0.8" transform="rotate(-20 18 18)"/>
+<path d="M13,22 L31,22" stroke="#FFFFFF" stroke-width="0.6" opacity="0.25"/>
+</svg>
