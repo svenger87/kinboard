@@ -51,9 +51,17 @@ async function dressingOverContent(page: Page) {
       card.innerHTML = '<img alt="" style="display:block;width:100%;height:220px;margin:0" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">';
       grid.appendChild(card);
     }
-    for (const card of Array.from(document.querySelectorAll<HTMLElement>(".festival-grid > *, .festival-tasks"))) {
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(".festival-grid > *, .festival-tasks"));
+    for (const card of cards) {
       const box = card.getBoundingClientRect();
       if (box.height === 0) continue;
+      // The other cards, whole: a piece in the gap that reaches the next card
+      // is too big for the gap, whatever that card shows where it lands
+      // (St Martin's 28px lanterns in a 16px gap, which content alone missed).
+      const others = cards
+        .filter((c) => c !== card && !c.contains(card) && !card.contains(c))
+        .map((c) => c.getBoundingClientRect())
+        .filter((r) => r.width > 0 && r.height > 0);
       const content = Array.from(card.querySelectorAll<HTMLElement>("h1, h2, h3, h4, p, button, a, input, img, svg, li, [role=button]"))
         .map((el) => el.getBoundingClientRect())
         .filter((r) => r.width > 0 && r.height > 0);
@@ -63,13 +71,19 @@ async function dressingOverContent(page: Page) {
         pieces++;
         const w = parseFloat(st.width);
         const h = parseFloat(st.height);
-        const top = st.top !== "auto" ? parseFloat(st.top) : box.height - parseFloat(st.bottom) - h;
-        const left = st.left !== "auto" ? parseFloat(st.left) : box.width - parseFloat(st.right) - w;
+        // Offsets count from inside the card's border (its padding box), as CSS places them.
+        const cs = getComputedStyle(card);
+        const [bt, br, bb, bl] = [cs.borderTopWidth, cs.borderRightWidth, cs.borderBottomWidth, cs.borderLeftWidth].map(parseFloat);
+        const top = st.top !== "auto" ? bt + parseFloat(st.top) : box.height - bb - parseFloat(st.bottom) - h;
+        const left = st.left !== "auto" ? bl + parseFloat(st.left) : box.width - br - parseFloat(st.right) - w;
         const p = { x: box.left + left, y: box.top + top, w, h };
-        for (const r of content) {
-          const overlap = Math.min(p.x + p.w, r.right) - Math.max(p.x, r.left) > 0.5 && Math.min(p.y + p.h, r.bottom) - Math.max(p.y, r.top) > 0.5;
-          if (overlap) hits.push(`${card.className.slice(0, 40)} ${pseudo} ${JSON.stringify(p)} over ${JSON.stringify({ x: r.left, y: r.top, w: r.width, h: r.height })}`);
-        }
+        const over = (r: DOMRect) => Math.min(p.x + p.w, r.right) - Math.max(p.x, r.left) > 0.5 && Math.min(p.y + p.h, r.bottom) - Math.max(p.y, r.top) > 0.5;
+        const at = (r: DOMRect) => JSON.stringify({ x: r.left, y: r.top, w: r.width, h: r.height });
+        for (const r of content) if (over(r)) hits.push(`${card.className.slice(0, 40)} ${pseudo} ${JSON.stringify(p)} over ${at(r)}`);
+        // Into another card by more than its border line: a card without a border of
+        // its own (a wrapper) puts an offset meant for a 1px border on that line.
+        const into = (r: DOMRect) => Math.min(p.x + p.w, r.right) - Math.max(p.x, r.left) > 1.5 && Math.min(p.y + p.h, r.bottom) - Math.max(p.y, r.top) > 1.5;
+        for (const r of others) if (into(r)) hits.push(`${card.className.slice(0, 40)} ${pseudo} ${JSON.stringify(p)} into the next card ${at(r)}`);
       }
     }
     return { pieces, hits };
@@ -79,7 +93,8 @@ async function dressingOverContent(page: Page) {
 test.describe("festivals on Home", () => {
   test.skip(!FAMILY_CODE, "needs a running stack");
   test.use({ serviceWorkers: "block", viewport: { width: 1280, height: 900 } });
-  test.describe.configure({ timeout: 240_000 });
+  // 33 kits and their stages, twice: the dressing tests walk all of them.
+  test.describe.configure({ timeout: 900_000 });
 
   test("Settings -> Design, a preview on Home, the visitor's one tap, and what each Animations setting leaves", async ({ page, baseURL }) => {
     const familyName = `probe-family-festivals-${Date.now()}`;
@@ -194,10 +209,11 @@ test.describe("festivals on Home", () => {
             await expect(page.getByText("Loading today")).toHaveCount(0, { timeout: 30_000 });
             await page.waitForTimeout(1_500);
             const { pieces, hits } = await dressingOverContent(page);
-            expect(pieces, `${id} ${stage ?? ""}: some dressing`).toBeGreaterThan(0);
-            expect(hits, `${id} ${stage ?? ""}`).toEqual([]);
+            // Soft: one run names every festival that fails, not just the first.
+            expect.soft(pieces, `${id} ${stage ?? ""}: some dressing`).toBeGreaterThan(0);
+            expect.soft(hits, `${id} ${stage ?? ""}`).toEqual([]);
             // Nothing sticks out sideways.
-            expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), id).toBeLessThanOrEqual(0);
+            expect.soft(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), id).toBeLessThanOrEqual(0);
           }
         }
       } finally {

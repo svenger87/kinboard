@@ -9,8 +9,9 @@
  * glasses, and the wash gold from the top over midnight blue.
  *
  * Art: webapp/scripts/festival-art/new-years-eve.py (the confetti). The
- * sparks are glows the engine draws in the colours below; the hat is drawn
- * here.
+ * shells are the engine's (lib/festivals/visitors/fireworks.ts): rockets on
+ * glowing trails, sparks streaking out as comets of the colours below, in
+ * the kinds listed; the hat is drawn here.
  */
 
 import { css, defineFestival } from "@/lib/festivals/kit";
@@ -26,7 +27,10 @@ export default defineFestival({
     // Gold, rose, mint, sky, violet, and white.
     colors: ["#FFD24A", "#FF6B8B", "#6FE3B0", "#7CC4FF", "#C79BFF", "#FFFFFF"],
     shells: 7,
-    sparks: 44,
+    // Fewer than the plain glows had (44): some of them are comets now, which cost more to draw.
+    sparks: 36,
+    // A peony round a pistil, a gold willow hanging, a crackle, a tilted ring: no two shells alike in a row.
+    kinds: ["peony", "willow", "crackle", "peony", "ring"],
     radius: 130,
     over: "clock",
     size: { per: "width", px: 3100, min: 0.3, max: 0.62 },

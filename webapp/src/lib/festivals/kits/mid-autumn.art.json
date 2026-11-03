@@ -1,0 +1,123 @@
+{
+ "parts": {
+  "lantern-red": {
+   "w": 80,
+   "h": 110,
+   "pivot": [
+    40,
+    55
+   ]
+  },
+  "lantern-gold": {
+   "w": 80,
+   "h": 110,
+   "pivot": [
+    40,
+    55
+   ]
+  },
+  "lantern-saffron": {
+   "w": 80,
+   "h": 110,
+   "pivot": [
+    40,
+    55
+   ]
+  },
+  "lantern-magenta": {
+   "w": 80,
+   "h": 110,
+   "pivot": [
+    40,
+    55
+   ]
+  },
+  "moon": {
+   "w": 400,
+   "h": 400,
+   "pivot": [
+    200,
+    200
+   ]
+  },
+  "cloud": {
+   "w": 300,
+   "h": 70,
+   "pivot": [
+    150,
+    35
+   ]
+  },
+  "mooncake": {
+   "w": 48,
+   "h": 36,
+   "pivot": [
+    24,
+    18
+   ]
+  }
+ },
+ "rig": {
+  "moon": [
+   300,
+   0
+  ],
+  "cloud": [
+   330,
+   70
+  ],
+  "length": 760,
+  "lanterns": [
+   {
+    "part": "lantern-red",
+    "at": [
+     150,
+     -40
+    ],
+    "scale": 0.8,
+    "slide": 130,
+    "bob": 6
+   },
+   {
+    "part": "lantern-gold",
+    "at": [
+     250,
+     90
+    ],
+    "scale": 1.05,
+    "slide": 170,
+    "bob": 8
+   },
+   {
+    "part": "lantern-saffron",
+    "at": [
+     360,
+     -110
+    ],
+    "scale": 0.65,
+    "slide": 110,
+    "bob": 5
+   },
+   {
+    "part": "lantern-red",
+    "at": [
+     430,
+     40
+    ],
+    "scale": 0.95,
+    "slide": 160,
+    "bob": 7
+   },
+   {
+    "part": "lantern-gold",
+    "at": [
+     520,
+     -60
+    ],
+    "scale": 0.75,
+    "slide": 120,
+    "bob": 6
+   }
+  ]
+ }
+}

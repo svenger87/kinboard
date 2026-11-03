@@ -180,6 +180,13 @@ export interface WalkSpec extends VisitorBase {
   /** The members' extent around their origin, art units: the tap target. */
   extent: { left: number; right: number; top: number; bottom: number };
   direction?: "alternate" | "ltr" | "rtl";
+  /**
+   * The way the art faces. `"right"`: drawn walking left to right, so it is
+   * mirrored on the passes that go the other way (a bunny, a dragon). Leave it
+   * out for art that reads the same both ways, or must not be mirrored
+   * (lanterns, a dreidel's letter).
+   */
+  faces?: "right";
 }
 
 /** Particles: many small sprites, one shared engine (rise, drift, burst). */
@@ -272,7 +279,17 @@ export interface FireworksSpec extends VisitorBase {
   duration?: number;
   /** Extra parts to throw among the sparks (stars, a heart). */
   sprites?: string[];
+  /**
+   * The kinds of shell, one after another (starting at the pass's seed):
+   * `peony` a sphere of streaking sparks round a pistil of another colour
+   * (the default); `willow` sparks of the first colour drooping on long
+   * trails, hanging before they fade; `crackle` a burst whose sparks break
+   * into flickering crackles as they die; `ring` a flat ring, tilted.
+   */
+  kinds?: ShellKind[];
 }
+
+export type ShellKind = "peony" | "willow" | "crackle" | "ring";
 
 /** A rainbow arcing over the widgets: drawn in from one end, held, faded. */
 export interface ArcSpec extends VisitorBase {

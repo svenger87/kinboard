@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 92 44" width="92" height="44" data-pivot="4 8">
+<defs><linearGradient id="red" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF7A6A"/><stop offset="0.35" stop-color="#E2343E"/><stop offset="0.8" stop-color="#B01E2C"/><stop offset="1" stop-color="#7E1220"/></linearGradient><linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF2B0"/><stop offset="0.4" stop-color="#F7C845"/><stop offset="1" stop-color="#B9801A"/></linearGradient><radialGradient id="tongue" cx="0.5" cy="0.5" r="0.5" fx="0.4" fy="0.3"><stop offset="0" stop-color="#FF9AB0"/><stop offset="1" stop-color="#C8304C"/></radialGradient><radialGradient id="furW" cx="0.5" cy="0.5" r="0.5" fx="0.35" fy="0.3"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.7" stop-color="#FFF6E2"/><stop offset="1" stop-color="#F2DDB4"/></radialGradient></defs>
+<path d="M4,6 C30,4 64,4 84,6 C90,8 90,16 84,20 C62,30 30,32 10,26 C2,22 0,10 4,6 Z" fill="url(#red)"/>
+<path d="M14,8 C34,14 58,14 76,10 C66,18 36,20 14,8 Z" fill="url(#tongue)"/>
+<path d="M14,7 q3.5,-7 7,0 Z" fill="#FFFDF6"/><path d="M23,7 q3.5,-7 7,0 Z" fill="#FFFDF6"/><path d="M32,7 q3.5,-7 7,0 Z" fill="#FFFDF6"/><path d="M41,7 q3.5,-7 7,0 Z" fill="#FFFDF6"/><path d="M50,7 q3.5,-7 7,0 Z" fill="#FFFDF6"/><path d="M59,7 q3.5,-7 7,0 Z" fill="#FFFDF6"/><path d="M68,7 q3.5,-7 7,0 Z" fill="#FFFDF6"/><path d="M77,7 q3.5,-7 7,0 Z" fill="#FFFDF6"/>
+<path d="M8,24 C30,32 62,30 84,20" stroke="url(#gold)" stroke-width="4" fill="none" stroke-linecap="round"/>
+<path d="M20,26 C26,38 40,44 56,40 C46,36 40,32 38,28 Z" fill="url(#furW)"/>
+</svg>

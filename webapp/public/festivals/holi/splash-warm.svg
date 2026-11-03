@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 16" width="64" height="16">
+<defs><filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="0.45"/></filter><radialGradient id="s0" cx="0.5" cy="0.5" r="0.5" fx="0.38" fy="0.34"><stop offset="0" stop-color="#FFB3D1" stop-opacity="0.95"/><stop offset="0.55" stop-color="#FF3D8B" stop-opacity="0.92"/><stop offset="1" stop-color="#C2185B" stop-opacity="0.85"/></radialGradient><radialGradient id="s1" cx="0.5" cy="0.5" r="0.5" fx="0.38" fy="0.34"><stop offset="0" stop-color="#FFF0A6" stop-opacity="0.95"/><stop offset="0.55" stop-color="#FFC93C" stop-opacity="0.92"/><stop offset="1" stop-color="#E09400" stop-opacity="0.85"/></radialGradient><radialGradient id="s2" cx="0.5" cy="0.5" r="0.5" fx="0.38" fy="0.34"><stop offset="0" stop-color="#FFD2A8" stop-opacity="0.95"/><stop offset="0.55" stop-color="#FF8A2B" stop-opacity="0.92"/><stop offset="1" stop-color="#D2560A" stop-opacity="0.85"/></radialGradient></defs>
+<g filter="url(#soft)">
+<path d="M16.7,8.4 Q16.8,10.7 16.6,12.2 Q16.5,13.7 14.6,14.2 Q12.8,14.8 11.5,15.3 Q10.2,15.8 9.3,14.5 Q8.5,13.2 7.9,12.0 Q7.3,10.8 6.2,9.6 Q5.1,8.4 5.9,7.0 Q6.8,5.7 8.6,6.1 Q10.4,6.4 12.3,5.6 Q14.2,4.8 15.5,5.5 Q16.7,6.2 16.7,8.4 Z" fill="url(#s0)"/>
+<path d="M23.0,7.1 Q23.3,8.1 22.9,9.1 Q22.5,10.1 21.8,11.1 Q21.0,12.0 19.1,11.7 Q17.2,11.5 16.1,10.5 Q15.1,9.5 15.1,7.9 Q15.1,6.3 15.8,5.1 Q16.5,3.9 18.5,4.7 Q20.5,5.5 21.6,5.8 Q22.7,6.1 23.0,7.1 Z" fill="url(#s1)"/>
+<path d="M9.5,14.6 Q9.8,15.1 9.6,15.7 Q9.5,16.3 8.8,16.6 Q8.1,16.9 7.2,17.2 Q6.4,17.5 5.2,17.5 Q3.9,17.5 3.3,16.7 Q2.7,15.9 3.0,15.1 Q3.2,14.4 3.9,13.3 Q4.6,12.2 5.6,12.6 Q6.6,12.9 7.4,12.8 Q8.2,12.7 8.8,13.3 Q9.3,14.0 9.5,14.6 Z" fill="url(#s2)"/>
+</g>
+<circle cx="33.1" cy="11.2" r="1.3" fill="#FF3D8B" opacity="0.63"/>
+<circle cx="45.0" cy="2.6" r="0.7" fill="#FF3D8B" opacity="0.69"/>
+<circle cx="35.4" cy="6.0" r="0.9" fill="#FF3D8B" opacity="0.84"/>
+<circle cx="43.3" cy="8.4" r="0.5" fill="#FF8A2B" opacity="0.88"/>
+<circle cx="34.6" cy="3.5" r="1.0" fill="#FF3D8B" opacity="0.67"/>
+<circle cx="3.5" cy="10.5" r="0.6" fill="#FF8A2B" opacity="0.65"/>
+<circle cx="33.3" cy="2.8" r="1.2" fill="#FF8A2B" opacity="0.73"/>
+<circle cx="58.0" cy="6.8" r="0.5" fill="#FF3D8B" opacity="0.90"/>
+<circle cx="7.1" cy="6.6" r="0.6" fill="#FFC93C" opacity="0.86"/>
+<circle cx="46.4" cy="6.9" r="0.5" fill="#FF8A2B" opacity="0.73"/>
+<circle cx="56.1" cy="8.1" r="0.5" fill="#FF8A2B" opacity="0.90"/>
+<circle cx="29.6" cy="6.2" r="0.8" fill="#FF3D8B" opacity="0.79"/>
+<circle cx="4.6" cy="12.1" r="1.4" fill="#FF3D8B" opacity="0.88"/>
+<circle cx="4.7" cy="9.9" r="0.5" fill="#FF3D8B" opacity="0.95"/>
+<circle cx="4.3" cy="10.5" r="0.7" fill="#FF8A2B" opacity="0.95"/>
+<circle cx="4.6" cy="7.7" r="0.7" fill="#FF3D8B" opacity="0.77"/>
+<circle cx="2.5" cy="12.8" r="0.5" fill="#FF8A2B" opacity="0.63"/>
+<circle cx="55.9" cy="8.3" r="0.5" fill="#FFC93C" opacity="0.91"/>
+<circle cx="44.1" cy="3.3" r="0.8" fill="#FF8A2B" opacity="0.74"/>
+<circle cx="57.6" cy="7.8" r="0.5" fill="#FF3D8B" opacity="0.61"/>
+<circle cx="37.2" cy="8.7" r="0.9" fill="#FF8A2B" opacity="0.94"/>
+<circle cx="32.8" cy="7.9" r="0.7" fill="#FF3D8B" opacity="0.88"/>
+<circle cx="9.6" cy="7.0" r="1.8" fill="#FF3D8B" opacity="0.89"/>
+<circle cx="29.3" cy="5.5" r="0.9" fill="#FF8A2B" opacity="0.71"/>
+<circle cx="52.6" cy="3.0" r="0.5" fill="#FFC93C" opacity="0.83"/>
+<circle cx="10.4" cy="12.6" r="0.5" fill="#FF3D8B" opacity="0.78"/>
+<circle cx="36.2" cy="4.2" r="0.5" fill="#FF3D8B" opacity="0.66"/>
+<circle cx="47.8" cy="7.1" r="0.5" fill="#FF8A2B" opacity="0.79"/>
+<circle cx="50.1" cy="9.6" r="0.5" fill="#FF3D8B" opacity="0.70"/>
+<circle cx="7.8" cy="11.7" r="1.0" fill="#FFC93C" opacity="0.71"/>
+</svg>

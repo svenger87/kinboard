@@ -236,6 +236,24 @@ test("burst: out of a corner into the screen, slowing, falling, fading; waves fr
   expect(burstAt(confetti, p, p.born + 2, 0).y).toBeGreaterThan(burstAt({ ...confetti, gravity: 0 }, p, p.born + 2, 0).y);
 });
 
+test("the tap goes to one of the largest particles, never a speck among them", () => {
+  // Streamers and confetti: the hero is always a streamer, whatever the seed.
+  const parts = { streamer: { w: 160, h: 70, pivot: [80, 35] }, confetti: { w: 24, h: 24, pivot: [12, 12] } };
+  const spec: BurstSpec = {
+    archetype: "burst", size, parts, sprites: ["streamer", "confetti", "confetti", "confetti"], count: 30, waves: 3,
+    from: ["bottom-left", "bottom-right"], speed: [400, 800], spread: 25, gravity: 200, drag: 0.5, life: [3, 5], scale: [0.6, 1],
+  };
+  for (let seed = 1; seed <= 40; seed++) {
+    const plan = burstPlan(spec, wall, seeded(seed));
+    const heroes = plan.filter((p) => p.hero);
+    expect(heroes.length).toBe(1);
+    expect(heroes[0].sprite, `seed ${seed}`).toBe("streamer");
+  }
+  // Without parts to compare, the middle one, as before.
+  const plain = risePlan({ archetype: "rise", size, sprites: ["a", "b"], count: 9, scale: [1, 1], speed: [90, 90], sway: 0 }, wall, seeded(3));
+  expect(plain[4].hero).toBe(true);
+});
+
 test("fireworks: rockets from the bottom, bursting over and around the clock, left and right by turns, all within the pass", () => {
   const spec: FireworksSpec = { archetype: "fireworks", size, colors: ["#FFD24A", "#FF6B8B"], shells: 7, radius: 130, over: "clock" };
   const shells = fireworksPlan(spec, wall, seeded(9));
@@ -278,8 +296,7 @@ test("arc: drawn in from the left foot, held, faded; its feet above the navigati
 });
 
 test("every kit's visitor is a known archetype with what it needs", () => {
-  for (const kit of Object.values(FESTIVAL_KITS)) {
-    const v = kit?.visitor;
+  for (const kit of Object.values(FESTIVAL_KITS)) for (const v of [kit?.visitor, ...Object.values(kit?.visitorByStage ?? {})]) {
     if (!v) continue;
     expect(["fly", "walk", "rise", "drift", "burst", "fireworks", "arc"], kit!.id).toContain(v.archetype);
     if (v.every !== undefined) expect(v.every, kit!.id).toBeGreaterThanOrEqual(15_000);

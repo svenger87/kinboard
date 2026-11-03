@@ -64,12 +64,20 @@ export default defineFestival({
   needs them lighter, as `christmas.tsx`'s are. `washByStage` gives a stage
   its own (a national day's flag colours, by country).
 - **visitor**: one of the archetypes below, or `null` (St Nicholas, Yalda,
-  Ramadan have none).
+  Ramadan have none). `visitorByStage` flies another on a stage's days
+  (Lunar New Year's dragon dance gives way to rising lanterns on the
+  Lantern Festival; `null` for none that day).
+- **art**: whose art folder `s.art(name)` reads, when a kit borrows another's
+  drawings instead of copying them (Orthodox Christmas: `"christmas"`, with
+  `visitor.art` for the sleigh). An outfit item can be borrowed the same way,
+  as the very object the other kit wears (`christmas.outfit[0]`).
 - **dressing**: CSS, or `null`. Use only the selectors `s` gives you, which
   are scoped to your festival and to Animations On and Reduced:
   `s.cards` (every widget card on Home), `s.cardsAt(stage)`, `s.tasks` (the
   Tasks card alone), `s.tasksAt(stage)`, `s.root`, `s.stage(stage)`, and
-  `s.art(name)` for `url("/festivals/<id>/<name>.svg")`. Put drawings on
+  `s.art(name)` for `url("/festivals/<id>/<name>.svg")` (a kit whose visitor
+  borrows another festival's art, `art: "easter"`, may hang that folder's
+  drawings too, with its own `url(...)`). Put drawings on
   `::before` and `::after`, `position: absolute`, `pointer-events: none`.
   `:nth-child(odd)` / `(even)` varies them card to card.
 - **outfit**: the creatures' items, at most one per slot (`head`, `face`,
@@ -107,7 +115,7 @@ the two-minute rhythm (only a timed show, fireworks, may go faster).
 | Archetype | For | Options |
 |---|---|---|
 | `fly` | across the screen on a varied arc, banking, drifting in the wind: the sleigh | `body` (a part or a rig), `box` (the tap target, art units from the body's origin), `length`, `bands` (high/low heights by turns), `arc`, `dip`, `bank`, `duration` |
-| `walk` | a row along the bottom, above the navigation bar: lanterns, a parade, a hopping bunny, a dreidel, a dragon dance, goldfish, a dragon boat | `members` (parts or rigs), `gap`, `tail`, `lift`, `period` (s a step), `lag`, `bob: { amp, hop }` (hop: \|sin\|, else a wave), `swing: { amp, lag, wind }`, `turn` (spins about the vertical, turns a second), `stick`, `extent`, `direction` |
+| `walk` | a row along the bottom, above the navigation bar: lanterns, a parade, a hopping bunny, a dreidel, a dragon dance, goldfish, a dragon boat | `members` (parts or rigs), `gap`, `tail`, `lift`, `period` (s a step), `lag`, `bob: { amp, hop }` (hop: \|sin\|, else a wave), `swing: { amp, lag, wind }`, `turn` (spins about the vertical, turns a second), `stick`, `extent`, `direction`, `faces: "right"` (art drawn facing right is mirrored on right-to-left passes; leave it out for lanterns, letters) |
 | `rise` | up from the bottom, swaying, fading near the top: hearts, balloons, sky lanterns, flowers (`bloom`) | `sprites`, `count`, `speed` (px/s), `sway`, `scale`, `spin`, `bloom`, `ceiling`, `duration` |
 | `drift` | down from the top with the shared wind, turning over: leaves, petals | `sprites`, `count`, `speed`, `sway`, `scale`, `spin`, `tumble` (flips a second) |
 | `burst` | out of a corner or edge: bats, streamers and confetti, coloured powder, noisemakers | `sprites`, `count`, `waves`, `from` (corners/edges, one per wave), `speed`, `spread` (°), `gravity` (px/s²; negative floats), `drag` (0–0.9), `life`, `spin`, `flap` (wing beats a second), `grow` (a powder cloud spreading) |

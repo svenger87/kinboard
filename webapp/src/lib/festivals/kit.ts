@@ -66,7 +66,7 @@ export interface DressingSelectors {
   tasks: string;
   /** The Tasks card, at one stage. */
   tasksAt: (name: string) => string;
-  /** `url("/festivals/<id>/<name>.svg")`: a still drawing from the kit's own art folder. */
+  /** `url("/festivals/<id>/<name>.svg")`: a still drawing from the kit's own art folder (or the one it borrows, `art`). */
   art: (name: string) => string;
 }
 
@@ -78,10 +78,22 @@ export interface FestivalKit {
    * by the date. Taken out when the owner has seen it on the household.
    */
   draft?: boolean;
+  /**
+   * Whose art folder the dressing's drawings come from (`s.art(name)`): its
+   * own by default. Orthodox Christmas borrows Christmas's snow caps rather
+   * than a copy of them.
+   */
+  art?: FestivalId;
   wash: Wash;
   /** A wash per stage, where the festival's colours depend on it (a national day's flag). */
   washByStage?: Readonly<Record<string, Wash>>;
   visitor: VisitorSpec | null;
+  /**
+   * A visitor per stage, instead of `visitor` on that stage's days (null: none
+   * then): Lunar New Year's dragon dance gives way to rising lanterns on the
+   * Lantern Festival.
+   */
+  visitorByStage?: Readonly<Record<string, VisitorSpec | null>>;
   /** The dressing's CSS, or null for none. */
   dressing: ((s: DressingSelectors) => string) | null;
   outfit: readonly FestivalItem[];
@@ -98,6 +110,13 @@ export function defineFestival(kit: FestivalKit): FestivalKit {
   return kit;
 }
 
+/** The visitor at a stage: the stage's own if the kit has one for it, else the kit's. */
+export function kitVisitor(kit: FestivalKit | undefined, stage: string | null | undefined): VisitorSpec | null {
+  if (!kit) return null;
+  if (stage && kit.visitorByStage && stage in kit.visitorByStage) return kit.visitorByStage[stage] ?? null;
+  return kit.visitor;
+}
+
 /**
  * CSS as a template string, for the dressing: a tag so an editor can
  * highlight it, and nothing else. Values are interpolated as they are.
@@ -111,7 +130,7 @@ const CARDS = ".festival-grid > :not(button):not(.overflow-hidden)";
 /** Dressing is still: on with Animations On and Reduced, never Off, which keeps the colour wash only (§4). */
 const MOVING = ':not([data-motion="off"])';
 
-export function dressingSelectors(id: FestivalId): DressingSelectors {
+export function dressingSelectors(id: FestivalId, art: FestivalId = id): DressingSelectors {
   const root = `:root[data-festival="${id}"]${MOVING}`;
   const stage = (name: string) => `:root[data-festival="${id}"][data-festival-stage="${name}"]${MOVING}`;
   return {
@@ -121,7 +140,7 @@ export function dressingSelectors(id: FestivalId): DressingSelectors {
     cardsAt: (name) => `${stage(name)} ${CARDS}`,
     tasks: `${root} .festival-tasks`,
     tasksAt: (name) => `${stage(name)} .festival-tasks`,
-    art: (name) => `url("/festivals/${id}/${name}.svg")`,
+    art: (name) => `url("/festivals/${art}/${name}.svg")`,
   };
 }
 
@@ -141,6 +160,6 @@ export function washCss(kit: FestivalKit): string {
 
 /** A kit's whole stylesheet: its wash, then its dressing. */
 export function kitCss(kit: FestivalKit): string {
-  const dressing = kit.dressing ? kit.dressing(dressingSelectors(kit.id)).trim() : "";
+  const dressing = kit.dressing ? kit.dressing(dressingSelectors(kit.id, kit.art)).trim() : "";
   return `/* ${kit.id} */\n${washCss(kit)}${dressing ? `\n${dressing}` : ""}`;
 }

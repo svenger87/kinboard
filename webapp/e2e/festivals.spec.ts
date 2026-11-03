@@ -259,7 +259,9 @@ test("a preview names a drawn festival, and nothing else", () => {
   expect(parseFestivalPreview("christmas")).toBe("christmas");
   expect(parseFestivalPreview(" st-martin ")).toBe("st-martin");
   expect(parseFestivalPreview("new-years-eve")).toBe("new-years-eve");
-  expect(parseFestivalPreview("purim")).toBeNull();
+  // A festival not drawn yet, whichever that is as kits are added.
+  const undrawn = FESTIVALS.find((id) => !FESTIVAL_KITS[id]);
+  if (undrawn) expect(parseFestivalPreview(undrawn)).toBeNull();
   expect(parseFestivalPreview("<script>")).toBeNull();
   expect(parseFestivalPreview(null)).toBeNull();
 });

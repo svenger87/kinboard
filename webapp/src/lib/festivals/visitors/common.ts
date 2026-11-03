@@ -79,6 +79,8 @@ export class Tapping {
   /** performance.now() of the tap, or -1. */
   tappedAt = -1;
   target: Box | null = null;
+  /** The visitor is drawn mirrored: `at` counts from the target's right. */
+  mirrored = false;
   private drops: Drop[] = [];
 
   constructor(
@@ -104,7 +106,8 @@ export class Tapping {
     if (this.tappedAt >= 0 || !this.target || this.spec === false) return false;
     this.tappedAt = performance.now();
     const spec = this.spec ?? {};
-    const [fx, fy] = spec.at ?? [0.5, 0.4];
+    const [at, fy] = spec.at ?? [0.5, 0.4];
+    const fx = this.mirrored ? 1 - at : at;
     this.drops.push(...dropsAt(this.sprites, spec, this.target.x + this.target.w * fx, this.target.y + this.target.h * fy));
     return true;
   }
