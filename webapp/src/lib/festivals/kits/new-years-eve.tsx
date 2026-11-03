@@ -35,10 +35,11 @@ export default defineFestival({
     tap: {},
   },
   // Confetti at two corners of each card: top left and bottom right, then the
-  // other two on the next card. A 64 x 20 px strip along the edge, its corner
-  // point 16 x 14 px in, laid on the card's own corner: the strip reaches 6px
-  // over the card's edge, inside its 16px padding, and the rest lies in the
-  // gap above it and beside it.
+  // other two on the next card. A 64 x 20 px strip along the edge, entirely
+  // in the gap above (or below) the card, ending at its edge: a full-bleed
+  // card (a camera, a photo) has content from its very first pixel row, so the
+  // 6px the strip used to reach over the edge lay on the picture (CI's camera
+  // mock, as with Christmas's snow).
   dressing: (s) => css`
     ${s.cards} {
       position: relative;
@@ -54,11 +55,11 @@ export default defineFestival({
       pointer-events: none;
     }
     ${s.cards}::before {
-      top: -14px;
+      top: -20px;
       left: -16px;
     }
     ${s.cards}::after {
-      bottom: -14px;
+      bottom: -20px;
       right: -16px;
       transform: scale(-1, -1);
     }
