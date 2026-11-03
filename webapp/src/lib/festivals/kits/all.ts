@@ -6,6 +6,7 @@
  */
 export { default as christmas } from "./christmas";
 export { default as hanukkah } from "./hanukkah";
+export { default as lunarNewYear } from "./lunar-new-year";
 export { default as newYearsEve } from "./new-years-eve";
 export { default as orthodoxChristmas } from "./orthodox-christmas";
 export { default as stMartin } from "./st-martin";
