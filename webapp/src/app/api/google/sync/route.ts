@@ -6,6 +6,7 @@ import type { PersonMappingRule } from "@/lib/calendar-person-matcher";
 import { familyPersonIds, syncedEventPersonId } from "@/lib/google-sync-person";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 import { reconcileGoogleCalendars } from "@/lib/google-calendar-reconcile";
+import { eventRowChanged, syncedColumns } from "@/lib/event-sync-write";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -317,14 +318,6 @@ export async function POST(request: NextRequest) {
             mappingRules,
           });
 
-          // Check if event exists
-           
-          const { data: existing } = await (supabase as any)
-            .from("events")
-            .select("id, updated_at")
-            .eq("google_event_id", event.id)
-            .single();
-
           const eventData = {
             calendar_id: localCalendar.id,
             google_event_id: event.id,
@@ -338,7 +331,23 @@ export async function POST(request: NextRequest) {
             updated_at: new Date().toISOString(),
           };
 
-          if (existing) {
+          // Scoped to this calendar and tolerant of duplicates, as the cron
+          // sync is (cron/google-sync): unscoped, two families on the same
+          // Google calendar updated each other's rows; .single() returned
+          // null for a duplicate and inserted another one.
+           
+          const { data: existing } = await (supabase as any)
+            .from("events")
+            .select(syncedColumns(eventData))
+            .eq("google_event_id", event.id)
+            .eq("calendar_id", localCalendar.id)
+            .order("created_at", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          if (existing && !eventRowChanged(existing, eventData)) {
+            // Identical: nothing written, nothing for open screens to refetch.
+          } else if (existing) {
             // Update existing event
              
             await (supabase as any)

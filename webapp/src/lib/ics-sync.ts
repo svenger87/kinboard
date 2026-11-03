@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { fetchIcsCalendar, ICS_WINDOW_FUTURE_DAYS } from "@/lib/ics-fetcher";
 import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
 import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";
+import { eventRowChanged, syncedColumns } from "@/lib/event-sync-write";
 
 /**
  * Per-calendar ICS sync helper. Shared by:
@@ -125,7 +126,7 @@ export async function syncIcsCalendar(
 
     const { data: existing } = await (supabase as any)
       .from("events")
-      .select("id")
+      .select(syncedColumns(eventData))
       .eq("calendar_id", calendarId)
       .eq("google_event_id", googleEventId)
       // maybeSingle, not single: `.single()` errors when more than one
@@ -136,7 +137,9 @@ export async function syncIcsCalendar(
       .limit(1)
       .maybeSingle();
 
-    if (existing) {
+    if (existing && !eventRowChanged(existing, eventData)) {
+      // Identical: nothing written, nothing for open screens to refetch.
+    } else if (existing) {
 
       await (supabase as any)
         .from("events")

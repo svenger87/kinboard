@@ -10,6 +10,7 @@ import {
   type CalendarFetch,
 } from "@/lib/google-sync-prune";
 import { reconcileGoogleCalendars } from "@/lib/google-calendar-reconcile";
+import { eventRowChanged, syncedColumns } from "@/lib/event-sync-write";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -49,6 +50,7 @@ interface SyncResult {
   synced?: number;
   created?: number;
   updated?: number;
+  unchanged?: number;
   deleted?: number;
   error?: string;
 }
@@ -177,6 +179,8 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
     const fetches: CalendarFetch[] = [];
     let created = 0;
     let updated = 0;
+    // Seen and identical: not written, so no notification and no row version.
+    let unchanged = 0;
     let deleted = reconciled.deletedEvents;
 
     for (const googleCalendarId of enabledCalendars) {
@@ -332,15 +336,6 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
           // match, and both cases returned null data, so a duplicate made
           // the code take the insert branch and add ANOTHER duplicate on
           // every run — every 15 minutes, indefinitely.
-          const { data: existing } = await (supabase as any)
-            .from("events")
-            .select("id, updated_at")
-            .eq("google_event_id", event.id)
-            .eq("calendar_id", localCalendar.id)
-            .order("created_at", { ascending: true })
-            .limit(1)
-            .maybeSingle();
-
           const eventData = {
             calendar_id: localCalendar.id,
             google_event_id: event.id,
@@ -354,7 +349,18 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
             updated_at: new Date().toISOString(),
           };
 
-          if (existing) {
+          const { data: existing } = await (supabase as any)
+            .from("events")
+            .select(syncedColumns(eventData))
+            .eq("google_event_id", event.id)
+            .eq("calendar_id", localCalendar.id)
+            .order("created_at", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          if (existing && !eventRowChanged(existing, eventData)) {
+            unchanged++;
+          } else if (existing) {
              
             await (supabase as any)
               .from("events")
@@ -456,6 +462,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
       synced: googleEventIds.size,
       created,
       updated,
+      unchanged,
       deleted,
     };
   } catch (err) {
@@ -551,7 +558,7 @@ export async function POST(request: NextRequest) {
     const familyId = familiesToSync[index].family_id;
     if (result.status === "fulfilled") {
       if (result.value.success) {
-        console.log(`[google-sync-cron] Family ${familyId}: synced=${result.value.synced}, created=${result.value.created}, updated=${result.value.updated}, deleted=${result.value.deleted}`);
+        console.log(`[google-sync-cron] Family ${familyId}: synced=${result.value.synced}, created=${result.value.created}, updated=${result.value.updated}, unchanged=${result.value.unchanged ?? 0}, deleted=${result.value.deleted}`);
       } else {
         console.error(`[google-sync-cron] Family ${familyId}: failed - ${result.value.error}`);
       }

@@ -14,6 +14,7 @@ import {
   type CalendarSyncRangeDays,
 } from "@/lib/calendar-sync-range";
 import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";
+import { eventRowChanged, syncedColumns } from "@/lib/event-sync-write";
 
 /**
  * Per-calendar CalDAV sync. Shared by:
@@ -169,12 +170,14 @@ export async function syncCaldavCalendar(
 
     const { data: existing } = await (supabase as any)
       .from("events")
-      .select("id")
+      .select(syncedColumns(eventData))
       .eq("calendar_id", calendarId)
       .eq("google_event_id", externalId)
       .maybeSingle();
 
-    if (existing) {
+    if (existing && !eventRowChanged(existing, eventData)) {
+      // Identical: nothing written, nothing for open screens to refetch.
+    } else if (existing) {
       await (supabase as any).from("events").update(eventData).eq("id", existing.id);
       updated++;
     } else {

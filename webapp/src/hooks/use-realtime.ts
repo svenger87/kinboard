@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import { useRealtimeStatusStore } from "@/stores/realtime-status-store";
@@ -10,6 +10,7 @@ import { actionChangeMatters } from "@/lib/home/action-prompt";
 import { reactToTaskChange } from "@/stores/creature-reactions";
 import type { TickRow } from "@/lib/pocket-money/creature-reactions";
 import { invalidatePocketMoney } from "./use-pocket-money-accounts";
+import { invalidationBatch } from "@/lib/realtime/invalidation-batch";
 
 /**
  * Live updates: the family's row changes, from the server's change feed.
@@ -132,6 +133,11 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
   const { family } = useFamilyStore();
   const setStatus = useRealtimeStatusStore((s) => s.setStatus);
 
+  // One refetch per list per burst, not one per changed row (see
+  // lib/realtime/invalidation-batch.ts: a 362-row sync used to fire 1,494).
+  const batch = useMemo(() => invalidationBatch(queryClient), [queryClient]);
+  useEffect(() => () => batch.dispose(), [batch]);
+
   const handleChange = useCallback(
     (
       table: TableName,
@@ -143,12 +149,12 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
       // Invalidate the appropriate query based on the table
       switch (table) {
         case "people":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: queryKeys.people(family.id),
           });
           break;
         case "events":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["events", family.id],
           });
           break;
@@ -156,10 +162,10 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           // A calendar switched off (an unticked Google calendar) leaves the
           // calendar list, and the events query embeds each calendar's
           // colour and holiday/waste flags, so both are refetched.
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["calendars", family.id],
           });
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["events", family.id],
           });
           break;
@@ -174,43 +180,43 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
               ?.find((todo) => todo.id === next.id);
             reactToTaskChange(queryClient, family.id, prev, next);
           }
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: queryKeys.todos(family.id),
           });
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["todo-point-awards", family.id],
           });
-          queryClient.invalidateQueries({ queryKey: ["todo-history", family.id] });
-          queryClient.invalidateQueries({ queryKey: ["todo-events", family.id] });
+          batch.invalidateQueries({ queryKey: ["todo-history", family.id] });
+          batch.invalidateQueries({ queryKey: ["todo-events", family.id] });
           break;
         }
         case "todo_occurrences":
           // Days written down by the quarter-hourly pass, which touches no
           // task row when it only marks a day missed.
-          queryClient.invalidateQueries({ queryKey: ["todo-history", family.id] });
+          batch.invalidateQueries({ queryKey: ["todo-history", family.id] });
           break;
         case "point_rewards":
-          queryClient.invalidateQueries({ queryKey: ["point-rewards", family.id] });
+          batch.invalidateQueries({ queryKey: ["point-rewards", family.id] });
           break;
         case "point_redemptions":
           // A child's request, or a parent's decision on another screen.
-          queryClient.invalidateQueries({ queryKey: ["point-redemptions", family.id] });
+          batch.invalidateQueries({ queryKey: ["point-redemptions", family.id] });
           break;
         case "point_purchases":
           // Something bought in the shop on another screen (RFC-017 §5): the
           // balance and what the creature may wear both change.
-          queryClient.invalidateQueries({ queryKey: ["point-purchases", family.id] });
+          batch.invalidateQueries({ queryKey: ["point-purchases", family.id] });
           break;
         case "todo_point_awards":
           // A task's points, or a parent's adjustment by hand (#349), which
           // touches no task row: every total and the adjustments list move.
-          queryClient.invalidateQueries({ queryKey: ["todo-point-awards", family.id] });
-          queryClient.invalidateQueries({ queryKey: ["point-adjustments", family.id] });
+          batch.invalidateQueries({ queryKey: ["todo-point-awards", family.id] });
+          batch.invalidateQueries({ queryKey: ["point-adjustments", family.id] });
           break;
         case "creatures":
           // A creature switched on or off, re-dressed, or its stage recorded
           // on another screen (RFC-017).
-          queryClient.invalidateQueries({ queryKey: ["creatures", family.id] });
+          batch.invalidateQueries({ queryKey: ["creatures", family.id] });
           break;
         case "pocket_money_accounts":
         case "pocket_money_transactions":
@@ -221,36 +227,36 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           // booking a parent allowed on the wall, the allowance run, a spend
           // request decided elsewhere. A booking moves the balance, the
           // ledger and a goal's progress at once, so all four are refetched.
-          invalidatePocketMoney(queryClient);
+          invalidatePocketMoney(batch);
           break;
         case "shopping_items":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: queryKeys.shoppingItems(family.id),
           });
           break;
         case "subjects":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: queryKeys.subjects(family.id),
           });
           break;
         case "schedules":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: queryKeys.schedules(family.id),
           });
           break;
         case "birthdays":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: queryKeys.birthdays(family.id),
           });
           break;
         case "notes":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: queryKeys.notes(family.id),
           });
           break;
         case "settings": {
           // Invalidate all settings queries
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["settings", family.id],
           });
           // school_holidays has no change feed. The rows a sync writes
@@ -260,74 +266,74 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           // change. A delete carries no key, so it refetches too.
           const key = ((payload.new as Record<string, unknown>)?.key ?? null) as string | null;
           if (key === null || key === SETTINGS_KEYS.schoolHolidaySync || key === SETTINGS_KEYS.holidayRegion) {
-            queryClient.invalidateQueries({
+            batch.invalidateQueries({
               queryKey: queryKeys.schoolHolidays(family.id),
             });
           }
           break;
         }
         case "recipes":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["recipes", family.id],
           });
           break;
         case "recipe_ingredients":
           // Invalidate all recipes as ingredients changed
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["recipes", family.id],
           });
           break;
         case "recipe_tags":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["recipe-tags", family.id],
           });
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["recipes", family.id],
           });
           break;
         case "meal_plans":
         case "meal_plan_entries":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["meal-plans", family.id],
           });
           break;
         case "item_catalog":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["item-catalog", family.id],
           });
           break;
         case "push_subscriptions":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["push-subscriptions", family.id],
           });
           break;
         case "notification_preferences":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["notification-preferences", family.id],
           });
           break;
         case "timers":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["timers", family.id],
           });
           break;
         case "camera_takeovers":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["camera-takeover", family.id],
           });
           break;
         case "messages":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["messages", family.id],
           });
           break;
         case "catalogue_items":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["catalogue", family.id],
           });
           break;
         case "rooms":
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["rooms", family.id],
           });
           break;
@@ -335,7 +341,7 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           // Pending requests and any one a deep link is showing — but not
           // for the audit row every non-sensitive assistant action inserts.
           if (!actionChangeMatters(payload)) break;
-          queryClient.invalidateQueries({
+          batch.invalidateQueries({
             queryKey: ["assistant-actions", family.id],
           });
           break;
@@ -343,7 +349,7 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
           const birthdayId = (payload.new as Record<string, unknown>)?.birthday_id as string | undefined
             ?? (payload.old as Record<string, unknown>)?.birthday_id as string | undefined;
           if (birthdayId) {
-            queryClient.invalidateQueries({
+            batch.invalidateQueries({
               queryKey: queryKeys.giftIdeas(birthdayId),
             });
           }
@@ -351,7 +357,7 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
         }
       }
     },
-    [queryClient, family]
+    [queryClient, batch, family]
   );
 
   /**
@@ -362,13 +368,13 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
   const resync = useCallback(() => {
     if (!family?.id) return;
     const familyId = family.id;
-    queryClient.invalidateQueries({
+    batch.invalidateQueries({
       predicate: (query) => query.queryKey.includes(familyId),
     });
     // Keyed without the family id.
-    queryClient.invalidateQueries({ queryKey: ["giftIdeas"] });
-    invalidatePocketMoney(queryClient);
-  }, [queryClient, family?.id]);
+    batch.invalidateQueries({ queryKey: ["giftIdeas"] });
+    invalidatePocketMoney(batch);
+  }, [batch, family?.id]);
 
   // The stream is opened once per family, not again whenever the family
   // object or a callback changes identity: the handlers are read through refs.

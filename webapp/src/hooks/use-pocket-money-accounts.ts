@@ -18,7 +18,7 @@ const KEY = "pocket-money-accounts";
  * cache holds it. Keep the strings in sync with the KEY constants in
  * use-pocket-money-goals.ts and use-pocket-money-withdrawal-requests.ts.
  */
-export function invalidatePocketMoney(qc: QueryClient) {
+export function invalidatePocketMoney(qc: Pick<QueryClient, "invalidateQueries"> | { invalidateQueries(filters: { queryKey: unknown[] }): unknown }) {
   qc.invalidateQueries({ queryKey: [KEY] });
   qc.invalidateQueries({ queryKey: ["pocket-money-goals"] });
   qc.invalidateQueries({ queryKey: ["pocket-money-withdrawal-requests"] });

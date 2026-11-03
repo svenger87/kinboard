@@ -40,6 +40,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Wall displays no longer get stuck on "loading" every 15 minutes.** The Google calendar sync rewrote every event on every run, even unchanged ones, and since 1.15 each rewrite is a live update to every open screen. With one calendar of 362 events, one sync made a single Home screen fire about 1,500 requests in twenty seconds, each one cancelling the last, and a small kiosk PC never caught up until somebody changed page. The calendar syncs (Google, ICS, CalDAV) now write only events that actually changed, a screen turns a burst of updates into one refetch per list (2,939 requests became 11 for the same burst), and a read that never answers gives up after 30 seconds and is retried instead of loading forever. The manual Google sync also no longer touches another family's copy of a shared calendar or adds a duplicate when one already exists.
+
 - **The documented database restore works again.** Since the server's time zone is recorded on every start, a data-only restore into a freshly started stack failed on `instance_settings`; the restore steps now empty it first.
 
 - **Home automation disconnection alerts fit on phones.** The message now gets the full width, with Try again and Check connection below it as touch-friendly actions; larger screens keep the compact row.
