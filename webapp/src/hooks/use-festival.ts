@@ -10,7 +10,7 @@ import { useFamilyTimeZone, useMinuteClock } from "@/hooks/use-creature-mood";
 import { useMotion } from "@/hooks/use-motion";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { parseClockTime, type FestivalId } from "@/lib/festivals";
-import type { FestivalKit } from "@/lib/festivals/kit";
+import { kitVisitor, type FestivalKit } from "@/lib/festivals/kit";
 import type { VisitorSpec } from "@/lib/festivals/visitors/types";
 import {
   DEFAULT_FESTIVAL_SETTINGS,
@@ -41,7 +41,7 @@ export interface ShownFestival {
   id: FestivalId;
   stage: FestivalStage | null;
   kit: FestivalKit;
-  /** What flies now: the kit's visitor, or null before its time (St Martin's dusk, New Year's midnight). */
+  /** What flies now: the kit's visitor (at this stage), or null before its time (St Martin's dusk, New Year's midnight). */
   visitor: VisitorSpec | null;
   /** When the visitor's first pass is due (epoch ms): the family's midnight, for fireworks; null for the usual rhythm. */
   visitorAt: number | null;
@@ -92,12 +92,12 @@ export function useFestival(): ShownFestival | null {
   return useMemo(() => {
     if (preview) {
       const kit = festivalKit(preview.id);
-      return kit ? { id: preview.id, stage: preview.stage, kit, visitor: kit.visitor, visitorAt: null, preview: true } : null;
+      return kit ? { id: preview.id, stage: preview.stage, kit, visitor: kitVisitor(kit, preview.stage), visitorAt: null, preview: true } : null;
     }
     const kit = festivalKit(active?.id);
     if (!active || !kit) return null;
     // Before its time (St Martin before dusk): the wash and the dressing, but the visitor waits.
-    return { id: active.id, stage: active.stage, kit, visitor: active.visitorReady ? kit.visitor : null, visitorAt: active.visitorAt, preview: false };
+    return { id: active.id, stage: active.stage, kit, visitor: active.visitorReady ? kitVisitor(kit, active.stage) : null, visitorAt: active.visitorAt, preview: false };
   }, [active, preview]);
 }
 
@@ -214,7 +214,7 @@ export function useFestivalSync() {
   }, [shown?.id, shown?.stage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The visitor's bitmaps are released when its festival ends (RFC-020 §7).
-  const flying = shown && festivalKit(shown.id)?.visitor ? shown.id : null;
+  const flying = shown && kitVisitor(festivalKit(shown.id), shown.stage) ? shown.id : null;
   useEffect(() => {
     releaseVisitorSprites((festival) => festival === flying);
   }, [flying]);

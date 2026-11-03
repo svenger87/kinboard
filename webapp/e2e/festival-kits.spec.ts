@@ -68,7 +68,7 @@ test("a kit's wash and dressing touch only its own festival, and the dressing on
     for (const sel of selectors(kitCss(kit))) {
       expect(sel.startsWith(own) || sel.startsWith(ownDark), `${kit.id}: ${sel}`).toBe(true);
     }
-    const dressing = kit.dressing ? kit.dressing(dressingSelectors(kit.id)) : "";
+    const dressing = kit.dressing ? kit.dressing(dressingSelectors(kit.id, kit.art)) : "";
     for (const sel of selectors(dressing)) {
       // Still, so Reduced keeps it; Off leaves the colour wash only (§4).
       expect(sel, `${kit.id}: ${sel}`).toContain(':not([data-motion="off"])');
@@ -117,8 +117,9 @@ const svg = (file: string) => existsSync(file) && read(file).startsWith('<svg xm
 
 test("every drawing a kit uses is there, as SVG, and comes from its art script", () => {
   for (const kit of kits) {
-    const v = kit.visitor;
-    if (v) {
+    for (const stage of Object.keys(kit.visitorByStage ?? {})) expect(kit.stages, `${kit.id}: a visitor for its own stage ${stage}`).toContain(stage);
+    for (const v of [kit.visitor, ...Object.values(kit.visitorByStage ?? {})]) {
+      if (!v) continue;
       expect(v.size.min, kit.id).toBeLessThanOrEqual(v.size.max);
       expect(v.size.min, kit.id).toBeGreaterThan(0);
       for (const part of partsOf(v)) {
@@ -128,14 +129,14 @@ test("every drawing a kit uses is there, as SVG, and comes from its art script",
       for (const part of Object.keys(v.parts ?? {})) expect(svg(`public/festivals/${v.art ?? kit.id}/${part}.svg`), `${kit.id}: ${part}.svg`).toBe(true);
     }
     // The dressing's drawings.
-    const dressing = kit.dressing ? kit.dressing(dressingSelectors(kit.id)) : "";
+    const dressing = kit.dressing ? kit.dressing(dressingSelectors(kit.id, kit.art)) : "";
     for (const [, path] of dressing.matchAll(/url\("(\/festivals\/[^"]+)"\)/g)) {
-      expect(path.startsWith(`/festivals/${kit.id}/`), `${kit.id}: ${path} from its own folder`).toBe(true);
+      expect(path.startsWith(`/festivals/${kit.art ?? kit.id}/`), `${kit.id}: ${path} from its own folder, or the one it borrows`).toBe(true);
       expect(svg(`public${path}`), `${kit.id}: ${path}`).toBe(true);
     }
   }
   // Every art folder is a kit's (or one it borrows), and has its script.
-  const borrowed = new Set(kits.map((k) => k.visitor?.art).filter(Boolean));
+  const borrowed = new Set(kits.flatMap((k) => [k.visitor?.art, k.art, ...Object.values(k.visitorByStage ?? {}).map((v) => v?.art)]).filter(Boolean));
   for (const dir of readdirSync("public/festivals")) {
     expect(FESTIVAL_KITS[dir as keyof typeof FESTIVAL_KITS] || borrowed.has(dir as never), `public/festivals/${dir}`).toBeTruthy();
     expect(existsSync(`scripts/festival-art/${dir}.py`), `scripts/festival-art/${dir}.py`).toBe(true);
@@ -145,8 +146,9 @@ test("every drawing a kit uses is there, as SVG, and comes from its art script",
   }
 });
 
-test("an outfit is the shop's item for its slot, or the festival's own, drawn, under a name of its own", () => {
+test("an outfit is the shop's item for its slot, or the festival's own, drawn, under a name of its own (or borrowed whole)", () => {
   const seen = new Map<string, string>();
+  const drawn = new Map<string, unknown>();
   for (const kit of kits) {
     const slots = new Set<string>();
     for (const item of kit.outfit) {
@@ -155,8 +157,10 @@ test("an outfit is the shop's item for its slot, or the festival's own, drawn, u
       if (item.draw) {
         // Its own: never a shop id, never another festival's.
         expect(isItemFor(item.slot, item.item), `${kit.id}: ${item.item} is a shop id`).toBe(false);
-        expect(seen.get(item.item) ?? kit.id, item.item).toBe(kit.id);
-        seen.set(item.item, kit.id);
+        // Another festival's under the same name only when it is that very item (Orthodox Christmas wears Christmas's Santa hat).
+        if (seen.has(item.item) && seen.get(item.item) !== kit.id) expect(drawn.get(item.item), `${kit.id}: ${item.item} is ${seen.get(item.item)}'s`).toBe(item.draw);
+        else seen.set(item.item, kit.id);
+        drawn.set(item.item, item.draw);
       } else {
         expect(isItemFor(item.slot, item.item), `${kit.id}: ${item.item} isn't the shop's ${item.slot} item`).toBe(true);
       }

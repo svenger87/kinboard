@@ -64,7 +64,13 @@ export default defineFestival({
   needs them lighter, as `christmas.tsx`'s are. `washByStage` gives a stage
   its own (a national day's flag colours, by country).
 - **visitor**: one of the archetypes below, or `null` (St Nicholas, Yalda,
-  Ramadan have none).
+  Ramadan have none). `visitorByStage` flies another on a stage's days
+  (Lunar New Year's dragon dance gives way to rising lanterns on the
+  Lantern Festival; `null` for none that day).
+- **art**: whose art folder `s.art(name)` reads, when a kit borrows another's
+  drawings instead of copying them (Orthodox Christmas: `"christmas"`, with
+  `visitor.art` for the sleigh). An outfit item can be borrowed the same way,
+  as the very object the other kit wears (`christmas.outfit[0]`).
 - **dressing**: CSS, or `null`. Use only the selectors `s` gives you, which
   are scoped to your festival and to Animations On and Reduced:
   `s.cards` (every widget card on Home), `s.cardsAt(stage)`, `s.tasks` (the

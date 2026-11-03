@@ -8,6 +8,7 @@ import { useFamilyStore } from "@/stores/family-store";
 import { cheerCreatures } from "@/stores/creature-reactions";
 import type { FestivalId } from "@/lib/festivals";
 import { festivalKit } from "@/lib/festivals/kits";
+import { kitVisitor } from "@/lib/festivals/kit";
 import { PASS_EVERY_MS, PASS_MS, createPass, prepareVisitorSprites, visitorScale, type Box, type Pass, type VisitorSprites } from "@/lib/festivals/visitors";
 import { useSetting } from "@/hooks/use-supabase-queries";
 import { useWeather, useWeatherForecast, useWeatherUnits } from "@/hooks/use-weather";
@@ -147,6 +148,7 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
           gust={gust}
           visitor={flying}
           visitorAt={festival?.visitorAt ?? null}
+          stage={festival?.stage ?? null}
           preview={festival?.preview ?? false}
           light={{ fog: on.has("fog"), storm: on.has("storm") }}
           tapRef={tapRef}
@@ -184,6 +186,7 @@ export function FestivalVisitor({ placement = "home" }: { placement?: Placement 
           gust={0}
           visitor={visitor}
           visitorAt={festival?.visitorAt ?? null}
+          stage={festival?.stage ?? null}
           preview={festival?.preview ?? false}
           light={{ fog: false, storm: false }}
           tapRef={tapRef}
@@ -723,6 +726,7 @@ function EffectsCanvas({
   gust,
   visitor = null,
   visitorAt = null,
+  stage = null,
   preview = false,
   light = { fog: false, storm: false },
   tapRef,
@@ -735,6 +739,8 @@ function EffectsCanvas({
   visitor?: FestivalId | null;
   /** When its first pass is due (epoch ms), instead of the usual rhythm: the family's midnight. */
   visitorAt?: number | null;
+  /** The festival's stage: a kit can fly another visitor on a stage's days. */
+  stage?: string | null;
   preview?: boolean;
   light?: { fog: boolean; storm: boolean };
   tapRef?: RefObject<HTMLButtonElement | null>;
@@ -746,6 +752,8 @@ function EffectsCanvas({
   const familyId = useFamilyStore((s) => s.family?.id);
   const key = effects.join(",");
   const { fog, storm } = light;
+  // The kit's own object, so a stage that keeps the same visitor (a night of Hanukkah) doesn't restart the scene.
+  const spec = kitVisitor(festivalKit(visitor), stage);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -755,7 +763,6 @@ function EffectsCanvas({
     const button = tapRef?.current ?? null;
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const weather = canvas && ctx && effects.length > 0 ? weatherLayer(canvas, ctx, effects, intensity, gust, dpr) : null;
-    const spec = festivalKit(visitor)?.visitor ?? null;
     const flies = Boolean(visitor && spec && front && fctx);
     if (!weather && !flies) return;
 
@@ -966,7 +973,7 @@ function EffectsCanvas({
     };
     // `key` stands for `effects`, which is a new array on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, intensity, gust, visitor, visitorAt, preview, fog, storm, familyId, placement]);
+  }, [key, intensity, gust, visitor, visitorAt, spec, preview, fog, storm, familyId, placement]);
 
   const layer = placement === "home" ? "fixed" : "absolute";
   return (
@@ -985,7 +992,7 @@ function EffectsCanvas({
           height={0}
           data-testid="festival-visitor"
           data-visitor={visitor}
-          data-archetype={festivalKit(visitor)?.visitor?.archetype}
+          data-archetype={spec?.archetype}
           data-state="waiting"
           className={`pointer-events-none ${layer} inset-0 ${placement === "home" ? "z-[15]" : ""} h-full w-full`}
         />

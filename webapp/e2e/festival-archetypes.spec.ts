@@ -278,8 +278,7 @@ test("arc: drawn in from the left foot, held, faded; its feet above the navigati
 });
 
 test("every kit's visitor is a known archetype with what it needs", () => {
-  for (const kit of Object.values(FESTIVAL_KITS)) {
-    const v = kit?.visitor;
+  for (const kit of Object.values(FESTIVAL_KITS)) for (const v of [kit?.visitor, ...Object.values(kit?.visitorByStage ?? {})]) {
     if (!v) continue;
     expect(["fly", "walk", "rise", "drift", "burst", "fireworks", "arc"], kit!.id).toContain(v.archetype);
     if (v.every !== undefined) expect(v.every, kit!.id).toBeGreaterThanOrEqual(15_000);

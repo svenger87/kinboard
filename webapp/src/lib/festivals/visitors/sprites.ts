@@ -152,13 +152,17 @@ async function sparkSprite(dpr: number, color: string): Promise<Bitmap> {
 }
 
 const cache = new Map<string, Promise<VisitorSprites>>();
+/** A number per visitor spec: a kit with a visitor per stage (Lunar New Year) has two sets of bitmaps. */
+const specIds = new WeakMap<VisitorSpec, number>();
+let nextSpecId = 0;
 
 /**
  * Every bitmap of a festival's visitor, drawn once for this size and pixel
  * ratio; shared by Home and the screensaver.
  */
 export function prepareVisitorSprites(festival: FestivalId, spec: VisitorSpec, scale: number, dpr: number): Promise<VisitorSprites> {
-  const key = `${festival}|${scale.toFixed(3)}|${dpr}`;
+  if (!specIds.has(spec)) specIds.set(spec, nextSpecId++);
+  const key = `${festival}|${scale.toFixed(3)}|${dpr}|${specIds.get(spec)}`;
   let ready = cache.get(key);
   if (!ready) {
     ready = (async () => {
