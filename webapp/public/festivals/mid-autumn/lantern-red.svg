@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 110" width="80" height="110" data-pivot="40 55">
+<defs><radialGradient id="halo" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FF6B4A" stop-opacity="0.55"/><stop offset="0.5" stop-color="#FF6B4A" stop-opacity="0.18"/><stop offset="1" stop-color="#FF6B4A" stop-opacity="0"/></radialGradient><radialGradient id="paper" cx="0.5" cy="0.9" r="0.95" fx="0.5" fy="0.95"><stop offset="0" stop-color="#FFF8DA"/><stop offset="0.35" stop-color="#FFE7A0"/><stop offset="0.75" stop-color="#E8453C"/><stop offset="1" stop-color="#B3121C"/></radialGradient><radialGradient id="flame" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.4" stop-color="#FFE27A"/><stop offset="1" stop-color="#FF9A1F" stop-opacity="0"/></radialGradient><filter id="g" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter></defs>
+<ellipse cx="40" cy="58" rx="38" ry="52" fill="url(#halo)"/>
+<path d="M17,24 C17,8 63,8 63,24 L56,86 C50,90 30,90 24,86 Z" fill="url(#paper)"/>
+<path d="M29,13 C26,40 27,68 31,88 M40,11 L40,89 M51,13 C54,40 53,68 49,88" stroke="#FFFFFF" stroke-width="1.2" fill="none" opacity="0.28"/>
+<path d="M20,40 C33,43 47,43 60,40" stroke="#B3121C" stroke-width="1" fill="none" opacity="0.25"/>
+<ellipse cx="29" cy="20" rx="8" ry="4" fill="#FFFFFF" opacity="0.35" transform="rotate(-20 29 20)"/>
+<path d="M55,22 C60,40 57,70 54,86 C56,70 58,40 55,22 Z" fill="#B3121C" opacity="0.25"/>
+<ellipse cx="40" cy="87" rx="16" ry="3.2" fill="#5A3A1E" opacity="0.55"/>
+<path d="M26,87 L54,87" stroke="#8A6236" stroke-width="1"/>
+<circle cx="40" cy="88" r="9" fill="url(#flame)" filter="url(#g)"/>
+<ellipse cx="40" cy="87.5" rx="3" ry="2.2" fill="#FFF6D0"/>
+</svg>

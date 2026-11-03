@@ -1,0 +1,44 @@
+{
+ "parts": {
+  "petal-orange": {
+   "w": 32,
+   "h": 28,
+   "pivot": [
+    16,
+    14
+   ]
+  },
+  "petal-gold": {
+   "w": 32,
+   "h": 28,
+   "pivot": [
+    16,
+    14
+   ]
+  },
+  "petal-deep": {
+   "w": 32,
+   "h": 28,
+   "pivot": [
+    16,
+    14
+   ]
+  },
+  "marigold-orange": {
+   "w": 44,
+   "h": 44,
+   "pivot": [
+    22,
+    22
+   ]
+  },
+  "marigold-yellow": {
+   "w": 44,
+   "h": 44,
+   "pivot": [
+    22,
+    22
+   ]
+  }
+ }
+}
