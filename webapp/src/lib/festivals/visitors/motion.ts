@@ -234,7 +234,7 @@ export function risePlan(spec: RiseSpec, env: PassEnv, rand: Rand = Math.random)
       hero: false,
     });
   }
-  crownHero(out);
+  crownHero(out, spec.parts);
   return out;
 }
 
@@ -277,7 +277,7 @@ export function driftPlan(spec: DriftSpec, env: PassEnv, rand: Rand = Math.rando
       hero: false,
     });
   }
-  crownHero(out);
+  crownHero(out, spec.parts);
   return out;
 }
 
@@ -348,7 +348,7 @@ export function burstPlan(spec: BurstSpec, env: PassEnv, rand: Rand = Math.rando
       });
     }
   }
-  crownHero(out);
+  crownHero(out, spec.parts);
   return out;
 }
 
@@ -375,10 +375,23 @@ export function burstAt(spec: BurstSpec, p: Particle, s: number, windShift: numb
   };
 }
 
-/** The largest particle takes the tap: drawn a little bigger, born in the middle of the pass. */
-function crownHero(list: Particle[]) {
+/**
+ * The largest particle takes the tap: drawn a little bigger, born in the
+ * middle of the pass. Largest by its part's drawing, where the kit gives the
+ * parts: a swarm of streamers and confetti offers a streamer to tap, never a
+ * speck of confetti. Among the big ones (at least half the largest part's
+ * area), the one born nearest the middle.
+ */
+function crownHero(list: Particle[], parts?: Record<string, { w: number; h: number }>) {
   if (list.length === 0) return;
-  const hero = list[Math.floor(list.length / 2)];
+  const area = (p: Particle) => (parts?.[p.sprite] ? parts[p.sprite].w * parts[p.sprite].h : 1);
+  const largest = Math.max(...list.map(area));
+  const mid = Math.floor(list.length / 2);
+  let pick = mid;
+  for (let i = 0; i < list.length; i++) {
+    if (area(list[i]) >= largest / 2 && (area(list[pick]) < largest / 2 || Math.abs(i - mid) < Math.abs(pick - mid))) pick = i;
+  }
+  const hero = list[pick];
   hero.hero = true;
   hero.scale *= 1.35;
 }
