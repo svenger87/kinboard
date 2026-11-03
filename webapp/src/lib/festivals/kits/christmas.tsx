@@ -101,8 +101,9 @@ export default defineFestival({
   // more) above it. It used to reach 12px down into the card, over its
   // padding — but a full-bleed card (a camera, a photo) has content right at
   // its edge, and the snow sat on the picture (festivals-ui, CI's camera
-  // mock). Same art, scaled to 16px; its last pixel lies on the card's 1px
-  // border, so it rests on the card instead of floating over it.
+  // mock). Same art, scaled to 16px, ending exactly at the card's edge:
+  // a full-bleed card's picture starts on that very line, so not even the
+  // border row is free (CI measured a 1px overlap at -15px).
   dressing: (s) => css`
     ${s.cards} {
       position: relative;
@@ -111,7 +112,7 @@ export default defineFestival({
       content: "";
       position: absolute;
       z-index: 2;
-      top: -15px;
+      top: -16px;
       left: -2px;
       right: -2px;
       height: 16px;
