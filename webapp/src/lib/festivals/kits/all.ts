@@ -5,6 +5,7 @@
  * at once merge cleanly.
  */
 export { default as christmas } from "./christmas";
+export { default as diaDeMuertos } from "./dia-de-muertos";
 export { default as dragonBoat } from "./dragon-boat";
 export { default as midAutumn } from "./mid-autumn";
 export { default as midsummer } from "./midsummer";

@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 28" width="32" height="28" data-pivot="16 14">
+<defs><radialGradient id="petal-gold" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#FFF0A0"/><stop offset="0.55" stop-color="#FFB52E"/><stop offset="1" stop-color="#D9700A"/></radialGradient></defs>
+<path d="M16,26 C10,22 4,16 4,10 C4,6 6,4 8,5 C9,2 12,2 13,4 C14,1.5 18,1.5 19,4 C20,2 23,2 24,5 C26,4 28,6 28,10 C28,16 22,22 16,26 Z" fill="url(#petal-gold)"/><path d="M16,25 L16,8 M16,22 L10,9 M16,22 L22,9" stroke="#D9700A" stroke-width="0.9" fill="none" opacity="0.35" stroke-linecap="round"/><ellipse cx="11" cy="9" rx="3.5" ry="1.8" fill="#FFFFFF" opacity="0.4" transform="rotate(-30 11 9)"/>
+</svg>
