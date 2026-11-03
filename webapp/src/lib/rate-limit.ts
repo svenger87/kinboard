@@ -77,7 +77,8 @@ function nowMs(): number {
 }
 
 /**
- * How many join and family-create attempts one client may make per minute.
+ * How many join, family-create and device-recognise attempts one client may
+ * make per minute.
  * `limit` is the production value; `SESSION_RATE_LIMIT_PER_MINUTE` raises it
  * for an install that needs more, which in practice is CI: the end-to-end
  * suite joins dozens of test devices from one IP and kept tripping the
