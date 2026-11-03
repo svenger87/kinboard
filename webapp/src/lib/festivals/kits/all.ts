@@ -9,6 +9,7 @@ export { default as christmas } from "./christmas";
 export { default as eidAlAdha } from "./eid-al-adha";
 export { default as eidAlFitr } from "./eid-al-fitr";
 export { default as newYearsEve } from "./new-years-eve";
+export { default as purim } from "./purim";
 export { default as ramadan } from "./ramadan";
 export { default as stMartin } from "./st-martin";
 export { default as stNicholas } from "./st-nicholas";
