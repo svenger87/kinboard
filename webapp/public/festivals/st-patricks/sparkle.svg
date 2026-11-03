@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" data-pivot="24.0 24.0">
+<defs><radialGradient id="g" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"/><stop offset="0.3" stop-color="#FFF3B0" stop-opacity="0.6"/><stop offset="1" stop-color="#FFF3B0" stop-opacity="0"/></radialGradient></defs>
+<circle cx="24.0" cy="24.0" r="24.0" fill="url(#g)"/><path d="M24.0,4.0 C26.0,19.0 29.0,22.0 44.0,24.0 C29.0,26.0 26.0,29.0 24.0,44.0 C22.0,29.0 19.0,26.0 4.0,24.0 C19.0,22.0 22.0,19.0 24.0,4.0 Z" fill="#FFFFFF"/><path d="M24.0,4.0 C26.0,19.0 29.0,22.0 44.0,24.0 C29.0,26.0 26.0,29.0 24.0,44.0 C22.0,29.0 19.0,26.0 4.0,24.0 C19.0,22.0 22.0,19.0 24.0,4.0 Z" fill="#FFE27A" opacity="0.35" transform="rotate(45 24.0 24.0) scale(0.6) translate(16.0 16.0)"/>
+</svg>
