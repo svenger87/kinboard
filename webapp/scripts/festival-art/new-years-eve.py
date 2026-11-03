@@ -2,9 +2,9 @@
 
     python3 webapp/scripts/festival-art/new-years-eve.py
 
-The fireworks over the clock need no art: their sparks are glows the engine
-draws once per colour (lib/festivals/visitors/sprites.ts), in the colours the
-kit names. The party hat is drawn in the kit itself, as the shop's items are.
+The fireworks over the clock need no art here: their sparks, trails and
+crackles are drawn once per colour by the engine (lib/festivals/visitors/sprites.ts),
+in the colours and kinds of shell the kit names. The party hat is drawn in the kit itself, as the shop's items are.
 
 One corner, drawn for the top-left, as a strip along the card's top edge:
 thick at the corner and thinning along the edge, mostly in the gap above
