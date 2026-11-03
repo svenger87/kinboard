@@ -55,7 +55,10 @@ const PARTS = __PARTS__;
 const META = __META__;
 const Q = new URLSearchParams(location.search);
 const SECS = +(Q.get("secs") || 20), WARM = 2;
-const MODES = (Q.get("modes") || "weather,sprites,svg").split(",");
+// Only the three known scenes: the names are written into the results table.
+const MODES = (Q.get("modes") || "weather,sprites,svg").split(",").filter((m) => ["weather", "sprites", "svg"].includes(m));
+// Everything from the URL (the note) is shown escaped, never as markup.
+const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const SCALE = +(Q.get("scale") || 0.62);          // team size on a 1080p screen
 const FRAME_MS = 1000 / 30;                          // Kinboard's cap
 const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -286,9 +289,9 @@ async function benchmark() {
   const label = { weather: "Snow only (today)", sprites: "Snow + sleigh, cached images", svg: "Snow + sleigh, live SVG" };
   document.getElementById("results").innerHTML =
     `<table><tr><th>Scene</th><th>fps</th><th>frame p50</th><th>p95</th><th>max</th><th>script/frame</th><th>long frames</th></tr>` +
-    results.map(r => `<tr><td>${label[r.mode] || r.mode}</td><td class="${grade(r)}">${r.fps}</td><td>${r.intervalP50} ms</td><td>${r.intervalP95} ms</td><td>${r.intervalMax} ms</td><td>${r.workMean} ms</td><td>${r.longFrames}</td></tr>`).join("") +
+    results.map(r => `<tr><td>${esc(label[r.mode] || r.mode)}</td><td class="${grade(r)}">${r.fps}</td><td>${r.intervalP50} ms</td><td>${r.intervalP95} ms</td><td>${r.intervalMax} ms</td><td>${r.workMean} ms</td><td>${r.longFrames}</td></tr>`).join("") +
     `</table><p>Preparing the images took ${rasteriseMs} ms (once per festival). Target: 30 fps, frames every ~33 ms.</p>` +
-    `<p>Please copy this and paste it into the discussion:</p><textarea readonly>${JSON.stringify(out, null, 1)}</textarea>` +
+    `<p>Please copy this and paste it into the discussion:</p><textarea readonly>${esc(JSON.stringify(out, null, 1))}</textarea>` +
     `<p><button id="copy">Copy results</button></p>`;
   document.getElementById("copy").onclick = () => navigator.clipboard?.writeText(JSON.stringify(out, null, 1));
   document.getElementById("panel").style.display = ""; document.querySelector("#panel h1").textContent = "Results"; document.getElementById("go").remove(); document.getElementById("demo").remove();
