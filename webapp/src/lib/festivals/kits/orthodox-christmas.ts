@@ -12,7 +12,6 @@ import christmas from "./christmas";
 
 export default defineFestival({
   id: "orthodox-christmas",
-  draft: true,
   art: "christmas",
   wash: christmas.wash,
   visitor: christmas.visitor && { ...christmas.visitor, art: "christmas" },

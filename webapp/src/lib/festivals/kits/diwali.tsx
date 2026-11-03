@@ -30,7 +30,6 @@ const BEADS = Array.from({ length: 11 }, (_, i) => {
 
 export default defineFestival({
   id: "diwali",
-  draft: true,
   wash: { light: ["30 95% 48%", "322 72% 40%"], dark: ["32 95% 58%", "322 72% 60%"] },
   visitor: {
     archetype: "rise",

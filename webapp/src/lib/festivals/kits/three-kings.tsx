@@ -20,7 +20,6 @@ const W = ART.rig.walk;
 
 export default defineFestival({
   id: "three-kings",
-  draft: true,
   wash: { light: ["44 88% 46%", "274 48% 36%"], dark: ["45 90% 58%", "274 52% 60%"] },
   visitor: {
     archetype: "walk",

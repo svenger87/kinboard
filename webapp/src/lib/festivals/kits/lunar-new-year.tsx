@@ -98,7 +98,6 @@ const LANTERNS: VisitorSpec = {
 
 export default defineFestival({
   id: "lunar-new-year",
-  draft: true,
   wash: { light: ["356 76% 44%", "42 90% 47%"], dark: ["356 78% 58%", "44 92% 58%"] },
   visitor: DRAGON,
   visitorByStage: { lanterns: LANTERNS },

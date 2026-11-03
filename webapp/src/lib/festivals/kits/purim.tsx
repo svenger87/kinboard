@@ -18,7 +18,6 @@ import ART from "./purim.art.json";
 
 export default defineFestival({
   id: "purim",
-  draft: true,
   wash: { light: ["268 55% 40%", "42 85% 47%"], dark: ["268 62% 62%", "44 90% 58%"] },
   visitor: {
     archetype: "burst",

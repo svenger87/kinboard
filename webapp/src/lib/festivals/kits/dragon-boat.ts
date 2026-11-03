@@ -67,7 +67,6 @@ export const BOAT: Rig = {
 
 export default defineFestival({
   id: "dragon-boat",
-  draft: true,
   wash: { light: ["145 55% 32%", "355 70% 46%"], dark: ["145 48% 48%", "355 72% 60%"] },
   visitor: {
     archetype: "walk",

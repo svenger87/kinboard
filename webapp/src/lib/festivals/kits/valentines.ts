@@ -15,7 +15,6 @@ import ART from "./valentines.art.json";
 
 export default defineFestival({
   id: "valentines",
-  draft: true,
   wash: { light: ["348 72% 46%", "332 80% 62%"], dark: ["348 78% 60%", "332 85% 70%"] },
   visitor: {
     archetype: "rise",

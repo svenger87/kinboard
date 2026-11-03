@@ -47,7 +47,6 @@ export const MOON: Rig = {
 
 export default defineFestival({
   id: "mid-autumn",
-  draft: true,
   wash: { light: ["44 88% 46%", "226 58% 28%"], dark: ["45 92% 58%", "226 55% 50%"] },
   visitor: {
     archetype: "fly",

@@ -234,7 +234,8 @@ test("the setting: on by default with the country's festivals, and only drawn fe
   expect(chosenFestivals(DEFAULT_FESTIVAL_SETTINGS, "DE")).toEqual(expect.arrayContaining(["christmas", "new-years-eve", "st-nicholas", "st-martin"]));
   expect(chosenFestivals(DEFAULT_FESTIVAL_SETTINGS, "FR")).toEqual(expect.arrayContaining(["christmas", "new-years-eve"]));
   expect(chosenFestivals({ enabled: false, chosen: null }, "DE")).toEqual([]);
-  expect(chosenFestivals({ enabled: true, chosen: ["st-martin", "halloween"] }, "US")).toEqual(["st-martin"]);
+  // Every festival is drawn now: an id that isn't one stands in for a festival not (yet) built.
+  expect(chosenFestivals({ enabled: true, chosen: ["st-martin", "halloween", "lava" as FestivalId] }, "US")).toEqual(["st-martin", "halloween"]);
   // New Year's Eve is drawn: it wins 31 December over Christmas.
   expect(currentFestival(at("2026-12-31T10:00:00Z"), DEFAULT_FESTIVAL_SETTINGS, "DE", BERLIN)?.id).toBe("new-years-eve");
   // A festival pre-ticked but not drawn must not win its day and show nothing: Germany's
