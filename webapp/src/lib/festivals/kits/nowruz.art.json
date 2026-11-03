@@ -1,0 +1,151 @@
+{
+ "parts": {
+  "goldfish-body": {
+   "w": 150,
+   "h": 104,
+   "pivot": [
+    78,
+    54
+   ]
+  },
+  "goldfish-tail-base": {
+   "w": 42,
+   "h": 48,
+   "pivot": [
+    34,
+    24
+   ]
+  },
+  "goldfish-tail-fan": {
+   "w": 70,
+   "h": 100,
+   "pivot": [
+    68,
+    50
+   ]
+  },
+  "goldfish-dorsal": {
+   "w": 64,
+   "h": 40,
+   "pivot": [
+    40,
+    34
+   ]
+  },
+  "goldfish-fin": {
+   "w": 36,
+   "h": 28,
+   "pivot": [
+    30,
+    5
+   ]
+  },
+  "goldfish-body-calico": {
+   "w": 150,
+   "h": 104,
+   "pivot": [
+    78,
+    54
+   ]
+  },
+  "goldfish-tail-base-calico": {
+   "w": 42,
+   "h": 48,
+   "pivot": [
+    34,
+    24
+   ]
+  },
+  "goldfish-tail-fan-calico": {
+   "w": 70,
+   "h": 100,
+   "pivot": [
+    68,
+    50
+   ]
+  },
+  "goldfish-dorsal-calico": {
+   "w": 64,
+   "h": 40,
+   "pivot": [
+    40,
+    34
+   ]
+  },
+  "goldfish-fin-calico": {
+   "w": 36,
+   "h": 28,
+   "pivot": [
+    30,
+    5
+   ]
+  },
+  "apple": {
+   "w": 40,
+   "h": 40,
+   "pivot": [
+    20,
+    20
+   ]
+  },
+  "coin": {
+   "w": 40,
+   "h": 40,
+   "pivot": [
+    20,
+    20
+   ]
+  },
+  "egg": {
+   "w": 40,
+   "h": 40,
+   "pivot": [
+    20,
+    20
+   ]
+  }
+ },
+ "rig": {
+  "joints": {
+   "tail": [
+    32,
+    54
+   ],
+   "dorsal": [
+    70,
+    26
+   ],
+   "fin": [
+    100,
+    70
+   ]
+  },
+  "fan": [
+   4,
+   24
+  ],
+  "swim": {
+   "period": 0.9,
+   "tail": [
+    18,
+    0.0
+   ],
+   "fan": [
+    22,
+    -0.14
+   ],
+   "body": [
+    2.5,
+    0.5
+   ],
+   "dorsal": [
+    6,
+    -0.1
+   ],
+   "fin": [
+    24,
+    0.2
+   ]
+  }
+ }
+}
