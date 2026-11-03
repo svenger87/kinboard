@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 22" width="120" height="22" preserveAspectRatio="none">
+<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.55" stop-color="#F2F7FF"/><stop offset="1" stop-color="#D5E2F4"/></linearGradient></defs>
+<path d="M0,5 Q10,-0.5 20,3 Q30,-0.5 40,6 Q50,-1.0 60,2.5 Q70,-1.0 80,5.5 Q90,0.0 100,3.5 Q110,0.0 120,5 L120,12 C116,12.6 110,12.2 106,12.8 C105,16 103.4,19.2 101.5,19.2 C99.6,19.2 98.4,16 97.4,13 C90,13.6 80,12.4 72,13 C71.2,15 70,16.4 68.6,16.4 C67.2,16.4 66.2,15 65.4,13.2 C56,13.6 46,12.4 36,13 C35,16.6 33.4,20 31.4,20 C29.4,20 28.2,16.6 27.2,13.2 C18,13.6 8,12.2 0,12 Z" fill="url(#s)"/>
+<path d="M0,5.8 Q10,0.2999999999999998 20,3.8 Q30,0.2999999999999998 40,6.8 Q50,-0.20000000000000018 60,3.3 Q70,-0.20000000000000018 80,6.3 Q90,0.7999999999999998 100,4.3 Q110,0.7999999999999998 120,5.8" fill="none" stroke="#FFFFFF" stroke-width="1.6" opacity="0.9"/>
+<path d="M0,11.6 L120,11.6" stroke="#B9CBE3" stroke-width="0.8" opacity="0.45"/>
+<circle cx="18" cy="6.5" r="0.9" fill="#CFE0F7"/><circle cx="57" cy="5" r="0.8" fill="#CFE0F7"/><circle cx="91" cy="6.8" r="0.9" fill="#CFE0F7"/>
+</svg>

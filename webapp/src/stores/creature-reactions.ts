@@ -164,6 +164,41 @@ export function reactToTaskChange(
   return publishCreatureReaction({ ...tick, earnedBefore, stage });
 }
 
+/**
+ * Every child's creature on this screen cheers: a festival's visitor was
+ * tapped (RFC-020 §2.1, decision 4). The same live reaction as a tick, with
+ * stars and no points, queued behind anything already playing. Children
+ * whose creature is switched off are skipped; on a hidden page or under the
+ * screensaver nothing plays, as for a tick.
+ */
+export function cheerCreatures(queryClient: QueryClient, familyId: string): number {
+  if (quiet()) return 0;
+  const people = queryClient.getQueryData<PersonLike[]>(PEOPLE_KEY(familyId)) ?? [];
+  const creatures = queryClient.getQueryData<CreatureLike[]>(CREATURES_KEY(familyId)) ?? [];
+  let cheered = 0;
+  for (const person of people) {
+    if (!person.is_child || !creatures.some((c) => c.person_id === person.id && c.enabled !== false)) continue;
+    const reaction: CreatureReaction = {
+      id: nextId++,
+      personId: person.id,
+      points: 0,
+      ticks: 0,
+      earnedBefore: null,
+      stage: null,
+      stageUp: null,
+      cheer: true,
+    };
+    if (!useCreatureReactions.getState().current[person.id]) play(person.id, reaction);
+    else {
+      useCreatureReactions.setState((s) => ({
+        queues: { ...s.queues, [person.id]: enqueueReaction(s.queues[person.id] ?? [], reaction) },
+      }));
+    }
+    cheered += 1;
+  }
+  return cheered;
+}
+
 /** The reaction playing for this child, if any. */
 export function useCreatureReaction(personId: string | null | undefined): CreatureReaction | undefined {
   return useCreatureReactions((s) => (personId ? s.current[personId] : undefined));

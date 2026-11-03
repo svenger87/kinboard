@@ -15,6 +15,7 @@ import { useSetting, useUpdateSetting, useTextScale, type TextScale, useMotionPr
 import { MOTION_PREFERENCES } from "@/lib/motion";
 import { useTheme } from "next-themes";
 import { PageHeader } from "@/components/page-header";
+import { FestivalSettingsCard } from "@/components/settings/festival-settings";
 import { ALL_PALETTE_CLASSES, type Palette as ThemePalette } from "@/hooks/use-theme-settings";
 
 // Month names are computed per-locale via date-fns; these are the
@@ -416,6 +417,19 @@ export default function ThemeSettingsPage() {
                   <p className="text-xs text-muted-foreground mt-2">{t("motionHint")}</p>
                 </div>
               </Card>
+            </motion.div>
+
+            {/* Festivals (RFC-020) */}
+            <motion.div id="festivals" data-setting="festivals"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="mb-6"
+            >
+              <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+                {t("festivalsHeading")}
+              </h2>
+              <FestivalSettingsCard />
             </motion.div>
 
             {/* Preview */}

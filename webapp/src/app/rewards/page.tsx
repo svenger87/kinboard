@@ -39,6 +39,7 @@ import { hasDrawnArt, readLook, type AvatarStyle, type CreatureLook } from "@/li
 import type { StageUp } from "@/lib/pocket-money/creature-reactions";
 import { formatCents } from "@/lib/pocket-money/format";
 import type { Creature, Person, PocketMoneyAccount } from "@/types/database";
+import { useFestivalLook } from "@/hooks/use-festival";
 
 /**
  * Rewards (RFC-017 §4): each child's creature, large, and what their task
@@ -162,6 +163,7 @@ function ChildRewards({ person, creature }: { person: Person; creature: Creature
   const species = creature.species;
   const style = creature.style ?? "classic";
   const look = readLook(creature.look, owned);
+  const festive = useFestivalLook();
   const stageName = (tier: number) => tPM(`species.${species}.tier${tier}` as never);
   const currency = account?.currency ?? "EUR";
 
@@ -224,7 +226,8 @@ function ChildRewards({ person, creature }: { person: Person; creature: Creature
           species={species}
           tier={stage.tier}
           style={style}
-          look={look}
+          // The festival's outfit on the avatar only: the editor and the shop show the child's own items.
+          look={festive(look)}
           mood={mood}
           size={220}
           tappable

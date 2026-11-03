@@ -57,10 +57,18 @@ function sheen(st: StyleSpec, cx: number, cy: number, rx: number, ry: number, ro
   return <ellipse data-sheen="" cx={cx} cy={cy} rx={rx} ry={ry} fill="#FFFFFF" opacity="0.45" transform={`rotate(${rotate} ${cx} ${cy})`} />;
 }
 
-/** The item worn in a slot, when it is a catalogue item for that slot. */
+/**
+ * The festivals' items (RFC-020 §2.3): worn instead of the child's own in
+ * that slot while the festival is on (lib/festival-settings.ts puts them in
+ * the look the screens draw). Not in the shop: not for sale, no points, and
+ * a child can't choose one into their stored look (validateLook refuses it).
+ */
+export const FESTIVAL_ITEMS: Readonly<Record<string, ShopSlot>> = { santa_hat: "head" };
+
+/** The item worn in a slot, when it is a catalogue item, or a festival's, for that slot. */
 export function wearing(ctx: { look: CreatureLook }, slot: ShopSlot): string | undefined {
   const id = ctx.look[slot];
-  return isItemFor(slot, id) ? id : undefined;
+  return isItemFor(slot, id) || (typeof id === "string" && FESTIVAL_ITEMS[id] === slot) ? id : undefined;
 }
 
 /** Around a head of radius r at (cx, cy): the item's own space, a head of radius 34 at the origin. */
@@ -162,6 +170,21 @@ function headItem(st: StyleSpec, id: string): ReactNode {
         </>
       );
     }
+    case "santa_hat":
+      // Christmas (RFC-020): red, flopping to one side, a fur brim and a pompom.
+      return (
+        <>
+          <path d="M -29 -22 C -29 -50 -4 -64 20 -58 C 36 -54 46 -42 50 -28 C 44 -34 36 -40 26 -41 C 30 -34 31 -28 30 -22 Z" fill="#D9333F" {...s(3)} />
+          <path d="M 26 -41 C 36 -40 44 -34 50 -28 C 46 -42 38 -52 26 -56 C 30 -50 30 -45 26 -41 Z" fill="#A8222D" />
+          <path d="M -36 -24 Q -36 -31 -28 -31 L 28 -31 Q 36 -31 36 -24 L 36 -18 Q 36 -12 28 -12 L -28 -12 Q -36 -12 -36 -18 Z" fill="#FBF6EE" {...s(3)} />
+          {[-28, -18, -8, 2, 12, 22, 30].map((x, i) => (
+            <circle key={x} cx={x} cy={i % 2 ? -17 : -25} r="1.6" fill="#E3DACB" />
+          ))}
+          <circle cx="50" cy="-26" r="8" fill="#FBF6EE" {...s(2.5)} />
+          <circle cx="47.5" cy="-28.5" r="2.4" fill="#FFFFFF" />
+          {sheen(st, -14, -44, 9, 4, -35)}
+        </>
+      );
     case "space_helmet":
       return (
         <>

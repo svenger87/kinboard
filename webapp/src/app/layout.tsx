@@ -8,6 +8,7 @@ import { ChunkErrorRecovery } from "@/components/chunk-error-recovery";
 import { display, sans, mono } from "./fonts";
 import { publicApiEnv } from "@/lib/supabase/api-base";
 import { MOTION_INIT_SCRIPT } from "@/lib/motion";
+import { FESTIVAL_INIT_SCRIPT } from "@/lib/festival-settings";
 
 export const metadata: Metadata = {
   title: "Kinboard",
@@ -71,6 +72,8 @@ export default async function RootLayout({
       >
         {/* Before anything paints: this device's animation level (lib/motion.ts). */}
         <script dangerouslySetInnerHTML={{ __html: MOTION_INIT_SCRIPT }} />
+        {/* …and the festival it last showed, so the wash and the dressing are there from the first frame (RFC-020). */}
+        <script dangerouslySetInnerHTML={{ __html: FESTIVAL_INIT_SCRIPT }} />
         <script
            
           dangerouslySetInnerHTML={{

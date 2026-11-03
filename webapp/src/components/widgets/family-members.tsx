@@ -39,6 +39,7 @@ import { format, startOfDay, addDays, endOfDay, isAfter } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { todayPerson } from "@/lib/todo-turns";
 import { toLocalDateKey } from "@/lib/local-date";
+import { useFestivalLook } from "@/hooks/use-festival";
 
 interface FamilyMembersProps {
   className?: string;
@@ -94,6 +95,8 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
   const { data: creatures } = useCreatures();
   const { totalsFor } = usePointTotals();
   const { ownedFor } = useOwnedItems();
+  // During a festival, its outfit instead of the child's own item (RFC-020 §2.3).
+  const festive = useFestivalLook();
 
   // Only fetch upcoming events (today + next 7 days)
   const today = startOfDay(new Date());
@@ -238,7 +241,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
             account: accounts.find((a) => a.person_id === selectedPerson.id),
             earnedPoints: totalsFor(selectedPerson.id).earned,
           });
-          return { species: creature.species, style: creature.style, look: readLook(creature.look, ownedFor(selectedPerson.id)), tier: stage.tier };
+          return { species: creature.species, style: creature.style, look: festive(readLook(creature.look, ownedFor(selectedPerson.id))), tier: stage.tier };
         })()}
         points={(() => {
           if (!selectedPerson) return null;

@@ -1288,7 +1288,26 @@
       "motion_reduced": "Reduced",
       "motion_off": "Off",
       "motionHint": "Saved per device, for a display that stutters, such as a Raspberry Pi. Reduced stops things moving across the screen; Off also leaves out fades and still effects. On still follows the device's own reduce-motion setting.",
-      "previewHeading": "Preview"
+      "previewHeading": "Preview",
+      "festivalsHeading": "Festivals",
+      "festivalsLabel": "Festivals on Home and the screensaver",
+      "festivalsHint": "A visitor flies over Home and the screensaver every two minutes (tap it), the cards are decorated, the creatures dress up and the colour wash takes the festival's colours. Animations set to Reduced keeps the decorations and leaves out the visitor; Off keeps only the colours.",
+      "festivalsCommonHint": "Ticked: the festivals common in your country (Settings → Holidays). Tick or untick any to make the list your own.",
+      "festivalsOwnHint": "Your family's list. More festivals follow as their artwork is drawn.",
+      "festivalsResetToCountry": "Back to your country's festivals",
+      "festivalsPreview": "Preview",
+      "festivalsPreviewStop": "Stop",
+      "festivalsSaveFailed": "Couldn't save the festivals",
+      "festivalName": {
+        "christmas": "Christmas",
+        "st-nicholas": "St Nicholas",
+        "st-martin": "St Martin's Day"
+      },
+      "festivalWhen": {
+        "christmas": "First Sunday of Advent to 6 January: the sleigh, snow on the cards, Santa hats",
+        "st-nicholas": "5 and 6 December: a boot by the Tasks card, empty in the evening, filled in the morning",
+        "st-martin": "11 November, from dusk: the lantern walk and paper lanterns on the cards"
+      }
     },
     "screensaver": {
       "title": "Screensaver",
@@ -3125,7 +3144,8 @@
       "creatures": "creature, creatures, dragon, pet, avatar, rewards, points, task points, shop, grows",
       "creatures_children": "creature, switch on, species, dragon, grows with, points, money, shop",
       "creatures_inbox": "reward requests, waiting, approve, deny, inbox, redeem",
-      "creatures_rewards": "rewards, points, task points, redeem, prizes, treats"
+      "creatures_rewards": "rewards, points, task points, redeem, prizes, treats",
+      "theme_festivals": "festivals, Christmas, Advent, St Nicholas, Nikolaus, St Martin, lanterns, sleigh, Santa, decorations, holidays, seasonal"
     }
   },
   "calendar": {
@@ -4911,7 +4931,9 @@
         "long": "Long",
         "ponytail": "Ponytail",
         "curls": "Curls"
-      }
+      },
+      "festive": "Festival outfits",
+      "festiveHint": "At Christmas and other festivals, your creature wears something festive instead of its own hat or scarf."
     },
     "lookColors": {
       "mint": "Mint",

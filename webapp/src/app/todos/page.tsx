@@ -134,6 +134,7 @@ import {
 import type { Todo } from "@/types/database";
 import { DoneByPicker } from "@/components/done-by-picker";
 import { asksWhoDidIt } from "@/lib/done-by";
+import { useFestivalLook } from "@/hooks/use-festival";
 
 // Priority types and config
 type Priority = "low" | "medium" | "high";
@@ -200,6 +201,8 @@ function ChildChip({
 }) {
   const { data: accounts } = usePocketMoneyAccounts();
   const { ownedFor } = useOwnedItems();
+  // During a festival, its outfit instead of the child's own item (RFC-020 §2.3).
+  const festive = useFestivalLook();
   const mood = useCreatureMood(creature ? person.id : null);
   const stage = creature
     ? creatureStage({ creature, account: accounts?.find((a) => a.person_id === person.id), earnedPoints: earned })
@@ -217,7 +220,7 @@ function ChildChip({
           species={creature.species}
           tier={stage.tier}
           style={creature.style}
-          look={readLook(creature.look, ownedFor(person.id))}
+          look={festive(readLook(creature.look, ownedFor(person.id)))}
           mood={mood}
           size={36}
           animated={false}

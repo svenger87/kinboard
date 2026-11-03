@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Shuffle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import type { AvatarSpecies, AvatarTier } from "@/lib/pocket-money/types";
 import {
   ACCESSORIES,
@@ -258,6 +259,25 @@ export function CreatureLookEditor({ species, tier, style, look, owned, childNam
         {chips("eyes", EYE_SHAPES, t("lookEditor.eyes"), "eyeShapes", "round")}
         {chips("acc", ACCESSORIES, t("lookEditor.accessory"), "accessories", "none")}
         {SHOP_SLOTS.map(slotChips)}
+
+        {/* Festival outfits (RFC-020 §2.3): the child's own choice, like the rest of the look. */}
+        <section className="flex items-start justify-between gap-4">
+          <div>
+            <h3 id={`${ids}-festive`} className="text-sm font-semibold">{t("lookEditor.festive")}</h3>
+            <p className="text-xs text-muted-foreground">{t("lookEditor.festiveHint")}</p>
+          </div>
+          <Switch
+            aria-labelledby={`${ids}-festive`}
+            checked={draft.festive !== "off"}
+            onCheckedChange={(on) => {
+              const next: CreatureLook = { ...draft };
+              if (on) delete next.festive;
+              else next.festive = "off";
+              change(next);
+            }}
+            data-testid="look-festive"
+          />
+        </section>
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold">{t("lookEditor.style")}</h3>
