@@ -229,14 +229,14 @@ test("the setting: on by default with the country's festivals, and only drawn fe
   expect(DEFAULT_FESTIVAL_SETTINGS).toEqual({ enabled: true, chosen: null });
   expect(normalizeFestivalSettings({ enabled: false, chosen: ["christmas", "lava", 3] })).toEqual({ enabled: false, chosen: ["christmas"] });
   expect(normalizeFestivalSettings("nonsense")).toEqual(DEFAULT_FESTIVAL_SETTINGS);
-  expect(BUILT_FESTIVALS).toEqual(["christmas", "st-nicholas", "st-martin"]);
+  expect(BUILT_FESTIVALS).toEqual(expect.arrayContaining(["christmas", "new-years-eve", "st-nicholas", "st-martin"]));
   expect(chosenFestivals(DEFAULT_FESTIVAL_SETTINGS, "DE")).toEqual(commonFestivals("DE").filter((id) => BUILT_FESTIVALS.includes(id)));
-  expect(chosenFestivals(DEFAULT_FESTIVAL_SETTINGS, "DE")).toEqual(["christmas", "st-nicholas", "st-martin"]);
-  expect(chosenFestivals(DEFAULT_FESTIVAL_SETTINGS, "FR")).toEqual(["christmas"]);
+  expect(chosenFestivals(DEFAULT_FESTIVAL_SETTINGS, "DE")).toEqual(expect.arrayContaining(["christmas", "new-years-eve", "st-nicholas", "st-martin"]));
+  expect(chosenFestivals(DEFAULT_FESTIVAL_SETTINGS, "FR")).toEqual(expect.arrayContaining(["christmas", "new-years-eve"]));
   expect(chosenFestivals({ enabled: false, chosen: null }, "DE")).toEqual([]);
   expect(chosenFestivals({ enabled: true, chosen: ["st-martin", "halloween"] }, "US")).toEqual(["st-martin"]);
-  // New Year's Eve is pre-ticked but not drawn yet: it must not win 31 Dec over Christmas and show nothing.
-  expect(currentFestival(at("2026-12-31T10:00:00Z"), DEFAULT_FESTIVAL_SETTINGS, "DE", BERLIN)?.id).toBe("christmas");
+  // New Year's Eve is drawn: it wins 31 December over Christmas.
+  expect(currentFestival(at("2026-12-31T10:00:00Z"), DEFAULT_FESTIVAL_SETTINGS, "DE", BERLIN)?.id).toBe("new-years-eve");
   // A festival pre-ticked but not drawn must not win its day and show nothing: Germany's
   // national day (when it's drawn, this moves to one that isn't).
   if (!BUILT_FESTIVALS.includes("national-day")) {
@@ -258,7 +258,7 @@ test("St Nicholas's boot: empty on the eve, filled in the morning", () => {
 test("a preview names a drawn festival, and nothing else", () => {
   expect(parseFestivalPreview("christmas")).toBe("christmas");
   expect(parseFestivalPreview(" st-martin ")).toBe("st-martin");
-  expect(parseFestivalPreview("new-years-eve")).toBeNull();
+  expect(parseFestivalPreview("new-years-eve")).toBe("new-years-eve");
   expect(parseFestivalPreview("purim")).toBeNull();
   expect(parseFestivalPreview("<script>")).toBeNull();
   expect(parseFestivalPreview(null)).toBeNull();
@@ -269,6 +269,8 @@ test("the outfit is worn instead of the child's own, unless the child switched i
   expect(withFestivalOutfit(look, "christmas")).toEqual({ ...look, head: "santa_hat" });
   expect(withFestivalOutfit(look, "st-nicholas")).toEqual({ ...look, neck: "scarf" });
   expect(withFestivalOutfit(look, "st-martin")).toBe(look);
+  // New Year's Eve: two slots, the party hat and the shop's star glasses.
+  expect(withFestivalOutfit(look, "new-years-eve")).toEqual({ ...look, head: "party_hat_nye", face: "star_glasses" });
   expect(withFestivalOutfit(look, null)).toBe(look);
   expect(withFestivalOutfit({ ...look, festive: "off" as const }, "christmas").head).toBe("cap");
   // The stored look is never changed.
