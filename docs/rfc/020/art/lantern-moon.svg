@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 190" width="120" height="190" data-pivot="60 0">
+<defs><radialGradient id="paper" cx="0.5" cy="0.5" r="0.5" fx="0.45" fy="0.45"><stop offset="0" stop-color="#FFF6D0"/><stop offset="0.45" stop-color="#F2D45C"/><stop offset="1" stop-color="#F2D45C" stop-opacity="0.85"/></radialGradient><radialGradient id="halo" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#F2D45C" stop-opacity="0.55"/><stop offset="1" stop-color="#F2D45C" stop-opacity="0"/></radialGradient><radialGradient id="flame" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.4" stop-color="#FFE27A"/><stop offset="1" stop-color="#FF9A1F"/></radialGradient><linearGradient id="stick" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#C9A46E"/><stop offset="1" stop-color="#8A6236"/></linearGradient><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="8"/></filter></defs>
+<path d="M60,0 L60,72" stroke="url(#stick)" stroke-width="4" stroke-linecap="round"/>
+<path d="M60,72 C54,78 54,82 60,84 C66,82 66,78 60,72" stroke="#3B2A1E" stroke-width="1.4" fill="none"/>
+<circle cx="60" cy="122" r="58" fill="url(#halo)" filter="url(#glow)"/>
+<path d="M76,84 C44,86 30,112 38,136 C46,158 72,164 88,154 C64,150 52,132 56,114 C60,98 70,88 76,84 Z" fill="url(#paper)"/><path d="M54,118 C56,114 60,114 62,118" stroke="#8A6236" stroke-width="2.2" fill="none" stroke-linecap="round"/><circle cx="50" cy="128" r="4" fill="#FF8FA3" opacity="0.5"/>
+<ellipse cx="60" cy="128" rx="5" ry="9" fill="url(#flame)" opacity="0.85"/>
+<ellipse cx="50" cy="104" rx="10" ry="6" fill="#FFFFFF" opacity="0.35" transform="rotate(-25 50 104)"/>
+</svg>

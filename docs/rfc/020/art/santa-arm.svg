@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 50" width="70" height="50" data-pivot="8 16">
+<defs><linearGradient id="coatArm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F05A5A"/><stop offset="1" stop-color="#A8232F"/></linearGradient><radialGradient id="furW2" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E4E8EE"/></radialGradient><radialGradient id="mitten" cx="0.5" cy="0.5" r="0.5" fx="0.35" fy="0.3"><stop offset="0" stop-color="#5FD08A"/><stop offset="1" stop-color="#2E8A52"/></radialGradient></defs>
+<path d="M6,10 C20,2 42,6 52,14 L48,26 C38,20 22,20 10,24 C2,22 0,14 6,10 Z" fill="url(#coatArm)"/>
+<path d="M46,10 C52,6 58,10 56,18 C54,26 48,28 44,24 Z" fill="url(#furW2)"/>
+<ellipse cx="60" cy="16" rx="9" ry="8" fill="url(#mitten)"/><ellipse cx="58" cy="9" rx="4" ry="5" fill="url(#mitten)"/>
+<ellipse cx="57" cy="13" rx="3" ry="2" fill="#FFFFFF" opacity="0.4"/>
+</svg>
