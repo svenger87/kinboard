@@ -113,7 +113,8 @@ export default function DashboardPage() {
     weekOverview: <WeekOverviewWidget className="sm:col-span-2" />,
     mealPlan: <MealPlanWidget />,
     wasteCollection: <WasteCollectionWidget maxItems={3} />,
-    tasks: <TasksWidget maxItems={4} />,
+    // St Nicholas's boot stands by the Tasks card (RFC-020 §3.3, globals.css).
+    tasks: <TasksWidget maxItems={4} className="festival-boot" />,
     shopping: <ShoppingWidget maxItems={4} />,
     notes: <NotesWidget maxItems={3} />,
     vehicles: <VehiclesWidget />,
@@ -217,7 +218,7 @@ export default function DashboardPage() {
             the screens being talked to (RFC-005 §6). */}
         {w.messages && <MessageTakeover />}
 
-        <section className="relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 2xl:grid-cols-5 min-[2000px]:grid-cols-6 auto-rows-min items-start gap-4 md:gap-6 w-full max-w-[2200px] mx-auto" aria-label={t("ariaWidgets")}>
+        <section className="festival-grid relative z-[1] mt-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 portrait:lg:grid-cols-2 2xl:grid-cols-5 min-[2000px]:grid-cols-6 auto-rows-min items-start gap-4 md:gap-6 w-full max-w-[2200px] mx-auto" aria-label={t("ariaWidgets")}>
           <FloatingLightsFab />
           {/* First, and across the whole width: this is what the family has to
               act on, and it renders nothing at all when there is nothing — so

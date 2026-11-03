@@ -19,6 +19,7 @@ import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib
 import { toLocalDateKey } from "@/lib/local-date";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
+import { FestivalVisitor } from "@/components/weather-effects";
 
 // Parse date string safely without timezone shift
 // "1990-01-28" should be January 28th local, not UTC midnight
@@ -692,6 +693,11 @@ export function Screensaver({ photos }: ScreensaverProps) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40" />
         )}
       </div>
+
+      {/* A festival's visitor (RFC-020): above the photo, below the clock and
+          everything else here, every two minutes. Its passes move pixels
+          against burn-in alongside BURN_IN_OFFSETS. */}
+      <FestivalVisitor placement="screensaver" />
 
       {/* News list - top left (always rendered for data-no-wake) */}
       {(screensaverSettings.showNews ?? true) && news && news.length > 0 && (

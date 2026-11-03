@@ -705,11 +705,23 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(ellipse 90% 55% at 50% 0%, hsl(var(--month-primary) / var(--month-wash-top)), transparent 70%),
-      linear-gradient(to top, hsl(var(--month-primary) / var(--month-wash-bottom)), transparent 45%);
+      radial-gradient(ellipse 90% 55% at 50% 0%, hsl(var(--festival-top, var(--month-primary)) / var(--month-wash-top)), transparent 70%),
+      linear-gradient(to top, hsl(var(--festival-bottom, var(--month-primary)) / var(--month-wash-bottom)), transparent 45%);
   }
   :root { --month-wash-top: 0.07; --month-wash-bottom: 0.05; }
   .dark { --month-wash-top: 0.14; --month-wash-bottom: 0.10; }
+  /* During a festival (RFC-020 §2.4) the wash takes two colours, one from
+     the top and one from the bottom, at the month's strengths above, so
+     contrast doesn't change. Colour, not motion: on every Animations
+     setting, as the month's wash is. Unset, both are the month's colour.
+     hooks/use-festival.ts sets data-festival. */
+  :root[data-festival="christmas"] { --festival-top: 355 70% 46%; --festival-bottom: 152 55% 28%; }
+  :root.dark[data-festival="christmas"] { --festival-top: 355 72% 58%; --festival-bottom: 150 48% 44%; }
+  :root[data-festival="st-nicholas"] { --festival-top: 355 70% 46%; --festival-bottom: 42 85% 46%; }
+  :root.dark[data-festival="st-nicholas"] { --festival-top: 355 72% 58%; --festival-bottom: 44 90% 58%; }
+  /* St Martin's lanterns glow along the bottom: night blue from the top, amber from below. */
+  :root[data-festival="st-martin"] { --festival-top: 224 55% 32%; --festival-bottom: 34 92% 48%; }
+  :root.dark[data-festival="st-martin"] { --festival-top: 224 60% 52%; --festival-bottom: 36 95% 58%; }
   /* The wash used to be drawn per page, and only on some. The elements stay
      in place; the wash is body::before now, so they draw nothing. */
   .page-gradient {
@@ -1097,4 +1109,71 @@ html[data-screensaver] nav {
 :root:not([data-motion="full"]) .weather-heat,
 :root:not([data-motion="full"]) .weather-fog {
   animation: none;
+}
+
+/* ── Festival dressing (RFC-020 §2.2) ──
+   Still decorations on Home's widget cards, from <html data-festival>
+   (hooks/use-festival.ts). One hook on the grid (.festival-grid in
+   app/page.tsx), so no widget changes. Dressing sits on a card's border and
+   in its padding, never over text or a control: the snow rises 9px above the
+   top edge (the grid's gap is 16px or more) and reaches 12px down, above the
+   title row, which starts at the card's 16px padding. A card that clips its
+   content (the photo) gets none. Still, so Reduced keeps it; Off leaves the
+   colour wash only (§4). Checked at 320px, on a 1920x1080 wall and in WebKit
+   (e2e/festivals-ui.spec.ts). */
+:root[data-festival="christmas"]:not([data-motion="off"]) .festival-grid > :not(button):not(.overflow-hidden),
+:root[data-festival="st-martin"]:not([data-motion="off"]) .festival-grid > :not(button):not(.overflow-hidden) {
+  position: relative;
+}
+/* Christmas: snow resting on each card's top edge. */
+:root[data-festival="christmas"]:not([data-motion="off"]) .festival-grid > :not(button):not(.overflow-hidden)::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: -9px;
+  left: -2px;
+  right: -2px;
+  height: 21px;
+  border-radius: 14px 14px 6px 6px;
+  background: url("/festivals/snow-cap.svg") repeat-x 0 0 / 120px 21px;
+  pointer-events: none;
+}
+:root[data-festival="christmas"]:not([data-motion="off"]) .festival-grid > :not(button):not(.overflow-hidden):nth-child(odd)::before {
+  background-position: -47px 0;
+}
+/* St Martin: three paper lanterns hanging from each card's bottom edge, into
+   the gap below; alternate cards hang them on the other side. */
+:root[data-festival="st-martin"]:not([data-motion="off"]) .festival-grid > :not(button):not(.overflow-hidden)::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  bottom: -26px;
+  right: 22px;
+  width: 90px;
+  height: 28px;
+  background: url("/festivals/lanterns-hanging.svg") center top / contain no-repeat;
+  pointer-events: none;
+}
+:root[data-festival="st-martin"]:not([data-motion="off"]) .festival-grid > :not(button):not(.overflow-hidden):nth-child(even)::after {
+  right: auto;
+  left: 22px;
+}
+/* St Nicholas: a boot by the Tasks card, standing on its top edge in the
+   corner. Empty on the evening of the 5th, filled on the morning of the 6th. */
+:root[data-festival="st-nicholas"]:not([data-motion="off"]) .festival-boot {
+  position: relative;
+}
+:root[data-festival="st-nicholas"]:not([data-motion="off"]) .festival-boot::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: -38px;
+  right: 18px;
+  width: 40px;
+  height: 45px;
+  background: url("/festivals/boot-filled.svg") center top / contain no-repeat;
+  pointer-events: none;
+}
+:root[data-festival="st-nicholas"][data-festival-stage="eve"]:not([data-motion="off"]) .festival-boot::after {
+  background-image: url("/festivals/boot-empty.svg");
 }

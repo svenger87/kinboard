@@ -177,8 +177,16 @@ test.describe("validation: every key, only from its set", () => {
     refused({ pattern: ["spots"] });
   });
 
-  test("the keys are exactly the editor's, and the shop's four slots (RFC-017 §5)", () => {
-    expect([...LOOK_KEYS].sort()).toEqual(["acc", "accent", "background", "belly", "body", "eyes", "face", "hair", "hairstyle", "head", "name", "neck", "pattern", "skin"]);
+  test("the keys are exactly the editor's, the shop's four slots (RFC-017 §5) and the festival switch (RFC-020)", () => {
+    expect([...LOOK_KEYS].sort()).toEqual(["acc", "accent", "background", "belly", "body", "eyes", "face", "festive", "hair", "hairstyle", "head", "name", "neck", "pattern", "skin"]);
+  });
+
+  test("festival outfits: a child can switch them off, and can't wear a festival's item themselves", () => {
+    expect(validateLook({ festive: "off" })).toEqual({ ok: true, look: { festive: "off" } });
+    refused({ festive: "on" });
+    // The Santa hat is the festival's, worn only while it's on (lib/festival-settings.ts): never a stored choice.
+    refused({ head: "santa_hat" });
+    expect(restorableLook({ head: "santa_hat", festive: "off", body: "#FF8A5B" })).toEqual({ festive: "off", body: "#FF8A5B" });
   });
 });
 

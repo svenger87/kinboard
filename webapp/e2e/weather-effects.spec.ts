@@ -195,7 +195,8 @@ test("the overlay never takes a tap, follows the device's animation switch, stop
   // Reduced (or the OS asking) keeps the still layers; Off draws nothing.
   expect(overlay).toContain('const reducedMotion = motion !== "full";');
   expect(overlay).toContain('if (effects.length === 0 || motion === "off") return null;');
-  expect(overlay).toContain("{!reducedMotion && moving.length > 0 && (");
+  // The scene runs for the weather, or for a festival's visitor (RFC-020, festivals-scene.spec.ts).
+  expect(overlay).toContain("{!reducedMotion && (moving.length > 0 || flying) && (");
   expect(overlay).toContain('{on.has("storm") && !reducedMotion && <StormGlow strength={strength} />}');
   expect(overlay).toContain("const onVisibility = () => (document.hidden ? stop() : start());");
   expect(overlay).toContain("if (t - last < FRAME_MS) return;");

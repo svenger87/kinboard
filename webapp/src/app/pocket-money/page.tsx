@@ -62,6 +62,7 @@ import { creatureStage } from "@/lib/creatures/stage";
 import { AmountDialog } from "@/components/pocket-money/amount-dialog";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
 import { formatCents } from "@/lib/pocket-money/format";
+import { useFestivalLook } from "@/hooks/use-festival";
 
 type CelebrationKind = "evolution" | "goal-reached" | "interest-pay";
 
@@ -138,6 +139,8 @@ export default function PocketMoneyPage() {
   const creature = activeCreatureOf(creatures, active?.person_id);
   const { ready: pointsReady, totalsFor } = usePointTotals();
   const { ready: ownedReady, ownedFor } = useOwnedItems();
+  // During a festival, its outfit instead of the child's own item (RFC-020 §2.3).
+  const festive = useFestivalLook();
   const { data: rewards = [] } = usePointRewards();
   const { data: redemptions = [] } = usePointRedemptions();
   // Sleepy at night, happy once today's tasks are done: one answer for the
@@ -391,7 +394,8 @@ export default function PocketMoneyPage() {
           species={species}
           tier={currentTier}
           style={creatureStyle}
-          look={activeLook}
+          // The festival's outfit on the avatar only: the editor shows the child's own items.
+          look={festive(activeLook)}
           mood={mood}
           size={220}
           tappable

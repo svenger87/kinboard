@@ -1,0 +1,362 @@
+{
+ "parts": {
+  "reindeer-body": {
+   "w": 200,
+   "h": 120,
+   "pivot": [
+    100,
+    60
+   ]
+  },
+  "reindeer-head": {
+   "w": 150,
+   "h": 150,
+   "pivot": [
+    48,
+    144
+   ]
+  },
+  "reindeer-head-lead": {
+   "w": 150,
+   "h": 150,
+   "pivot": [
+    48,
+    144
+   ]
+  },
+  "reindeer-front-upper": {
+   "w": 40,
+   "h": 54,
+   "pivot": [
+    20,
+    8
+   ]
+  },
+  "reindeer-front-lower": {
+   "w": 32,
+   "h": 54,
+   "pivot": [
+    16,
+    3
+   ]
+  },
+  "reindeer-front-upper-far": {
+   "w": 40,
+   "h": 54,
+   "pivot": [
+    20,
+    8
+   ]
+  },
+  "reindeer-front-lower-far": {
+   "w": 32,
+   "h": 54,
+   "pivot": [
+    16,
+    3
+   ]
+  },
+  "reindeer-back-upper": {
+   "w": 46,
+   "h": 50,
+   "pivot": [
+    23,
+    8
+   ]
+  },
+  "reindeer-back-lower": {
+   "w": 32,
+   "h": 58,
+   "pivot": [
+    16,
+    3
+   ]
+  },
+  "reindeer-back-upper-far": {
+   "w": 46,
+   "h": 50,
+   "pivot": [
+    23,
+    8
+   ]
+  },
+  "reindeer-back-lower-far": {
+   "w": 32,
+   "h": 58,
+   "pivot": [
+    16,
+    3
+   ]
+  },
+  "reindeer-tail": {
+   "w": 30,
+   "h": 30,
+   "pivot": [
+    26,
+    12
+   ]
+  },
+  "sleigh": {
+   "w": 300,
+   "h": 210,
+   "pivot": [
+    150,
+    120
+   ]
+  },
+  "santa-arm": {
+   "w": 70,
+   "h": 50,
+   "pivot": [
+    8,
+    16
+   ]
+  },
+  "boot-empty": {
+   "w": 150,
+   "h": 170,
+   "pivot": [
+    78,
+    158
+   ]
+  },
+  "boot-filled": {
+   "w": 150,
+   "h": 170,
+   "pivot": [
+    78,
+    158
+   ]
+  },
+  "lantern-sun": {
+   "w": 120,
+   "h": 190,
+   "pivot": [
+    60,
+    0
+   ]
+  },
+  "lantern-moon": {
+   "w": 120,
+   "h": 190,
+   "pivot": [
+    60,
+    0
+   ]
+  },
+  "lantern-star": {
+   "w": 120,
+   "h": 190,
+   "pivot": [
+    60,
+    0
+   ]
+  }
+ },
+ "rig": {
+  "sleigh": {
+   "arm": {
+    "part": "santa-arm",
+    "at": [
+     186,
+     52
+    ]
+   },
+   "reins_from": [
+    200,
+    64
+   ]
+  },
+  "reindeer": {
+   "head": [
+    164,
+    46
+   ],
+   "rein_ring": [
+    150,
+    26
+   ],
+   "tail": [
+    36,
+    52
+   ],
+   "legs": {
+    "front": [
+     148,
+     80
+    ],
+    "back": [
+     68,
+     78
+    ]
+   },
+   "joints": {
+    "front": [
+     20,
+     48
+    ],
+    "back": [
+     24,
+     44
+    ]
+   },
+   "far_offset": [
+    10,
+    -4
+   ],
+   "spacing": 230,
+   "first": [
+    400,
+    90
+   ]
+  },
+  "gait": {
+   "period": 0.72,
+   "legs": {
+    "front": {
+     "upper": [
+      [
+       0,
+       30
+      ],
+      [
+       0.15,
+       18
+      ],
+      [
+       0.38,
+       -30
+      ],
+      [
+       0.55,
+       -46
+      ],
+      [
+       0.75,
+       -8
+      ]
+     ],
+     "lower": [
+      [
+       0,
+       0
+      ],
+      [
+       0.15,
+       75
+      ],
+      [
+       0.38,
+       45
+      ],
+      [
+       0.55,
+       -6
+      ],
+      [
+       0.75,
+       0
+      ]
+     ]
+    },
+    "back": {
+     "upper": [
+      [
+       0,
+       -36
+      ],
+      [
+       0.25,
+       -12
+      ],
+      [
+       0.45,
+       24
+      ],
+      [
+       0.6,
+       44
+      ],
+      [
+       0.8,
+       8
+      ]
+     ],
+     "lower": [
+      [
+       0,
+       -42
+      ],
+      [
+       0.25,
+       -12
+      ],
+      [
+       0.45,
+       6
+      ],
+      [
+       0.6,
+       22
+      ],
+      [
+       0.8,
+       -55
+      ]
+     ]
+    }
+   },
+   "phase": {
+    "back-far": 0.0,
+    "back": 0.07,
+    "front-far": 0.0,
+    "front": 0.07
+   },
+   "body": {
+    "pitch": [
+     3.0,
+     0.1
+    ],
+    "bob": [
+     5.0,
+     0.0
+    ]
+   },
+   "head": {
+    "follow": -0.6,
+    "nod": [
+     2.5,
+     0.35
+    ]
+   },
+   "tail": {
+    "flick": [
+     9.0,
+     0.2
+    ],
+    "freq": 2
+   },
+   "second_deer_phase": 0.31,
+   "sleigh": {
+    "bob": [
+     2.5,
+     0.55
+    ],
+    "sway": [
+     1.2,
+     0.3
+    ],
+    "arm": [
+     4.0,
+     0.5
+    ]
+   }
+  },
+  "lantern": {
+   "walk_period": 1.1,
+   "swing": 11.0,
+   "damping_lag": 0.18,
+   "bob": 4.0
+  }
+ }
+}

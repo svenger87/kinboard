@@ -57,7 +57,7 @@ export function ReactingCreature({ personId, compactStageUp = false, onStageUp, 
     if (reaction.stageUp) onStageUpRef.current?.(reaction.stageUp);
     if (prefersReducedMotion() || (reaction.stageUp && compactStageUp)) return;
     replayClass(bodyRef.current, "creature-hop");
-    burst(reaction.points > 0 ? "star" : "heart", 6, size / 2, size * 0.42);
+    burst(reaction.points > 0 || reaction.cheer ? "star" : "heart", 6, size / 2, size * 0.42);
     // One reaction, played once: keyed on its id alone.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reaction?.id]);
@@ -99,7 +99,9 @@ export function ReactingCreature({ personId, compactStageUp = false, onStageUp, 
           aria-hidden="true"
           style={{ fontSize: Math.min(28, Math.max(13, Math.round(size * 0.2))) }}
         >
-          {reaction.points > 0 ? (
+          {reaction.cheer ? (
+            "⭐"
+          ) : reaction.points > 0 ? (
             `+${reaction.points} ⭐`
           ) : (
             <ParticleIcon kind="heart" color="#FF6B8B" />

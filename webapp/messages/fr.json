@@ -1288,7 +1288,26 @@
       "motion_reduced": "Réduites",
       "motion_off": "Désactivées",
       "motionHint": "Enregistré par appareil, pour un écran qui saccade, comme un Raspberry Pi. Réduites arrête ce qui se déplace à l’écran ; Désactivées retire aussi les fondus et les effets fixes. Activées suit toujours le réglage « réduire les animations » de l’appareil.",
-      "previewHeading": "Aperçu"
+      "previewHeading": "Aperçu",
+      "festivalsHeading": "Fêtes",
+      "festivalsLabel": "Les fêtes sur l'accueil et l'économiseur d'écran",
+      "festivalsHint": "Toutes les deux minutes, un visiteur passe sur l'accueil et l'économiseur d'écran (touchez-le), les cartes sont décorées, les créatures se déguisent et le voile de couleur prend les couleurs de la fête. Avec les animations « Réduites », les décorations restent et le visiteur ne passe pas ; « Désactivées » ne garde que les couleurs.",
+      "festivalsCommonHint": "Cochées : les fêtes courantes dans votre pays (Réglages → Jours fériés). Cochez ou décochez-en une pour faire votre propre liste.",
+      "festivalsOwnHint": "La liste de votre famille. D'autres fêtes suivront, au fur et à mesure de leurs dessins.",
+      "festivalsResetToCountry": "Revenir aux fêtes de votre pays",
+      "festivalsPreview": "Aperçu",
+      "festivalsPreviewStop": "Arrêter",
+      "festivalsSaveFailed": "Impossible d'enregistrer les fêtes",
+      "festivalName": {
+        "christmas": "Noël",
+        "st-nicholas": "Saint-Nicolas",
+        "st-martin": "Saint-Martin"
+      },
+      "festivalWhen": {
+        "christmas": "Du premier dimanche de l'Avent au 6 janvier : le traîneau, la neige sur les cartes, les bonnets de Noël",
+        "st-nicholas": "5 et 6 décembre : une botte près de la carte Tâches, vide le soir, remplie le matin",
+        "st-martin": "11 novembre, dès la tombée de la nuit : le défilé des lanternes et des lanternes en papier sur les cartes"
+      }
     },
     "screensaver": {
       "title": "Économiseur d'écran",
@@ -3125,7 +3144,8 @@
       "creatures": "créature, créatures, dragon, animal, avatar, récompense, récompenses, points, points de tâches, boutique, grandir",
       "creatures_children": "créature, activer, espèce, dragon, grandit avec, points, argent, boutique",
       "creatures_inbox": "demandes de récompense, en attente, accepter, refuser, échanger",
-      "creatures_rewards": "récompenses, points, points de tâches, échanger, cadeaux"
+      "creatures_rewards": "récompenses, points, points de tâches, échanger, cadeaux",
+      "theme_festivals": "fêtes, Noël, Avent, Saint-Nicolas, Saint-Martin, lanternes, traîneau, Père Noël, décorations, festif"
     }
   },
   "calendar": {
@@ -4911,7 +4931,9 @@
         "long": "Longs",
         "ponytail": "Queue de cheval",
         "curls": "Bouclés"
-      }
+      },
+      "festive": "Tenues de fête",
+      "festiveHint": "À Noël et aux autres fêtes, ta créature porte quelque chose de festif à la place de son propre chapeau ou de son écharpe."
     },
     "lookColors": {
       "mint": "Menthe",

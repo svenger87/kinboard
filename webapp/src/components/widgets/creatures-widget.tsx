@@ -19,6 +19,7 @@ import { readLook } from "@/lib/pocket-money/creatures/look";
 import { formatCents } from "@/lib/pocket-money/format";
 import { cn } from "@/lib/utils";
 import type { Creature, PocketMoneyAccount, Person } from "@/types/database";
+import { useFestivalLook } from "@/hooks/use-festival";
 
 /**
  * Every child's creature side by side (RFC-017 §4): the wall display's main
@@ -128,8 +129,10 @@ function CreatureCell({
   const tPM = useTranslations("pocketMoney");
   const mood = useCreatureMood(person.id);
   const { ownedFor } = useOwnedItems();
+  const festive = useFestivalLook();
   const stage = creatureStage({ creature, account, earnedPoints: earned });
-  const look = readLook(creature.look, ownedFor(person.id));
+  // During a festival, its outfit instead of the child's own item (RFC-020 §2.3).
+  const look = festive(readLook(creature.look, ownedFor(person.id)));
   const stageName = tPM(`species.${creature.species}.tier${stage.tier}` as never);
   const money = stage.mode === "money" && account;
 

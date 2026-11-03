@@ -61,6 +61,11 @@ export interface CreatureLook {
   face?: string;
   neck?: string;
   background?: string;
+  /**
+   * "off": this child's creature wears no festival outfit (RFC-020 §2.3), a
+   * kid-side choice like the rest of the look. Absent: it wears them.
+   */
+  festive?: "off";
 }
 
 const upper = (list: ReadonlyArray<string>) => new Set(list.map((c) => c.toUpperCase()));
@@ -80,12 +85,14 @@ const ALLOWED: Record<Exclude<keyof CreatureLook, "name">, ReadonlySet<string>> 
   face: new Set(itemsIn("face").map((i) => i.id)),
   neck: new Set(itemsIn("neck").map((i) => i.id)),
   background: new Set(itemsIn("background").map((i) => i.id)),
+  festive: new Set(["off"]),
 };
 const COLOR_KEYS = new Set(["body", "belly", "accent", "skin", "hair"]);
 
 export const LOOK_KEYS: ReadonlyArray<keyof CreatureLook> = [
   "name", "body", "belly", "accent", "skin", "hair", "hairstyle", "pattern", "eyes", "acc",
   ...SHOP_SLOTS,
+  "festive",
 ];
 
 /**
@@ -291,5 +298,6 @@ export function surpriseLook(current: CreatureLook, person: boolean, rand: () =>
  * The name stays -- a child starting the colours over has not asked to lose it.
  */
 export function startOverLook(current: CreatureLook): CreatureLook {
-  return current.name ? { name: current.name } : {};
+  // The name, and the festival switch: a choice about festivals, not a colour.
+  return { ...(current.name ? { name: current.name } : {}), ...(current.festive ? { festive: current.festive } : {}) };
 }

@@ -1288,7 +1288,26 @@
       "motion_reduced": "Reduziert",
       "motion_off": "Aus",
       "motionHint": "Wird pro Gerät gespeichert, für einen Bildschirm, der ruckelt, etwa einen Raspberry Pi. Reduziert hält an, was sich über den Bildschirm bewegt; Aus lässt auch Überblendungen und stehende Effekte weg. An folgt weiterhin der Einstellung „Bewegung reduzieren“ des Geräts.",
-      "previewHeading": "Vorschau"
+      "previewHeading": "Vorschau",
+      "festivalsHeading": "Feste",
+      "festivalsLabel": "Feste auf der Startseite und dem Bildschirmschoner",
+      "festivalsHint": "Alle zwei Minuten kommt Besuch über die Startseite und den Bildschirmschoner (antippen!), die Karten werden geschmückt, die Kreaturen verkleiden sich und der Farbschleier nimmt die Farben des Festes an. Bei Animationen „Reduziert“ bleibt der Schmuck und der Besuch entfällt; bei „Aus“ bleiben nur die Farben.",
+      "festivalsCommonHint": "Angehakt: die Feste, die in eurem Land üblich sind (Einstellungen → Feiertage). Hakt eines an oder ab, um eine eigene Liste zu machen.",
+      "festivalsOwnHint": "Die Liste eurer Familie. Weitere Feste kommen dazu, sobald ihre Bilder gezeichnet sind.",
+      "festivalsResetToCountry": "Zurück zu den Festen eures Landes",
+      "festivalsPreview": "Vorschau",
+      "festivalsPreviewStop": "Stopp",
+      "festivalsSaveFailed": "Die Feste konnten nicht gespeichert werden",
+      "festivalName": {
+        "christmas": "Weihnachten",
+        "st-nicholas": "Nikolaus",
+        "st-martin": "Sankt Martin"
+      },
+      "festivalWhen": {
+        "christmas": "Erster Advent bis 6. Januar: der Schlitten, Schnee auf den Karten, Weihnachtsmützen",
+        "st-nicholas": "5. und 6. Dezember: ein Stiefel an der Aufgaben-Karte, abends leer, morgens gefüllt",
+        "st-martin": "11. November, ab der Dämmerung: der Laternenumzug und Papierlaternen an den Karten"
+      }
     },
     "screensaver": {
       "title": "Bildschirmschoner",
@@ -3125,7 +3144,8 @@
       "creatures": "Kreatur, Kreaturen, Drache, Haustier, Avatar, Belohnung, Belohnungen, Punkte, Aufgabenpunkte, Laden, wachsen",
       "creatures_children": "Kreatur, einschalten, Art, Drache, wächst mit, Punkte, Geld, Laden",
       "creatures_inbox": "Belohnungswünsche, warten, erlauben, ablehnen, Freigabe, einlösen",
-      "creatures_rewards": "Belohnungen, Punkte, Aufgabenpunkte, einlösen, Preise, Prämien"
+      "creatures_rewards": "Belohnungen, Punkte, Aufgabenpunkte, einlösen, Preise, Prämien",
+      "theme_festivals": "Feste, Weihnachten, Advent, Nikolaus, Sankt Martin, Martinstag, Laternen, Schlitten, Weihnachtsmann, Schmuck, Dekoration, festlich"
     }
   },
   "calendar": {
@@ -4911,7 +4931,9 @@
         "long": "Lang",
         "ponytail": "Pferdeschwanz",
         "curls": "Locken"
-      }
+      },
+      "festive": "Festtagskleidung",
+      "festiveHint": "An Weihnachten und anderen Festen trägt deine Kreatur etwas Festliches statt ihrer eigenen Mütze oder ihres Schals."
     },
     "lookColors": {
       "mint": "Minzgrün",

@@ -132,6 +132,11 @@ export interface CreatureReaction {
   earnedBefore: number | null;
   stage: StageContext | null;
   stageUp: StageUp | null;
+  /**
+   * A cheer for a festival's visitor tapped on this screen (RFC-020 §2.1):
+   * stars and a "⭐" with no points, never a stage-up.
+   */
+  cheer?: boolean;
 }
 
 /** At most this many wait behind the one playing; the rest fold into the last. */
@@ -142,7 +147,9 @@ export function mergeReactions(a: CreatureReaction, b: CreatureReaction): Creatu
   const points = a.points + b.points;
   const earnedBefore = a.earnedBefore ?? b.earnedBefore;
   const stage = a.stage ?? b.stage;
-  return { ...a, points, ticks: a.ticks + b.ticks, earnedBefore, stage, stageUp: stageUpFor(stage, earnedBefore, points) };
+  // A cheer folded together with a tick shows the tick's points.
+  const cheer = a.cheer && b.cheer ? true : undefined;
+  return { ...a, points, ticks: a.ticks + b.ticks, earnedBefore, stage, stageUp: stageUpFor(stage, earnedBefore, points), cheer };
 }
 
 /** A new reaction behind the ones waiting: queued while there is room, else folded into the last. */

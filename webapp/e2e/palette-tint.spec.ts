@@ -113,8 +113,9 @@ test("the month's wash is one layer behind every page, stronger in dark mode", (
   for (const rule of ["position: fixed;", "inset: 0;", "z-index: -1;", "pointer-events: none;"]) {
     expect(before).toContain(rule);
   }
-  expect(before).toContain("hsl(var(--month-primary) / var(--month-wash-top))");
-  expect(before).toContain("hsl(var(--month-primary) / var(--month-wash-bottom))");
+  // The month's colour, unless a festival sets its own two (RFC-020 §2.4, festivals-scene.spec.ts).
+  expect(before).toContain("hsl(var(--festival-top, var(--month-primary)) / var(--month-wash-top))");
+  expect(before).toContain("hsl(var(--festival-bottom, var(--month-primary)) / var(--month-wash-bottom))");
   const light = /:root \{ --month-wash-top: ([\d.]+); --month-wash-bottom: ([\d.]+); \}/.exec(css);
   const dark = /\.dark \{ --month-wash-top: ([\d.]+); --month-wash-bottom: ([\d.]+); \}/.exec(css);
   expect(light && dark).toBeTruthy();

@@ -5,6 +5,9 @@ export const SETTINGS_KEYS = {
   weatherLocation: "weather_location",
   weatherUnits: "weather_units",
   weatherEffects: "weather_effects",
+  // RFC-020: { enabled, chosen }, chosen null for the country's common
+  // festivals (lib/festival-settings.ts).
+  festivals: "festivals",
   defaultCalendarId: "default_calendar_id",
   // RFC-014 §4.2: { code, chosen }. Replaces holiday_country, which is kept
   // one release, read by nothing, then dropped.

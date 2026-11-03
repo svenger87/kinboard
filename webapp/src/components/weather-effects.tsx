@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMotion } from "@/hooks/use-motion";
+import { useFestival } from "@/hooks/use-festival";
+import { useFamilyStore } from "@/stores/family-store";
+import { cheerCreatures } from "@/stores/creature-reactions";
+import type { VisitorKind } from "@/lib/festival-settings";
+import { PASS_MS, createPass, prepareVisitorSprites, visitorScale, type Box, type Pass, type VisitorSprites } from "@/components/festival-visitors";
 import { useSetting } from "@/hooks/use-supabase-queries";
 import { useWeather, useWeatherForecast, useWeatherUnits } from "@/hooks/use-weather";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
@@ -37,6 +43,11 @@ import {
  * same for a minute; it is kept in sessionStorage, because taking the
  * parameter out of the address redraws this component, and a preview held
  * only in its state was gone within a second.
+ *
+ * During a festival (RFC-020) its visitor joins the same scene: one loop,
+ * one clock and one wind for the weather behind the widgets and the visitor
+ * in front of them (EffectsCanvas). With no festival on, nothing here
+ * differs from the weather effects alone (e2e/festivals-scene.spec.ts).
  */
 const PREVIEW_STORE = "kinboard.weatherPreview";
 
@@ -96,7 +107,13 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
     return () => window.clearTimeout(timer);
   }, [forced]);
 
+  // The festival's visitor (RFC-020 §2.1): on Home only, never in the weather settings' own preview.
+  const festival = useFestival();
+  const visitor = forced ? null : (festival?.kit.visitor ?? null);
+  const tapRef = useRef<HTMLButtonElement>(null);
+
   const effects = forced && forced.length > 0 ? forced : preview.length > 0 ? preview : activeEffects(reading, settings, system);
+  if (effects.length === 0 && visitor) return <FestivalVisitor />;
   if (effects.length === 0 || motion === "off") return null;
   const on = new Set(effects);
   const intensity = settings.intensity;
@@ -107,8 +124,12 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
   const moving = (["snow", "rain", "storm", "wind", "fog", "heat"] as const).filter((e) => on.has(e));
   const wet = on.has("rain") || on.has("storm");
 
+  // The visitor flies only with Animations on (§4); the weather keeps its still layers either way.
+  const flying = motion === "full" ? visitor : null;
+
   return (
-    <div aria-hidden="true" data-testid="weather-effects" data-effects={effects.join(",")}>
+    <>
+    <div aria-hidden="true" data-testid="weather-effects" data-effects={effects.join(",")} data-visitor={flying ?? undefined}>
       {wet && (
         <div
           className="weather-gloom pointer-events-none fixed inset-0 z-[5]"
@@ -118,8 +139,16 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
       {on.has("fog") && (
         <div className="weather-fog pointer-events-none fixed inset-0 z-[5]" style={{ opacity: 0.5 * strength }} />
       )}
-      {!reducedMotion && moving.length > 0 && (
-        <EffectsCanvas effects={moving} intensity={intensity} gust={gust} />
+      {!reducedMotion && (moving.length > 0 || flying) && (
+        <EffectsCanvas
+          effects={moving}
+          intensity={intensity}
+          gust={gust}
+          visitor={flying}
+          preview={festival?.preview ?? false}
+          light={{ fog: on.has("fog"), storm: on.has("storm") }}
+          tapRef={tapRef}
+        />
       )}
       {on.has("freezing") && <FrostCanvas strength={strength} />}
       {on.has("heat") && (
@@ -127,8 +156,65 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
       )}
       {on.has("storm") && !reducedMotion && <StormGlow strength={strength} />}
     </div>
+    {/* Outside the overlay: the one thing here that takes a tap, and only the visitor's own shape. */}
+    {flying && <VisitorTap ref={tapRef} placement="home" />}
+    </>
   );
 }
+
+/**
+ * A festival's visitor on its own, where there is no weather in the scene:
+ * Home on a calm day, the screensaver (above the photo, below the clock),
+ * and the Preview in Settings -> Design. Only with Animations on (§4).
+ */
+export function FestivalVisitor({ placement = "home" }: { placement?: Placement }) {
+  const festival = useFestival();
+  const motion = useMotion();
+  const tapRef = useRef<HTMLButtonElement>(null);
+  const visitor = festival?.kit.visitor ?? null;
+  if (!visitor || motion !== "full") return null;
+  return (
+    <>
+      <div aria-hidden="true" data-testid="festival-scene" data-visitor={visitor}>
+        <EffectsCanvas
+          effects={[]}
+          intensity="subtle"
+          gust={0}
+          visitor={visitor}
+          preview={festival?.preview ?? false}
+          light={{ fog: false, storm: false }}
+          tapRef={tapRef}
+          placement={placement}
+        />
+      </div>
+      <VisitorTap ref={tapRef} placement={placement} />
+    </>
+  );
+}
+
+type Placement = "home" | "screensaver";
+
+/**
+ * The visitor's tap target: one transparent button that the scene moves
+ * with the sprite every frame (§2.1), hidden between passes and after the
+ * one tap a pass takes. Not in the tab order: the visitor is a surprise, and
+ * nothing depends on it. On the screensaver a tap here doesn't wake it.
+ */
+const VisitorTap = forwardRef<HTMLButtonElement, { placement: Placement }>(function VisitorTap({ placement }, ref) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      tabIndex={-1}
+      aria-hidden="true"
+      hidden
+      data-no-wake=""
+      data-testid="festival-visitor-tap"
+      className={`${placement === "home" ? "fixed z-[15]" : "absolute"} left-0 top-0 cursor-pointer rounded-3xl border-0 bg-transparent p-0`}
+      style={{ WebkitTapHighlightColor: "transparent" }}
+    />
+  );
+});
 
 /** Now, to the minute: a state that moves on by itself once a minute. */
 function useMinuteClock(): number {
@@ -302,199 +388,526 @@ interface Particle {
 
 const FRAME_MS = 1000 / 30;
 
-function EffectsCanvas({ effects, intensity, gust }: { effects: Moving[]; intensity: EffectIntensity; gust: number }) {
+/**
+ * The weather's layer of the scene: everything it draws behind the widgets,
+ * exactly as it was before the festivals joined it (RFC-020 §5). The scene
+ * (EffectsCanvas) owns the clock: it calls `draw` once a frame.
+ */
+function weatherLayer(
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  effects: Moving[],
+  intensity: EffectIntensity,
+  gust: number,
+  dpr: number,
+) {
+  const has = new Set(effects);
+  const share = intensity === "normal" ? 1 : 0.6;
+  let width = 0;
+  let height = 0;
+  const resize = () => {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resize();
+
+  const rand = (a: number, b: number) => a + Math.random() * (b - a);
+  const pick = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)];
+  const wind = gust; // 0 when calm, 1..2 when windy
+  const heavy = has.has("storm");
+
+  // Sprites, drawn once.
+  const flakes = [0, 1, 2].flatMap((d) => [flakeSprite(6, d), flakeSprite(9, d), flakeSprite(13, d)]);
+  const speck = glowSprite(4, "255, 255, 255", 0.9);
+  const nearDrop = dropSprite(34, 1.8, 0.75);
+  const farDrop = dropSprite(18, 1.1, 0.45);
+  const leaves = ["rgb(214, 132, 40)", "rgb(176, 72, 38)", "rgb(196, 160, 52)", "rgb(140, 120, 50)"].map((c) => leafSprite(12, c));
+  const mist = glowSprite(160, "215, 220, 228", 0.5);
+  const shimmer = glowSprite(6, "255, 205, 130", 0.9);
+  const sun = glowSprite(300, "255, 200, 120", 0.6);
+  const flare = glowSprite(40, "255, 220, 160", 0.35);
+  // Rain falls along the wind; one angle for every drop.
+  const slant = Math.atan2(wind * 220, 760);
+
+  const spawn = (kind: Kind, anywhere: boolean): Particle => {
+    const base = { phase: rand(0, Math.PI * 2), spin: 0, angle: 0, age: 0 };
+    switch (kind) {
+      case "flake": {
+        const s = pick(flakes);
+        const near = s.width > 26;
+        return { ...base, kind, sprite: s, x: rand(-40, width + 40), y: anywhere ? rand(-20, height) : rand(-60, -20), vx: wind * rand(50, 110), vy: near ? rand(45, 70) : rand(28, 45), size: s.width, alpha: near ? rand(0.85, 1) : rand(0.6, 0.85), spin: rand(-0.6, 0.6), angle: rand(0, Math.PI) };
+      }
+      case "speck":
+        return { ...base, kind, sprite: speck, x: rand(-20, width + 20), y: anywhere ? rand(0, height) : -10, vx: wind * rand(25, 50), vy: rand(14, 24), size: rand(4, 7), alpha: rand(0.25, 0.5) };
+      case "drop": {
+        const far = Math.random() < 0.55;
+        const speed = far ? rand(620, 760) : rand(820, 1000);
+        return { ...base, kind, far, sprite: far ? farDrop : nearDrop, x: rand(-150, width + 50), y: anywhere ? rand(-30, height) : rand(-80, -30), vx: Math.sin(slant) * speed, vy: Math.cos(slant) * speed, size: 0, alpha: far ? rand(0.5, 0.8) : rand(0.75, 1) };
+      }
+      case "gust":
+        return { ...base, kind, x: anywhere ? rand(-200, width) : rand(-700, -300), y: rand(height * 0.05, height * 0.95), vx: rand(380, 620) * Math.max(1, wind), vy: rand(-8, 8), size: rand(260, 520), alpha: rand(0.28, 0.45) };
+      case "leaf":
+        return { ...base, kind, sprite: pick(leaves), x: anywhere ? rand(0, width) : rand(-120, -40), y: rand(0, height * 0.85), vx: rand(160, 300) * Math.max(1, wind), vy: rand(-10, 30), size: rand(0.7, 1.2), alpha: rand(0.75, 0.95), spin: rand(1.5, 4) * (Math.random() < 0.5 ? -1 : 1) };
+      case "mist":
+        return { ...base, kind, sprite: mist, x: anywhere ? rand(-300, width) : -rand(300, 500), y: rand(height * 0.15, height * 1.05), vx: rand(6, 16) * (1 + wind), vy: 0, size: rand(2.2, 4.2), alpha: rand(0.35, 0.7) };
+      case "shimmer":
+        return { ...base, kind, sprite: shimmer, x: rand(0, width), y: anywhere ? rand(height * 0.3, height + 20) : height + rand(10, 40), vx: rand(-6, 6), vy: -rand(14, 30), size: rand(0.6, 1.4), alpha: rand(0.35, 0.7) };
+      case "splash":
+        return { ...base, kind, x: rand(0, width), y: rand(height * 0.8, height - 6), vx: 0, vy: 0, size: rand(5, 10), alpha: 0.5 };
+    }
+  };
+
+  const particles: Particle[] = [];
+  const add = (kind: Kind, n: number) => {
+    for (let i = 0; i < Math.round(n * share); i++) particles.push(spawn(kind, true));
+  };
+  if (has.has("snow")) {
+    add("flake", 55);
+    add("speck", 45);
+  }
+  if (has.has("rain") || heavy) add("drop", heavy ? 190 : 130);
+  if (has.has("wind")) {
+    add("gust", 16);
+    add("leaf", 14);
+  }
+  if (has.has("fog")) add("mist", 14);
+  if (has.has("heat")) add("shimmer", 40);
+  const splashes: Particle[] = [];
+
+  // Lightning: a bolt that fades over about 0.7 s, when the glow asks for one.
+  let bolt: { points: Array<[number, number]>; branches: Array<Array<[number, number]>>; at: number } | null = null;
+  const strike = () => {
+    const points: Array<[number, number]> = [];
+    let x = rand(width * 0.2, width * 0.8);
+    let y = 0;
+    const end = rand(height * 0.35, height * 0.6);
+    points.push([x, y]);
+    while (y < end) {
+      x += rand(-28, 28);
+      y += rand(18, 40);
+      points.push([x, y]);
+    }
+    const branches: Array<Array<[number, number]>> = [];
+    for (let b = 0; b < 2; b++) {
+      const from = points[Math.floor(rand(2, points.length - 2))];
+      if (!from) continue;
+      const branch: Array<[number, number]> = [from];
+      let [bx, by] = from;
+      const dir = Math.random() < 0.5 ? -1 : 1;
+      for (let i = 0; i < 4; i++) {
+        bx += dir * rand(10, 30);
+        by += rand(14, 30);
+        branch.push([bx, by]);
+      }
+      branches.push(branch);
+    }
+    bolt = { points, branches, at: performance.now() };
+  };
+  const onLightning = () => heavy && strike();
+  window.addEventListener(LIGHTNING_EVENT, onLightning);
+
+  const drawPath = (pts: Array<[number, number]>) => {
+    ctx.beginPath();
+    pts.forEach(([px, py], i) => (i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)));
+    ctx.stroke();
+  };
+
+  const offscreen = (p: Particle) =>
+    p.y > height + 60 || p.x > width + 480 || p.x < -800 || (p.kind === "shimmer" && p.y < height * 0.15);
+
+  const draw = (p: Particle, t: number) => {
+    switch (p.kind) {
+      case "flake":
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle);
+        ctx.drawImage(p.sprite!, -p.size / 2, -p.size / 2);
+        ctx.restore();
+        break;
+      case "speck":
+        ctx.globalAlpha = p.alpha;
+        ctx.drawImage(p.sprite!, p.x - p.size, p.y - p.size, p.size * 2, p.size * 2);
+        break;
+      case "drop":
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(-slant);
+        ctx.drawImage(p.sprite!, -p.sprite!.width / 2, -p.sprite!.height);
+        ctx.restore();
+        break;
+      case "gust": {
+        const g = ctx.createLinearGradient(p.x - p.size, 0, p.x, 0);
+        g.addColorStop(0, "rgba(225, 232, 240, 0)");
+        g.addColorStop(0.6, `rgba(225, 232, 240, ${p.alpha})`);
+        g.addColorStop(1, "rgba(225, 232, 240, 0)");
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = g;
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        const bend = Math.sin(t / 900 + p.phase) * 10;
+        ctx.beginPath();
+        ctx.moveTo(p.x - p.size, p.y + bend);
+        ctx.quadraticCurveTo(p.x - p.size * 0.5, p.y - bend, p.x, p.y + bend * 0.4);
+        ctx.stroke();
+        break;
+      }
+      case "leaf": {
+        const s = p.sprite!;
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle);
+        // Tumbling: the leaf turns over as it flies.
+        ctx.scale(p.size, p.size * Math.cos(t / 260 + p.phase));
+        ctx.drawImage(s, -s.width / 2, -s.height / 2);
+        ctx.restore();
+        break;
+      }
+      case "mist": {
+        const s = p.sprite!;
+        ctx.globalAlpha = p.alpha;
+        ctx.drawImage(s, p.x - (s.width * p.size) / 2, p.y - (s.height * p.size * 0.45) / 2, s.width * p.size, s.height * p.size * 0.45);
+        break;
+      }
+      case "shimmer": {
+        // A warm mote of light drifting up, fading in low and out high.
+        const s = p.sprite!;
+        const rise = Math.max(0, Math.min(1, (height - p.y) / (height * 0.85)));
+        ctx.globalAlpha = p.alpha * Math.sin(rise * Math.PI) * (0.75 + Math.sin(t / 600 + p.phase) * 0.25);
+        const w = s.width * p.size;
+        ctx.drawImage(s, p.x + Math.sin(t / 1300 + p.phase) * 10 - w / 2, p.y - w / 2, w, w);
+        break;
+      }
+      default:
+        break;
+    }
+  };
+
+  const drawFrame = (t: number, dt: number) => {
+    ctx.clearRect(0, 0, width, height);
+
+    if (has.has("heat")) {
+      // The sun's glare in the top corner, breathing slowly, with a few
+      // flare spots along the diagonal.
+      const pulse = 0.85 + Math.sin(t / 2500) * 0.15;
+      ctx.globalAlpha = 0.7 * pulse;
+      ctx.drawImage(sun, width - sun.width * 0.6, -sun.height * 0.4);
+      const sx = width - 30;
+      const sy = 30;
+      for (const [k, scale, a] of [[0.35, 0.6, 0.5], [0.55, 1.1, 0.35], [0.8, 0.45, 0.45]] as const) {
+        const fx = sx - (sx - width * 0.25) * k;
+        const fy = sy + (height * 0.7 - sy) * k;
+        const fw = flare.width * scale;
+        ctx.globalAlpha = a * pulse;
+        ctx.drawImage(flare, fx - fw / 2, fy - fw / 2, fw, fw);
+      }
+    }
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.x += (p.vx + (p.kind === "flake" || p.kind === "speck" ? Math.sin(t / 1100 + p.phase) * 16 : 0)) * dt;
+      p.y += (p.vy + (p.kind === "leaf" ? Math.sin(t / 420 + p.phase) * 45 : 0)) * dt;
+      p.angle += p.spin * dt;
+      if (p.kind === "mist" && p.x - (p.sprite!.width * p.size) / 2 > width) {
+        particles[i] = spawn("mist", false);
+      } else if (offscreen(p)) {
+        if (p.kind === "drop" && !p.far && splashes.length < 24) splashes.push(spawn("splash", false));
+        particles[i] = spawn(p.kind, false);
+      }
+      draw(particles[i], t);
+    }
+
+    // Splashes: a small ring that widens and fades, low on the screen.
+    ctx.lineWidth = 1;
+    for (let i = splashes.length - 1; i >= 0; i--) {
+      const s = splashes[i];
+      s.age += dt;
+      const k = s.age / 0.35;
+      if (k >= 1) {
+        splashes.splice(i, 1);
+        continue;
+      }
+      ctx.globalAlpha = (1 - k) * 0.55;
+      ctx.strokeStyle = "rgb(205, 225, 245)";
+      ctx.beginPath();
+      ctx.ellipse(s.x, s.y, s.size * (0.4 + k), s.size * 0.3 * (0.4 + k), 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (bolt) {
+      const age = (performance.now() - bolt.at) / 700;
+      if (age >= 1) bolt = null;
+      else {
+        const env = age < 0.08 ? age / 0.08 : 1 - (age - 0.08) / 0.92;
+        ctx.save();
+        ctx.globalAlpha = env;
+        ctx.shadowColor = "rgba(190, 210, 255, 0.9)";
+        ctx.shadowBlur = 16;
+        ctx.strokeStyle = "rgb(235, 242, 255)";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 2.4;
+        drawPath(bolt.points);
+        ctx.lineWidth = 1.2;
+        bolt.branches.forEach(drawPath);
+        ctx.restore();
+      }
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  return {
+    resize,
+    draw: drawFrame,
+    dispose: () => window.removeEventListener(LIGHTNING_EVENT, onLightning),
+    /** What falls in front of a visitor (RFC-020 §2.1): the near flakes, or the near drops along the rain's slant. */
+    front: has.has("snow") ? { kind: "flake" as const, sprites: flakes.filter((f) => f.width > 26), slant: 0 } : has.has("rain") || heavy ? { kind: "drop" as const, sprites: [nearDrop], slant } : null,
+  };
+}
+
+/** A pass every two minutes (§2.1, decision 2); a preview shows one at once and then every 20 seconds. */
+const PASS_EVERY_MS = 120_000;
+const PREVIEW_EVERY_MS = 20_000;
+/** The first pass after a screen opens: soon enough to be seen, not on the frame the page loads. */
+const FIRST_PASS_MS = 15_000;
+
+interface FrontFlake {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  sprite: HTMLCanvasElement;
+  angle: number;
+  spin: number;
+}
+
+const grow = (b: Box, by: number): Box => ({ x: b.x - by, y: b.y - by, w: b.w + by * 2, h: b.h + by * 2 });
+const join = (a: Box | null, b: Box | null): Box | null => {
+  if (!a) return b;
+  if (!b) return a;
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return { x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y };
+};
+
+/**
+ * The scene (RFC-020 §5): one loop, one clock and one wind for the weather
+ * and a festival's visitor, instead of two loops side by side that would
+ * each wake a Pi thirty times a second and never agree on the wind.
+ *
+ * - The weather's layer is the canvas behind the widgets (z-[5]), drawn as
+ *   before (weatherLayer).
+ * - The visitor's layer is a second canvas above the widgets (z-[15], below
+ *   the frost, the heat and the storm's glow, which sit over everything),
+ *   with pointer-events: none. It has pixels only during a pass (its
+ *   backing store is 0x0 between passes), and each frame clears and redraws
+ *   only the box the visitor and its flakes covered, not the screen (§7.1).
+ * - A pass is scheduled every two minutes. With no weather showing, the
+ *   loop runs only during a pass and is stopped in between: no frames, no
+ *   work.
+ * - The visitor's bitmaps are made in idle time (requestIdleCallback), not
+ *   on the frame that starts the festival.
+ * - The weather's gust pushes the visitor too, a few of its flakes or drops
+ *   fall in front of it, it fades in and out of fog and darkens in a storm
+ *   until the lightning lights it.
+ */
+function EffectsCanvas({
+  effects,
+  intensity,
+  gust,
+  visitor = null,
+  preview = false,
+  light = { fog: false, storm: false },
+  tapRef,
+  placement = "home",
+}: {
+  effects: Moving[];
+  intensity: EffectIntensity;
+  gust: number;
+  visitor?: VisitorKind | null;
+  preview?: boolean;
+  light?: { fog: boolean; storm: boolean };
+  tapRef?: RefObject<HTMLButtonElement | null>;
+  placement?: Placement;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const frontRef = useRef<HTMLCanvasElement>(null);
+  const queryClient = useQueryClient();
+  const familyId = useFamilyStore((s) => s.family?.id);
   const key = effects.join(",");
+  const { fog, storm } = light;
 
   useEffect(() => {
     const canvas = ref.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    const has = new Set(effects);
-    const share = intensity === "normal" ? 1 : 0.6;
+    const ctx = canvas?.getContext("2d") ?? null;
+    const front = frontRef.current;
+    const fctx = front?.getContext("2d") ?? null;
+    const button = tapRef?.current ?? null;
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    let width = 0;
-    let height = 0;
+    const weather = canvas && ctx && effects.length > 0 ? weatherLayer(canvas, ctx, effects, intensity, gust, dpr) : null;
+    const flies = Boolean(visitor && front && fctx);
+    if (!weather && !flies) return;
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
     const resize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      weather?.resize();
     };
-    resize();
 
+    // ---- the visitor: its bitmaps, its passes, and a few flakes in front of it
+    let sprites: VisitorSprites | null = null;
+    let pass: Pass | null = null;
+    let passStart = 0;
+    let passes = 0;
+    let dirty: Box | null = null;
+    let flash = 0;
+    let disposed = false;
+    const frontFlakes: FrontFlake[] = [];
     const rand = (a: number, b: number) => a + Math.random() * (b - a);
-    const pick = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)];
-    const wind = gust; // 0 when calm, 1..2 when windy
-    const heavy = has.has("storm");
 
-    // Sprites, drawn once.
-    const flakes = [0, 1, 2].flatMap((d) => [flakeSprite(6, d), flakeSprite(9, d), flakeSprite(13, d)]);
-    const speck = glowSprite(4, "255, 255, 255", 0.9);
-    const nearDrop = dropSprite(34, 1.8, 0.75);
-    const farDrop = dropSprite(18, 1.1, 0.45);
-    const leaves = ["rgb(214, 132, 40)", "rgb(176, 72, 38)", "rgb(196, 160, 52)", "rgb(140, 120, 50)"].map((c) => leafSprite(12, c));
-    const mist = glowSprite(160, "215, 220, 228", 0.5);
-    const shimmer = glowSprite(6, "255, 205, 130", 0.9);
-    const sun = glowSprite(300, "255, 200, 120", 0.6);
-    const flare = glowSprite(40, "255, 220, 160", 0.35);
-    // Rain falls along the wind; one angle for every drop.
-    const slant = Math.atan2(wind * 220, 760);
+    const prepare = () => {
+      if (!visitor) return Promise.resolve();
+      return prepareVisitorSprites(visitor, visitorScale(visitor, width, height), dpr)
+        .then((s) => {
+          if (disposed) return;
+          sprites = s;
+          if (front) front.dataset.rasteriseMs = String(Math.round(s.ms));
+        })
+        .catch(() => undefined);
+    };
+    const idle =
+      typeof window.requestIdleCallback === "function"
+        ? window.requestIdleCallback(() => void prepare(), { timeout: 2_000 })
+        : window.setTimeout(() => void prepare(), 200);
 
-    const spawn = (kind: Kind, anywhere: boolean): Particle => {
-      const base = { phase: rand(0, Math.PI * 2), spin: 0, angle: 0, age: 0 };
-      switch (kind) {
-        case "flake": {
-          const s = pick(flakes);
-          const near = s.width > 26;
-          return { ...base, kind, sprite: s, x: rand(-40, width + 40), y: anywhere ? rand(-20, height) : rand(-60, -20), vx: wind * rand(50, 110), vy: near ? rand(45, 70) : rand(28, 45), size: s.width, alpha: near ? rand(0.85, 1) : rand(0.6, 0.85), spin: rand(-0.6, 0.6), angle: rand(0, Math.PI) };
-        }
-        case "speck":
-          return { ...base, kind, sprite: speck, x: rand(-20, width + 20), y: anywhere ? rand(0, height) : -10, vx: wind * rand(25, 50), vy: rand(14, 24), size: rand(4, 7), alpha: rand(0.25, 0.5) };
-        case "drop": {
-          const far = Math.random() < 0.55;
-          const speed = far ? rand(620, 760) : rand(820, 1000);
-          return { ...base, kind, far, sprite: far ? farDrop : nearDrop, x: rand(-150, width + 50), y: anywhere ? rand(-30, height) : rand(-80, -30), vx: Math.sin(slant) * speed, vy: Math.cos(slant) * speed, size: 0, alpha: far ? rand(0.5, 0.8) : rand(0.75, 1) };
-        }
-        case "gust":
-          return { ...base, kind, x: anywhere ? rand(-200, width) : rand(-700, -300), y: rand(height * 0.05, height * 0.95), vx: rand(380, 620) * Math.max(1, wind), vy: rand(-8, 8), size: rand(260, 520), alpha: rand(0.28, 0.45) };
-        case "leaf":
-          return { ...base, kind, sprite: pick(leaves), x: anywhere ? rand(0, width) : rand(-120, -40), y: rand(0, height * 0.85), vx: rand(160, 300) * Math.max(1, wind), vy: rand(-10, 30), size: rand(0.7, 1.2), alpha: rand(0.75, 0.95), spin: rand(1.5, 4) * (Math.random() < 0.5 ? -1 : 1) };
-        case "mist":
-          return { ...base, kind, sprite: mist, x: anywhere ? rand(-300, width) : -rand(300, 500), y: rand(height * 0.15, height * 1.05), vx: rand(6, 16) * (1 + wind), vy: 0, size: rand(2.2, 4.2), alpha: rand(0.35, 0.7) };
-        case "shimmer":
-          return { ...base, kind, sprite: shimmer, x: rand(0, width), y: anywhere ? rand(height * 0.3, height + 20) : height + rand(10, 40), vx: rand(-6, 6), vy: -rand(14, 30), size: rand(0.6, 1.4), alpha: rand(0.35, 0.7) };
-        case "splash":
-          return { ...base, kind, x: rand(0, width), y: rand(height * 0.8, height - 6), vx: 0, vy: 0, size: rand(5, 10), alpha: 0.5 };
+    const endPass = () => {
+      pass = null;
+      dirty = null;
+      frontFlakes.length = 0;
+      if (button) button.hidden = true;
+      if (front) {
+        // No pixels between passes.
+        front.width = 0;
+        front.height = 0;
+        front.dataset.state = "waiting";
       }
     };
 
-    const particles: Particle[] = [];
-    const add = (kind: Kind, n: number) => {
-      for (let i = 0; i < Math.round(n * share); i++) particles.push(spawn(kind, true));
+    /** What covers the bottom edge: Home's navigation bar (--nav-spacing); nothing on the screensaver. */
+    const bottomInset = () => {
+      if (placement !== "home") return 24;
+      const probe = document.createElement("div");
+      probe.style.cssText = "position:fixed;visibility:hidden;height:var(--nav-spacing, 0px)";
+      document.body.appendChild(probe);
+      const h = probe.offsetHeight;
+      probe.remove();
+      return h + 8;
     };
-    if (has.has("snow")) {
-      add("flake", 55);
-      add("speck", 45);
-    }
-    if (has.has("rain") || heavy) add("drop", heavy ? 190 : 130);
-    if (has.has("wind")) {
-      add("gust", 16);
-      add("leaf", 14);
-    }
-    if (has.has("fog")) add("mist", 14);
-    if (has.has("heat")) add("shimmer", 40);
-    const splashes: Particle[] = [];
 
-    // Lightning: a bolt that fades over about 0.7 s, when the glow asks for one.
-    let bolt: { points: Array<[number, number]>; branches: Array<Array<[number, number]>>; at: number } | null = null;
-    const strike = () => {
-      const points: Array<[number, number]> = [];
-      let x = rand(width * 0.2, width * 0.8);
-      let y = 0;
-      const end = rand(height * 0.35, height * 0.6);
-      points.push([x, y]);
-      while (y < end) {
-        x += rand(-28, 28);
-        y += rand(18, 40);
-        points.push([x, y]);
+    let passTimer = 0;
+    const beginPass = () => {
+      passTimer = window.setTimeout(beginPass, preview ? PREVIEW_EVERY_MS : PASS_EVERY_MS);
+      // Not while the page is hidden, nor on Home under the screensaver, which flies its own.
+      if (!flies || !front || !fctx || pass || document.hidden) return;
+      if (placement === "home" && document.documentElement.hasAttribute("data-screensaver")) return;
+      const scale = visitorScale(visitor!, width, height);
+      if (!sprites || Math.abs(sprites.scale - scale) / scale > 0.15) {
+        // Not drawn yet, or drawn for a screen of another size: draw them, and fly as soon as they are.
+        window.clearTimeout(passTimer);
+        passTimer = window.setTimeout(beginPass, 400);
+        void prepare();
+        return;
       }
-      const branches: Array<Array<[number, number]>> = [];
-      for (let b = 0; b < 2; b++) {
-        const from = points[Math.floor(rand(2, points.length - 2))];
-        if (!from) continue;
-        const branch: Array<[number, number]> = [from];
-        let [bx, by] = from;
-        const dir = Math.random() < 0.5 ? -1 : 1;
-        for (let i = 0; i < 4; i++) {
-          bx += dir * rand(10, 30);
-          by += rand(14, 30);
-          branch.push([bx, by]);
-        }
-        branches.push(branch);
+      front.width = Math.round(width * dpr);
+      front.height = Math.round(height * dpr);
+      fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      front.dataset.state = "flying";
+      front.dataset.passes = String(++passes);
+      pass = createPass(sprites, width, height, passes, bottomInset());
+      passStart = performance.now();
+      start();
+    };
+    if (flies) passTimer = window.setTimeout(beginPass, preview ? 600 : FIRST_PASS_MS);
+
+    const onTap = (e: MouseEvent) => {
+      e.stopPropagation();
+      if (!pass?.target) return;
+      pass.tap();
+      if (button) button.hidden = true;
+      // The creatures on this screen cheer (#367's live reaction).
+      if (familyId) cheerCreatures(queryClient, familyId);
+    };
+    button?.addEventListener("click", onTap);
+
+    const onLightning = () => {
+      flash = performance.now();
+    };
+    if (flies && storm) window.addEventListener(LIGHTNING_EVENT, onLightning);
+
+    /** A few flakes or drops of the weather in front of the visitor, so it flies through the weather. */
+    const drawFront = (fc: CanvasRenderingContext2D, box: Box, dt: number): Box | null => {
+      const kind = weather?.front;
+      if (!kind || kind.sprites.length === 0) return null;
+      const area = grow(box, 40);
+      while (frontFlakes.length < 14) {
+        frontFlakes.push({
+          x: rand(area.x, area.x + area.w),
+          y: rand(area.y, area.y + area.h),
+          vx: kind.kind === "drop" ? Math.sin(kind.slant) * 900 : gust * rand(50, 110),
+          vy: kind.kind === "drop" ? Math.cos(kind.slant) * 900 : rand(50, 75),
+          sprite: kind.sprites[Math.floor(Math.random() * kind.sprites.length)],
+          angle: rand(0, Math.PI),
+          spin: rand(-0.6, 0.6),
+        });
       }
-      bolt = { points, branches, at: performance.now() };
+      for (const f of frontFlakes) {
+        f.x += f.vx * dt;
+        f.y += f.vy * dt;
+        f.angle += f.spin * dt;
+        if (f.x < area.x || f.x > area.x + area.w || f.y < area.y || f.y > area.y + area.h) {
+          f.x = rand(area.x, area.x + area.w);
+          f.y = area.y + rand(0, area.h * 0.3);
+        }
+        fc.save();
+        fc.translate(f.x, f.y);
+        fc.rotate(kind.kind === "drop" ? -kind.slant : f.angle);
+        fc.globalAlpha = 0.9;
+        if (kind.kind === "drop") fc.drawImage(f.sprite, -f.sprite.width / 2, -f.sprite.height);
+        else fc.drawImage(f.sprite, -f.sprite.width / 2, -f.sprite.height / 2);
+        fc.restore();
+      }
+      return grow(area, 40);
     };
-    const onLightning = () => heavy && strike();
-    window.addEventListener(LIGHTNING_EVENT, onLightning);
 
-    const drawPath = (pts: Array<[number, number]>) => {
-      ctx.beginPath();
-      pts.forEach(([px, py], i) => (i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)));
-      ctx.stroke();
-    };
-
-    const offscreen = (p: Particle) =>
-      p.y > height + 60 || p.x > width + 480 || p.x < -800 || (p.kind === "shimmer" && p.y < height * 0.15);
-
-    const draw = (p: Particle, t: number) => {
-      switch (p.kind) {
-        case "flake":
-          ctx.save();
-          ctx.globalAlpha = p.alpha;
-          ctx.translate(p.x, p.y);
-          ctx.rotate(p.angle);
-          ctx.drawImage(p.sprite!, -p.size / 2, -p.size / 2);
-          ctx.restore();
-          break;
-        case "speck":
-          ctx.globalAlpha = p.alpha;
-          ctx.drawImage(p.sprite!, p.x - p.size, p.y - p.size, p.size * 2, p.size * 2);
-          break;
-        case "drop":
-          ctx.save();
-          ctx.globalAlpha = p.alpha;
-          ctx.translate(p.x, p.y);
-          ctx.rotate(-slant);
-          ctx.drawImage(p.sprite!, -p.sprite!.width / 2, -p.sprite!.height);
-          ctx.restore();
-          break;
-        case "gust": {
-          const g = ctx.createLinearGradient(p.x - p.size, 0, p.x, 0);
-          g.addColorStop(0, "rgba(225, 232, 240, 0)");
-          g.addColorStop(0.6, `rgba(225, 232, 240, ${p.alpha})`);
-          g.addColorStop(1, "rgba(225, 232, 240, 0)");
-          ctx.globalAlpha = 1;
-          ctx.strokeStyle = g;
-          ctx.lineWidth = 2;
-          ctx.lineCap = "round";
-          const bend = Math.sin(t / 900 + p.phase) * 10;
-          ctx.beginPath();
-          ctx.moveTo(p.x - p.size, p.y + bend);
-          ctx.quadraticCurveTo(p.x - p.size * 0.5, p.y - bend, p.x, p.y + bend * 0.4);
-          ctx.stroke();
-          break;
+    const drawVisitor = (t: number, dt: number) => {
+      if (!pass || !fctx) return;
+      if (dirty) fctx.clearRect(dirty.x - 2, dirty.y - 2, dirty.w + 4, dirty.h + 4);
+      const ms = t - passStart;
+      // One wind: the weather's gust, breathing a little.
+      const wind = gust * (0.8 + 0.2 * Math.sin(t / 2300));
+      const lit = flash ? Math.max(0, 1 - (performance.now() - flash) / 900) : 0;
+      const box = pass.draw(fctx, ms, dt, wind, { fog, storm, flash: lit });
+      dirty = join(box, box ? drawFront(fctx, box, dt) : null);
+      const target = pass.target;
+      if (button) {
+        if (target) {
+          button.style.transform = `translate(${Math.round(target.x)}px, ${Math.round(target.y)}px)`;
+          button.style.width = `${Math.round(target.w)}px`;
+          button.style.height = `${Math.round(target.h)}px`;
+          button.hidden = false;
+        } else {
+          button.hidden = true;
         }
-        case "leaf": {
-          const s = p.sprite!;
-          ctx.save();
-          ctx.globalAlpha = p.alpha;
-          ctx.translate(p.x, p.y);
-          ctx.rotate(p.angle);
-          // Tumbling: the leaf turns over as it flies.
-          ctx.scale(p.size, p.size * Math.cos(t / 260 + p.phase));
-          ctx.drawImage(s, -s.width / 2, -s.height / 2);
-          ctx.restore();
-          break;
-        }
-        case "mist": {
-          const s = p.sprite!;
-          ctx.globalAlpha = p.alpha;
-          ctx.drawImage(s, p.x - (s.width * p.size) / 2, p.y - (s.height * p.size * 0.45) / 2, s.width * p.size, s.height * p.size * 0.45);
-          break;
-        }
-        case "shimmer": {
-          // A warm mote of light drifting up, fading in low and out high.
-          const s = p.sprite!;
-          const rise = Math.max(0, Math.min(1, (height - p.y) / (height * 0.85)));
-          ctx.globalAlpha = p.alpha * Math.sin(rise * Math.PI) * (0.75 + Math.sin(t / 600 + p.phase) * 0.25);
-          const w = s.width * p.size;
-          ctx.drawImage(s, p.x + Math.sin(t / 1300 + p.phase) * 10 - w / 2, p.y - w / 2, w, w);
-          break;
-        }
-        default:
-          break;
+      }
+      if (pass.done || ms > PASS_MS * 3) {
+        fctx.clearRect(0, 0, width, height);
+        endPass();
       }
     };
 
@@ -505,78 +918,13 @@ function EffectsCanvas({ effects, intensity, gust }: { effects: Moving[]; intens
       if (t - last < FRAME_MS) return;
       const dt = Math.min(0.1, (t - last) / 1000);
       last = t;
-      ctx.clearRect(0, 0, width, height);
-
-      if (has.has("heat")) {
-        // The sun's glare in the top corner, breathing slowly, with a few
-        // flare spots along the diagonal.
-        const pulse = 0.85 + Math.sin(t / 2500) * 0.15;
-        ctx.globalAlpha = 0.7 * pulse;
-        ctx.drawImage(sun, width - sun.width * 0.6, -sun.height * 0.4);
-        const sx = width - 30;
-        const sy = 30;
-        for (const [k, scale, a] of [[0.35, 0.6, 0.5], [0.55, 1.1, 0.35], [0.8, 0.45, 0.45]] as const) {
-          const fx = sx - (sx - width * 0.25) * k;
-          const fy = sy + (height * 0.7 - sy) * k;
-          const fw = flare.width * scale;
-          ctx.globalAlpha = a * pulse;
-          ctx.drawImage(flare, fx - fw / 2, fy - fw / 2, fw, fw);
-        }
-      }
-
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        p.x += (p.vx + (p.kind === "flake" || p.kind === "speck" ? Math.sin(t / 1100 + p.phase) * 16 : 0)) * dt;
-        p.y += (p.vy + (p.kind === "leaf" ? Math.sin(t / 420 + p.phase) * 45 : 0)) * dt;
-        p.angle += p.spin * dt;
-        if (p.kind === "mist" && p.x - (p.sprite!.width * p.size) / 2 > width) {
-          particles[i] = spawn("mist", false);
-        } else if (offscreen(p)) {
-          if (p.kind === "drop" && !p.far && splashes.length < 24) splashes.push(spawn("splash", false));
-          particles[i] = spawn(p.kind, false);
-        }
-        draw(particles[i], t);
-      }
-
-      // Splashes: a small ring that widens and fades, low on the screen.
-      ctx.lineWidth = 1;
-      for (let i = splashes.length - 1; i >= 0; i--) {
-        const s = splashes[i];
-        s.age += dt;
-        const k = s.age / 0.35;
-        if (k >= 1) {
-          splashes.splice(i, 1);
-          continue;
-        }
-        ctx.globalAlpha = (1 - k) * 0.55;
-        ctx.strokeStyle = "rgb(205, 225, 245)";
-        ctx.beginPath();
-        ctx.ellipse(s.x, s.y, s.size * (0.4 + k), s.size * 0.3 * (0.4 + k), 0, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-
-      if (bolt) {
-        const age = (performance.now() - bolt.at) / 700;
-        if (age >= 1) bolt = null;
-        else {
-          const env = age < 0.08 ? age / 0.08 : 1 - (age - 0.08) / 0.92;
-          ctx.save();
-          ctx.globalAlpha = env;
-          ctx.shadowColor = "rgba(190, 210, 255, 0.9)";
-          ctx.shadowBlur = 16;
-          ctx.strokeStyle = "rgb(235, 242, 255)";
-          ctx.lineJoin = "round";
-          ctx.lineWidth = 2.4;
-          drawPath(bolt.points);
-          ctx.lineWidth = 1.2;
-          bolt.branches.forEach(drawPath);
-          ctx.restore();
-        }
-      }
-      ctx.globalAlpha = 1;
+      weather?.draw(t, dt);
+      drawVisitor(t, dt);
+      // With no weather to draw, the loop runs only for a pass.
+      if (!weather && !pass) stop();
     };
     const start = () => {
-      if (!frame && !document.hidden) frame = window.requestAnimationFrame(tick);
+      if (!frame && !document.hidden && (weather || pass)) frame = window.requestAnimationFrame(tick);
     };
     const stop = () => {
       window.cancelAnimationFrame(frame);
@@ -587,24 +935,46 @@ function EffectsCanvas({ effects, intensity, gust }: { effects: Moving[]; intens
     window.addEventListener("resize", resize);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      disposed = true;
       stop();
-      window.removeEventListener("resize", resize);
+      window.clearTimeout(passTimer);
+      if (typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idle);
+      else window.clearTimeout(idle);
+      endPass();
+      weather?.dispose();
+      button?.removeEventListener("click", onTap);
       window.removeEventListener(LIGHTNING_EVENT, onLightning);
+      window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVisibility);
     };
     // `key` stands for `effects`, which is a new array on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, intensity, gust]);
+  }, [key, intensity, gust, visitor, preview, fog, storm, familyId, placement]);
 
+  const layer = placement === "home" ? "fixed" : "absolute";
   return (
-    <canvas
-      ref={ref}
-      data-testid="weather-effects-motion"
-      className="pointer-events-none fixed inset-0 z-[5] h-full w-full"
-    />
+    <>
+      {effects.length > 0 && (
+        <canvas
+          ref={ref}
+          data-testid="weather-effects-motion"
+          className="pointer-events-none fixed inset-0 z-[5] h-full w-full"
+        />
+      )}
+      {visitor && (
+        <canvas
+          ref={frontRef}
+          width={0}
+          height={0}
+          data-testid="festival-visitor"
+          data-visitor={visitor}
+          data-state="waiting"
+          className={`pointer-events-none ${layer} inset-0 ${placement === "home" ? "z-[15]" : ""} h-full w-full`}
+        />
+      )}
+    </>
   );
 }
-
 /* ---------------------------------------------------------------- frost */
 
 /**

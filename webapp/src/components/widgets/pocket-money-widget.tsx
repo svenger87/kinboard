@@ -17,6 +17,7 @@ import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { PluginDiscoverCard } from "./plugin-discover-card";
 import { formatCents } from "@/lib/pocket-money/format";
 import type { PocketMoneyAccount } from "@/types/database";
+import { useFestivalLook } from "@/hooks/use-festival";
 
 export function PocketMoneyWidget() {
   const t = useTranslations("dashboard.pluginDiscover");
@@ -98,6 +99,8 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
   const creature = activeCreatureOf(creatures, account.person_id);
   const { totalsFor } = usePointTotals();
   const { ownedFor } = useOwnedItems();
+  // During a festival, its outfit instead of the child's own item (RFC-020 §2.3).
+  const festive = useFestivalLook();
   // Sleepy at night, happy once today's tasks are done; still, either way.
   const mood = useCreatureMood(account.person_id);
   const points = totalsFor(account.person_id);
@@ -133,7 +136,7 @@ function PocketMoneyWidgetTab({ account }: { account: PocketMoneyAccount }) {
           species={creature.species}
           tier={stage.tier}
           style={creature.style}
-          look={readLook(creature.look, ownedFor(account.person_id))}
+          look={festive(readLook(creature.look, ownedFor(account.person_id)))}
           mood={mood}
           size={56}
           animated={false}
