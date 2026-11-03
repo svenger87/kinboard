@@ -168,23 +168,29 @@ test.describe("festivals on Home", () => {
   }
 });
 
-test("this browser has the calendars the dates come from", async ({ page }) => {
+test.describe("the engine", () => {
   // The stack jobs install the browsers; the pure Specs job has none to launch.
+  // Skipped here, at describe level, because a skip inside the test comes
+  // after the page fixture has already tried to start a browser.
   test.skip(!FAMILY_CODE, "runs in the e2e jobs, with Chromium and WebKit");
-  // A missing calendar would silently mean no festival (RFC-020 §3.1): check the engine itself.
-  const parts = await page.evaluate(() => {
-    const at = (cal: string, day: string, month: "numeric" | "long") =>
-      new Intl.DateTimeFormat(`en-US-u-ca-${cal}`, { timeZone: "UTC", month, day: "numeric" })
-        .formatToParts(new Date(`${day}T12:00:00Z`))
-        .filter((p) => p.type === "month" || p.type === "day")
-        .map((p) => p.value)
-        .join("/");
-    return {
-      chinese: at("chinese", "2026-02-17", "numeric"),
-      islamic: at("islamic-umalqura", "2026-03-20", "numeric"),
-      hebrew: at("hebrew", "2026-12-05", "long"),
-      persian: at("persian", "2026-03-21", "numeric"),
-    };
+
+  test("this browser has the calendars the dates come from", async ({ page }) => {
+    // A missing calendar would silently mean no festival (RFC-020 §3.1): check the engine itself.
+    const parts = await page.evaluate(() => {
+      const at = (cal: string, day: string, month: "numeric" | "long") =>
+        new Intl.DateTimeFormat(`en-US-u-ca-${cal}`, { timeZone: "UTC", month, day: "numeric" })
+          .formatToParts(new Date(`${day}T12:00:00Z`))
+          .filter((p) => p.type === "month" || p.type === "day")
+          .map((p) => p.value)
+          .join("/");
+      return {
+        chinese: at("chinese", "2026-02-17", "numeric"),
+        islamic: at("islamic-umalqura", "2026-03-20", "numeric"),
+        hebrew: at("hebrew", "2026-12-05", "long"),
+        persian: at("persian", "2026-03-21", "numeric"),
+      };
+    });
+    expect(parts).toEqual({ chinese: "1/1", islamic: "10/1", hebrew: "25/Kislev", persian: "1/1" });
   });
-  expect(parts).toEqual({ chinese: "1/1", islamic: "10/1", hebrew: "25/Kislev", persian: "1/1" });
 });
+
