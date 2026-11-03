@@ -1004,8 +1004,9 @@ export function Screensaver({ photos }: ScreensaverProps) {
       <div
         className="absolute inset-x-4 bottom-12 flex flex-col-reverse gap-6 safe-area-inset landscape:lg:contents"
       >
-      {/* Clock overlay - bottom left (compact for mobile & portrait) */}
+      {/* Clock overlay - bottom left (compact for mobile & portrait). A festival's fireworks go up over it (RFC-020). */}
       <div
+        data-festival-anchor="screensaver-clock"
         className="landscape:lg:absolute landscape:lg:bottom-12 landscape:lg:left-12 safe-area-inset screensaver-slide-up"
         style={{ animationDelay: "0.5s", ...burnInStyle }}
       >

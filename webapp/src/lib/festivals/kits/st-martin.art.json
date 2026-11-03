@@ -1,0 +1,36 @@
+{
+ "parts": {
+  "lantern-sun": {
+   "w": 120,
+   "h": 190,
+   "pivot": [
+    60,
+    0
+   ]
+  },
+  "lantern-moon": {
+   "w": 120,
+   "h": 190,
+   "pivot": [
+    60,
+    0
+   ]
+  },
+  "lantern-star": {
+   "w": 120,
+   "h": 190,
+   "pivot": [
+    60,
+    0
+   ]
+  }
+ },
+ "rig": {
+  "lantern": {
+   "walk_period": 1.1,
+   "swing": 11.0,
+   "damping_lag": 0.18,
+   "bob": 4.0
+  }
+ }
+}

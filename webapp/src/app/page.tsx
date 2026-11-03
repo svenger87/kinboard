@@ -113,8 +113,8 @@ export default function DashboardPage() {
     weekOverview: <WeekOverviewWidget className="sm:col-span-2" />,
     mealPlan: <MealPlanWidget />,
     wasteCollection: <WasteCollectionWidget maxItems={3} />,
-    // St Nicholas's boot stands by the Tasks card (RFC-020 §3.3, globals.css).
-    tasks: <TasksWidget maxItems={4} className="festival-boot" />,
+    // A festival's dressing can single out the Tasks card: St Nicholas's boot stands on it (RFC-020 §3.3).
+    tasks: <TasksWidget maxItems={4} className="festival-tasks" />,
     shopping: <ShoppingWidget maxItems={4} />,
     notes: <NotesWidget maxItems={3} />,
     vehicles: <VehiclesWidget />,
@@ -174,6 +174,8 @@ export default function DashboardPage() {
         <section
           className={`relative z-[1] flex items-center justify-center hero-block ${homeLayout === "compact" ? "flex-col portrait:md:grid portrait:md:grid-cols-2 portrait:md:gap-6 py-4" : "flex-1 flex-col"}`}
           aria-label={t("ariaClock")}
+          // Where a festival's fireworks go up (RFC-020 §3.3): over the clock in here.
+          data-festival-anchor="clock"
         >
           <div className={homeLayout === "compact" ? "min-w-0 text-center" : "contents"}>
             <Clock size={homeLayout === "compact" ? "lg" : "xl"} showDate showSeconds={showSeconds} showGreeting />

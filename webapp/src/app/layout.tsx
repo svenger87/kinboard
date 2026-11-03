@@ -9,6 +9,7 @@ import { display, sans, mono } from "./fonts";
 import { publicApiEnv } from "@/lib/supabase/api-base";
 import { MOTION_INIT_SCRIPT } from "@/lib/motion";
 import { FESTIVAL_INIT_SCRIPT } from "@/lib/festival-settings";
+import { FESTIVAL_CSS } from "@/lib/festivals/kits";
 
 export const metadata: Metadata = {
   title: "Kinboard",
@@ -74,6 +75,8 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: MOTION_INIT_SCRIPT }} />
         {/* …and the festival it last showed, so the wash and the dressing are there from the first frame (RFC-020). */}
         <script dangerouslySetInnerHTML={{ __html: FESTIVAL_INIT_SCRIPT }} />
+        {/* Every festival's wash and dressing, keyed off <html data-festival> (lib/festivals/kits/). */}
+        <style id="festival-css" dangerouslySetInnerHTML={{ __html: FESTIVAL_CSS }} />
         <script
            
           dangerouslySetInnerHTML={{

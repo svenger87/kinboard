@@ -9,45 +9,51 @@ import { useHolidayRegion } from "@/hooks/use-holiday-region";
 import { useFamilyTimeZone, useMinuteClock } from "@/hooks/use-creature-mood";
 import { useMotion } from "@/hooks/use-motion";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { MINUTE_MS } from "@/lib/minute-clock";
 import { parseClockTime, type FestivalId } from "@/lib/festivals";
-import { type FestivalStage,
+import type { FestivalKit } from "@/lib/festivals/kit";
+import type { VisitorSpec } from "@/lib/festivals/visitors/types";
+import {
   DEFAULT_FESTIVAL_SETTINGS,
-  FESTIVAL_KITS,
   FESTIVAL_PREVIEW_MS,
   FESTIVAL_STORAGE_KEY,
   currentFestival,
+  festivalKit,
   festivalStage,
   normalizeFestivalSettings,
   parseFestivalPreview,
+  parseFestivalPreviewStage,
   withFestivalOutfit,
-  type FestivalKit,
+  type FestivalStage,
   type FestiveLookFields,
 } from "@/lib/festival-settings";
-import { releaseVisitorSprites } from "@/components/festival-visitors";
+import { releaseVisitorSprites } from "@/lib/festivals/visitors";
 
 /**
  * The festival on this screen (RFC-020): the family's, from its setting, its
  * holiday region and its clock, or a preview. One provider works it out
  * (useFestivalSync, in ThemeSettingsProvider) and puts it on
  * `<html data-festival data-festival-stage>`, which the colour wash and the
- * dressing in globals.css key off; the scene and the creatures read it with
- * useFestival().
+ * dressing in each kit's stylesheet key off; the scene and the creatures read
+ * it with useFestival().
  */
 
 export interface ShownFestival {
   id: FestivalId;
   stage: FestivalStage | null;
   kit: FestivalKit;
+  /** What flies now: the kit's visitor, or null before its time (St Martin's dusk, New Year's midnight). */
+  visitor: VisitorSpec | null;
+  /** When the visitor's first pass is due (epoch ms): the family's midnight, for fireworks; null for the usual rhythm. */
+  visitorAt: number | null;
   /** A preview (§4): shown whatever the date. */
   preview: boolean;
 }
 
 interface FestivalState {
   /** The family's festival now, from the clock; undefined until the setting has loaded. */
-  active: { id: FestivalId; stage: FestivalStage | null } | null | undefined;
-  /** A preview, until a time. */
-  preview: { id: FestivalId; until: number } | null;
+  active: { id: FestivalId; stage: FestivalStage | null; visitorReady: boolean; visitorAt: number | null } | null | undefined;
+  /** A preview, until a time, at a stage of the festival. */
+  preview: { id: FestivalId; until: number; stage: FestivalStage | null } | null;
 }
 
 const useFestivalStore = create<FestivalState>(() => ({ active: undefined, preview: null }));
@@ -55,11 +61,16 @@ const useFestivalStore = create<FestivalState>(() => ({ active: undefined, previ
 /** Kept for the length of a preview, as the weather's: taking the parameter out of the address redraws the page. */
 const PREVIEW_STORE = "kinboard.festivalPreview";
 
-/** Show `id` on this screen for FESTIVAL_PREVIEW_MS, whatever the date (Settings' Preview, `?festival-preview=`). */
-export function startFestivalPreview(id: FestivalId, until = Date.now() + FESTIVAL_PREVIEW_MS) {
-  useFestivalStore.setState({ preview: { id, until } });
+/**
+ * Show `id` on this screen for FESTIVAL_PREVIEW_MS, whatever the date
+ * (Settings' Preview, the gallery, `?festival-preview=`), at `stage` if the
+ * kit has it, else the kit's preview stage.
+ */
+export function startFestivalPreview(id: FestivalId, until = Date.now() + FESTIVAL_PREVIEW_MS, stage?: string | null) {
+  const preview = { id, until, stage: parseFestivalPreviewStage(id, stage) };
+  useFestivalStore.setState({ preview });
   try {
-    window.sessionStorage.setItem(PREVIEW_STORE, JSON.stringify({ id, until }));
+    window.sessionStorage.setItem(PREVIEW_STORE, JSON.stringify(preview));
   } catch {
     // No storage (a private window): the preview lasts as long as this page.
   }
@@ -80,15 +91,13 @@ export function useFestival(): ShownFestival | null {
   const preview = useFestivalStore((s) => s.preview);
   return useMemo(() => {
     if (preview) {
-      const kit = FESTIVAL_KITS[preview.id];
-      // A preview of St Nicholas shows the morning's filled boot.
-      return kit ? { id: preview.id, stage: preview.id === "st-nicholas" ? "day" : null, kit, preview: true } : null;
+      const kit = festivalKit(preview.id);
+      return kit ? { id: preview.id, stage: preview.stage, kit, visitor: kit.visitor, visitorAt: null, preview: true } : null;
     }
-    const kit = active ? FESTIVAL_KITS[active.id] : undefined;
+    const kit = festivalKit(active?.id);
     if (!active || !kit) return null;
-    // St Martin before dusk: the wash and the dressing, but the walk waits.
-    if (active.id === "st-martin" && active.stage !== "dusk") return { ...active, kit: { ...kit, visitor: null }, preview: false };
-    return { ...active, kit, preview: false };
+    // Before its time (St Martin before dusk): the wash and the dressing, but the visitor waits.
+    return { id: active.id, stage: active.stage, kit, visitor: active.visitorReady ? kit.visitor : null, visitorAt: active.visitorAt, preview: false };
   }, [active, preview]);
 }
 
@@ -132,12 +141,22 @@ export function useFestivalSync() {
   // The family's festival, this minute.
   useEffect(() => {
     if (minute === 0 || !isSuccess || regionLoading) return;
-    const now = new Date(minute * MINUTE_MS);
+    const now = new Date();
     const on = currentFestival(now, settings, region, timeZone, { duskMinutes: cachedSunset(queryClient) });
-    const next = on ? { id: on.id, stage: festivalStage(on) } : null;
+    const next = on
+      ? {
+          id: on.id,
+          stage: festivalStage(on, region),
+          visitorReady: on.visitorReady,
+          // Fireworks at the family's midnight: the moment, to the second, not the next minute's tick.
+          visitorAt: on.visitorIn !== null ? Math.round(now.getTime() + on.visitorIn) : null,
+        }
+      : null;
     const prev = useFestivalStore.getState().active;
     // Undefined (not worked out yet) becomes null too: that is what lets the attribute go.
-    if (prev === undefined || prev?.id !== next?.id || prev?.stage !== next?.stage) useFestivalStore.setState({ active: next });
+    if (prev === undefined || prev?.id !== next?.id || prev?.stage !== next?.stage || prev?.visitorReady !== next?.visitorReady || prev?.visitorAt !== next?.visitorAt) {
+      useFestivalStore.setState({ active: next });
+    }
     // Remembered for the next page load, so the wash and the dressing are
     // there from the first paint (FESTIVAL_INIT_SCRIPT), not a second later.
     try {
@@ -153,8 +172,9 @@ export function useFestivalSync() {
     const url = new URL(window.location.href);
     const asked = pathname === "/" ? parseFestivalPreview(url.searchParams.get("festival-preview")) : null;
     if (asked) {
-      startFestivalPreview(asked);
+      startFestivalPreview(asked, undefined, url.searchParams.get("festival-stage"));
       url.searchParams.delete("festival-preview");
+      url.searchParams.delete("festival-stage");
       window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
       return;
     }
@@ -162,7 +182,9 @@ export function useFestivalSync() {
     try {
       const saved = JSON.parse(window.sessionStorage.getItem(PREVIEW_STORE) ?? "null");
       const id = parseFestivalPreview(saved?.id);
-      if (id && typeof saved.until === "number" && saved.until > Date.now()) useFestivalStore.setState({ preview: { id, until: saved.until } });
+      if (id && typeof saved.until === "number" && saved.until > Date.now()) {
+        useFestivalStore.setState({ preview: { id, until: saved.until, stage: parseFestivalPreviewStage(id, saved.stage) } });
+      }
     } catch {
       // nothing kept
     }
@@ -176,7 +198,7 @@ export function useFestivalSync() {
   }, [preview]);
 
   // `<html data-festival>`: the wash and the dressing (globals.css).
-  const shown = preview ? { id: preview.id, stage: preview.id === "st-nicholas" ? "day" : null } : active;
+  const shown = preview ? { id: preview.id, stage: preview.stage } : active;
   useEffect(() => {
     const html = document.documentElement;
     // Not worked out yet: whatever FESTIVAL_INIT_SCRIPT put there stays.
@@ -192,8 +214,8 @@ export function useFestivalSync() {
   }, [shown?.id, shown?.stage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The visitor's bitmaps are released when its festival ends (RFC-020 §7).
-  const visitor = shown ? FESTIVAL_KITS[shown.id]?.visitor : null;
+  const flying = shown && festivalKit(shown.id)?.visitor ? shown.id : null;
   useEffect(() => {
-    releaseVisitorSprites((kind) => kind === visitor);
-  }, [visitor]);
+    releaseVisitorSprites((festival) => festival === flying);
+  }, [flying]);
 }

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createThrowawayFamily, deleteThrowawayFamily, gotoAfterJoin } from "./throwaway-family";
+import { DRAWN_FESTIVALS, FESTIVAL_KITS } from "../src/lib/festivals/kits";
 
 /**
  * Festivals (RFC-020) end to end on a running stack, in a family of its own:
@@ -25,24 +26,38 @@ async function putSetting(page: Page, familyId: string, key: string, value: unkn
   expect(status).toBe(200);
 }
 
-/** Where the snow on each card ends and where the card's own content begins, px. */
-async function dressingClearance(page: Page) {
+/**
+ * Every piece of dressing on Home's cards (each card's ::before and ::after)
+ * that overlaps the card's own content -- its text, icons and controls --
+ * with how many pieces there were at all. A piece's box comes from its
+ * resolved position: top or bottom, left or right, width and height.
+ */
+async function dressingOverContent(page: Page) {
   return page.evaluate(() => {
-    const out: Array<{ snowBottom: number; contentTop: number; snow: boolean }> = [];
-    for (const card of Array.from(document.querySelectorAll<HTMLElement>(".festival-grid > div"))) {
-      const before = getComputedStyle(card, "::before");
-      const snow = before.content !== "none" && before.backgroundImage !== "none";
+    const hits: string[] = [];
+    let pieces = 0;
+    for (const card of Array.from(document.querySelectorAll<HTMLElement>(".festival-grid > *, .festival-tasks"))) {
       const box = card.getBoundingClientRect();
       if (box.height === 0) continue;
-      // The first thing with text or an icon in it: the title row.
-      const first = Array.from(card.querySelectorAll<HTMLElement>("h1, h2, h3, p, span, button, a, svg, img")).find((el) => {
-        const r = el.getBoundingClientRect();
-        return r.height > 0 && r.width > 0;
-      });
-      if (!first) continue;
-      out.push({ snow, snowBottom: box.top + parseFloat(before.top) + parseFloat(before.height), contentTop: first.getBoundingClientRect().top });
+      const content = Array.from(card.querySelectorAll<HTMLElement>("h1, h2, h3, h4, p, button, a, input, img, svg, li, [role=button]"))
+        .map((el) => el.getBoundingClientRect())
+        .filter((r) => r.width > 0 && r.height > 0);
+      for (const pseudo of ["::before", "::after"]) {
+        const st = getComputedStyle(card, pseudo);
+        if (st.content === "none" || st.backgroundImage === "none" || st.position !== "absolute") continue;
+        pieces++;
+        const w = parseFloat(st.width);
+        const h = parseFloat(st.height);
+        const top = st.top !== "auto" ? parseFloat(st.top) : box.height - parseFloat(st.bottom) - h;
+        const left = st.left !== "auto" ? parseFloat(st.left) : box.width - parseFloat(st.right) - w;
+        const p = { x: box.left + left, y: box.top + top, w, h };
+        for (const r of content) {
+          const overlap = Math.min(p.x + p.w, r.right) - Math.max(p.x, r.left) > 0.5 && Math.min(p.y + p.h, r.bottom) - Math.max(p.y, r.top) > 0.5;
+          if (overlap) hits.push(`${card.className.slice(0, 40)} ${pseudo} ${JSON.stringify(p)} over ${JSON.stringify({ x: r.left, y: r.top, w: r.width, h: r.height })}`);
+        }
+      }
     }
-    return out;
+    return { pieces, hits };
   });
 }
 
@@ -145,22 +160,31 @@ test.describe("festivals on Home", () => {
   });
 
   for (const viewport of [{ width: 320, height: 700 }, { width: 1920, height: 1080 }]) {
-    test(`the dressing never covers a card's content, at ${viewport.width}px`, async ({ page, baseURL }) => {
+    test(`no festival's dressing covers a card's content, at ${viewport.width}px`, async ({ page, baseURL }) => {
       const familyName = `probe-family-festivals-dress-${viewport.width}-${Date.now()}`;
       await page.setViewportSize(viewport);
       await page.context().addCookies([{ name: "NEXT_LOCALE", value: "en", url: baseURL ?? "http://localhost:3000" }]);
       await page.goto("/join", { waitUntil: "domcontentloaded" });
       const familyId = await createThrowawayFamily(page, familyName);
       try {
-        await gotoAfterJoin(page, "/?festival-preview=christmas");
-        await expect(page.locator("html")).toHaveAttribute("data-festival", "christmas", { timeout: 30_000 });
-        await expect(page.locator(".festival-grid > div").first()).toBeVisible({ timeout: 30_000 });
-        await page.waitForTimeout(2_000);
-        const cards = await dressingClearance(page);
-        expect(cards.filter((c) => c.snow).length).toBeGreaterThan(2);
-        for (const c of cards.filter((c) => c.snow)) expect(c.snowBottom, JSON.stringify(c)).toBeLessThanOrEqual(c.contentTop);
-        // Nothing sticks out sideways.
-        expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+        // Reduced: the dressing without a visitor flying over the measurements.
+        await page.evaluate(() => localStorage.setItem("kinboard_motion", "reduced"));
+        // Drafts too: they preview, and the owner reviews them on the household.
+        for (const id of DRAWN_FESTIVALS.filter((f) => FESTIVAL_KITS[f]?.dressing)) {
+          for (const stage of FESTIVAL_KITS[id]?.stages ?? [null]) {
+            await gotoAfterJoin(page, `/?festival-preview=${id}${stage ? `&festival-stage=${stage}` : ""}`);
+            await expect(page.locator("html")).toHaveAttribute("data-festival", id, { timeout: 30_000 });
+            await expect(page.locator(".festival-grid > div").first()).toBeVisible({ timeout: 30_000 });
+            // The cards' content, loaded: the empty states and their buttons are what sit nearest the edges.
+            await expect(page.getByText("Loading today")).toHaveCount(0, { timeout: 30_000 });
+            await page.waitForTimeout(1_500);
+            const { pieces, hits } = await dressingOverContent(page);
+            expect(pieces, `${id} ${stage ?? ""}: some dressing`).toBeGreaterThan(0);
+            expect(hits, `${id} ${stage ?? ""}`).toEqual([]);
+            // Nothing sticks out sideways.
+            expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), id).toBeLessThanOrEqual(0);
+          }
+        }
       } finally {
         await deleteThrowawayFamily(page, familyId, familyName);
       }
@@ -188,9 +212,13 @@ test.describe("the engine", () => {
         islamic: at("islamic-umalqura", "2026-03-20", "numeric"),
         hebrew: at("hebrew", "2026-12-05", "long"),
         persian: at("persian", "2026-03-21", "numeric"),
+        // Purim in a leap year: Adar II, by that name (lib/festivals.ts looks for it).
+        adarII: at("hebrew", "2027-03-23", "long"),
+        // A leap month in the Chinese calendar is never the month itself (Dragon Boat, Mid-Autumn).
+        leap: at("chinese", "2025-08-01", "numeric"),
       };
     });
-    expect(parts).toEqual({ chinese: "1/1", islamic: "10/1", hebrew: "25/Kislev", persian: "1/1" });
+    expect(parts).toEqual({ chinese: "1/1", islamic: "10/1", hebrew: "25/Kislev", persian: "1/1", adarII: "14/Adar II", leap: "6bis/8" });
   });
 });
 

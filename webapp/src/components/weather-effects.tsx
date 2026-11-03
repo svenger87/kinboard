@@ -6,8 +6,9 @@ import { useMotion } from "@/hooks/use-motion";
 import { useFestival } from "@/hooks/use-festival";
 import { useFamilyStore } from "@/stores/family-store";
 import { cheerCreatures } from "@/stores/creature-reactions";
-import type { VisitorKind } from "@/lib/festival-settings";
-import { PASS_MS, createPass, prepareVisitorSprites, visitorScale, type Box, type Pass, type VisitorSprites } from "@/components/festival-visitors";
+import type { FestivalId } from "@/lib/festivals";
+import { festivalKit } from "@/lib/festivals/kits";
+import { PASS_EVERY_MS, PASS_MS, createPass, prepareVisitorSprites, visitorScale, type Box, type Pass, type VisitorSprites } from "@/lib/festivals/visitors";
 import { useSetting } from "@/hooks/use-supabase-queries";
 import { useWeather, useWeatherForecast, useWeatherUnits } from "@/hooks/use-weather";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
@@ -109,7 +110,7 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
 
   // The festival's visitor (RFC-020 §2.1): on Home only, never in the weather settings' own preview.
   const festival = useFestival();
-  const visitor = forced ? null : (festival?.kit.visitor ?? null);
+  const visitor = forced ? null : festival?.visitor ? festival.id : null;
   const tapRef = useRef<HTMLButtonElement>(null);
 
   const effects = forced && forced.length > 0 ? forced : preview.length > 0 ? preview : activeEffects(reading, settings, system);
@@ -145,6 +146,7 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
           intensity={intensity}
           gust={gust}
           visitor={flying}
+          visitorAt={festival?.visitorAt ?? null}
           preview={festival?.preview ?? false}
           light={{ fog: on.has("fog"), storm: on.has("storm") }}
           tapRef={tapRef}
@@ -171,7 +173,7 @@ export function FestivalVisitor({ placement = "home" }: { placement?: Placement 
   const festival = useFestival();
   const motion = useMotion();
   const tapRef = useRef<HTMLButtonElement>(null);
-  const visitor = festival?.kit.visitor ?? null;
+  const visitor = festival?.visitor ? festival.id : null;
   if (!visitor || motion !== "full") return null;
   return (
     <>
@@ -181,6 +183,7 @@ export function FestivalVisitor({ placement = "home" }: { placement?: Placement 
           intensity="subtle"
           gust={0}
           visitor={visitor}
+          visitorAt={festival?.visitorAt ?? null}
           preview={festival?.preview ?? false}
           light={{ fog: false, storm: false }}
           tapRef={tapRef}
@@ -669,8 +672,7 @@ function weatherLayer(
   };
 }
 
-/** A pass every two minutes (§2.1, decision 2); a preview shows one at once and then every 20 seconds. */
-const PASS_EVERY_MS = 120_000;
+/** A pass every two minutes (§2.1, decision 2: PASS_EVERY_MS, or the kit's own); a preview shows one at once and then every 20 seconds. */
 const PREVIEW_EVERY_MS = 20_000;
 /** The first pass after a screen opens: soon enough to be seen, not on the frame the page loads. */
 const FIRST_PASS_MS = 15_000;
@@ -720,6 +722,7 @@ function EffectsCanvas({
   intensity,
   gust,
   visitor = null,
+  visitorAt = null,
   preview = false,
   light = { fog: false, storm: false },
   tapRef,
@@ -728,7 +731,10 @@ function EffectsCanvas({
   effects: Moving[];
   intensity: EffectIntensity;
   gust: number;
-  visitor?: VisitorKind | null;
+  /** The festival whose visitor flies here. */
+  visitor?: FestivalId | null;
+  /** When its first pass is due (epoch ms), instead of the usual rhythm: the family's midnight. */
+  visitorAt?: number | null;
   preview?: boolean;
   light?: { fog: boolean; storm: boolean };
   tapRef?: RefObject<HTMLButtonElement | null>;
@@ -749,7 +755,8 @@ function EffectsCanvas({
     const button = tapRef?.current ?? null;
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const weather = canvas && ctx && effects.length > 0 ? weatherLayer(canvas, ctx, effects, intensity, gust, dpr) : null;
-    const flies = Boolean(visitor && front && fctx);
+    const spec = festivalKit(visitor)?.visitor ?? null;
+    const flies = Boolean(visitor && spec && front && fctx);
     if (!weather && !flies) return;
 
     let width = window.innerWidth;
@@ -772,8 +779,8 @@ function EffectsCanvas({
     const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
     const prepare = () => {
-      if (!visitor) return Promise.resolve();
-      return prepareVisitorSprites(visitor, visitorScale(visitor, width, height), dpr)
+      if (!visitor || !spec) return Promise.resolve();
+      return prepareVisitorSprites(visitor, spec, visitorScale(spec.size, width, height), dpr)
         .then((s) => {
           if (disposed) return;
           sprites = s;
@@ -810,13 +817,21 @@ function EffectsCanvas({
       return h + 8;
     };
 
+    /** The clock on this screen, for fireworks over it. */
+    const clockBox = (): Box | null => {
+      const anchor = document.querySelector(`[data-festival-anchor="${placement === "home" ? "clock" : "screensaver-clock"}"]`);
+      const el = anchor?.querySelector('[role="timer"]') ?? anchor;
+      const r = el?.getBoundingClientRect();
+      return r && r.width > 0 && r.height > 0 ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;
+    };
+
     let passTimer = 0;
     const beginPass = () => {
-      passTimer = window.setTimeout(beginPass, preview ? PREVIEW_EVERY_MS : PASS_EVERY_MS);
+      passTimer = window.setTimeout(beginPass, preview ? PREVIEW_EVERY_MS : (spec?.every ?? PASS_EVERY_MS));
       // Not while the page is hidden, nor on Home under the screensaver, which flies its own.
-      if (!flies || !front || !fctx || pass || document.hidden) return;
+      if (!flies || !spec || !front || !fctx || pass || document.hidden) return;
       if (placement === "home" && document.documentElement.hasAttribute("data-screensaver")) return;
-      const scale = visitorScale(visitor!, width, height);
+      const scale = visitorScale(spec.size, width, height);
       if (!sprites || Math.abs(sprites.scale - scale) / scale > 0.15) {
         // Not drawn yet, or drawn for a screen of another size: draw them, and fly as soon as they are.
         window.clearTimeout(passTimer);
@@ -829,11 +844,13 @@ function EffectsCanvas({
       fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       front.dataset.state = "flying";
       front.dataset.passes = String(++passes);
-      pass = createPass(sprites, width, height, passes, bottomInset());
+      pass = createPass(spec, sprites, { width, height, seed: passes, bottom: bottomInset(), clock: clockBox(), clockNow: clockBox });
       passStart = performance.now();
       start();
     };
-    if (flies) passTimer = window.setTimeout(beginPass, preview ? 600 : FIRST_PASS_MS);
+    // The first pass: at once in a preview, at its moment for a timed show (the family's midnight), else soon.
+    const first = preview ? 600 : visitorAt !== null ? Math.max(0, visitorAt - Date.now()) : FIRST_PASS_MS;
+    if (flies) passTimer = window.setTimeout(beginPass, first);
 
     const onTap = (e: MouseEvent) => {
       e.stopPropagation();
@@ -949,7 +966,7 @@ function EffectsCanvas({
     };
     // `key` stands for `effects`, which is a new array on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, intensity, gust, visitor, preview, fog, storm, familyId, placement]);
+  }, [key, intensity, gust, visitor, visitorAt, preview, fog, storm, familyId, placement]);
 
   const layer = placement === "home" ? "fixed" : "absolute";
   return (
@@ -968,6 +985,7 @@ function EffectsCanvas({
           height={0}
           data-testid="festival-visitor"
           data-visitor={visitor}
+          data-archetype={festivalKit(visitor)?.visitor?.archetype}
           data-state="waiting"
           className={`pointer-events-none ${layer} inset-0 ${placement === "home" ? "z-[15]" : ""} h-full w-full`}
         />
