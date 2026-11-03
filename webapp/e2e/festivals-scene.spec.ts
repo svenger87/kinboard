@@ -4,7 +4,9 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { runInNewContext } from "vm";
 import { FESTIVAL_INIT_SCRIPT, FESTIVAL_STORAGE_KEY } from "../src/lib/festival-settings";
-import { PASS_MS } from "../src/components/festival-visitors";
+import { FESTIVAL_CSS, FESTIVAL_KITS } from "../src/lib/festivals/kits";
+import { FESTIVALS } from "../src/lib/festivals";
+import { PASS_EVERY_MS, PASS_MS } from "../src/lib/festivals/visitors/motion";
 import { codeOnly } from "./source-helpers";
 
 /**
@@ -52,13 +54,15 @@ test("one scene: the weather's clock, frame cap and pause drive the visitor too"
 test("with no festival on, nothing of it is there: no canvas, no timer, no button", () => {
   const code = scene();
   // Home: the weather alone returns exactly what it did; the visitor is only ever added.
-  expect(code).toContain("const visitor = forced ? null : (festival?.kit.visitor ?? null);");
+  expect(code).toContain("const visitor = forced ? null : festival?.visitor ? festival.id : null;");
   expect(code).toContain("if (effects.length === 0 && visitor) return <FestivalVisitor />;");
   expect(code).toContain('if (effects.length === 0 || motion === "off") return null;');
   expect(code).toContain("{flying && <VisitorTap ref={tapRef} placement=\"home\" />}");
   // The scene: the visitor's canvas, its passes and its tap only with a visitor.
-  expect(code).toContain("const flies = Boolean(visitor && front && fctx);");
-  expect(code).toContain("if (flies) passTimer = window.setTimeout(beginPass, preview ? 600 : FIRST_PASS_MS);");
+  expect(code).toContain("const flies = Boolean(visitor && spec && front && fctx);");
+  expect(code).toContain("if (flies) passTimer = window.setTimeout(beginPass, first);");
+  // The first pass: at once in a preview, at its moment for a timed show (New Year's midnight), else soon.
+  expect(code).toContain("const first = preview ? 600 : visitorAt !== null ? Math.max(0, visitorAt - Date.now()) : FIRST_PASS_MS;");
   expect(code).toMatch(/\{visitor && \(\s*<canvas\s*ref=\{frontRef\}/);
   // The weather's canvas is the one it always was.
   expect(code).toMatch(/\{effects\.length > 0 && \(\s*<canvas\s*ref=\{ref\}\s*data-testid="weather-effects-motion"\s*className="pointer-events-none fixed inset-0 z-\[5\] h-full w-full"/);
@@ -70,10 +74,11 @@ test("the Animations switch, exactly as §4 says", () => {
   expect(code).toContain('const flying = motion === "full" ? visitor : null;');
   expect(code).toContain('if (!visitor || motion !== "full") return null;');
   const css = read("src/app/globals.css");
-  const dressing = css.slice(css.indexOf("/* ── Festival dressing"));
-  const rules = dressing.match(/^:root\[data-festival="[^"]+"\][^{]*\{/gm) ?? [];
+  // Every kit's dressing (festival-kits.spec.ts holds each selector to its festival).
+  const rules = FESTIVAL_CSS.split("\n").filter((l) => /^\s*:root\[data-festival="[^"]+"\][^{]*\{?$/.test(l) && !/--festival-(top|bottom)/.test(l));
   expect(rules.length).toBeGreaterThanOrEqual(6);
   for (const rule of rules) expect(rule, rule).toContain(':not([data-motion="off"])');
+  expect(FESTIVAL_CSS).not.toContain("--month-wash");
   // The outfit goes with Off too (the wash only); the wash stays on every setting.
   expect(codeOnly(read("src/hooks/use-festival.ts"))).toContain('const id = motion === "off" ? null : (festival?.id ?? null);');
   const wash = css.slice(css.indexOf("body::before {"), css.indexOf(".page-gradient {"));
@@ -95,15 +100,26 @@ test("over the widgets, under the frost and the heat; only the visitor's own sha
   // A tap: presents and stars, the creatures cheer, and the button is gone for the rest of the pass.
   expect(code).toMatch(/pass\.tap\(\);\s*if \(button\) button\.hidden = true;/);
   expect(code).toContain("if (familyId) cheerCreatures(queryClient, familyId);");
-  const visitors = codeOnly(read("src/components/festival-visitors.ts"));
-  expect(visitors.match(/if \(tappedAt >= 0 \|\| !target\) return;/g)?.length).toBe(2);
-  expect(visitors.match(/return tappedAt >= 0 \? null : target;/g)?.length).toBe(2);
+  // Every archetype's pass takes its tap through the one rule (lib/festivals/visitors/common.ts).
+  const common = codeOnly(read("src/lib/festivals/visitors/common.ts"));
+  expect(common).toContain("if (this.tappedAt >= 0 || !this.target || this.spec === false) return false;");
+  expect(common).toContain("return this.tappedAt >= 0 || this.spec === false ? null : this.target;");
+  for (const file of ["fly", "walk", "particles", "fireworks", "arc"]) {
+    const pass = codeOnly(read(`src/lib/festivals/visitors/${file}.ts`));
+    expect(pass, file).toContain("return tapping.open;");
+    expect(pass, file).toContain("const tapping = new Tapping(sprites, spec.tap);");
+  }
 });
 
 test("every two minutes, about ten seconds a pass, on Home and the screensaver", () => {
   const code = scene();
-  expect(code).toContain("const PASS_EVERY_MS = 120_000;");
+  expect(PASS_EVERY_MS).toBe(120_000);
+  expect(code).toContain("passTimer = window.setTimeout(beginPass, preview ? PREVIEW_EVERY_MS : (spec?.every ?? PASS_EVERY_MS));");
   expect(PASS_MS).toBe(10_000);
+  // A kit that changes the rhythm says why: only a timed show (fireworks) passes more often than every two minutes.
+  for (const kit of Object.values(FESTIVAL_KITS)) {
+    if (kit?.visitor?.every !== undefined && kit.visitor.every < PASS_EVERY_MS) expect(kit.visitor.archetype, kit.id).toBe("fireworks");
+  }
   // Home doesn't fly a second one under the screensaver.
   expect(code).toContain('if (placement === "home" && document.documentElement.hasAttribute("data-screensaver")) return;');
   // The screensaver: above the photo, below the clock and everything after it.
@@ -117,15 +133,18 @@ test("every two minutes, about ten seconds a pass, on Home and the screensaver",
 test("sprites are drawn once, at the screen's pixel ratio capped as the weather's, and let go when the festival ends", () => {
   const code = scene();
   expect(code.match(/const dpr = Math\.min\(window\.devicePixelRatio \|\| 1, 1\.5\);/g)?.length).toBe(2);
-  expect(code).toContain("return prepareVisitorSprites(visitor, visitorScale(visitor, width, height), dpr)");
-  const visitors = codeOnly(read("src/components/festival-visitors.ts"));
-  expect(visitors).toContain("const k = scale * dpr;");
-  expect(visitors).toContain("img.src = `/festivals/${name}.svg`;");
-  expect(visitors).toContain('if ("close" in b) b.close();');
-  expect(codeOnly(read("src/hooks/use-festival.ts"))).toContain("releaseVisitorSprites((kind) => kind === visitor);");
-  // Every part the rig names is a file the browser can fetch.
-  for (const part of Object.keys(JSON.parse(read("src/lib/festival-rig.json")).parts)) {
-    expect(read(`public/festivals/${part}.svg`).startsWith("<svg xmlns=\"http://www.w3.org/2000/svg\""), part).toBe(true);
+  expect(code).toContain("return prepareVisitorSprites(visitor, spec, visitorScale(spec.size, width, height), dpr)");
+  const sprites = codeOnly(read("src/lib/festivals/visitors/sprites.ts"));
+  expect(sprites).toContain("const k = scale * dpr;");
+  expect(sprites).toContain("img.src = `/festivals/${art}/${name}.svg`;");
+  expect(sprites).toContain('if ("close" in b) b.close();');
+  expect(codeOnly(read("src/hooks/use-festival.ts"))).toContain("releaseVisitorSprites((festival) => festival === flying);");
+  // Every part a visitor names is a file the browser can fetch (festival-kits.spec.ts checks each kit's in full).
+  for (const kit of Object.values(FESTIVAL_KITS)) {
+    for (const part of Object.keys(kit?.visitor?.parts ?? {})) {
+      const file = `public/festivals/${kit!.visitor!.art ?? kit!.id}/${part}.svg`;
+      expect(read(file).startsWith("<svg xmlns=\"http://www.w3.org/2000/svg\""), file).toBe(true);
+    }
   }
 });
 
@@ -185,15 +204,17 @@ test("Settings -> Design -> Festivals: the setting, the search, and every string
     return [...keys(theme), ...keys(m.pocketMoney.lookEditor).filter((k) => k.startsWith("festive")), m.settingsSearch.keywords.theme_festivals ? "kw" : ""].sort();
   };
   const en = festivalKeys("en");
-  expect(en).toEqual(expect.arrayContaining(["festivalName.christmas", "festivalName.st-martin", "festivalName.st-nicholas", "festive", "festiveHint", "kw"]));
+  // Every festival's name and dates, drawn or not: the kits never touch the message files.
+  expect(en).toEqual(expect.arrayContaining([...FESTIVALS.flatMap((id) => [`festivalName.${id}`, `festivalWhen.${id}`]), "festive", "festiveHint", "kw"]));
   expect(festivalKeys("de")).toEqual(en);
   expect(festivalKeys("fr")).toEqual(en);
 });
 
 test("the Santa hat is the festival's, worn on the creatures' screens, and never in the editor or the shop", () => {
   const items = codeOnly(read("src/lib/pocket-money/creatures/items.tsx"));
-  expect(items).toContain('export const FESTIVAL_ITEMS: Readonly<Record<string, ShopSlot>> = { santa_hat: "head" };');
-  expect(items).toContain('case "santa_hat":');
+  // The festivals' own items are drawn by their kits, in the slot the kit names.
+  expect(items).toContain('return isItemFor(slot, id) || (typeof id === "string" && festivalItem(id)?.slot === slot) ? id : undefined;');
+  expect(FESTIVAL_KITS.christmas?.outfit.find((i) => i.item === "santa_hat")?.slot).toBe("head");
   expect(read("src/lib/pocket-money/creatures/shop.ts")).not.toContain("santa_hat");
   for (const file of [
     "src/components/widgets/creatures-widget.tsx",

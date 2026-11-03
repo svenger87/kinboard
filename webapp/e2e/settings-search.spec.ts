@@ -242,7 +242,9 @@ const anchorsIn = (src: string) => [...src.matchAll(/data-setting="([^"]+)"/g)].
 const isRedirectOnly = (src: string) =>
   /export default function \w+\(\)\s*\{\s*redirect\(/.test(src);
 /** Per-vehicle routes: the Vehicles page entry covers them. */
-const NO_ENTRY = ["/settings/vehicles/[id]", "/settings/vehicles/new"];
+// The festival gallery (RFC-020) is a review page for the festivals' art, reached
+// by its address, not a setting: it isn't searched for, and its headings are festivals.
+const NO_ENTRY = ["/settings/vehicles/[id]", "/settings/vehicles/new", "/settings/festival-gallery"];
 
 test.describe("guards", () => {
   test("(a) every registry href is a settings page", () => {

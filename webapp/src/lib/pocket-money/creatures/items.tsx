@@ -30,10 +30,14 @@
  * No imports from ./skeleton.tsx other than types: skeleton imports this file.
  */
 
-import type { ReactNode, SVGProps } from "react";
+import type { ReactNode } from "react";
 import type { StyleSpec } from "./styles";
 import type { CreatureLook } from "./look";
 import { isItemFor, type ShopSlot } from "./shop";
+import { GOLD, HEART, line, sheen, star, type EyeSpot } from "./item-draw";
+import { festivalItem } from "@/lib/festivals/kits";
+
+export type { EyeSpot } from "./item-draw";
 
 /** What these drawings need of a drawing context (skeleton.tsx's DrawContext). */
 interface ItemContext {
@@ -42,33 +46,16 @@ interface ItemContext {
   id: string;
 }
 
-const GOLD = "#FFC83D";
-
-type Stroke = Pick<SVGProps<SVGPathElement>, "stroke" | "strokeWidth" | "strokeLinejoin" | "strokeLinecap">;
-
-/** The style's outline, or none: Sticker's ink, as strokeOf() in skeleton.tsx. */
-function line(st: StyleSpec, width = 2.5): Stroke {
-  return st.stroke ? { stroke: st.stroke, strokeWidth: width, strokeLinejoin: "round", strokeLinecap: "round" } : {};
-}
-
-/** Storybook's soft highlight on an item; nothing in the other styles. */
-function sheen(st: StyleSpec, cx: number, cy: number, rx: number, ry: number, rotate = -20): ReactNode {
-  if (!st.glow) return null;
-  return <ellipse data-sheen="" cx={cx} cy={cy} rx={rx} ry={ry} fill="#FFFFFF" opacity="0.45" transform={`rotate(${rotate} ${cx} ${cy})`} />;
-}
-
 /**
- * The festivals' items (RFC-020 §2.3): worn instead of the child's own in
- * that slot while the festival is on (lib/festival-settings.ts puts them in
- * the look the screens draw). Not in the shop: not for sale, no points, and
- * a child can't choose one into their stored look (validateLook refuses it).
+ * The item worn in a slot, when it is a catalogue item, or a festival's
+ * (RFC-020 §2.3: lib/festivals/kits/ draws them, lib/festival-settings.ts
+ * puts them in the look the screens draw), for that slot. A festival's item
+ * is not in the shop: not for sale, no points, and a child can't choose one
+ * into their stored look (validateLook refuses it).
  */
-export const FESTIVAL_ITEMS: Readonly<Record<string, ShopSlot>> = { santa_hat: "head" };
-
-/** The item worn in a slot, when it is a catalogue item, or a festival's, for that slot. */
 export function wearing(ctx: { look: CreatureLook }, slot: ShopSlot): string | undefined {
   const id = ctx.look[slot];
-  return isItemFor(slot, id) || (typeof id === "string" && FESTIVAL_ITEMS[id] === slot) ? id : undefined;
+  return isItemFor(slot, id) || (typeof id === "string" && festivalItem(id)?.slot === slot) ? id : undefined;
 }
 
 /** Around a head of radius r at (cx, cy): the item's own space, a head of radius 34 at the origin. */
@@ -80,24 +67,14 @@ function onHead(id: string, slot: ShopSlot, cx: number, cy: number, r: number, b
   );
 }
 
-function star(x: number, y: number, s: number): string {
-  const pts: string[] = [];
-  for (let i = 0; i < 10; i++) {
-    const a = -Math.PI / 2 + (i * Math.PI) / 5;
-    const rr = i % 2 === 0 ? s : s * 0.45;
-    pts.push(`${(x + Math.cos(a) * rr).toFixed(2)} ${(y + Math.sin(a) * rr).toFixed(2)}`);
-  }
-  return `M ${pts.join(" L ")} Z`;
-}
-
-const HEART = "M0 8 C -10 0 -12 -8 -6 -11 C -2 -13 0 -9 0 -7 C 0 -9 2 -13 6 -11 C 12 -8 10 0 0 8 Z";
-
 // ---------------------------------------------------------------------------
 // Head
 // ---------------------------------------------------------------------------
 
 function headItem(st: StyleSpec, id: string): ReactNode {
   const s = (w?: number) => line(st, w);
+  const festive = festivalItem(id);
+  if (festive?.slot === "head" && festive.draw) return festive.draw(st);
   switch (id) {
     case "cap":
       return (
@@ -170,21 +147,6 @@ function headItem(st: StyleSpec, id: string): ReactNode {
         </>
       );
     }
-    case "santa_hat":
-      // Christmas (RFC-020): red, flopping to one side, a fur brim and a pompom.
-      return (
-        <>
-          <path d="M -29 -22 C -29 -50 -4 -64 20 -58 C 36 -54 46 -42 50 -28 C 44 -34 36 -40 26 -41 C 30 -34 31 -28 30 -22 Z" fill="#D9333F" {...s(3)} />
-          <path d="M 26 -41 C 36 -40 44 -34 50 -28 C 46 -42 38 -52 26 -56 C 30 -50 30 -45 26 -41 Z" fill="#A8222D" />
-          <path d="M -36 -24 Q -36 -31 -28 -31 L 28 -31 Q 36 -31 36 -24 L 36 -18 Q 36 -12 28 -12 L -28 -12 Q -36 -12 -36 -18 Z" fill="#FBF6EE" {...s(3)} />
-          {[-28, -18, -8, 2, 12, 22, 30].map((x, i) => (
-            <circle key={x} cx={x} cy={i % 2 ? -17 : -25} r="1.6" fill="#E3DACB" />
-          ))}
-          <circle cx="50" cy="-26" r="8" fill="#FBF6EE" {...s(2.5)} />
-          <circle cx="47.5" cy="-28.5" r="2.4" fill="#FFFFFF" />
-          {sheen(st, -14, -44, 9, 4, -35)}
-        </>
-      );
     case "space_helmet":
       return (
         <>
@@ -204,17 +166,9 @@ function headItem(st: StyleSpec, id: string): ReactNode {
 // Face: on the eyes
 // ---------------------------------------------------------------------------
 
-/** Where the species' eyes are, as head() and the dragon pass them to eyes(). */
-export interface EyeSpot {
-  x1: number;
-  x2: number;
-  y: number;
-  /** An eye's radius. */
-  r: number;
-}
-
 function faceItem(st: StyleSpec, id: string, e: EyeSpot, cx: number, r: number): ReactNode {
-  const s = (w?: number) => line(st, w);
+  const festive = festivalItem(id);
+  if (festive?.slot === "face" && festive.draw) return festive.draw(st, e, cx, r);
   // The lens: a bit wider than the eye, as the free sunglasses are.
   const lens = Math.max(e.r * 1.7, r * 0.27);
   const temples = (frame: string) => (
@@ -299,6 +253,8 @@ const CAPE = "#D9434F";
 
 function neckItem(st: StyleSpec, id: string): ReactNode {
   const s = (w?: number) => line(st, w);
+  const festive = festivalItem(id);
+  if (festive?.slot === "neck" && festive.draw) return festive.draw(st);
   switch (id) {
     case "scarf":
       return (
@@ -401,6 +357,8 @@ export function wornOnHead(ctx: ItemContext, cx: number, cy: number, r: number, 
 export const BACKDROP = { x: 4, y: 4, size: 192, radius: 34 } as const;
 
 function scene(id: string, uid: string): ReactNode {
+  const festive = festivalItem(id);
+  if (festive?.slot === "background" && festive.draw) return festive.draw(uid);
   const sky = (top: string, bottom: string) => (
     <>
       <defs>
