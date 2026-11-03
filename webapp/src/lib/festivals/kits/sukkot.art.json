@@ -1,0 +1,60 @@
+{
+ "parts": {
+  "leaf-maple-red": {
+   "w": 64,
+   "h": 64,
+   "pivot": [
+    32,
+    32
+   ]
+  },
+  "leaf-maple-orange": {
+   "w": 64,
+   "h": 64,
+   "pivot": [
+    32,
+    32
+   ]
+  },
+  "leaf-maple-gold": {
+   "w": 64,
+   "h": 64,
+   "pivot": [
+    32,
+    32
+   ]
+  },
+  "leaf-oak-brown": {
+   "w": 64,
+   "h": 64,
+   "pivot": [
+    32,
+    32
+   ]
+  },
+  "leaf-oak-orange": {
+   "w": 64,
+   "h": 64,
+   "pivot": [
+    32,
+    32
+   ]
+  },
+  "leaf-elm-gold": {
+   "w": 64,
+   "h": 64,
+   "pivot": [
+    32,
+    32
+   ]
+  },
+  "leaf-elm-green": {
+   "w": 64,
+   "h": 64,
+   "pivot": [
+    32,
+    32
+   ]
+  }
+ }
+}
