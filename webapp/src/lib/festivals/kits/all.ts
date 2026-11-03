@@ -8,3 +8,4 @@ export { default as christmas } from "./christmas";
 export { default as newYearsEve } from "./new-years-eve";
 export { default as stMartin } from "./st-martin";
 export { default as stNicholas } from "./st-nicholas";
+export { default as valentines } from "./valentines";
