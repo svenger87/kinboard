@@ -3,11 +3,17 @@ import offered from "../src/lib/holidays/data/offered.json";
 import { getHolidays, getObservances } from "../src/lib/holidays";
 import {
   DIWALI,
+  DRAGON_BOAT,
+  EID_AL_ADHA,
+  EID_AL_FITR,
   FATHERS_DAY,
   FESTIVALS,
   HOLI,
+  LUNAR_NEW_YEAR,
+  MID_AUTUMN,
   MOTHERS_DAY,
   NATIONAL_DAY,
+  RAMADAN,
   activeFestival,
   commonFestivals,
   familyClock,
@@ -89,7 +95,10 @@ test("fixed days and weekday rules", () => {
 test("the Intl calendars give the checked dates (§3.1, §3.3)", () => {
   // Lunar New Year: month 1 day 1, from its eve to the Lantern Festival.
   expect(first("lunar-new-year", 2026)).toEqual({ start: "2026-02-16", end: "2026-03-03" });
-  expect(first("lunar-new-year", 2027).start).toBe("2027-02-06");
+  // 2027 and 2030: the new moon minutes either side of Beijing's midnight, where ICU's
+  // own Chinese calendar is a day out (7 and 2 February); hence the table.
+  expect(first("lunar-new-year", 2027)).toEqual({ start: "2027-02-05", end: "2027-02-20" });
+  expect(first("lunar-new-year", 2030).start).toBe("2030-02-02");
   // Eid al-Fitr: Shawwal 1; Eid al-Adha: Dhu al-Hijjah 10.
   expect(first("eid-al-fitr", 2026)).toEqual({ start: "2026-03-20", end: "2026-03-22" });
   expect(first("eid-al-fitr", 2027).start).toBe("2027-03-09");
@@ -103,6 +112,23 @@ test("the Intl calendars give the checked dates (§3.1, §3.3)", () => {
   expect(first("passover", 2027).start).toBe("2027-04-22");
   // Nowruz: Farvardin 1, with its eve.
   expect(first("nowruz", 2026)).toEqual({ start: "2026-03-20", end: "2026-03-24" });
+});
+
+test("the Umm al-Qura days ICU gets a day wrong, as published", () => {
+  // Checked on 2026-11-04 against published Umm al-Qura calendars (time.now, hijri-calendar.com, islamicity).
+  expect(first("ramadan", 2031).start).toBe("2031-12-15");
+  expect(first("eid-al-adha", 2035).start).toBe("2035-02-18");
+  expect(festivalDates("eid-al-fitr", 2033).map((w) => w.start)).toEqual(["2033-01-02", "2033-12-23"]);
+});
+
+test("the Chinese and Umm al-Qura tables: always two years ahead of today", () => {
+  // Fails in time, as the Diwali table does: run scripts/festival-reference-dates.py and top them up.
+  const tables = { LUNAR_NEW_YEAR, DRAGON_BOAT, MID_AUTUMN, RAMADAN, EID_AL_FITR, EID_AL_ADHA };
+  for (const [name, table] of Object.entries(tables)) {
+    const last = Math.max(...table.map((d) => Number(d.slice(0, 4))));
+    expect(last, `${name} needs topping up`).toBeGreaterThanOrEqual(new Date().getFullYear() + 2);
+    expect([...table].sort(), name).toEqual(table);
+  }
 });
 
 test("an Islamic festival can fall twice in one Gregorian year", () => {

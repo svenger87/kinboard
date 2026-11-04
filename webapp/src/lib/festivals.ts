@@ -9,11 +9,13 @@
  * the region data has no Lunar New Year, Diwali or Hanukkah, and a family in
  * Hamburg may celebrate Eid. Every rule is computed without a network call:
  * fixed days, Easter's computus (Gregorian and Julian), weekday rules, the
- * `Intl` calendars (chinese, islamic-umalqura, hebrew, persian), and short
- * tables where neither will do: Diwali and Holi, whose Hindu lunisolar
- * calendar `Intl` does not have, and the per-country days (national days,
- * Mother's and Father's Day), each checked against the region data or a
- * published table by e2e/festivals.spec.ts.
+ * `Intl` calendars (hebrew, persian), and tables where those won't do: the
+ * Chinese and Umm al-Qura days, which `Intl` gets a day wrong in some years,
+ * Diwali and Holi, whose Hindu lunisolar calendar `Intl` does not have, and
+ * the per-country days (national days, Mother's and Father's Day), each
+ * checked against the region data or a published table by
+ * e2e/festivals.spec.ts, and every year to 2045 against calendar libraries
+ * that don't use ICU by e2e/festival-reference-dates.spec.ts.
  *
  * A day is the family's day: `activeFestival` takes the family's time zone,
  * so a wall display in Berlin and a phone in New York agree on when Christmas
@@ -483,6 +485,75 @@ export const HOLI: Readonly<Record<number, string>> = {
   2030: "2030-03-20",
 };
 
+/**
+ * The Chinese and the Islamic (Umm al-Qura) calendars' days, as tables: the
+ * browsers' `Intl` calendars get some of them a day wrong. ICU puts Lunar
+ * New Year 2027 on 7 February and 2030 on 2 February, where the new moon
+ * falls minutes either side of Beijing's midnight (published: 6 and 3
+ * February), and its islamic-umalqura drifts a day from the published Umm
+ * al-Qura tables from 2031 (Ramadan 1453 on 16 December, published 15). An
+ * older browser on a wall display may hold older ICU data again. Written by
+ * scripts/festival-reference-dates.py from lunardate (the Hong Kong
+ * Observatory's tables) and hijridate (Umm al-Qura as published), spot-checked
+ * against published calendars on 2026-11-04. Many families keep the Islamic
+ * days by the moon's sighting, a day either side; the windows are wide
+ * enough that the decorations are up either way. A spec fails two years
+ * before a table runs out.
+ */
+/** The first day of the first month. */
+export const LUNAR_NEW_YEAR: readonly string[] = [
+  "2026-02-17", "2027-02-06", "2028-01-26", "2029-02-13", "2030-02-03",
+  "2031-01-23", "2032-02-11", "2033-01-31", "2034-02-19", "2035-02-08",
+  "2036-01-28", "2037-02-15", "2038-02-04", "2039-01-24", "2040-02-12",
+  "2041-02-01", "2042-01-22", "2043-02-10", "2044-01-30", "2045-02-17",
+];
+
+/** The fifth day of the fifth month. */
+export const DRAGON_BOAT: readonly string[] = [
+  "2026-06-19", "2027-06-09", "2028-05-28", "2029-06-16", "2030-06-05",
+  "2031-06-24", "2032-06-12", "2033-06-01", "2034-06-20", "2035-06-10",
+  "2036-05-30", "2037-06-18", "2038-06-07", "2039-05-27", "2040-06-14",
+  "2041-06-03", "2042-06-22", "2043-06-11", "2044-05-31", "2045-06-19",
+];
+
+/** The fifteenth day of the eighth month. */
+export const MID_AUTUMN: readonly string[] = [
+  "2026-09-25", "2027-09-15", "2028-10-03", "2029-09-22", "2030-09-12",
+  "2031-10-01", "2032-09-19", "2033-09-08", "2034-09-27", "2035-09-16",
+  "2036-10-04", "2037-09-24", "2038-09-13", "2039-10-02", "2040-09-20",
+  "2041-09-10", "2042-09-28", "2043-09-17", "2044-10-05", "2045-09-25",
+];
+
+/** Ramadan 1. Some years have two. */
+export const RAMADAN: readonly string[] = [
+  "2026-02-18", "2027-02-08", "2028-01-28", "2029-01-16", "2030-01-05",
+  "2030-12-26", "2031-12-15", "2032-12-04", "2033-11-23", "2034-11-12",
+  "2035-11-01", "2036-10-20", "2037-10-10", "2038-09-30", "2039-09-19",
+  "2040-09-07", "2041-08-28", "2042-08-17", "2043-08-06", "2044-07-26",
+  "2045-07-15",
+];
+
+/** Shawwal 1. Some years have two. */
+export const EID_AL_FITR: readonly string[] = [
+  "2026-03-20", "2027-03-09", "2028-02-26", "2029-02-14", "2030-02-04",
+  "2031-01-24", "2032-01-14", "2033-01-02", "2033-12-23", "2034-12-12",
+  "2035-12-01", "2036-11-19", "2037-11-08", "2038-10-29", "2039-10-19",
+  "2040-10-07", "2041-09-26", "2042-09-15", "2043-09-04", "2044-08-24",
+  "2045-08-14",
+];
+
+/** Dhu al-Hijjah 10. */
+export const EID_AL_ADHA: readonly string[] = [
+  "2026-05-27", "2027-05-16", "2028-05-05", "2029-04-24", "2030-04-13",
+  "2031-04-02", "2032-03-22", "2033-03-11", "2034-03-01", "2035-02-18",
+  "2036-02-07", "2037-01-26", "2038-01-16", "2039-01-05", "2039-12-26",
+  "2040-12-14", "2041-12-04", "2042-11-23", "2043-11-12", "2044-10-31",
+  "2045-10-21",
+];
+
+/** The days of `table` in `year`. */
+const inYear = (table: readonly string[], year: number) => table.filter((d) => d.startsWith(`${year}-`));
+
 /* ---------------------------------------------------------------- windows */
 
 const span = (start: string, days: number): FestivalWindow => ({ start, end: addDays(start, days - 1) });
@@ -540,13 +611,13 @@ export function festivalDates(id: FestivalId, year: number, country?: string | n
     }
     case "lunar-new-year":
       // From the eve to the Lantern Festival, the 15th day.
-      return findIn("chinese", "1", 1, iso(year, 1, 15), iso(year, 2, 25)).map((d) => ({ start: addDays(d, -1), end: addDays(d, 14) }));
+      return inYear(LUNAR_NEW_YEAR, year).map((d) => ({ start: addDays(d, -1), end: addDays(d, 14) }));
     case "eid-al-fitr":
       // Shawwal 1, three days.
-      return findIn("islamic-umalqura", "10", 1, iso(year, 1, 1), iso(year, 12, 31)).map((d) => span(d, 3));
+      return inYear(EID_AL_FITR, year).map((d) => span(d, 3));
     case "eid-al-adha":
       // Dhu al-Hijjah 10, four days.
-      return findIn("islamic-umalqura", "12", 10, iso(year, 1, 1), iso(year, 12, 31)).map((d) => span(d, 4));
+      return inYear(EID_AL_ADHA, year).map((d) => span(d, 4));
     case "hanukkah":
       // Kislev 25, eight nights.
       return findIn("hebrew", "Kislev", 25, iso(year, 11, 20), iso(year, 12, 31)).map((d) => span(d, 8));
@@ -573,8 +644,8 @@ export function festivalDates(id: FestivalId, year: number, country?: string | n
       return [span(orthodoxChristmas(year), 1)];
     case "ramadan":
       // Ramadan 1 to the day before Eid al-Fitr; the dressing only after sunset (§3.3).
-      return findIn("islamic-umalqura", "9", 1, iso(year, 1, 1), iso(year, 12, 31)).map((first) => {
-        const eid = findIn("islamic-umalqura", "10", 1, addDays(first, 28), addDays(first, 31))[0] ?? addDays(first, 30);
+      return inYear(RAMADAN, year).map((first) => {
+        const eid = EID_AL_FITR.find((d) => d > first) ?? addDays(first, 30);
         return { start: first, end: addDays(eid, -1), duskFallback: 18 * 60 };
       });
     case "purim":
@@ -598,7 +669,7 @@ export function festivalDates(id: FestivalId, year: number, country?: string | n
     }
     case "dragon-boat":
       // The fifth day of the fifth month.
-      return findIn("chinese", "5", 5, iso(year, 5, 20), iso(year, 6, 25)).map((d) => span(d, 1));
+      return inYear(DRAGON_BOAT, year).map((d) => span(d, 1));
     case "national-day": {
       const day = cc ? NATIONAL_DAY[cc] : undefined;
       if (!day) return [];
@@ -608,7 +679,7 @@ export function festivalDates(id: FestivalId, year: number, country?: string | n
     }
     case "mid-autumn":
       // The full moon of the eighth month.
-      return findIn("chinese", "8", 15, iso(year, 9, 5), iso(year, 10, 10)).map((d) => span(d, 1));
+      return inYear(MID_AUTUMN, year).map((d) => span(d, 1));
     case "sukkot":
       // Tishri 15, seven days.
       return findIn("hebrew", "Tishri", 15, iso(year, 9, 15), iso(year, 10, 25)).map((d) => span(d, 7));
