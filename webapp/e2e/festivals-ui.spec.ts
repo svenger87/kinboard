@@ -239,6 +239,7 @@ test.describe("the engine", () => {
 
   test("this browser has the calendars the dates come from", async ({ page }) => {
     // A missing calendar would silently mean no festival (RFC-020 §3.1): check the engine itself.
+    // (The Chinese and Umm al-Qura days are tables in lib/festivals.ts, not `Intl`.)
     const parts = await page.evaluate(() => {
       const at = (cal: string, day: string, month: "numeric" | "long") =>
         new Intl.DateTimeFormat(`en-US-u-ca-${cal}`, { timeZone: "UTC", month, day: "numeric" })
@@ -247,17 +248,13 @@ test.describe("the engine", () => {
           .map((p) => p.value)
           .join("/");
       return {
-        chinese: at("chinese", "2026-02-17", "numeric"),
-        islamic: at("islamic-umalqura", "2026-03-20", "numeric"),
         hebrew: at("hebrew", "2026-12-05", "long"),
         persian: at("persian", "2026-03-21", "numeric"),
         // Purim in a leap year: Adar II, by that name (lib/festivals.ts looks for it).
         adarII: at("hebrew", "2027-03-23", "long"),
-        // A leap month in the Chinese calendar is never the month itself (Dragon Boat, Mid-Autumn).
-        leap: at("chinese", "2025-08-01", "numeric"),
       };
     });
-    expect(parts).toEqual({ chinese: "1/1", islamic: "10/1", hebrew: "25/Kislev", persian: "1/1", adarII: "14/Adar II", leap: "6bis/8" });
+    expect(parts).toEqual({ hebrew: "25/Kislev", persian: "1/1", adarII: "14/Adar II" });
   });
 });
 
