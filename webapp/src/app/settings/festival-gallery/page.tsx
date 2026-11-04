@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { FestivalVisitor } from "@/components/weather-effects";
+import { FestivalSampleCards } from "@/components/festival-sample-cards";
 import { CreatureAvatar } from "@/components/pocket-money/creature-avatar";
 import { useHolidayRegion } from "@/hooks/use-holiday-region";
 import { useMotion } from "@/hooks/use-motion";
@@ -54,15 +55,8 @@ export default function FestivalGalleryPage() {
         <PageHeader icon={PartyPopper} title={t("title")} subtitle={t("subtitle")} className="mb-6" />
         <p className="mb-4 text-sm text-muted-foreground">{motion === "full" ? t("motionOn") : motion === "reduced" ? t("motionReduced") : t("motionOff")}</p>
 
-        {/* The cards the dressing hangs on, as on Home: the same grid hook, a Tasks card among them. */}
-        <section aria-label={t("sampleCards")} className="festival-grid relative z-[1] mb-10 mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-6">
-          {["one", "two", "tasks", "four"].map((card) => (
-            <Card key={card} className={`p-4 ${card === "tasks" ? "festival-tasks" : ""}`} data-testid={`gallery-card-${card}`}>
-              <h3 className="font-display text-base font-semibold">{card === "tasks" ? t("sampleTasks") : t("sampleTitle")}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{t("sampleText")}</p>
-            </Card>
-          ))}
-        </section>
+        {/* The cards the dressing hangs on, as on Home. */}
+        <FestivalSampleCards className="mb-10 mt-8" />
 
         <ul className="grid gap-4 md:grid-cols-2">
           {FESTIVALS.map((id) => {

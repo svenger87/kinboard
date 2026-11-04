@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { FestivalVisitor } from "@/components/weather-effects";
+import { FestivalSampleCards } from "@/components/festival-sample-cards";
 import { useSetting, useUpdateSetting } from "@/hooks/use-supabase-queries";
 import { useHolidayRegion } from "@/hooks/use-holiday-region";
 import { startFestivalPreview, stopFestivalPreview, useFestival } from "@/hooks/use-festival";
@@ -87,32 +88,36 @@ export function FestivalSettingsCard() {
           </p>
           <ul className="divide-y divide-border rounded-lg border">
             {BUILT_FESTIVALS.map((id) => (
-              <li key={id} className="flex items-center justify-between gap-3 px-3 py-2">
-                <div className="min-w-0">
-                  <Label htmlFor={`festival-${id}`} className="text-sm">
-                    {t(`festivalName.${id}` as never)}
-                  </Label>
-                  <p className="text-xs text-muted-foreground">{t(`festivalWhen.${id}` as never)}</p>
+              <li key={id} className="px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <Label htmlFor={`festival-${id}`} className="text-sm">
+                      {t(`festivalName.${id}` as never)}
+                    </Label>
+                    <p className="text-xs text-muted-foreground">{t(`festivalWhen.${id}` as never)}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <Button
+                      type="button"
+                      variant={previewing === id ? "outline" : "ghost"}
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      aria-pressed={previewing === id}
+                      onClick={() => (previewing === id ? stopFestivalPreview() : startFestivalPreview(id))}
+                      data-testid={`festival-preview-${id}`}
+                    >
+                      {previewing === id ? t("festivalsPreviewStop") : t("festivalsPreview")}
+                    </Button>
+                    <Switch
+                      id={`festival-${id}`}
+                      checked={ticked.has(id)}
+                      onCheckedChange={(on) => tick(id, on)}
+                      disabled={update.isPending}
+                    />
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <Button
-                    type="button"
-                    variant={previewing === id ? "outline" : "ghost"}
-                    size="sm"
-                    className="h-8 px-2 text-xs"
-                    aria-pressed={previewing === id}
-                    onClick={() => (previewing === id ? stopFestivalPreview() : startFestivalPreview(id))}
-                    data-testid={`festival-preview-${id}`}
-                  >
-                    {previewing === id ? t("festivalsPreviewStop") : t("festivalsPreview")}
-                  </Button>
-                  <Switch
-                    id={`festival-${id}`}
-                    checked={ticked.has(id)}
-                    onCheckedChange={(on) => tick(id, on)}
-                    disabled={update.isPending}
-                  />
-                </div>
+                {/* The dressing hangs on Home's cards, and a preview ends on leaving this page: the cards come here. */}
+                {previewing === id && <FestivalSampleCards className="mb-1 mt-6 md:mt-8" testId="festival-preview-card" narrow />}
               </li>
             ))}
           </ul>
