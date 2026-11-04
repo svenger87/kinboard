@@ -121,6 +121,14 @@ test.describe("festivals on Home", () => {
       await expect(visitor(page)).toHaveAttribute("data-state", "flying", { timeout: 20_000 });
       await page.getByTestId("festival-preview-christmas").click();
       await expect(page.locator("html")).not.toHaveAttribute("data-festival", "christmas");
+      // A festival with no visitor previews here too: its dressing on sample cards under its row (St Nicholas's boot).
+      await page.getByTestId("festival-preview-st-nicholas").click();
+      const boot = page.getByTestId("festival-preview-card-tasks");
+      await expect(boot).toBeVisible();
+      await expect.poll(() => boot.evaluate((el) => getComputedStyle(el, "::after").backgroundImage)).toContain("st-nicholas/boot");
+      await boot.locator("xpath=ancestor::li[1]").screenshot({ path: test.info().outputPath("st-nicholas-preview.png") });
+      await page.getByTestId("festival-preview-st-nicholas").click();
+      await expect(boot).toBeHidden();
 
       // On Home: the lantern walk flies, takes one tap, and the button is gone for the rest of the pass.
       await gotoAfterJoin(page, "/?festival-preview=st-martin");
