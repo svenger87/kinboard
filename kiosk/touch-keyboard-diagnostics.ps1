@@ -35,9 +35,11 @@ try {
 
 $tabletTipKey = 'HKCU:\Software\Microsoft\TabletTip\1.7'
 $shellKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\ImmersiveShell'
+$priorityKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl'
 Show-Check 'EnableDesktopModeAutoInvoke' (Read-RegistryValue $tabletTipKey 'EnableDesktopModeAutoInvoke')
 Show-Check 'TipbandDesiredVisibility' (Read-RegistryValue $tabletTipKey 'TipbandDesiredVisibility')
 Show-Check 'TabletMode (legacy setting)' (Read-RegistryValue $shellKey 'TabletMode')
+Show-Check 'ConvertibleSlateMode' (Read-RegistryValue $priorityKey 'ConvertibleSlateMode')
 
 foreach ($name in @('TabletInputService', 'TextInputManagementService')) {
     $service = Get-CimInstance Win32_Service -Filter "Name='$name'" -ErrorAction SilentlyContinue
@@ -54,7 +56,18 @@ foreach ($name in @('TabTip', 'TextInputHost', 'msedge')) {
 }
 
 try {
-    $touchDevices = @(Get-PnpDevice -Class HIDClass -ErrorAction Stop | Where-Object {
+    # Keyboard-class devices include HID keyboards and some virtual keyboard interfaces.
+    $keyboards = @(Get-PnpDevice -PresentOnly -Class Keyboard -ErrorAction Stop)
+    Show-Check 'Present keyboard devices' $keyboards.Count
+    foreach ($keyboard in $keyboards) {
+        Show-Check 'Keyboard device' ('{0}; {1}; {2}' -f $keyboard.FriendlyName, $keyboard.Status, $keyboard.InstanceId)
+    }
+} catch {
+    Show-Check 'Present keyboard devices' ('unavailable: ' + $_.Exception.Message)
+}
+
+try {
+    $touchDevices = @(Get-PnpDevice -PresentOnly -Class HIDClass -ErrorAction Stop | Where-Object {
         $_.FriendlyName -match 'touch screen|touchscreen'
     })
     if ($touchDevices.Count -eq 0) {
@@ -87,6 +100,10 @@ Write-Output '3. If it works in Notepad but not Edge, also test Edge outside kio
 Write-Output '4. If the service is Disabled, enable it in services.msc and sign out/in.'
 Write-Output '5. If the task runs under another account, its HKCU values affect that'
 Write-Output '   account rather than the signed-in kiosk user.'
+Write-Output '6. Check "Present keyboard devices" after unplugging the physical keyboard.'
+Write-Output '   A remaining HID or virtual keyboard may make Windows think one is attached.'
+Write-Output '   Compare device names and IDs before/after unplugging; do not disable a'
+Write-Output '   device until you know what it is. "Always" avoids this detection condition.'
 Write-Output ''
 Write-Output 'Opening the Windows Typing settings page...'
 Start-Process 'ms-settings:typing'
