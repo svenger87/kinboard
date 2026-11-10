@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Idea; the owner's decisions are open (§8). Parts already shipped elsewhere (§3.0) |
+| **Status** | Accepted 2026-11-10 (§8). Parts already shipped elsewhere (§3.0); the rest is built in the order in §8 |
 | **Date** | 2026-11-05, revised 2026-11-10 after 1.15.0 |
 | **Depends on** | drawn creatures and their moods (RFC-016, RFC-017, `lib/creature-mood.ts`), creatures on Home and the family bedtime (#447), the festival engine (RFC-020), the Animations switch (#421), the screensaver's burn-in shift (`BURN_IN_OFFSETS`) |
 
@@ -188,21 +188,24 @@ at home (a screen any visitor sees is the wrong place for it).
 - **Translations.** The child's lines are sentences, not labels, and need
   care in every language (RFC on translations, #321).
 
-## 8. Open for the owner
+## 8. Decided (2026-11-10)
 
-1. **An event that belongs to no one** ("Christmas", "Grandma comes",
-   "Holiday at the sea"): the child's words when the family has children, or
-   the grown-up's? *Proposal:* the grown-up's, because "Grandma comes" may be
-   a grown-up's appointment as often as a treat.
-2. **On by default for a new family?** *Proposal:* the hour-before line,
-   birthdays and "this day" on (each shows nothing until there is something
-   to show); night off. One switch each under Settings → Screensaver.
-3. **Creatures on the idle screen: on by default?** Creatures on Home is
-   off until switched on. *Proposal:* the same here, a switch of its own, off
-   by default, so a picture-frame family never sees them unasked.
-4. **Night longer than bedtime?** Night uses the family's bedtime (§3.4).
-   *Proposal:* that's enough to start with; a separate "screen dark from"
-   only if a family asks for it.
+1. **An event that belongs to no one** gets the grown-up's words. "Grandma
+   comes in 35 min." is fine for a treat; a child's exclamation over a
+   grown-up's appointment is not.
+2. **Defaults for a new family:** the hour-before line, birthdays and "this
+   day" are on, since each shows nothing until it has something to say.
+   Night and the creatures on the idle screen are off, since both change how
+   the screen looks. One switch each under Settings → Screensaver.
+3. **Creatures on the idle screen** have a switch of their own, off by
+   default, as on Home. A family with creatures on Home is offered the idle
+   screen next to that switch.
+4. **Night uses the family's bedtime.** No separate hours until a family asks
+   for them.
+
+**Build order:** §3.2 the hour-before line, then §3.4 night, then §3.1 the
+creatures on the idle screen (after a measurement on a Pi), then §3.3 the
+birthday, then §3.5 "this day".
 
 ## 9. Not in this RFC
 
