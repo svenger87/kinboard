@@ -8,8 +8,17 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Security
+
+## [1.15.0] - 2026-11-10
+
+### Added
+
 - **The screensaver lists as many events and birthdays as the family wants.** Settings → Screensaver has *Events*, 1 to 5 upcoming events (4 as before), and *Birthdays*, a switch to leave birthdays off the screensaver altogether and, while it's on, how many to list, 1 to 5 (3 as before). Nothing changes for a family that doesn't set them (#282).
-- **Creatures on Home, and a family bedtime.** Settings → Creatures → Creatures on Home (off by default) lets the children's creatures walk along the bottom of Home: they rest, hop, and with two or more they play together (hopping in turns, a game of chase, hearts); a tap makes one hop; eggs stay put and wobble, and sleep where they are at bedtime. At the family's **bedtime** (asleep from / awake at, set on the same card; 20:00 to 06:30 unless changed, now used by every creature's sleepy mood) each walks to its spot and lies down until morning. They follow the device's Animations switch (Reduced: standing still; Off: hidden), and move one transform per creature at most 30 times a second, nothing while the screen is hidden.
 - **Creatures on Home, and a family bedtime.** Settings → Creatures → Creatures on Home (off by default) lets the children's creatures walk along the bottom of Home: they rest, hop, and with two or more they play together (hopping in turns, a game of chase, hearts); a tap makes one hop; eggs stay put and wobble, and sleep where they are at bedtime. At the family's **bedtime** (asleep from / awake at, set on the same card; 20:00 to 06:30 unless changed, now used by every creature's sleepy mood) each walks to its spot and lies down until morning. They follow the device's Animations switch (Reduced: standing still; Off: hidden), and move one transform per creature at most 30 times a second, nothing while the screen is hidden or the screensaver is up. Home keeps the strip they walk on free below the widgets, so they never cover a card.
 - **Two new creatures: a shark and a dog.** The shark hatches from a mermaid's purse, the egg case real shark pups grow in; its fin grows every stage, it gets gill marks as the Reef Explorer, two little teeth in its grin as the Chomper, and glowing fins like a deep-sea fish as the Glow Shark, before the crown as Shark King. The dog naps in a basket with floppy ears that grow and a wagging tail; it gets a collar as the Sniffer, a ball as the Fetch Champ, a hero's cape as the Super Pup and the crown as Top Dog, and pokes its tongue out when it's happy. Both come in every style, wear the shop's items and the festival outfits, and can be picked under Settings → Creatures.
 - **Festivals on Home and the screensaver: Christmas, St Nicholas and St Martin.** From the first Sunday of Advent to 6 January, Santa's sleigh and two galloping reindeer fly over Home and the screensaver every two minutes, snow rests on the top edge of every card on Home, the children's creatures wear a Santa hat, and the colour wash turns red from the top and pine green from the bottom. Tapping the sleigh drops presents and stars and makes the creatures on that screen cheer; one tap per pass, so a tap meant for a card that lands on the sleigh costs one surprise. On St Nicholas (5 and 6 December) a boot stands on the Tasks card, empty on the evening of the 5th and filled with an orange, nuts and chocolate on the morning of the 6th, and the creatures wear a scarf. On St Martin's Day (11 November) lanterns hang from the cards under a night-blue and amber wash all day, and from dusk (the weather's sunset, or 17:00 without it) children's paper lanterns walk along the bottom of the screen. Settings → Design → Festivals has one switch for all of it, a tick per festival and a Preview that shows the scene right there; `/?festival-preview=christmas` does the same on Home. The festivals common in the family's country are ticked to begin with (from Settings → Holidays; all three in Germany, Christmas everywhere), and a festival that overlaps another wins on its own days, so St Nicholas takes over from Advent for its two days. The visitor shares the weather effects' scene, so it flies through falling snow, drifts in the wind and darkens in a storm; with no weather showing it runs only for its ten seconds. Animations On shows everything, Reduced keeps the decorations, the hats and the colours, and Off keeps only the colours. A child can switch festival outfits off for their own creature under Change look. The dates for further festivals (Easter, Halloween, Lunar New Year, Eid, Hanukkah, Diwali and more) are already worked out; their artwork follows.
@@ -1063,7 +1072,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/svenger87/kinboard/compare/v1.13.0...v1.15.0
 [1.13.0]: https://github.com/svenger87/kinboard/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/svenger87/kinboard/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/svenger87/kinboard/compare/v1.11.0...v1.12.0
