@@ -33,7 +33,11 @@ concurrency:
 jobs:
   smoke:
     name: Boot stack + smoke
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: that became 26.04 in November 2026, and Playwright
+    # 1.59 has no Chromium for it ("does not support chromium on
+    # ubuntu26.04-x64"), so every run failed before a test. Move on when
+    # Playwright supports 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60  # alone ~24-29 min (cold cache, WebKit layout run, upgrade-path check); two runs at once took 46 (#420, 2026-10-27)
     defaults:
       run:
