@@ -20,6 +20,9 @@ export function ThemeToggle() {
   // so the icon is contrast-correct in both light + dark themes. The
   // earlier `variant="outline"` blended into the nav's glass background
   // in dark mode — the border + icon were both too subtle to spot.
+  // `relative` anchors the absolute moon to the button: without it the moon
+  // sat by the nearest positioned ancestor, 260px away, and dark mode showed
+  // no icon at all (#445).
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -27,7 +30,7 @@ export function ThemeToggle() {
           variant="ghost"
           size="icon"
           aria-label="Toggle theme"
-          className="size-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
+          className="relative size-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
         >
           <Sun className="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -60,7 +63,7 @@ export function ThemeToggleSimple() {
     <Button
       variant="ghost"
       size="icon"
-      className="size-9"
+      className="relative size-9"
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
     >
       <Sun className="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
