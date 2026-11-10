@@ -181,6 +181,36 @@
       ]
     },
     {
+      "id": "shark",
+      "labelKey": "species.shark.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.shark.tier1" },
+        { "tier": 2, "nameKey": "species.shark.tier2" },
+        { "tier": 3, "nameKey": "species.shark.tier3" },
+        { "tier": 4, "nameKey": "species.shark.tier4" },
+        { "tier": 5, "nameKey": "species.shark.tier5" },
+        { "tier": 6, "nameKey": "species.shark.tier6" },
+        { "tier": 7, "nameKey": "species.shark.tier7" },
+        { "tier": 8, "nameKey": "species.shark.tier8" }
+      ]
+    },
+    {
+      "id": "dog",
+      "labelKey": "species.dog.label",
+      "drawn": true,
+      "stages": [
+        { "tier": 1, "nameKey": "species.dog.tier1" },
+        { "tier": 2, "nameKey": "species.dog.tier2" },
+        { "tier": 3, "nameKey": "species.dog.tier3" },
+        { "tier": 4, "nameKey": "species.dog.tier4" },
+        { "tier": 5, "nameKey": "species.dog.tier5" },
+        { "tier": 6, "nameKey": "species.dog.tier6" },
+        { "tier": 7, "nameKey": "species.dog.tier7" },
+        { "tier": 8, "nameKey": "species.dog.tier8" }
+      ]
+    },
+    {
       "id": "princess",
       "labelKey": "species.princess.label",
       "drawn": true,

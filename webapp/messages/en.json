@@ -4863,6 +4863,28 @@
         "tier7": "Mighty Stego",
         "tier8": "Stego King"
       },
+      "shark": {
+        "label": "Shark",
+        "tier1": "Mermaid's Purse",
+        "tier2": "Shark Pup",
+        "tier3": "Little Shark",
+        "tier4": "Wave Rider",
+        "tier5": "Reef Explorer",
+        "tier6": "Chomper",
+        "tier7": "Glow Shark",
+        "tier8": "Shark King"
+      },
+      "dog": {
+        "label": "Dog",
+        "tier1": "Basket",
+        "tier2": "Puppy",
+        "tier3": "Doggy",
+        "tier4": "Sniffer",
+        "tier5": "Fetch Champ",
+        "tier6": "Best Buddy",
+        "tier7": "Super Pup",
+        "tier8": "Top Dog"
+      },
       "princess": {
         "label": "Princess",
         "tier1": "Crown Cushion",

@@ -2712,7 +2712,7 @@
       "changeCreatureTitle": "Changer la créature de {name}",
       "changeCreatureHint": "Le stade, le style de dessin, les couleurs et le nom restent tels quels. Seul un parent peut changer la créature, ici.",
       "changeCreatureWhoFallback": "La créature de {name}",
-      "changeCreatureConfirm": "{who} se transforme en {species, select, dragon {dragon} cat {chat} axolotl {axolotl} owl {hibou} robot {robot} unicorn {licorne} fox {renard} penguin {pingouin} bunny {lapin} rex {T-Rex} trike {tricératops} stego {stégosaure} princess {princesse} prince {prince} astronaut {astronaute} plant {plante} wizard {magicien} other {{label}}}. Le stade et l'apparence restent.",
+      "changeCreatureConfirm": "{who} se transforme en {species, select, dragon {dragon} cat {chat} axolotl {axolotl} owl {hibou} robot {robot} unicorn {licorne} fox {renard} penguin {pingouin} bunny {lapin} rex {T-Rex} trike {tricératops} stego {stégosaure} shark {requin} dog {chien} princess {princesse} prince {prince} astronaut {astronaute} plant {plante} wizard {magicien} other {{label}}}. Le stade et l'apparence restent.",
       "changeCreatureSave": "Choisir : {label}",
       "changeCreatureSaveIdle": "Choisissez une créature",
       "speciesCurrent": "Actuelle",
@@ -4862,6 +4862,28 @@
         "tier6": "Grand Stégo",
         "tier7": "Puissant Stégo",
         "tier8": "Roi Stégo"
+      },
+      "shark": {
+        "label": "Requin",
+        "tier1": "Bourse de sirène",
+        "tier2": "Bébé requin",
+        "tier3": "Petit requin",
+        "tier4": "Surfeur des vagues",
+        "tier5": "Explorateur du récif",
+        "tier6": "Croqueur",
+        "tier7": "Requin lumineux",
+        "tier8": "Roi des requins"
+      },
+      "dog": {
+        "label": "Chien",
+        "tier1": "Panier",
+        "tier2": "Chiot",
+        "tier3": "Toutou",
+        "tier4": "Renifleur",
+        "tier5": "Champion de la balle",
+        "tier6": "Meilleur copain",
+        "tier7": "Super toutou",
+        "tier8": "Roi des chiens"
       },
       "princess": {
         "label": "Princesse",

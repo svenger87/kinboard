@@ -18,7 +18,7 @@ import de from "../messages/de.json";
 import fr from "../messages/fr.json";
 
 /**
- * The fourteen drawn creatures (RFC-016 §3): every creature, in every style,
+ * The sixteen drawn creatures (RFC-016 §3): every creature, in every style,
  * draws every stage -- something, not an empty frame -- with SVG ids unique
  * to the drawing; each grows the way the workshop drew it; the catalogue,
  * the allow-lists and the stage names in en/de/fr all know every one.
@@ -34,15 +34,15 @@ const refs = (html: string) => [...html.matchAll(/url\(#([^)]+)\)/g)].map((m) =>
 const shapes = (html: string) => (html.match(/<(path|circle|ellipse|rect)\b/g) ?? []).length;
 const has = (html: string, part: string) => html.includes(`data-part="${part}"`);
 
-const FOURTEEN = ["dragon", "cat", "axolotl", "owl", "robot", "unicorn", "fox", "penguin", "bunny", "rex", "trike", "stego", "princess", "prince"];
-const NEW_SPECIES = FOURTEEN.filter((s) => s !== "dragon" && s !== "cat");
+const SIXTEEN = ["dragon", "cat", "axolotl", "owl", "robot", "unicorn", "fox", "penguin", "bunny", "rex", "trike", "stego", "shark", "dog", "princess", "prince"];
+const NEW_SPECIES = SIXTEEN.filter((s) => s !== "dragon" && s !== "cat");
 
-test("the fourteen are drawn, and nothing else is", () => {
-  expect([...DRAWN_SPECIES_IDS].sort()).toEqual([...FOURTEEN].sort());
+test("the sixteen are drawn, and nothing else is", () => {
+  expect([...DRAWN_SPECIES_IDS].sort()).toEqual([...SIXTEEN].sort());
 });
 
 test.describe("every creature × style × stage renders", () => {
-  for (const species of FOURTEEN) {
+  for (const species of SIXTEEN) {
     test(species, () => {
       for (const style of DRAWN_STYLES) {
         const seen = new Set<string>();
@@ -89,14 +89,14 @@ test.describe("every creature × style × stage renders", () => {
         createElement(
           "div",
           null,
-          ...FOURTEEN.flatMap((species) => [
+          ...SIXTEEN.flatMap((species) => [
             createElement(CreatureAvatar, { species, tier: 6, style, key: `${species}-a` }),
             createElement(CreatureAvatar, { species, tier: 6, style, key: `${species}-b` }),
           ]),
         ),
       );
       const all = ids(html);
-      expect(all.length).toBeGreaterThanOrEqual(28);
+      expect(all.length).toBeGreaterThanOrEqual(32);
       expect(new Set(all).size).toBe(all.length);
     }
   });
@@ -108,11 +108,11 @@ test.describe("each grows the way the workshop drew it", () => {
   test("each starts somewhere of its own", () => {
     const expected: Record<string, OriginKind> = {
       dragon: "egg", cat: "basket", axolotl: "jelly", owl: "egg", robot: "box", unicorn: "starEgg", fox: "leaves",
-      penguin: "egg", bunny: "basket", rex: "egg", trike: "egg", stego: "egg", princess: "cushion", prince: "cushion",
+      penguin: "egg", bunny: "basket", rex: "egg", trike: "egg", stego: "egg", shark: "eggCase", dog: "basket", princess: "cushion", prince: "cushion",
     };
-    for (const species of FOURTEEN) expect(speciesArt(species)!.origin ?? "egg", species).toBe(expected[species]);
+    for (const species of SIXTEEN) expect(speciesArt(species)!.origin ?? "egg", species).toBe(expected[species]);
     // the egg kinds crack before they hatch; a basket has nothing to crack
-    for (const species of ["rex", "unicorn", "axolotl"]) expect(render({ species, tier: 1, style: "gumdrop", cracked: true })).toContain('data-part="crack"');
+    for (const species of ["rex", "unicorn", "axolotl", "shark"]) expect(render({ species, tier: 1, style: "gumdrop", cracked: true })).toContain('data-part="crack"');
     expect(render({ species: "cat", tier: 1, style: "gumdrop", cracked: true })).not.toContain('data-part="crack"');
     // the star egg has stars where the egg has spots
     expect(at("unicorn", 1).match(/<circle/g)?.length ?? 0).toBeLessThan(at("rex", 1).match(/<circle/g)?.length ?? 0);
@@ -221,6 +221,37 @@ test.describe("each grows the way the workshop drew it", () => {
     expect(has(at("stego", 5), "tail-spikes")).toBe(true);
   });
 
+  test("the shark: its fin grows every stage; gill marks from 5, two little teeth from 6, glowing fins from 7", () => {
+    const len = (t: AvatarTier) => Number(at("shark", t).match(/data-part="dorsal-fin" data-len="([^"]+)"/)![1]);
+    for (let t = 3; t < 8; t++) expect(len((t + 1) as AvatarTier)).toBeGreaterThan(len(t as AvatarTier));
+    for (const tier of TIERS.slice(2)) {
+      const html = at("shark", tier);
+      expect(has(html, "tail-fin"), `shark ${tier}`).toBe(true);
+      expect(has(html, "gills"), `shark ${tier}`).toBe(tier >= 5);
+      expect(has(html, "teeth"), `shark ${tier}`).toBe(tier >= 6);
+      expect(has(html, "glow"), `shark ${tier}`).toBe(tier >= 7);
+    }
+    // asleep, the grin (and its teeth) closes
+    expect(has(render({ species: "shark", tier: 6, style: "gumdrop", mood: "sleepy" }), "teeth")).toBe(false);
+  });
+
+  test("the dog: its ears grow; a collar from 4, a ball from 5, a hero's cape from 7; its tongue out when happy", () => {
+    const len = (t: AvatarTier) => Number(at("dog", t).match(/data-part="ears" data-len="([^"]+)"/)![1]);
+    for (let t = 3; t < 8; t++) expect(len((t + 1) as AvatarTier)).toBeGreaterThan(len(t as AvatarTier));
+    for (const tier of TIERS.slice(2)) {
+      const html = at("dog", tier);
+      expect(html, `dog ${tier}`).toContain("creature-tail-sway");
+      expect(has(html, "collar"), `dog ${tier}`).toBe(tier >= 4);
+      expect(has(html, "ball"), `dog ${tier}`).toBe(tier >= 5);
+      expect(has(html, "cape"), `dog ${tier}`).toBe(tier >= 7);
+    }
+    expect(has(render({ species: "dog", tier: 5, style: "gumdrop", mood: "happy" }), "tongue")).toBe(true);
+    expect(has(at("dog", 5), "tongue")).toBe(false);
+    // something round the neck from the shop replaces the collar; the shop's cape replaces its own
+    expect(has(render({ species: "dog", tier: 7, style: "gumdrop", look: { neck: "bow_tie" } }), "collar")).toBe(false);
+    expect(has(render({ species: "dog", tier: 7, style: "gumdrop", look: { neck: "cape" } }), "cape")).toBe(false);
+  });
+
   test("the princess: tiara 2-7, wand from 5, cape from 6; the prince: circlet 3-7, sword from 5, shield and cape from 6", () => {
     for (const tier of TIERS.slice(1)) {
       const p = at("princess", tier);
@@ -242,7 +273,7 @@ test.describe("each grows the way the workshop drew it", () => {
 test.describe("the catalogue, the allow-lists and the names", () => {
   test("every drawn creature is in the catalogue, marked drawn; the new ones have no classic pictures", () => {
     const ids = AVATAR_CATALOG.map((s) => s.id);
-    for (const species of FOURTEEN) {
+    for (const species of SIXTEEN) {
       expect(ids, species).toContain(species);
       expect(AVATAR_CATALOG.find((s) => s.id === species)!.drawn, species).toBe(true);
     }
@@ -286,8 +317,8 @@ test.describe("the catalogue, the allow-lists and the names", () => {
       "Egg", "Rex King", "Basket", "King of the Jungle", "Queen", "Knight",
     ]);
     const spDe = de.pocketMoney.species as Record<string, Record<string, string>>;
-    expect([spDe.rex.tier8, spDe.princess.tier1, spDe.axolotl.tier8, spDe.fox.tier8, spDe.bunny.tier7, spDe.penguin.tier8]).toEqual([
-      "Rex-König", "Kronkissen", "Seelegende", "Fuchsgeist", "Mondhase", "Pinguinkönig",
+    expect([spDe.rex.tier8, spDe.princess.tier1, spDe.axolotl.tier8, spDe.fox.tier8, spDe.bunny.tier7, spDe.penguin.tier8, spDe.shark.tier1, spDe.dog.tier7]).toEqual([
+      "Rex-König", "Kronkissen", "Seelegende", "Fuchsgeist", "Mondhase", "Pinguinkönig", "Nixentäschchen", "Superhund",
     ]);
   });
 });

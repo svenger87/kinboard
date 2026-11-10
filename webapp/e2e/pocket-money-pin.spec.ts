@@ -544,7 +544,7 @@ test.describe("live: the decide route 403s a device that never entered the PIN",
 
   test("with the PIN, a parent may pick any of the new creatures; an unknown one is refused", async () => {
     await unlock();
-    for (const species of ["rex", "unicorn", "princess", "prince", "cat", "axolotl", "owl", "robot", "fox", "penguin", "bunny", "trike", "stego"]) {
+    for (const species of ["rex", "unicorn", "princess", "prince", "cat", "axolotl", "owl", "robot", "fox", "penguin", "bunny", "trike", "shark", "dog", "stego"]) {
       const res = await api.patch(`/api/creatures/${childId}`, { data: { species } });
       expect(res.status(), `${species}: ${await res.text()}`).toBe(200);
       expect(creature("species")).toBe(species);

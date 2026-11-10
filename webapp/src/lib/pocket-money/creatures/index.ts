@@ -16,6 +16,7 @@ import type { AvatarSpecies } from "../types";
 import { axolotl } from "./axolotl";
 import { bunny } from "./bunny";
 import { cat } from "./cat";
+import { dog } from "./dog";
 import { dragon } from "./dragon";
 import { fox } from "./fox";
 import { owl } from "./owl";
@@ -24,6 +25,7 @@ import { prince } from "./prince";
 import { princess } from "./princess";
 import { rex } from "./rex";
 import { robot } from "./robot";
+import { shark } from "./shark";
 import { stego } from "./stego";
 import { trike } from "./trike";
 import { unicorn } from "./unicorn";
@@ -50,6 +52,8 @@ const DRAWN_SPECIES: Readonly<Record<string, SpeciesArt>> = {
   rex,
   trike,
   stego,
+  shark,
+  dog,
   princess,
   prince,
 };
