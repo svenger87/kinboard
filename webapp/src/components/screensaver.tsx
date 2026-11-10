@@ -8,6 +8,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useBirthdays, useEvents, useHolidayEntries, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, useToday, useWeather, type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { screensaverListCount } from "@/types/screensaver";
+import { nextEventLine } from "@/lib/next-event-line";
 import { useFamilyStore } from "@/stores/family-store";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
 import { PersonAvatar } from "@/components/person-avatar";
@@ -205,6 +206,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
   const eventCount = screensaverListCount(screensaverSettings.eventCount, 4);
   const birthdayCount = screensaverListCount(screensaverSettings.birthdayCount, 3);
   const showBirthdays = screensaverSettings.showBirthdays ?? true;
+  const showNextEvent = screensaverSettings.showNextEvent ?? true;
   const photoRotationMs = photoRotationInterval * 1000;
 
   // Update clock every 60 seconds - screensaver only shows hours:minutes, not seconds
@@ -663,6 +665,58 @@ export function Screensaver({ photos }: ScreensaverProps) {
       .slice(0, eventCount);
   }, [events, people, holidays, todayKey, locale, dateLocale, eventCount]);
 
+  // In the hour before an event that starts at a time, one line under the
+  // date (RFC-021 §3.2). `date` is the clock's, so it moves on the minute.
+  const soon = useMemo(() => {
+    if (!showNextEvent) return null;
+    return nextEventLine(
+      (events ?? []).map((e) => ({
+        title: e.title,
+        start: new Date(e.start_at),
+        allDay: e.all_day,
+        personId: e.person_id || e.calendar?.person_id || null,
+      })),
+      date,
+      people ?? [],
+    );
+  }, [showNextEvent, events, date, people]);
+
+  // The news list stops above whatever sits below it on the screen (the
+  // clock, and the events where they share its column): it used to run down
+  // to 60vh and over a large clock on a short landscape panel, worse with the
+  // line under the clock. Measured, since the blocks below change height.
+  const newsListRef = useRef<HTMLDivElement>(null);
+  const clockBlockRef = useRef<HTMLDivElement>(null);
+  const eventsBlockRef = useRef<HTMLDivElement>(null);
+  const [newsRoom, setNewsRoom] = useState<number | null>(null);
+  const [newsClipped, setNewsClipped] = useState(false);
+  useEffect(() => {
+    const list = newsListRef.current;
+    if (!list) return;
+    const measure = () => {
+      const box = list.getBoundingClientRect();
+      let floor = window.innerHeight;
+      for (const el of [clockBlockRef.current, eventsBlockRef.current]) {
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (r.height === 0 || r.right <= box.left || r.left >= box.right) continue;
+        floor = Math.min(floor, r.top);
+      }
+      const room = Math.max(0, Math.floor(floor - 24 - box.top));
+      setNewsRoom(room);
+      // Cut short: fade the last card out rather than slicing it.
+      setNewsClipped(list.scrollHeight > Math.min(room, window.innerHeight * 0.6) + 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    for (const el of [list, clockBlockRef.current, eventsBlockRef.current]) if (el) ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [news, screensaverSettings.showNews, soon, largeDetails, selectedNews]);
+
   return (
     <div
       className={`fixed inset-0 z-[100] screensaver-fade-in ${
@@ -714,7 +768,14 @@ export function Screensaver({ photos }: ScreensaverProps) {
             <Newspaper className="size-4" />
             <span className="text-xs landscape:lg:text-sm font-medium uppercase tracking-wider">{t("newsLabel")}</span>
           </div>
-          <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto scrollbar-hide">
+          <div
+            ref={newsListRef}
+            className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto scrollbar-hide"
+            style={{
+              ...(newsRoom !== null ? { maxHeight: `min(60vh, ${newsRoom}px)` } : {}),
+              ...(newsClipped ? { maskImage: "linear-gradient(to bottom, black calc(100% - 3rem), transparent)", WebkitMaskImage: "linear-gradient(to bottom, black calc(100% - 3rem), transparent)" } : {}),
+            }}
+          >
             {news.slice(0, 6).map((item) => (
               <button
                 key={item.link}
@@ -1010,6 +1071,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       >
       {/* Clock overlay - bottom left (compact for mobile & portrait). A festival's fireworks go up over it (RFC-020). */}
       <div
+        ref={clockBlockRef}
         data-festival-anchor="screensaver-clock"
         className="landscape:lg:absolute landscape:lg:bottom-12 landscape:lg:left-12 safe-area-inset screensaver-slide-up"
         style={{ animationDelay: "0.5s", ...burnInStyle }}
@@ -1028,10 +1090,20 @@ export function Screensaver({ photos }: ScreensaverProps) {
         <p className={`${largeDetails ? "text-2xl landscape:lg:text-4xl" : "text-xl landscape:lg:text-2xl"} font-light text-white/60 mt-2 tracking-wide`}>
           {formattedDate}
         </p>
+        {soon && (
+          <p
+            className={`mt-3 inline-block max-w-full truncate rounded-lg bg-white/15 px-3 py-1 font-semibold text-white ${largeDetails ? "text-2xl landscape:lg:text-3xl" : "text-lg landscape:lg:text-xl"}`}
+            data-testid="screensaver-next-event"
+            data-child={soon.child ? "true" : "false"}
+          >
+            {t(soon.child ? "nextEventChild" : "nextEventAdult", { title: soon.title, minutes: soon.minutes })}
+          </p>
+        )}
       </div>
 
       {/* Right side - Events and Birthdays (above clock for portrait/mobile, right side for landscape desktop) */}
       <div
+        ref={eventsBlockRef}
         className="max-w-sm landscape:lg:absolute landscape:lg:bottom-12 landscape:lg:right-12 flex flex-col gap-4 landscape:lg:gap-6 safe-area-inset screensaver-slide-right"
         style={{ animationDelay: "0.7s", maxWidth: largeDetails ? "36rem" : undefined, ...burnInStyle }}
       >

@@ -84,7 +84,7 @@ export default function ScreensaverSettingsPage() {
     });
   };
 
-  const updateDisplayOption = (field: "showNews" | "largeDetails" | "showBirthdays", value: boolean) => {
+  const updateDisplayOption = (field: "showNews" | "largeDetails" | "showBirthdays" | "showNextEvent", value: boolean) => {
     updateSettings.mutate({ key: "screensaver", value: { ...settings, [field]: value } });
   };
 
@@ -150,6 +150,13 @@ export default function ScreensaverSettingsPage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label htmlFor="screensaver-next-event">{t("showNextEventLabel")}</Label>
+              <p className="text-xs text-muted-foreground">{t("showNextEventDescription")}</p>
+            </div>
+            <Switch id="screensaver-next-event" checked={settings.showNextEvent ?? true} onCheckedChange={(value) => updateDisplayOption("showNextEvent", value)} disabled={updateSettings.isPending} />
           </div>
           <div className="flex items-center justify-between gap-4">
             <div>

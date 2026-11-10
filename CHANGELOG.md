@@ -8,6 +8,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The screensaver says when the next event is about to start.** In the hour before an event that starts at a time, a line under the clock counts down to it, on the minute, and goes at the start. A child's event speaks to the child ("Fußball – noch 35 Minuten!"); anyone else's, and an event that belongs to no one, stays short ("Zahnarzt in 35 Min."). All-day events never count. It's on unless switched off under Settings → Screensaver → *Next event under the clock*. The news list on the screensaver now stops above the clock and the events instead of running over them on a short screen, and fades out where it is cut short (RFC-021).
+
 ### Changed
 
 ### Fixed
