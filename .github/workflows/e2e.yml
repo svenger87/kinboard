@@ -15,8 +15,13 @@ name: E2E smoke
 on:
   push:
     branches: [main]
+    # A change that is only words (an RFC, the wiki, a README) can't break the
+    # stack; it skips the half hour this costs. A change touching code and the
+    # changelog still runs, since every file must match for the skip.
+    paths-ignore: ["docs/**", "**/*.md"]
   pull_request:
     branches: [main]
+    paths-ignore: ["docs/**", "**/*.md"]
 
 # Minimal permissions for the GITHUB_TOKEN — the smoke run boots the
 # stack locally on the runner and reads test artifacts; nothing writes
@@ -31,14 +36,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Two runners side by side: Chromium runs the suite, WebKit the layout
+  # specs. Until 2026-11-10 they ran one after the other on one runner, after
+  # installing both engines' system packages (205 apt packages, 13 min, mostly
+  # WebKit's gstreamer), for 45 min in all. Each now installs only its own.
   smoke:
-    name: Boot stack + smoke
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - engine: chromium
+            name: Boot stack + smoke
+          - engine: webkit
+            name: Boot stack + WebKit layout
     # Not ubuntu-latest: that became 26.04 in November 2026, and Playwright
     # 1.59 has no Chromium for it ("does not support chromium on
     # ubuntu26.04-x64"), so every run failed before a test. Move on when
     # Playwright supports 26.04.
     runs-on: ubuntu-24.04
-    timeout-minutes: 60  # alone ~24-29 min (cold cache, WebKit layout run, upgrade-path check); two runs at once took 46 (#420, 2026-10-27)
+    timeout-minutes: 45  # one engine each since 2026-11-10; together they took 45 min on one runner
     defaults:
       run:
         working-directory: webapp
@@ -63,21 +80,24 @@ jobs:
       - name: Install webapp deps
         run: npm ci
 
+      - name: Playwright version
+        id: pw-version
+        run: echo "v=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         id: pw-cache
         with:
           path: ~/.cache/ms-playwright
-          # The suffix is part of the key because the cache is keyed only on the
-          # lockfile, and adding a browser does not change the lockfile. Without
-          # it, a cache saved when only Chromium was installed would be restored
-          # for ever and WebKit re-downloaded on every run.
-          key: pw-${{ runner.os }}-chromium-webkit-${{ hashFiles('webapp/package-lock.json') }}
+          # Keyed on the engine and Playwright's own version. It used to be the
+          # whole lockfile, so any dependency bump missed the cache and both
+          # browsers were downloaded again.
+          key: pw-${{ runner.os }}-${{ matrix.engine }}-${{ steps.pw-version.outputs.v }}
 
-      - name: Install Playwright browsers
-        # --with-deps installs the system libs each browser needs at runtime —
+      - name: Install Playwright browser
+        # --with-deps installs the system libs the browser needs at runtime —
         # libnss3/libgbm for Chromium, and nine more (libwoff1, libhyphen0,
-        # libmanette, gstreamer plugins…) for WebKit.
+        # libmanette, gstreamer plugins…) for WebKit. Only this job's engine.
         #
         # WebKit is here because both Playwright viewports are Chromium, so a
         # rule Chromium honours and WebKit ignores passes everything. That is
@@ -85,7 +105,7 @@ jobs:
         # overlap in Chromium and did nothing in WebKit, so rc.20 shipped
         # "fixed" and was still broken on every Mac and iPad until a user
         # reported it from Safari.
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps ${{ matrix.engine }}
 
       - name: Generate stack secrets non-interactively
         working-directory: ${{ github.workspace }}
@@ -181,6 +201,7 @@ jobs:
       # event-series-live also acts as a family's browser (the anon key and a
       # family token), so it needs JWT_SECRET too, masked like the key.
       - name: Run smoke suite
+        if: matrix.engine == 'chromium'
         env:
           FAMILY_CODE: DEMO01
           PLAYWRIGHT_BASE_URL: http://localhost:3001
@@ -197,13 +218,14 @@ jobs:
           export SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_SUPABASE_ANON_KEY JWT_SECRET SUPABASE_URL="http://localhost:3001" POSTGREST_URL="http://localhost:3010"
           npx playwright test e2e/smoke.spec.ts e2e/same-origin-live.spec.ts e2e/image-url-migration-live.spec.ts e2e/calendar-layout.spec.ts  e2e/rls-coverage.spec.ts e2e/catalogue-migration.spec.ts e2e/health-endpoint.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/task-events-ui.spec.ts e2e/tasks-widget-ui.spec.ts e2e/weather-rain-chance-ui.spec.ts e2e/location-autocomplete-ui.spec.ts e2e/media-widget-layout.spec.ts e2e/messages-broadcast.spec.ts e2e/message-state.spec.ts e2e/rooms-migration.spec.ts e2e/automation-layout.spec.ts e2e/media-browse-flow.spec.ts e2e/meal-plan-read-only.spec.ts e2e/oauth-migration.spec.ts e2e/mcp-oauth-flow.spec.ts e2e/soft-delete-integration.spec.ts e2e/pocket-money-live.spec.ts e2e/event-search-live.spec.ts e2e/holiday-region-ui.spec.ts e2e/holiday-widget-ui.spec.ts e2e/school-sync-ui.spec.ts e2e/holiday-region-migration.spec.ts e2e/school-holiday-sync-db.spec.ts e2e/school-holidays-grants.spec.ts e2e/todo-turns-db.spec.ts e2e/todo-done-by-db.spec.ts e2e/point-adjustments-db.spec.ts e2e/family-delete-db.spec.ts e2e/todo-turns-ui.spec.ts e2e/camera-takeover-grants.spec.ts e2e/route-transition-layout.spec.ts e2e/calendar-day-tap-layout.spec.ts e2e/holiday-widgets-ui.spec.ts e2e/timetable-holidays-ui.spec.ts e2e/schedule-page-holidays-ui.spec.ts e2e/calendar-school-holidays-ui.spec.ts e2e/time-zone-ui.spec.ts e2e/settings-search-ui.spec.ts e2e/timer-pause-ui.spec.ts e2e/timer-presets-ui.spec.ts e2e/timer-alarm-ui.spec.ts e2e/pocket-money-grants.spec.ts e2e/creature-reactions-live.spec.ts e2e/creature-mood-live.spec.ts e2e/creatures-migration.spec.ts e2e/creatures-live.spec.ts e2e/creatures-surfaces-live.spec.ts e2e/device-owner-db.spec.ts e2e/device-owner-pin.spec.ts e2e/emoji-picker-ui.spec.ts e2e/creature-shop-live.spec.ts e2e/creature-shop-ui-live.spec.ts e2e/stale-chunk-recovery-ui.spec.ts e2e/reward-decisions-live.spec.ts e2e/assistant-trust-live.spec.ts e2e/shopping-phone-layout.spec.ts e2e/pocket-money-realtime-live.spec.ts e2e/calendar-repeat.spec.ts e2e/event-series-live.spec.ts e2e/weather-effects-ui.spec.ts e2e/motion-ui.spec.ts e2e/festivals-ui.spec.ts e2e/birthday-theme-ui.spec.ts e2e/creatures-on-home-ui.spec.ts --project=desktop
 
-      # A separate step so a WebKit-only failure reads as one at a glance rather
+      # A job of its own (the matrix above) so a WebKit-only failure reads as one at a glance rather
       # than as "the smoke suite is flaky". Most of the suite reads source files
       # and would be paid for twice for nothing, so only what renders runs here.
       #
       # Smoke is covered by the desktop job above; this one is limited to
       # browser-engine-specific layout checks.
       - name: Run layout specs under WebKit
+        if: matrix.engine == 'webkit'
         env:
           FAMILY_CODE: DEMO01
           PLAYWRIGHT_BASE_URL: http://localhost:3001
@@ -220,7 +242,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ github.run_attempt }}
+          name: playwright-report-${{ matrix.engine }}-${{ github.run_attempt }}
           path: webapp/playwright-report/
           retention-days: 7
 
@@ -228,7 +250,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-results-${{ github.run_attempt }}
+          name: playwright-results-${{ matrix.engine }}-${{ github.run_attempt }}
           path: webapp/e2e/results/
           retention-days: 7
 
@@ -246,7 +268,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: stack-logs-${{ github.run_attempt }}
+          name: stack-logs-${{ matrix.engine }}-${{ github.run_attempt }}
           path: /tmp/stack-logs/
           retention-days: 7
 
