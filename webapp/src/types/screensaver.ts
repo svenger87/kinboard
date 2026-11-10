@@ -31,6 +31,8 @@ export interface ScreensaverSettings {
   // Whether it lists birthdays at all, and how many, 1 to 5.
   showBirthdays?: boolean;
   birthdayCount?: number;
+  // The line under the clock in the hour before an event (RFC-021 §3.2).
+  showNextEvent?: boolean;
 }
 
 /** The choices for both lists. */
@@ -55,6 +57,7 @@ export const DEFAULT_SCREENSAVER_SETTINGS: ScreensaverSettings = {
   eventCount: 4,
   showBirthdays: true,
   birthdayCount: 3,
+  showNextEvent: true,
 };
 
 export interface PresenceState {

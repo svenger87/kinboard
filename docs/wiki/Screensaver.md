@@ -7,7 +7,7 @@ When the kiosk is idle, Kinboard switches to a fullscreen screensaver — a slow
 Top → bottom:
 
 1. **Background photo** — fades between images from the configured photo source ([Immich](Immich), a DLNA server, an iCloud Shared Album or Unsplash — see [Photos](Photos))
-2. **Clock + date** (bottom-left) — large, low-contrast white-on-photo
+2. **Clock + date** (bottom-left) — large, low-contrast white-on-photo; in the hour before an event that starts at a time, a line under the date counts down to it ("Fußball – noch 35 Minuten!" for a child's event, "Zahnarzt in 35 Min." for anyone else's)
 3. **Photo credit** (bottom-center) — photographer name + location, small text
 4. **Upcoming events** (bottom-right) — the next 4 by default; 1 to 5 under **Settings → Screensaver → Events**
 5. **Birthdays** (under the events) — those in the next 30 days, 3 by default; **Settings → Screensaver → Birthdays** turns them off or sets 1 to 5
@@ -117,6 +117,7 @@ Tapping the screensaver doesn't dismiss it when a news modal is open — only th
 | Photo rotation interval | Settings → Screensaver |
 | News on the screensaver, large clock and events | Settings → Screensaver |
 | How many events (1–5) | Settings → Screensaver → Events |
+| The countdown line under the clock | Settings → Screensaver → Next event under the clock |
 | Birthdays on or off, and how many (1–5) | Settings → Screensaver → Birthdays |
 | Show solar / Tesla widgets on screensaver | Settings → Home Assistant → Energy / Settings → Tesla |
 
