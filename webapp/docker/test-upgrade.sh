@@ -250,9 +250,18 @@ assert_files() {
                            || fail "signed photo URL answered $got: $url"
   local marker
   marker=$(docker exec "${RIG_PROJECT}-webapp" cat /var/lib/storage/files/.moved-from-storage-api 2>/dev/null || true)
-  case "$marker" in
-    *moved=3*missing=0*) pass "entrypoint moved 3 objects, none missing ($marker)" ;;
-    *) fail "unexpected file-move marker: '$marker'" ;;
+  # Only an install from before 1.15 has a storage-api tree to move out of.
+  # One that already ran 1.15 stored its uploads in the new layout to begin
+  # with, so there is nothing to move and no marker.
+  case "$1" in
+    1.[0-9].*|1.1[0-4].*)
+      case "$marker" in
+        *moved=3*missing=0*) pass "entrypoint moved 3 objects, none missing ($marker)" ;;
+        *) fail "unexpected file-move marker: '$marker'" ;;
+      esac ;;
+    *)
+      [ -z "$marker" ] && pass "already in the new layout: nothing moved, no marker" \
+                       || fail "a move ran on an install that was already 1.15 or later: '$marker'" ;;
   esac
   local upload
   upload=$(curl -s -b "$SCRATCH/jar" -F "image=@$SCRATCH/img.jpg;type=image/jpeg" -F "family_id=$(cat "$SCRATCH/family")" \
@@ -318,7 +327,7 @@ test_path() {
   assert_entrypoint_clean
   assert_retired
   assert_head_schema "$from"
-  assert_files
+  assert_files "$from"
 
   say "Asserting the data survived"
   local after
