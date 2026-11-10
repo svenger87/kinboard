@@ -37,10 +37,11 @@ export async function POST(request: NextRequest) {
   // families in a loop.
   const ip = clientIp(request);
   const limit = hitLimit(`create:ip:${ip}`, sessionAttemptLimit(5), 60_000);
-  if (limit.limited) {
+  const globalLimit = hitLimit("global:create", sessionAttemptLimit(30), 60_000);
+  if (limit.limited || globalLimit.limited) {
     return NextResponse.json(
       { error: "too many attempts, slow down" },
-      { status: 429, headers: { "Retry-After": String(Math.ceil(limit.retryAfterMs / 1000)) } },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(Math.max(limit.retryAfterMs, globalLimit.retryAfterMs) / 1000)) } },
     );
   }
 

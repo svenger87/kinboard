@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { hitLimit, clientIp } from "../src/lib/rate-limit";
+import { hitLimit, clientIp, sweepIdle } from "../src/lib/rate-limit";
 
 /**
  * Pentest 2026-08-05, finding F1: POST /api/session/join was unmetered — 30
@@ -82,4 +82,23 @@ test("both endpoints wire the limiter in before doing any work", () => {
     expect(guard, name).toBeGreaterThan(-1);
     expect(guard, `${name}: 429 before db`).toBeLessThan(db);
   }
+});
+
+test("a flood of new addresses can't reset a bucket that is still counting", async () => {
+  // A token at its limit, then 5,000 forged addresses on a 50 ms window: the
+  // map fills, and a full map must refuse the newcomers, not evict the token's
+  // bucket and hand it a fresh count.
+  const token = `token-${Math.random()}`;
+  for (let i = 0; i < 3; i++) hitLimit(token, 3, 60_000);
+  expect(hitLimit(token, 3, 60_000).limited).toBe(true);
+
+  let refused = 0;
+  for (let i = 0; i < 5_000; i++) if (hitLimit(`flood:${i}-${Math.random()}`, 10, 50).limited) refused++;
+  expect(refused, "newcomers refused once the map is full").toBeGreaterThan(0);
+  expect(hitLimit(token, 3, 60_000).limited, "the token's bucket survived the flood").toBe(true);
+
+  // Leave the map as other specs in this worker expect it.
+  await new Promise((r) => setTimeout(r, 60));
+  sweepIdle(50);
+  expect(hitLimit(`after-${Math.random()}`, 1, 60_000).limited).toBe(false);
 });

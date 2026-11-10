@@ -1,4 +1,6 @@
 import { lookup } from "node:dns/promises";
+import { lookup as connectLookup } from "node:dns";
+import { Agent } from "undici";
 import {
   validateExternalUrl,
   isPrivateOrLoopbackHostname,
@@ -24,17 +26,9 @@ import {
  *    http://10.0.0.1/admin` bypasses validation entirely, because
  *    nothing re-checks the hop.
  *
- * So: resolve every hop's hostname and test the resolved addresses, and
- * follow redirects by hand so each one is validated like the original.
- *
- * What this deliberately does NOT claim to solve is the rebinding race —
- * the address is checked, then fetch resolves the name again, and a
- * hostile DNS server with a one-second TTL can answer differently the
- * second time. Closing that needs the connection pinned to the address
- * that was checked, which Node's fetch gives no way to express without
- * replacing the agent and breaking TLS SNI. The window is small, it
- * requires an attacker-controlled nameserver, and the payoff is a title
- * string — so it's documented rather than papered over.
+ * Resolve and validate every redirect hop. The custom connection lookup below
+ * also validates the address actually used by fetch, so a DNS answer changing
+ * between the preflight check and the connection cannot reach a private IP.
  */
 
 export class BlockedAddressError extends Error {
@@ -45,6 +39,27 @@ export class BlockedAddressError extends Error {
 }
 
 const MAX_REDIRECTS = 5;
+
+// Check the address at connection time as well as before each hop. Without
+// this, a hostile DNS server can answer "public" for the check and "private"
+// for fetch's second lookup (DNS rebinding).
+const publicAgent = new Agent({
+  connect: {
+    lookup(hostname, options, callback) {
+      connectLookup(hostname, { all: true, verbatim: true }, (error, addresses) => {
+        if (error) return callback(error, undefined as never, undefined as never);
+        if (!addresses.length || addresses.some(({ address }) => isPrivateOrLoopbackHostname(address))) {
+          return callback(new BlockedAddressError(hostname), undefined as never, undefined as never);
+        }
+        if (options.all) {
+          return (callback as (error: Error | null, results: Array<{ address: string; family: number }>) => void)(null, addresses);
+        }
+        const selected = addresses[0];
+        callback(null, selected.address, selected.family);
+      });
+    },
+  },
+});
 
 /** Reject a URL whose hostname resolves to anything non-public. */
 async function assertPublicAddress(url: URL): Promise<void> {
@@ -93,7 +108,8 @@ export async function safeFetch(input: string, options: SafeFetchOptions = {}): 
       signal: options.signal,
       // Handled below rather than by fetch, so each hop is checked.
       redirect: "manual",
-    });
+      dispatcher: publicAgent,
+    } as RequestInit & { dispatcher: Agent });
 
     const location = response.headers.get("location");
     if (response.status < 300 || response.status >= 400 || !location) {

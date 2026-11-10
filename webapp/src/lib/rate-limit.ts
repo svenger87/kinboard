@@ -15,19 +15,29 @@ import { NextRequest } from "next/server";
 
 interface Bucket {
   hits: number[];
+  windowMs: number;
 }
 
 const buckets = new Map<string, Bucket>();
+const MAX_BUCKETS = 4096;
 
 /**
  * Register a hit against `key` and report whether it is now over `limit`
  * within the trailing `windowMs`. Old hits are pruned as they are counted, so
- * the map does not grow without bound for a key that goes quiet — but see
- * sweepIdle() for keys that never come back.
+ * quiet keys are also pruned when the map reaches its size cap.
  */
 export function hitLimit(key: string, limit: number, windowMs: number): { limited: boolean; retryAfterMs: number } {
   const now = nowMs();
-  const bucket = buckets.get(key) ?? { hits: [] };
+  // Spoofed forwarded addresses can create a new key per request. Prune idle
+  // keys, and if the map is still full refuse the new key rather than evict a
+  // live one: evicting would reset the count of a bucket still in its window
+  // (an integration token's destructive limit, say), which is a bypass.
+  if (!buckets.has(key) && buckets.size >= MAX_BUCKETS) {
+    sweepIdle(windowMs);
+    if (buckets.size >= MAX_BUCKETS) return { limited: true, retryAfterMs: windowMs };
+  }
+  const bucket = buckets.get(key) ?? { hits: [], windowMs };
+  bucket.windowMs = windowMs;
   bucket.hits = bucket.hits.filter((t) => now - t < windowMs);
 
   if (bucket.hits.length >= limit) {
@@ -59,15 +69,15 @@ export function hitLimit(key: string, limit: number, windowMs: number): { limite
  */
 export function clientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return request.headers.get("x-real-ip") || "unknown";
+  const value = forwarded?.split(",")[0].trim() || request.headers.get("x-real-ip") || "unknown";
+  return value.slice(0, 128);
 }
 
 /** Drop keys with no hits inside `windowMs`, so an attacker cycling keys can't grow the map forever. */
 export function sweepIdle(windowMs: number): void {
   const now = nowMs();
   for (const [key, bucket] of buckets) {
-    if (bucket.hits.every((t) => now - t >= windowMs)) buckets.delete(key);
+    if (bucket.hits.every((t) => now - t >= Math.max(windowMs, bucket.windowMs))) buckets.delete(key);
   }
 }
 

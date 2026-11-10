@@ -48,8 +48,9 @@ export async function POST(request: NextRequest) {
   const ip = clientIp(request);
   const byIp = hitLimit(`join:ip:${ip}`, sessionAttemptLimit(10), 60_000);
   const byHw = hitLimit(`join:hw:${hardwareId}`, sessionAttemptLimit(10), 60_000);
-  if (byIp.limited || byHw.limited) {
-    const retryAfter = Math.ceil(Math.max(byIp.retryAfterMs, byHw.retryAfterMs) / 1000);
+  const globalLimit = hitLimit("global:join", sessionAttemptLimit(100), 60_000);
+  if (byIp.limited || byHw.limited || globalLimit.limited) {
+    const retryAfter = Math.ceil(Math.max(byIp.retryAfterMs, byHw.retryAfterMs, globalLimit.retryAfterMs) / 1000);
     return NextResponse.json(
       { error: "too many attempts, slow down" },
       { status: 429, headers: { "Retry-After": String(retryAfter) } },
