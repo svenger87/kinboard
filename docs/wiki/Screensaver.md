@@ -74,7 +74,7 @@ Every **30 seconds** by default (configurable 10 s – 5 min), the photo cross-f
 
 ## Presence-aware activation
 
-If you've configured an [LD2410 presence sensor](Presence-Sensor) for this device, screensaver behavior changes:
+If you've configured an [LD2410 presence sensor](Presence-Sensor) for this device, screensaver behavior changes. The sensor script needs the same token as the server (`KINBOARD_PRESENCE_TOKEN` on the kiosk, `PRESENCE_SENSOR_TOKEN` in `webapp/docker/.env`); without it the server refuses its reports and the screensaver falls back to the inactivity timeout.
 
 - **No presence detected for N seconds** (default 30) → screensaver activates immediately (or display blacks out, depending on mode)
 - **Presence detected** → screensaver dismisses, dashboard returns
