@@ -9,6 +9,8 @@ import { useBirthdays, useEvents, useHolidayEntries, usePeople, usePhotoSource, 
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { screensaverListCount } from "@/types/screensaver";
 import { nextEventLine } from "@/lib/next-event-line";
+import { isScreensaverNight } from "@/lib/screensaver-night";
+import { useCreatureBedtime, useFamilyTimeZone } from "@/hooks/use-creature-mood";
 import { useFamilyStore } from "@/stores/family-store";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
 import { PersonAvatar } from "@/components/person-avatar";
@@ -213,6 +215,10 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // Without the second argument this defaulted to 24-hour, so the screensaver
   // ignored the household's setting entirely (issue #198).
   const { hours, minutes, date } = useClock(60000, use24Hour);
+  // Night (RFC-021 §3.4): during the family's bedtime, a dim clock alone.
+  const familyTimeZone = useFamilyTimeZone();
+  const bedtime = useCreatureBedtime();
+  const nightNow = isScreensaverNight(screensaverSettings.night, date, familyTimeZone, bedtime);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(-1); // -1 means not initialized
   // The screen's own shape, which decides whether a photo is cropped or
   // letterboxed. Kinboard runs on portrait wall panels as well as landscape
@@ -452,7 +458,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
 
   // Rotate photos at configured interval — preload fully before switching
   useEffect(() => {
-    if (photoUrls.length <= 1 || currentPhotoIndex === -1) return;
+    // No photos at night: nothing to show them, nothing to download.
+    if (nightNow || photoUrls.length <= 1 || currentPhotoIndex === -1) return;
 
     const timer = setInterval(async () => {
       // A new set of photos arrived (the hourly refetch), or the bag ran
@@ -491,7 +498,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
     }, photoRotationMs);
 
     return () => clearInterval(timer);
-  }, [photoUrls, currentPhotoIndex, currentBlobUrl, photoRotationMs, loadImageAsBlob, cleanupOldBlobs]);
+  }, [photoUrls, currentPhotoIndex, currentBlobUrl, photoRotationMs, loadImageAsBlob, cleanupOldBlobs, nightNow]);
 
   // Proactively preload the next image mid-interval so it's ready when the timer fires
   useEffect(() => {
@@ -716,6 +723,23 @@ export function Screensaver({ photos }: ScreensaverProps) {
       window.removeEventListener("resize", measure);
     };
   }, [news, screensaverSettings.showNews, soon, largeDetails, selectedNews]);
+
+  // Night: no photo, no news, no events, the clock alone and dim, drifting
+  // with the burn-in offsets like everything else here. A touch wakes the
+  // screen as always (the screensaver gate listens on the document).
+  if (nightNow) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-black screensaver-fade-in" data-testid="screensaver-night">
+        <div className="absolute inset-0 flex items-center justify-center" style={burnInStyle}>
+          <span className="font-display font-light text-white/35 clock-display tracking-tighter leading-none text-[clamp(5rem,18vw,12rem)]">
+            {hours}
+            <span className="mx-1 text-white/20 landscape:lg:mx-2">:</span>
+            {minutes}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

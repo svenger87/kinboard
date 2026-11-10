@@ -20,6 +20,9 @@ import { useFamilyStore } from "@/stores/family-store";
 import { usePresence } from "@/hooks/use-presence";
 import { PageHeader } from "@/components/page-header";
 import { SCREENSAVER_LIST_COUNTS, screensaverListCount } from "@/types/screensaver";
+import Link from "next/link";
+import { useCreatureBedtime } from "@/hooks/use-creature-mood";
+import { formatClock } from "@/lib/creature-mood";
 
 // Numeric values; labels resolved per-locale via t() at render
 const SCREENSAVER_TIMEOUTS = [
@@ -53,6 +56,7 @@ export default function ScreensaverSettingsPage() {
   const { settings, isLoading, screensaverTimeout, presenceTimeout, presenceControlMode, photoRotationInterval } = useScreensaverSettings();
   const updateSettings = useUpdateScreensaverSettings();
   const presence = usePresence();
+  const bedtime = useCreatureBedtime();
 
   const hasPresenceSensor = device?.has_presence_sensor ?? false;
 
@@ -84,7 +88,7 @@ export default function ScreensaverSettingsPage() {
     });
   };
 
-  const updateDisplayOption = (field: "showNews" | "largeDetails" | "showBirthdays" | "showNextEvent", value: boolean) => {
+  const updateDisplayOption = (field: "showNews" | "largeDetails" | "showBirthdays" | "showNextEvent" | "night", value: boolean) => {
     updateSettings.mutate({ key: "screensaver", value: { ...settings, [field]: value } });
   };
 
@@ -150,6 +154,19 @@ export default function ScreensaverSettingsPage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div id="night" data-setting="night" className="flex items-center justify-between gap-4">
+            <div>
+              <Label htmlFor="screensaver-night">{t("nightLabel")}</Label>
+              <p className="text-xs text-muted-foreground">
+                {t.rich("nightDescription", {
+                  sleep: formatClock(bedtime.sleep),
+                  wake: formatClock(bedtime.wake),
+                  link: (chunks) => <Link href="/settings/creatures#home" className="underline underline-offset-2">{chunks}</Link>,
+                })}
+              </p>
+            </div>
+            <Switch id="screensaver-night" checked={settings.night ?? false} onCheckedChange={(value) => updateDisplayOption("night", value)} disabled={updateSettings.isPending} />
           </div>
           <div className="flex items-center justify-between gap-4">
             <div>
