@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/server";
+import { requireSession } from "@/lib/require-session";
+import { timingSafeEqual } from "node:crypto";
 
 // In-memory presence state (per device)
 interface PresenceState {
@@ -10,6 +13,16 @@ interface PresenceState {
 // Store presence states in memory (resets on server restart, which is fine for transient state)
 const presenceStates = new Map<string, PresenceState>();
 
+async function familyDevice(request: NextRequest, deviceId: string) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return { response: auth.response };
+  const { data, error } = await createAdminClient().from("devices")
+    .select("id").eq("id", deviceId).eq("family_id", auth.session.familyId).maybeSingle();
+  if (error) return { response: NextResponse.json({ error: "device lookup failed" }, { status: 500 }) };
+  if (!data) return { response: NextResponse.json({ error: "not found" }, { status: 404 }) };
+  return { response: null };
+}
+
 // GET: Query presence state for a device
 export async function GET(request: NextRequest) {
   const deviceId = request.nextUrl.searchParams.get("device_id");
@@ -17,6 +30,8 @@ export async function GET(request: NextRequest) {
   if (!deviceId) {
     return NextResponse.json({ error: "device_id required" }, { status: 400 });
   }
+  const access = await familyDevice(request, deviceId);
+  if (access.response) return access.response;
 
   const state = presenceStates.get(deviceId);
 
@@ -41,6 +56,14 @@ export async function GET(request: NextRequest) {
 
 // POST: Update presence state from Pi sensor
 export async function POST(request: NextRequest) {
+  const expected = process.env.PRESENCE_SENSOR_TOKEN;
+  if (!expected) return NextResponse.json({ error: "presence sensor not configured" }, { status: 503 });
+  const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  const actualBytes = Buffer.from(supplied);
+  const expectedBytes = Buffer.from(expected);
+  if (actualBytes.length !== expectedBytes.length || !timingSafeEqual(actualBytes, expectedBytes)) {
+    return NextResponse.json({ error: "not authenticated" }, { status: 401 });
+  }
   try {
     const body = await request.json();
     const { device_id, presence, distance } = body;
@@ -70,12 +93,10 @@ export async function POST(request: NextRequest) {
 // DELETE: Clear presence state for a device (for testing/debugging)
 export async function DELETE(request: NextRequest) {
   const deviceId = request.nextUrl.searchParams.get("device_id");
-
-  if (deviceId) {
-    presenceStates.delete(deviceId);
-  } else {
-    presenceStates.clear();
-  }
+  if (!deviceId) return NextResponse.json({ error: "device_id required" }, { status: 400 });
+  const access = await familyDevice(request, deviceId);
+  if (access.response) return access.response;
+  presenceStates.delete(deviceId);
 
   return NextResponse.json({ success: true });
 }

@@ -282,6 +282,9 @@ test("a route that still takes family_id checks it against the session", () => {
     // the person are looked up in; the body carries only `{ person_id }`
     // (lib/device-owner.ts refuses any other field).
     "devices/[id]/route.ts",
+    // Presence takes a device id, then looks it up with the family id from
+    // the session. The request never supplies a family id.
+    "presence/route.ts",
     // The live-updates stream. The regex matches the local `familyId`, taken
     // from auth.session.familyId, which the hub filters on; the request is a
     // bare GET with nothing but the session cookie

@@ -10,6 +10,7 @@ import aiohttp
 BAUD_RATE = 256000
 import os
 API_URL = os.environ.get("KINBOARD_URL", "http://localhost:3001").rstrip("/") + "/api/presence"
+SENSOR_TOKEN = os.environ.get("KINBOARD_PRESENCE_TOKEN", "")
 DEVICE_ID = sys.argv[1] if len(sys.argv) > 1 else ""
 DISPLAY_OFF_DELAY = 30
 WATCHDOG_TIMEOUT = 30  # Restart connection if no data for this many seconds
@@ -78,7 +79,7 @@ def force_close_port(port_name):
 
 async def post_presence(session, device_id, presence, distance):
     try:
-        async with session.post(API_URL, json={
+        async with session.post(API_URL, headers={"Authorization": f"Bearer {SENSOR_TOKEN}"}, json={
             "device_id": device_id, "presence": presence, "distance": distance,
         }, timeout=aiohttp.ClientTimeout(total=5)) as resp:
             if resp.status != 200:

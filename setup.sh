@@ -221,6 +221,9 @@ fill_secret() {
 POSTGRES_PASSWORD=$(openssl rand -hex 32)
 JWT_SECRET=$(openssl rand -hex 32)
 CRON_SECRET=$(openssl rand -hex 32)
+# Optional sensor uses its own credential; generate it eagerly so an existing
+# install gets one when setup is re-run, without sharing the cron credential.
+PRESENCE_SENSOR_TOKEN=$(openssl rand -hex 32)
 # Used only when the docker-compose.diun.yml auto-update overlay is
 # enabled. Harmless to generate eagerly — costs nothing if unused.
 DIUN_WEBHOOK_SECRET=$(openssl rand -hex 32)
@@ -229,6 +232,7 @@ echo "→ filling random secrets in $DOCKER_ENV"
 fill_secret POSTGRES_PASSWORD "$POSTGRES_PASSWORD" "$DOCKER_ENV"
 fill_secret JWT_SECRET "$JWT_SECRET" "$DOCKER_ENV"
 fill_secret CRON_SECRET "$CRON_SECRET" "$DOCKER_ENV"
+fill_secret PRESENCE_SENSOR_TOKEN "$PRESENCE_SENSOR_TOKEN" "$DOCKER_ENV"
 fill_secret DIUN_WEBHOOK_SECRET "$DIUN_WEBHOOK_SECRET" "$DOCKER_ENV"
 # Auto-detect the project's host path from setup.sh's own location.
 # Used by the Diun overlay's webhook bind-mount; see .env.example.
