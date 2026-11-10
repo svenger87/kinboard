@@ -242,15 +242,16 @@ test("Home: off unless switched on, gone with animations off, still with reduced
   expect(codeOnly(read("src/app/page.tsx"))).toMatch(/<WeatherEffects \/>\s*<CreaturesOnHome \/>/);
   const home = codeOnly(read("src/components/creatures-on-home.tsx"));
   expect(home).toContain('if (on !== true || motion === "off" || kids.length === 0) return null;');
-  expect(home).toContain('return <CreatureFloor kids={kids} still={motion !== "full"} />;');
+  expect(home).toContain('return <CreatureFloor kids={kids} still={motion !== "full"} placement="home" />;');
   expect(home).toContain("const FRAME_MS = 1000 / 30;");
   // No steps while the page is hidden or the screensaver covers Home.
-  expect(home).toContain('const covered = () => document.hidden || document.documentElement.hasAttribute("data-screensaver");');
+  expect(home).toContain('document.hidden || (placement === "home" && document.documentElement.hasAttribute("data-screensaver"));');
   expect(home).toContain('screensaver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-screensaver"] });');
-  expect(home).toContain('className="creature-floor pointer-events-none fixed inset-x-0 z-[15]"');
-  expect(home).toContain('style={{ bottom: "var(--nav-spacing, 0px)", height: floorHeight }}');
+  expect(home).toContain('className={`creature-floor pointer-events-none inset-x-0 ${placement === "home" ? "fixed z-[15]" : "absolute"}');
+  expect(home).toContain('style={{ bottom: placement === "home" ? "var(--nav-spacing, 0px)" : 0, height: floorHeight }}');
   // Home keeps the floor's height free at its bottom, so the creatures walk below the widgets.
-  expect(home).toContain('root.style.setProperty("--home-creature-floor", `${floorHeight}px`);');
+  expect(home).toContain('const name = placement === "home" ? "--home-creature-floor" : "--idle-creature-floor";');
+  expect(home).toContain("root.style.setProperty(name, `${floorHeight}px`);");
   expect(read("src/app/page.tsx")).toContain('className="has-fab home-column ');
   expect(read("src/app/globals.css")).toMatch(/html\[data-home-creatures\] \.home-column \{\s*padding-bottom: var\(--home-creature-floor\);/);
   expect(home).toContain('className="pointer-events-auto flex size-full items-end justify-center rounded-full');
@@ -306,4 +307,27 @@ test("every string is there in every language", () => {
     expect(m.creaturesOnHome.tapAria, lang).toContain("{name}");
     expect(m.settingsSearch.keywords.creatures_home, lang).toBeTruthy();
   }
+});
+
+test("the idle screen: the same floor, its own switch, off unless switched on; a tap there doesn't wake the screen", () => {
+  const home = codeOnly(read("src/components/creatures-on-home.tsx"));
+  expect(read("src/lib/settings-keys.ts")).toContain('creaturesOnIdle: "creatures_on_idle"');
+  expect(home).toContain("useSetting<unknown>(SETTINGS_KEYS.creaturesOnIdle, false, { refetchInterval: 60_000 })");
+  expect(home).toContain('return <CreatureFloor kids={kids} still={motion !== "full"} placement="idle" dim={dim} />;');
+  // The idle floor runs while the screensaver is up; Home's stops then.
+  expect(home).toContain('(placement === "home" && document.documentElement.hasAttribute("data-screensaver"))');
+  expect(home).toContain('data-no-wake={placement === "idle" ? "" : undefined}');
+  const saver = codeOnly(read("src/components/screensaver.tsx"));
+  expect(saver).toContain("<CreaturesOnIdle />");
+  expect(saver).toContain("<CreaturesOnIdle dim />");
+  // Under everything that reads: after the photo and the visitor, before the news.
+  const floor = saver.indexOf("<CreaturesOnIdle />");
+  expect(floor).toBeGreaterThan(saver.indexOf('<FestivalVisitor placement="screensaver" />'));
+  expect(floor).toBeLessThan(saver.indexOf('ref={newsListRef}'));
+  // The clock and the events stand on the floor, not behind it.
+  expect(saver.match(/bottom-\[calc\(3rem\+var\(--idle-creature-floor,0px\)\)\]/g)?.length).toBe(3);
+  expect(read("src/components/settings/creatures-home-settings.tsx")).toContain("onCheckedChange={(next) => void save(SETTINGS_KEYS.creaturesOnIdle, next)}");
+  // Measured: the drawings' own CSS animations more than doubled the main
+  // thread's load on a throttled CPU, so the floor draws them still.
+  expect(home).toContain("animated={false}");
 });

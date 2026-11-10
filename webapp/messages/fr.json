@@ -3148,6 +3148,8 @@
       "adjustTakenBack": "Annulé",
       "homeLabel": "Créatures sur l'accueil",
       "homeHint": "Les créatures des enfants se promènent en bas de l'écran d'accueil, se reposent, sautent et jouent ensemble. Touchez-en une et elle saute. Le réglage Animations de chaque écran (Réglages → Thème) peut les garder immobiles ou les masquer.",
+      "idleLabel": "Créatures sur l’économiseur d’écran",
+      "idleHint": "Les mêmes créatures se promènent en bas de l’économiseur d’écran, sous l’horloge et les événements. En touchant l’une d’elles, elle saute sans réveiller l’écran ; à l’heure du coucher elles y dorment, et en mode nuit elles reposent, pâles, sous l’horloge atténuée.",
       "bedtimeLabel": "Heure du coucher",
       "bedtimeHint": "Les créatures dorment entre ces heures : sur l'accueil elles se couchent, dans le widget elles ont l'air endormies.",
       "bedtimeSleep": "Endormies à partir de",

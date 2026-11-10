@@ -3148,6 +3148,8 @@
       "adjustTakenBack": "Undone",
       "homeLabel": "Creatures on Home",
       "homeHint": "The children's creatures walk along the bottom of the Home screen, rest, hop and play with each other. Tap one and it hops. Each screen's Animations setting (Settings → Theme) can keep them still or hide them.",
+      "idleLabel": "Creatures on the screensaver",
+      "idleHint": "The same creatures walk along the bottom of the screensaver, under the clock and the events. A tap on one makes it hop without waking the screen; at bedtime they sleep there, and with Night on they lie faint under the dim clock.",
       "bedtimeLabel": "Bedtime",
       "bedtimeHint": "The creatures sleep between these times: on Home they lie down, in the widget they look sleepy.",
       "bedtimeSleep": "Asleep from",

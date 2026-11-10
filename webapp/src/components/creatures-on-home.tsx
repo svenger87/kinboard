@@ -49,7 +49,25 @@ export function CreaturesOnHome() {
   const { data: creatures } = useCreatures();
   const kids = useMemo(() => creatureChildren(people, creatures), [people, creatures]);
   if (on !== true || motion === "off" || kids.length === 0) return null;
-  return <CreatureFloor kids={kids} still={motion !== "full"} />;
+  return <CreatureFloor kids={kids} still={motion !== "full"} placement="home" />;
+}
+
+/**
+ * The same creatures on the idle screen (RFC-021 §3.1; Settings -> Creatures
+ * -> On the screensaver, off unless switched on): the floor along the
+ * screen's bottom edge, under the clock and the events, which the screensaver
+ * lifts by the floor's height. Home's floor stops while the screensaver is
+ * up, so only one of the two ever runs. `dim` is the screensaver's night:
+ * they sleep there, faint, under the dim clock.
+ */
+export function CreaturesOnIdle({ dim = false }: { dim?: boolean }) {
+  const { data: on } = useSetting<unknown>(SETTINGS_KEYS.creaturesOnIdle, false, { refetchInterval: 60_000 });
+  const motion = useMotion();
+  const { data: people } = usePeople();
+  const { data: creatures } = useCreatures();
+  const kids = useMemo(() => creatureChildren(people, creatures), [people, creatures]);
+  if (on !== true || motion === "off" || kids.length === 0) return null;
+  return <CreatureFloor kids={kids} still={motion !== "full"} placement="idle" dim={dim} />;
 }
 
 const FRAME_MS = 1000 / 30;
@@ -63,9 +81,13 @@ const PICTURE_SCALE = 0.8;
 interface FloorProps {
   kids: Array<{ person: Person; creature: Creature }>;
   still: boolean;
+  /** Home (above the navigation) or the idle screen (its bottom edge). */
+  placement: "home" | "idle";
+  /** The idle screen's night: faint. */
+  dim?: boolean;
 }
 
-function CreatureFloor({ kids, still }: FloorProps) {
+function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
   const t = useTranslations("creaturesOnHome");
   const floorRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -99,17 +121,20 @@ function CreatureFloor({ kids, still }: FloorProps) {
   sleepingRef.current = bedtimeNow ? new Set(cast.map((c) => c.person.id)) : new Set();
 
   // Home keeps the floor's height free at its bottom (page.tsx), so the
-  // creatures walk below the widgets instead of over the lowest of them.
+  // creatures walk below the widgets instead of over the lowest of them; the
+  // screensaver lifts its clock and events by it the same way.
   const floorHeight = Math.round(size * 1.6);
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--home-creature-floor", `${floorHeight}px`);
-    root.setAttribute("data-home-creatures", "");
+    const name = placement === "home" ? "--home-creature-floor" : "--idle-creature-floor";
+    const flag = placement === "home" ? "data-home-creatures" : "data-idle-creatures";
+    root.style.setProperty(name, `${floorHeight}px`);
+    root.setAttribute(flag, "");
     return () => {
-      root.style.removeProperty("--home-creature-floor");
-      root.removeAttribute("data-home-creatures");
+      root.style.removeProperty(name);
+      root.removeAttribute(flag);
     };
-  }, [floorHeight]);
+  }, [floorHeight, placement]);
 
   useEffect(() => {
     const el = floorRef.current;
@@ -217,7 +242,9 @@ function CreatureFloor({ kids, still }: FloorProps) {
       }
       draw(now);
     };
-    const covered = () => document.hidden || document.documentElement.hasAttribute("data-screensaver");
+    // Home's floor is covered by the screensaver; the idle screen's is the screensaver.
+    const covered = () =>
+      document.hidden || (placement === "home" && document.documentElement.hasAttribute("data-screensaver"));
     const start = () => {
       if (!raf && !covered()) {
         last = performance.now();
@@ -239,7 +266,7 @@ function CreatureFloor({ kids, still }: FloorProps) {
       document.removeEventListener("visibilitychange", onCover);
       screensaver.disconnect();
     };
-  }, [width, size, still, draw, show]);
+  }, [width, size, still, draw, show, placement]);
 
   const tap = useCallback((id: string) => {
     const { roamers: next, events } = poke(roamers.current, id, performance.now());
@@ -250,9 +277,11 @@ function CreatureFloor({ kids, still }: FloorProps) {
   return (
     <div
       ref={floorRef}
-      className="creature-floor pointer-events-none fixed inset-x-0 z-[15]"
-      style={{ bottom: "var(--nav-spacing, 0px)", height: floorHeight }}
-      data-testid="home-creatures"
+      className={`creature-floor pointer-events-none inset-x-0 ${placement === "home" ? "fixed z-[15]" : "absolute"} ${dim ? "opacity-40" : ""}`}
+      style={{ bottom: placement === "home" ? "var(--nav-spacing, 0px)" : 0, height: floorHeight }}
+      data-testid={placement === "home" ? "home-creatures" : "idle-creatures"}
+      // On the idle screen a tap on a creature is for the creature, not a wake-up.
+      data-no-wake={placement === "idle" ? "" : undefined}
       data-count={cast.length}
       aria-label={t("aria")}
       role="group"
@@ -363,7 +392,13 @@ function FloorCreature({
               look={look}
               mood={shownMood}
               size={picture ? Math.round(size * PICTURE_SCALE) : size}
-              animated={!still && !lying}
+              // Still drawings: the walk, the hops and the games are the motion.
+              // The drawing's own breathing and tail sway are CSS animations on
+              // SVG parts, repainted every frame: with two creatures, at a 6x
+              // throttled CPU, they took the screensaver's main thread from 15%
+              // to 37% busy (3.7% with no creatures); halving the frame rate
+              // saved two points (2026-11-10, RFC-021 §7).
+              animated={false}
               label=""
             />
           </button>

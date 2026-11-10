@@ -24,6 +24,7 @@ import { toLocalDateKey } from "@/lib/local-date";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
 import { FestivalVisitor } from "@/components/weather-effects";
+import { CreaturesOnIdle } from "@/components/creatures-on-home";
 
 // Parse date string safely without timezone shift
 // "1990-01-28" should be January 28th local, not UTC midnight
@@ -737,6 +738,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
             {minutes}
           </span>
         </div>
+        {/* Asleep along the bottom, faint (RFC-021 §3.4). */}
+        <CreaturesOnIdle dim />
       </div>
     );
   }
@@ -780,6 +783,11 @@ export function Screensaver({ photos }: ScreensaverProps) {
           everything else here, every two minutes. Its passes move pixels
           against burn-in alongside BURN_IN_OFFSETS. */}
       <FestivalVisitor placement="screensaver" />
+
+      {/* The children's creatures along the bottom edge (RFC-021 §3.1), above
+          the photo and under everything that reads. The clock and the events
+          are lifted by the floor's height (--idle-creature-floor). */}
+      <CreaturesOnIdle />
 
       {/* News list - top left (always rendered for data-no-wake) */}
       {(screensaverSettings.showNews ?? true) && news && news.length > 0 && (
@@ -1091,13 +1099,13 @@ export function Screensaver({ photos }: ScreensaverProps) {
         source — DOM order is what the landscape layout reads.
       */}
       <div
-        className="absolute inset-x-4 bottom-12 flex flex-col-reverse gap-6 safe-area-inset landscape:lg:contents"
+        className="absolute inset-x-4 bottom-[calc(3rem+var(--idle-creature-floor,0px))] flex flex-col-reverse gap-6 safe-area-inset landscape:lg:contents"
       >
       {/* Clock overlay - bottom left (compact for mobile & portrait). A festival's fireworks go up over it (RFC-020). */}
       <div
         ref={clockBlockRef}
         data-festival-anchor="screensaver-clock"
-        className="landscape:lg:absolute landscape:lg:bottom-12 landscape:lg:left-12 safe-area-inset screensaver-slide-up"
+        className="landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:left-12 safe-area-inset screensaver-slide-up"
         style={{ animationDelay: "0.5s", ...burnInStyle }}
       >
         <div className="flex items-baseline">
@@ -1128,7 +1136,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       {/* Right side - Events and Birthdays (above clock for portrait/mobile, right side for landscape desktop) */}
       <div
         ref={eventsBlockRef}
-        className="max-w-sm landscape:lg:absolute landscape:lg:bottom-12 landscape:lg:right-12 flex flex-col gap-4 landscape:lg:gap-6 safe-area-inset screensaver-slide-right"
+        className="max-w-sm landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:right-12 flex flex-col gap-4 landscape:lg:gap-6 safe-area-inset screensaver-slide-right"
         style={{ animationDelay: "0.7s", maxWidth: largeDetails ? "36rem" : undefined, ...burnInStyle }}
       >
         {/* Upcoming Events */}

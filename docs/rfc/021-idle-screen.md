@@ -181,7 +181,12 @@ at home (a screen any visitor sees is the wrong place for it).
   Pi 4 with the weather effects and a festival visitor running is unmeasured,
   on Home as much as on the idle screen. Measure before shipping, as RFC-020
   §7.1 asks for its visitors. The idle screen is up most of the day, so this
-  matters more here than on Home.
+  matters more here than on Home. *Measured 2026-11-10* (Chromium, CPU
+  throttled 6x, 20 s, main thread busy): screensaver alone 3.7%; two
+  creatures as #447 drew them 37–49%; without the drawings' own CSS
+  animations (breathing, tail sway) 15%; at 20 or 15 frames a second 15% and
+  12.6%. The floor now draws them still and keeps 30 fps. A real Pi is still
+  to be measured (Discussion #433).
 - **Privacy.** An age on a screen visitors see. The idle screen's birthday
   list already says "turns 41" for anyone with a birth year; the new line
   gives the age for a child only, and a grown-up's birthday without it.

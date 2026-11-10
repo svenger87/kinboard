@@ -3148,6 +3148,8 @@
       "adjustTakenBack": "Rückgängig gemacht",
       "homeLabel": "Kreaturen auf der Startseite",
       "homeHint": "Die Kreaturen der Kinder laufen unten über die Startseite, ruhen sich aus, hüpfen und spielen miteinander. Tippe eine an, dann hüpft sie. Die Animationen-Einstellung jedes Bildschirms (Einstellungen → Design) kann sie stillhalten oder ausblenden.",
+      "idleLabel": "Kreaturen auf dem Bildschirmschoner",
+      "idleHint": "Dieselben Kreaturen laufen unten über den Bildschirmschoner, unter Uhr und Terminen. Tippst du eine an, hüpft sie, ohne dass der Bildschirm aufwacht. Zur Schlafenszeit schlafen sie dort, und mit dem Nachtmodus liegen sie blass unter der gedimmten Uhr.",
       "bedtimeLabel": "Schlafenszeit",
       "bedtimeHint": "Zwischen diesen Zeiten schlafen die Kreaturen: auf der Startseite legen sie sich hin, im Widget sehen sie müde aus.",
       "bedtimeSleep": "Schlafen ab",

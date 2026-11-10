@@ -121,6 +121,7 @@ Tapping the screensaver doesn't dismiss it when a news modal is open — only th
 | How many events (1–5) | Settings → Screensaver → Events |
 | The countdown line under the clock | Settings → Screensaver → Next event under the clock |
 | Night: a dim clock only, during the family's bedtime | Settings → Screensaver → Night (times under Settings → Creatures) |
+| The children's creatures along the bottom | Settings → Creatures → Creatures on the screensaver |
 | Birthdays on or off, and how many (1–5) | Settings → Screensaver → Birthdays |
 | Show solar / Tesla widgets on screensaver | Settings → Home Assistant → Energy / Settings → Tesla |
 
