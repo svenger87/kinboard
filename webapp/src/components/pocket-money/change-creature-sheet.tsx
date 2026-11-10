@@ -56,8 +56,8 @@ export function ChangeCreatureSheet({ open, onOpenChange, childName, current, av
     <Sheet open={open} onOpenChange={close}>
       <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto" data-testid="change-creature-sheet">
         <SheetHeader>
-          <SheetTitle>{t("changeCreatureTitle", { name: childName })}</SheetTitle>
-          <SheetDescription>{t("changeCreatureHint")}</SheetDescription>
+          <SheetTitle className="text-xl sm:text-2xl">{t("changeCreatureTitle", { name: childName })}</SheetTitle>
+          <SheetDescription className="text-sm sm:text-base">{t("changeCreatureHint")}</SheetDescription>
         </SheetHeader>
 
         <div className="mt-4 space-y-3">
@@ -74,7 +74,7 @@ export function ChangeCreatureSheet({ open, onOpenChange, childName, current, av
           <div className="sticky -bottom-6 -mx-6 space-y-2 border-t border-border bg-background px-6 pb-6 pt-3">
             {target && (
               <p
-                className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm font-medium"
+                className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm sm:text-base font-medium"
                 data-testid="change-creature-confirm"
                 aria-live="polite"
               >

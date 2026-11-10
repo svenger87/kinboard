@@ -62,7 +62,7 @@ export function SpeciesPicker({ picked, onPick, avatarStyle, look, current }: Pr
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" data-testid="species-picker">
+      <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3" data-testid="species-picker">
         {SPECIES_IDS.map((preview) => {
           const isPicked = picked === preview;
           return (
@@ -71,24 +71,28 @@ export function SpeciesPicker({ picked, onPick, avatarStyle, look, current }: Pr
               type="button"
               data-species={preview}
               onClick={() => onPick(preview)}
-              className={`flex flex-col items-start gap-2 rounded-lg border-2 p-3 transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+              className={`flex flex-col items-start gap-2 rounded-lg border-2 p-3 sm:p-4 transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
                 isPicked
                   ? "border-primary bg-primary/5 ring-2 ring-primary/30"
                   : "border-border hover:bg-accent/50"
               }`}
               aria-pressed={isPicked}
             >
-              <span className="flex w-full items-center justify-between gap-2 text-sm font-semibold">
+              <span className="flex w-full items-center justify-between gap-2 text-base font-semibold">
                 {speciesLabel(preview)}
                 {current === preview && (
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-3xs font-medium text-muted-foreground">
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                     {t("speciesCurrent")}
                   </span>
                 )}
               </span>
-              <div className="flex w-full items-center justify-between gap-1">
+              {/* Eight stages across the tile, each as wide as the tile allows:
+                  a fixed 28 px was a speck on a tablet. */}
+              <div className="grid w-full grid-cols-8 gap-1">
                 {PREVIEW_TIERS.map((tier) => (
-                  <SpeciesStage key={tier} species={preview} tier={tier} size={28} avatarStyle={avatarStyle} look={look} />
+                  <span key={tier} className="species-stage aspect-square">
+                    <SpeciesStage species={preview} tier={tier} size={64} avatarStyle={avatarStyle} look={look} />
+                  </span>
                 ))}
               </div>
             </button>
@@ -97,15 +101,17 @@ export function SpeciesPicker({ picked, onPick, avatarStyle, look, current }: Pr
       </div>
 
       {pickedPreview && (
-        <div className="rounded-lg border border-border bg-accent/30 p-3 space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">
+        <div className="rounded-lg border border-border bg-accent/30 p-3 sm:p-4 space-y-3">
+          <p className="text-sm font-medium text-muted-foreground">
             {t("speciesPreviewTitle", { species: speciesLabel(pickedPreview) })}
           </p>
-          <div className="flex items-start gap-2 overflow-x-auto">
+          <div className="grid grid-cols-4 sm:grid-cols-8 gap-x-2 gap-y-3">
             {PREVIEW_TIERS.map((tier) => (
-              <div key={tier} className="flex flex-col items-center gap-1 min-w-[64px]">
-                <SpeciesStage species={pickedPreview} tier={tier} size={40} avatarStyle={avatarStyle} look={look} />
-                <span className="text-3xs text-muted-foreground text-center leading-tight">
+              <div key={tier} className="flex min-w-0 flex-col items-center gap-1">
+                <span className="species-stage aspect-square w-full max-w-[6rem]">
+                  <SpeciesStage species={pickedPreview} tier={tier} size={96} avatarStyle={avatarStyle} look={look} />
+                </span>
+                <span className="text-xs sm:text-sm text-muted-foreground text-center leading-tight">
                   {stageLabel(pickedPreview, tier)}
                 </span>
               </div>

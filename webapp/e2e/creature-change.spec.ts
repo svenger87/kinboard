@@ -331,3 +331,17 @@ test.describe("live: changing a child's creature", () => {
     await expect(page.getByTestId("species-picker")).toHaveCount(0);
   });
 });
+
+test("the picker's stages grow with their tile, and the sheet's text is readable on a wall display", () => {
+  const picker = read("components/pocket-money/species-picker.tsx");
+  // Each stage fills a square cell of an eight-column row, not a fixed 28 px.
+  expect(picker).toContain('<div className="grid w-full grid-cols-8 gap-1">');
+  expect(picker).toContain('<span key={tier} className="species-stage aspect-square">');
+  expect(picker).not.toMatch(/size=\{28\}/);
+  expect(picker).not.toContain("text-3xs");
+  const css = read("app/globals.css");
+  expect(css).toMatch(/\.species-stage > \.creature-avatar \{\s*width: 100% !important;\s*height: 100% !important;/);
+  const sheet = read("components/pocket-money/change-creature-sheet.tsx");
+  expect(sheet).toContain('<SheetTitle className="text-xl sm:text-2xl">');
+  expect(sheet).toContain('<SheetDescription className="text-sm sm:text-base">');
+});
