@@ -8,6 +8,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Night on the screensaver.** Settings → Screensaver → *Night*, off unless switched on: during the family's bedtime (the times under Settings → Creatures, 20:00 to 06:30 unless changed) the screensaver shows a dim clock on black and nothing else, no photo, no news, no events, and stops loading photos. The clock drifts a few pixels now and then against burn-in, and a touch wakes the screen as always. One bedtime for the whole household: the screen's night is the children's (RFC-021).
+
 - **The screensaver says when the next event is about to start.** In the hour before an event that starts at a time, a line under the clock counts down to it, on the minute, and goes at the start. A child's event speaks to the child ("Fußball – noch 35 Minuten!"); anyone else's, and an event that belongs to no one, stays short ("Zahnarzt in 35 Min."). All-day events never count. It's on unless switched off under Settings → Screensaver → *Next event under the clock*. The news list on the screensaver now stops above the clock and the events instead of running over them on a short screen, and fades out where it is cut short (RFC-021).
 
 ### Changed

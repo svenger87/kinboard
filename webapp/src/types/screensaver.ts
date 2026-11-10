@@ -33,6 +33,8 @@ export interface ScreensaverSettings {
   birthdayCount?: number;
   // The line under the clock in the hour before an event (RFC-021 §3.2).
   showNextEvent?: boolean;
+  // A dim clock and nothing else during the family's bedtime (RFC-021 §3.4).
+  night?: boolean;
 }
 
 /** The choices for both lists. */
@@ -58,6 +60,7 @@ export const DEFAULT_SCREENSAVER_SETTINGS: ScreensaverSettings = {
   showBirthdays: true,
   birthdayCount: 3,
   showNextEvent: true,
+  night: false,
 };
 
 export interface PresenceState {

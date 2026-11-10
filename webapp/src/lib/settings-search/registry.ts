@@ -240,6 +240,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   ]),
   ...sectionsOf(screensaver, [
     { anchor: "lists", labelKey: "settings.screensaver.eventCountLabel", descriptionKey: "settings.screensaver.eventCountDescription" },
+    { anchor: "night", labelKey: "settings.screensaver.nightLabel" },
     { anchor: "timeout", labelKey: "settings.screensaver.timeoutHeading" },
     { anchor: "rotation", labelKey: "settings.screensaver.rotationHeading" },
     { anchor: "presence", labelKey: "settings.screensaver.presenceHeading" },

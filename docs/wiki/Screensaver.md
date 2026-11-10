@@ -18,6 +18,8 @@ Top → bottom:
 
 Tapping anywhere dismisses the screensaver and returns to the dashboard.
 
+**At night**, if *Night* is switched on under Settings → Screensaver, all of the above gives way to a dim clock on black during the family's bedtime (set under Settings → Creatures; 20:00 to 06:30 unless changed). No photos are loaded meanwhile. A touch wakes the screen as usual.
+
 ## Photo sources
 
 Four configurable sources, picked in **Settings → Photos**. The same choice
@@ -118,6 +120,7 @@ Tapping the screensaver doesn't dismiss it when a news modal is open — only th
 | News on the screensaver, large clock and events | Settings → Screensaver |
 | How many events (1–5) | Settings → Screensaver → Events |
 | The countdown line under the clock | Settings → Screensaver → Next event under the clock |
+| Night: a dim clock only, during the family's bedtime | Settings → Screensaver → Night (times under Settings → Creatures) |
 | Birthdays on or off, and how many (1–5) | Settings → Screensaver → Birthdays |
 | Show solar / Tesla widgets on screensaver | Settings → Home Assistant → Energy / Settings → Tesla |
 
