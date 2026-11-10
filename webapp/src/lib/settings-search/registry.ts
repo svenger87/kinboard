@@ -239,6 +239,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     { anchor: "festivals", labelKey: "settings.theme.festivalsLabel", descriptionKey: "settings.theme.festivalsHint" },
   ]),
   ...sectionsOf(screensaver, [
+    { anchor: "lists", labelKey: "settings.screensaver.eventCountLabel", descriptionKey: "settings.screensaver.eventCountDescription" },
     { anchor: "timeout", labelKey: "settings.screensaver.timeoutHeading" },
     { anchor: "rotation", labelKey: "settings.screensaver.rotationHeading" },
     { anchor: "presence", labelKey: "settings.screensaver.presenceHeading" },
