@@ -5,6 +5,8 @@ import DOMPurify from "isomorphic-dompurify";
 import { NEWS_PROVIDERS, customFeedHosts } from "@/lib/news-providers";
 import { loadCustomFeeds } from "@/lib/news-custom-feeds";
 import { isDemoMode, findDemoArticle } from "@/lib/demo-news";
+import { safeFetch, BlockedAddressError } from "@/lib/safe-fetch";
+import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 // Extracts the main article content from a news URL using Mozilla
 // Readability (the same library that powers Firefox Reader View),
@@ -34,6 +36,7 @@ interface ArticleResult {
 }
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
+const MAX_ARTICLE_BYTES = 2 * 1024 * 1024;
 const articleCache: Map<string, { data: ArticleResult; expiresAt: number }> = new Map();
 
 const ALLOWED_HOSTS = new Set(
@@ -103,12 +106,9 @@ async function fetchArticle(
   }
 
   try {
-    // SSRF protections in place above: protocol check (line ~85),
-    // hostname allowlist (isHostAllowed), 12s AbortSignal timeout.
-    // The allowlist is stricter than the generic blocklist used by
-    // other routes — only registered news-publisher domains pass.
-    // (CodeQL #19 dismissed: existing protections sufficient.)
-    const response = await fetch(url, {
+    // The host allowlist above limits the starting URL. safeFetch also checks
+    // DNS at connection time and validates each redirect destination.
+    const response = await safeFetch(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Kinboard reader-mode; +https://kinboard.app) AppleWebKit/537.36",
@@ -116,12 +116,28 @@ async function fetchArticle(
       },
       // 12-sec budget per article fetch
       signal: AbortSignal.timeout(12_000),
-      redirect: "follow",
     });
     if (!response.ok) {
       return { readable: false, url, reason: `http-${response.status}` };
     }
-    const html = await response.text();
+    if (Number(response.headers.get("content-length")) > MAX_ARTICLE_BYTES) {
+      return { readable: false, url, reason: "article-too-large" };
+    }
+    const bodyReader = response.body?.getReader();
+    if (!bodyReader) return { readable: false, url, reason: "empty-response" };
+    const chunks: Uint8Array[] = [];
+    let bytes = 0;
+    while (true) {
+      const { done, value } = await bodyReader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > MAX_ARTICLE_BYTES) {
+        await bodyReader.cancel();
+        return { readable: false, url, reason: "article-too-large" };
+      }
+      chunks.push(value);
+    }
+    const html = new TextDecoder().decode(Buffer.concat(chunks));
 
     // Build a virtual DOM scoped to the article URL so relative links
     // resolve against the publisher's origin.
@@ -213,7 +229,7 @@ async function fetchArticle(
     return {
       readable: false,
       url,
-      reason: err instanceof Error ? err.message : "unknown-error",
+      reason: err instanceof BlockedAddressError ? "address-not-allowed" : err instanceof Error ? err.message : "unknown-error",
     };
   }
 }
@@ -259,6 +275,10 @@ export async function GET(request: NextRequest) {
   let extraHosts: string[] = [];
   const familyId = request.nextUrl.searchParams.get("family_id");
   if (familyId) {
+    const auth = await requireSession(request);
+    if (!auth.ok || !familyMatchesSession(auth.session, familyId)) {
+      return NextResponse.json({ readable: false, error: "not authenticated" }, { status: 401 });
+    }
     try {
       if (!isHostAllowed(new URL(url).hostname)) {
         extraHosts = customFeedHosts(await loadCustomFeeds(familyId));
