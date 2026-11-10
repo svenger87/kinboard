@@ -54,7 +54,7 @@ Since 1.15 the webapp is the only thing a browser talks to. It serves the pages,
 ## Data flow
 
 1. **All data is family-scoped.** A `family_id` UUID column exists on every row. The browser reads and writes through PostgREST with a short-lived family-scoped token, and **row-level security** limits every query to that family; API routes establish the family from the device session and filter on it themselves. See [Row-Level Security](#row-level-security) below and [Security-and-Threat-Model](Security-and-Threat-Model) for the full threat model.
-2. **Devices join families via 6-character join codes.** Stored in `families.join_code`. Auth model is "device fingerprint + join code" — see [Security-and-Threat-Model](Security-and-Threat-Model).
+2. **Devices join families via 6-character join codes.** Stored in `families.join_code`. Auth model is "join code, then the device's own saved random id" — see [Security-and-Threat-Model](Security-and-Threat-Model).
 3. **Real-time updates** come from the webapp itself: it listens to Postgres with `LISTEN`/`NOTIFY` and streams changes to the browser as Server-Sent Events from `/api/realtime`. The hook `use-realtime.ts` subscribes to a table and the relevant TanStack Query cache invalidates automatically.
 4. **Server-side data access** uses the service-role client, `createAdminClient()` (`src/lib/supabase/server.ts`). It bypasses row-level security, so every API route and cron job establishes the family from the device session (or the integration token) first and filters on `family_id` itself. The anon-key `createClient()` in the same file is not used by any route: under RLS, with no family claim, it would read nothing.
 

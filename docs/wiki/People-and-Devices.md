@@ -58,9 +58,9 @@ Toggle on when an [LD2410 presence sensor](Presence-Sensor) is wired into this d
 
 Tap delete → confirm. The device's row is removed from the family — it can no longer read/write until it re-joins with the family code. **The device's local cookie isn't invalidated**, so a physically-present device just gets logged out, not bricked. You can't remove "this device" from the list (would lock yourself out); use **Settings → Leave family** on the active device instead. Devices that haven't pinged in 30+ days are good candidates to prune — Kinboard doesn't auto-delete stale devices.
 
-### Device fingerprint note
+### When site data is cleared
 
-If a browser's cookies/site data are wiped, the device re-creates as a new row with a new ID on next join — the old row stays orphaned and needs manual deletion. Kinboard tries to avoid this by falling back to a browser fingerprint; see [how device recognition works](Security-and-Threat-Model#how-device-recognition-works) for the mechanism and its limits.
+If a browser's cookies/site data are wiped, the device has lost its saved id and joins again with the family code; it gets a new row, and the old row stays behind until you delete it here. Kinboard doesn't guess which old row it was: see [how device recognition works](Security-and-Threat-Model#how-device-recognition-works).
 
 **Don't manually edit the `devices` table** unless you know what you're doing — the webapp uses the row's UUID as the active device key in cookies. Renaming a row is fine; deleting or replacing its UUID can strand the device (logs it out, or worse, leaves it pointing at nothing).
 

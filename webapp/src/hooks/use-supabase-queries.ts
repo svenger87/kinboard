@@ -201,12 +201,8 @@ export function useRegisterDevice() {
  * `devices` straight from PostgREST, which RLS has refused since 1.6.0 — the
  * restore silently stopped working and left a 401 on every anonymous page.
  *
- * It goes through the same routes the join screen uses, with one deliberate
- * difference: **the fingerprint is not sent.** Recognition by fingerprint is a
- * guess, and it is only fair to act on a guess when a person is there to
- * confirm it — which is what the "Sign back in" button is. Restoring without
- * being asked has to be certain, so this path accepts nothing but the device's
- * own hardware id.
+ * It goes through the same routes the join screen uses. Both accept only the
+ * saved random hardware ID; clearing site data requires the family join code.
  */
 export function useRestoreDeviceSession() {
   const supabase = createClient();
@@ -225,7 +221,7 @@ export function useRestoreDeviceSession() {
       if (!recognised.ok) return null;
 
       const { devices } = (await recognised.json()) as {
-        devices: { device: { id: string }; match: "hardware" | "fingerprint" }[];
+        devices: { device: { id: string }; match: "hardware" }[];
       };
       const known = devices.find((d) => d.match === "hardware");
       if (!known) return null;
@@ -523,16 +519,16 @@ export function useUpdateDeviceLastSeen() {
  * with the service role and answers with only what an unauthenticated caller
  * may be told: the family's name and the device's name.
  */
-export function useFindDeviceByFingerprint() {
+export function useFindRecognizedDevice() {
   return useMutation({
-    mutationFn: async (fingerprint: string) => {
+    mutationFn: async () => {
       const hardwareId = await getDeviceId();
-      if (!fingerprint && !hardwareId) return null;
+      if (!hardwareId) return null;
 
       const response = await fetch("/api/session/recognize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hardware_id: hardwareId, fingerprint }),
+        body: JSON.stringify({ hardware_id: hardwareId }),
       });
       if (!response.ok) return null;
 
@@ -540,7 +536,7 @@ export function useFindDeviceByFingerprint() {
         devices: {
           device: { id: string; name: string; last_seen: string | null };
           family: { name: string };
-          match: "hardware" | "fingerprint";
+          match: "hardware";
         }[];
       };
 
@@ -574,15 +570,12 @@ export function useQuickRejoin() {
   return useMutation({
     mutationFn: async ({ deviceId }: { deviceId: string }) => {
       const hardwareId = await getDeviceId();
-      const fingerprint = getDeviceFingerprint();
-
       const response = await fetch("/api/session/resume", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           device_id: deviceId,
           hardware_id: hardwareId,
-          fingerprint,
         }),
       });
       if (!response.ok) {

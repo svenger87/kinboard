@@ -49,6 +49,13 @@ test("resume returns the device row it read, not a hand-built subset", () => {
   ).not.toMatch(/device:\s*\{\s*id:\s*row\.id/);
 });
 
+test("a browser fingerprint cannot authorize a resumed session", () => {
+  expect(source).toContain("row.hardware_id !== hardwareId");
+  expect(source).not.toMatch(/byFingerprint|row\.fingerprint\s*===\s*fingerprint/);
+  const recognize = readFileSync("src/app/api/session/recognize/route.ts", "utf8");
+  expect(recognize).not.toContain("fingerprint.eq.");
+});
+
 const FAMILY_CODE = process.env.FAMILY_CODE;
 
 test.describe("against a running instance", () => {

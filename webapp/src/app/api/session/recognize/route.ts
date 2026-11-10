@@ -25,35 +25,23 @@ import { hitLimit, clientIp, sessionAttemptLimit } from "@/lib/rate-limit";
  * in — the Möller family, Kitchen display", which is the whole point, and
  * useless to somebody who is fishing.
  *
- * At most **one** device, too. A browser that has joined several times leaves a
- * row behind each time, all carrying the same fingerprint — offering five
- * identical "Sign back in" cards for one physical tablet is noise, and where
- * two households' devices happen to collide it would put their names on a
- * stranger's screen. The most recently seen match is the one a person means.
- *
- * Rate-limited per IP: a fingerprint is a guessable thing, and this endpoint
- * turns a guess into a household name.
+ * Only the saved random hardware ID is accepted. A browser fingerprint is
+ * predictable and cannot be used to look up a family or device.
  */
 
 interface RecognizeBody {
   hardware_id?: string;
-  fingerprint?: string;
 }
 
 export interface RecognizedDeviceSummary {
   device: { id: string; name: string; last_seen: string | null };
   family: { name: string };
-  /**
-   * How it was matched. `hardware` is the device's own random id, which only
-   * that device has; `fingerprint` is derived from the browser and is a hint,
-   * not proof — /api/session/resume treats them differently.
-   */
-  match: "hardware" | "fingerprint";
+  match: "hardware";
 }
 
 export async function POST(request: NextRequest) {
   const limited = hitLimit(`recognize:${clientIp(request)}`, sessionAttemptLimit(20), 60_000);
-  if (limited.limited) {
+  if (limited.limited || hitLimit("global:recognize", sessionAttemptLimit(100), 60_000).limited) {
     return NextResponse.json({ error: "too many requests" }, { status: 429 });
   }
 
@@ -65,8 +53,7 @@ export async function POST(request: NextRequest) {
   }
 
   const hardwareId = body.hardware_id?.trim();
-  const fingerprint = body.fingerprint?.trim();
-  if (!hardwareId && !fingerprint) {
+  if (!hardwareId) {
     return NextResponse.json({ devices: [] }, { headers: { "Cache-Control": "no-store, private" } });
   }
 
@@ -93,33 +80,6 @@ export async function POST(request: NextRequest) {
         device: { id: row.id, name: row.name, last_seen: row.last_seen },
         family: { name: row.families.name },
         match: "hardware",
-      };
-    }
-  }
-
-  // Then the fingerprint, which is what makes this useful after a cache clear.
-  // Matched against the history as well as the current value, because a
-  // browser update changes the hash and the history is how a device stays
-  // recognisable across one.
-  if (fingerprint && !best) {
-    const { data } = await supabase
-      .from("devices")
-      .select("id, name, last_seen, families(name)")
-      .or(`fingerprint.eq.${fingerprint},fingerprint_history.cs.{${fingerprint}}`)
-      .order("last_seen", { ascending: false })
-      .limit(1);
-
-    for (const row of (data ?? []) as unknown as {
-      id: string;
-      name: string;
-      last_seen: string | null;
-      families: { name: string } | null;
-    }[]) {
-      if (!row.families) continue;
-      best = {
-        device: { id: row.id, name: row.name, last_seen: row.last_seen },
-        family: { name: row.families.name },
-        match: "fingerprint",
       };
     }
   }

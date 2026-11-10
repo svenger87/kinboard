@@ -81,31 +81,19 @@ OAuth tokens (Google, Home Assistant), CalDAV passwords, and API keys (Immich, U
 
 ## How device recognition works
 
-Kinboard recognizes a returning device first via a stored device-id (cookie + `localStorage` + IndexedDB + service worker, kept in sync across all four). When that's gone — cleared site data, browser reset, fresh device — the server falls back to a **fingerprint**: a hash derived from the browser/OS environment. The current inputs are `navigator.language`, screen geometry (`width × height × colorDepth`), timezone offset, and `navigator.hardwareConcurrency`. `navigator.userAgent` and `navigator.deviceMemory` are deliberately excluded — both drift with browser updates and would invalidate every existing match the moment Safari or Chrome ships a new minor version. The fingerprint is recomputed on every visit and never stored client-side.
+Kinboard recognizes a returning device by a **random device id** the device generated when it joined (`hardware_id`). It is kept in a cookie, `localStorage`, IndexedDB and the service worker, in sync across all four, so one of them going missing doesn't lose it. Only that device has it, which is what makes it proof.
 
-Each device row also keeps a `fingerprint_history TEXT[]` array. Every time recognition matches by the current fingerprint **or** by a fingerprint already present in the history, the current fingerprint is appended if it isn't there yet — the lookup is an `OR` against both columns:
+**Where the lookup runs.** Server-side, in `/api/session/recognize`, using the service role. It cannot run in the browser: `devices` joins to `families`, and families hold join codes, so a row-level-security policy permissive enough to let an anonymous caller read devices would let anyone enumerate households. The route answers with the family's **name** and the device's **name** only — never the join code, never the family id, never the other devices — and at most one match.
 
-```ts
-.or(`fingerprint.eq.${fp},fingerprint_history.cs.{${fp}}`)
-```
+**Resuming is a separate step, and it verifies the claim.** `/api/session/resume` issues the session. A device id alone is not enough, since those travel in responses: the request must carry the row's own `hardware_id`. A wall display with no session in its store is signed back in this way silently, which is how it returns to the dashboard after a power cut.
 
-Effect: a device that has presented multiple fingerprints across its lifetime (e.g. one before a browser update, one after) has both stored, so a future wipe that lands the device back at *either* fingerprint still recognizes it. A GIN index on `fingerprint_history` keeps the array-contains lookup fast.
+**No fingerprint.** Before 1.15 a device whose saved id was gone could also be recognized, and signed in, by a browser fingerprint (language, screen size, time zone, CPU count). Those are common values: another tablet of the same model on the same network could be offered a family's name and a session. Since 1.15 only the saved id counts. `devices.fingerprint` and `fingerprint_history` are still recorded at join, but nothing reads them for sign-in.
 
-**What this doesn't survive:** a brand-new device, or switching browsers entirely — different storage origin, different fingerprint inputs, nothing to match against. Recovery is always available through the family code: any device still connected to the family can show it (**Settings** → "Family code"). On the unrecognized device, open `/join`, paste the code, name the device, and tap "Join". That links the device going forward — its new fingerprint gets stored in `fingerprint_history`, so subsequent wipes recover automatically without re-entering the code.
+**What this means after a wipe:** a device whose site data was cleared, a new device or another browser joins with the family code. Any device still connected can show it (**Settings** → "Family code"); on the new one, open `/join`, enter the code, name the device and tap "Join". The old row stays in **Settings → Devices** until you delete it.
 
-The fingerprint is intentionally low-entropy and stable — the opposite of tracking-grade fingerprinting (no canvas hashing, no audio context, no font enumeration, no WebGL renderer strings). It's enough to disambiguate the handful of devices in a household, but not so sensitive that a routine browser update breaks recognition for everyone in the family.
+All of these routes are rate-limited per address and, because a forwarded address can be forged, also across all callers.
 
-**Where the lookup runs.** Server-side, in `/api/session/recognize`, using the service role. It cannot run in the browser: `devices` joins to `families`, and families hold join codes, so a row-level-security policy permissive enough to let an anonymous caller read devices would let anyone enumerate households. The route decides what an unauthenticated caller is allowed to be told, and answers with the family's **name** and the device's **name** — never the join code, never the family id, never the other devices. It is rate-limited per IP, because a fingerprint is a guessable thing and this turns a guess into a household name.
-
-**One device, not a list.** The route returns at most one match, the most recently seen. A browser that has joined several times leaves a row behind each time, and offering five identical "Sign back in" cards for one tablet is noise — but the real reason is collisions: where two households' devices happen to look alike, a list would put a stranger's family name on the screen.
-
-**Resuming is a separate step, and it verifies the claim.** `/api/session/resume` issues the session, and a device id alone is not enough for it — those travel in responses. The device's own `hardware_id` is proof: only that device has it. A fingerprint is a guess, and accepting one is the deliberate trade that lets a wiped tablet come back without hunting for the code; it is the same trade the join code makes, on the same assumption of a trusted home network. Rate-limited harder than recognition, because it hands out credentials.
-
-**The automatic restore accepts proof only.** A device with no session in its store is signed back in silently — it is how a wall display returns to the dashboard after a power cut — and that path sends **no fingerprint**. Acting on a guess is only fair when a person is there to confirm it, which is what the "Sign back in" button is.
-
-**Privacy notes:** the fingerprint is not a tracking identifier: every lookup is scoped to a family, never global, so it can't be used to identify a device across families.
-
-Source: `webapp/src/lib/device-id.ts` (fingerprint computation), `webapp/src/app/api/session/recognize/route.ts` (the lookup, and what it will say), `webapp/src/app/api/session/resume/route.ts` (issuing the session, and the trust model written out), `webapp/docker/migrations/018_fingerprint_history.sql` (schema for the history array).
+Source: `webapp/src/lib/device-id.ts` (the device id), `webapp/src/app/api/session/recognize/route.ts` (the lookup, and what it will say), `webapp/src/app/api/session/resume/route.ts` (issuing the session).
 
 ## Trusted-LAN-but-still-paranoid checklist
 

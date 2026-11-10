@@ -121,7 +121,7 @@ Bind paths default to `./data/` (relative to `webapp/docker/`): `db/` for Postgr
 
 Any device on the network can join the family you just created: browse to `http://<host>:<port>/join`, tap **Join family**, and enter the 6-character code (shown at **Settings** → top of the page on any already-connected device). Give the new device a name and tap **Join** — there's no hard cap on devices per family, and everything (kitchen kiosk, phones, tablets, a dev laptop) sees the same state, kept in sync by live updates from the server.
 
-Once a device has joined, its browser fingerprint is remembered, so on future visits `/join` offers a one-tap "Welcome back" rejoin instead of asking for the code again — see [how device recognition works](Security-and-Threat-Model#how-device-recognition-works).
+Once a device has joined, it keeps a random device id of its own, so on future visits `/join` offers a one-tap "Welcome back" rejoin instead of asking for the code again. If the browser's site data is cleared, that id is gone and the device joins with the code once more — see [how device recognition works](Security-and-Threat-Model#how-device-recognition-works).
 
 > **Don't share the join code over the public internet.** Anyone with the code + the URL can join your family. The model assumes a trusted LAN — see [Security-and-Threat-Model](Security-and-Threat-Model).
 
