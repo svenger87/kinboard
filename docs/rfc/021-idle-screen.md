@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Idea; the owner's decisions are open (§8). Nothing built |
-| **Date** | 2026-11-05 |
-| **Depends on** | drawn creatures and their moods (RFC-016, RFC-017, `lib/creature-mood.ts`), the festival engine (RFC-020), the Animations switch (#421), the screensaver's burn-in shift (`BURN_IN_OFFSETS`) |
+| **Status** | Idea; the owner's decisions are open (§8). Parts already shipped elsewhere (§3.0) |
+| **Date** | 2026-11-05, revised 2026-11-10 after 1.15.0 |
+| **Depends on** | drawn creatures and their moods (RFC-016, RFC-017, `lib/creature-mood.ts`), creatures on Home and the family bedtime (#447), the festival engine (RFC-020), the Animations switch (#421), the screensaver's burn-in shift (`BURN_IN_OFFSETS`) |
 
 ## 1. Why
 
@@ -46,12 +46,35 @@ the way past. Everything in this RFC passes three tests:
 
 ## 3. What it adds
 
-### 3.1 The children's creatures
+### 3.0 What 1.15.0 already has
 
-Each child's creature (RFC-016) walks along the bottom edge of the idle
-screen, below the clock and the events, and does what it does on its own:
-it sits down, looks around, naps. Small: about the height of the date line.
-At most one creature per child, and only the children's.
+Three pieces of this RFC's ground arrived before it was decided, from other
+directions:
+
+- **Creatures on Home** (#447, a contributor's PR). Settings → Creatures →
+  Creatures on Home, off by default: every child's creature walks along the
+  bottom of Home, rests, hops, plays with the others, takes a tap, and lies
+  down at bedtime. The rules are `lib/creatures/roam.ts` (pure, tested step
+  by step); the drawing is `components/creatures-on-home.tsx`, one transform
+  per creature from one animation-frame loop at most 30 times a second. Home
+  keeps their strip free, and the loop **stops while the screensaver is up**.
+- **A family bedtime** (#447). Settings → Creatures sets *asleep from* and
+  *awake at* (`creature_bedtime`, 20:00 to 06:30 unless changed, across
+  midnight or within a day). Every creature's sleepy mood follows it.
+- **The screensaver's lists** (#453, asked for in #282): 1 to 5 events, and
+  birthdays off or 1 to 5.
+
+So §3.1 is now "the same creatures, on the idle screen too", and §3.4's night
+starts from the family's bedtime rather than a second clock.
+
+### 3.1 The children's creatures, on the idle screen too
+
+The creatures from Home (§3.0) walk along the bottom edge of the idle screen
+as well, below the clock and the events, with the same rules, the same tap
+and the same bedtime. Small: about the height of the date line. At most one
+creature per child, and only the children's. Building it is mostly moving
+the floor: the rules and the drawing exist, and today the Home floor stops
+under the screensaver because the screensaver covers it.
 
 - **Its mood is the message.** `lib/creature-mood.ts` already makes a
   creature happy once its child's tasks for today are done, and sleepy in the
@@ -64,11 +87,13 @@ At most one creature per child, and only the children's.
   and without the dressing RFC-020 kept to Home.
 - **Against burn-in.** A slow walker is better against burn-in than anything
   that stands still: it never rests in one place for long.
-- **Animations** (#421): On walks; Reduced sits still in one place and
-  shifts with the burn-in offsets; Off shows no creature.
-- **A tap** on a creature does what a tap on it does on Home (its live
-  reaction, #367) and doesn't wake the screen; a tap anywhere else wakes it
-  as now.
+- **Animations** (#421): as on Home, On walks, Reduced stands still (here
+  also shifting with the burn-in offsets), Off shows no creature.
+- **A tap** on a creature does what it does on Home (a hop and hearts) and
+  doesn't wake the screen; a tap anywhere else wakes it as now.
+- **Its own switch.** Creatures on Home and on the idle screen are separate
+  switches: a family may want them on the wall all day but not on the
+  tablet's Home, or the other way round (§8.3).
 
 ### 3.2 The next event, under the clock, in the hour before it
 
@@ -88,11 +113,13 @@ birthdays on one day: both names on the line.
 
 ### 3.4 Night
 
-From a time the family sets (Settings → Screensaver, off until set), until
-the morning: no photo, the clock alone, dim, drifting with the burn-in
-offsets. No events, no creatures (they're asleep). A touch wakes the screen
-as now. For a display in a hallway or a kitchen that is on all night, this
-takes the most away and adds nothing.
+During the family's bedtime (§3.0), if the family switches night on under
+Settings → Screensaver: no photo, the clock alone, dim, drifting with the
+burn-in offsets. No events, and the creatures asleep where they are, as on
+Home. A touch wakes the screen as now. One clock for the household, not a
+second one for the screen; a family that wants the screen dark longer than
+the children sleep is §8.4. For a display in a hallway or a kitchen that is
+on all night, this takes the most away and adds nothing.
 
 ### 3.5 "This day, n years ago"
 
@@ -137,10 +164,10 @@ at home (a screen any visitor sees is the wrong place for it).
 
 | Piece | Where | Notes |
 |---|---|---|
-| Creatures | `components/screensaver.tsx`, a layer above the photo, below the clock | `CreatureAvatar` with `mood` from `hooks/use-creature-mood.ts`, and the festival look (`useFestivalLook`). Walking is a CSS transform on a timer, not a canvas: a few elements, no frames between steps |
+| Creatures | `components/screensaver.tsx`, a layer above the photo, below the clock | The floor from `components/creatures-on-home.tsx` and the rules in `lib/creatures/roam.ts`, given a placement (Home or idle screen) like `WeatherEffects` has; the idle-screen floor runs while the screensaver is up and Home's stops, as now. A setting `creatures_on_idle` beside `creatures_on_home` |
 | Hour-before line | the clock block | the `useEvents` the screensaver already loads: the next timed event in the next 60 minutes, re-checked on the minute clock the clock already has |
 | Birthday | the clock block, and a "personal festival" in `use-festival.ts` | The confetti is a visitor like Carnival's (streamers and confetti from the corners, RFC-020); a birthday doesn't change the family's festival or its wash |
-| Night | `screensaver.tsx`, `ScreensaverSettings` | `nightFrom`/`nightUntil` (minutes, family's zone); null = off |
+| Night | `screensaver.tsx`, `ScreensaverSettings` | `night: boolean` on the screensaver setting; the hours are `creature_bedtime` (`isSleepyTime`, family's zone) |
 | This day | the photo bag (`makeShuffledOrder`) | uploaded photos with a matching `taken_at` month-day go to the front |
 | Wording | `messages/*.json`, `components.screensaver` | two strings per line, chosen by `is_child` |
 
@@ -151,8 +178,10 @@ at home (a screen any visitor sees is the wrong place for it).
   line and the hour-before line. Cap: two lines under the clock, the birthday
   first.
 - **The Pi.** The creatures are SVG with their own idle loop; several on a
-  Pi 4 with the weather effects and a festival visitor running is unmeasured.
-  Measure before shipping, as RFC-020 §7.1 asks for its visitors.
+  Pi 4 with the weather effects and a festival visitor running is unmeasured,
+  on Home as much as on the idle screen. Measure before shipping, as RFC-020
+  §7.1 asks for its visitors. The idle screen is up most of the day, so this
+  matters more here than on Home.
 - **Privacy.** An age on a screen visitors see. The idle screen's birthday
   list already says "turns 41" for anyone with a birth year; the new line
   gives the age for a child only, and a grown-up's birthday without it.
@@ -165,14 +194,19 @@ at home (a screen any visitor sees is the wrong place for it).
    "Holiday at the sea"): the child's words when the family has children, or
    the grown-up's? *Proposal:* the grown-up's, because "Grandma comes" may be
    a grown-up's appointment as often as a treat.
-2. **On by default for a new family?** *Proposal:* creatures, the
-   hour-before line, birthdays and "this day" on (each shows nothing until
-   there is something to show); night off until a time is set. One switch each
-   under Settings → Screensaver.
-3. **Creatures on the idle screen at all**, for a family that uses it purely
-   as a picture frame: covered by its switch, or off by default?
+2. **On by default for a new family?** *Proposal:* the hour-before line,
+   birthdays and "this day" on (each shows nothing until there is something
+   to show); night off. One switch each under Settings → Screensaver.
+3. **Creatures on the idle screen: on by default?** Creatures on Home is
+   off until switched on. *Proposal:* the same here, a switch of its own, off
+   by default, so a picture-frame family never sees them unasked.
+4. **Night longer than bedtime?** Night uses the family's bedtime (§3.4).
+   *Proposal:* that's enough to start with; a separate "screen dark from"
+   only if a family asks for it.
 
 ## 9. Not in this RFC
 
 The Home widgets in §5; changes to what the news, weather, energy and events
-panels show; a motion sensor or presence rules (they stay as they are).
+panels show (how many events and birthdays is #453, shipped); a motion sensor
+or presence rules (they stay as they are); changes to the creatures' rules on
+Home (#447).
