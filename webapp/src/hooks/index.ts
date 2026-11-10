@@ -48,7 +48,7 @@ export {
   useFamilyByJoinCode,
   useRegisterDevice,
   useRestoreDeviceSession,
-  useFindDeviceByFingerprint,
+  useFindRecognizedDevice,
   useQuickRejoin,
   useJoinFamily,
   useCreateFamilyWithDevice,

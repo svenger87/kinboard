@@ -29,10 +29,9 @@ import { safeNextPath } from "@/components/auth-guard";
 import {
   useJoinFamily,
   useCreateFamilyWithDevice,
-  useFindDeviceByFingerprint,
+  useFindRecognizedDevice,
   useQuickRejoin,
 } from "@/hooks";
-import { getDeviceFingerprint } from "@/lib/device-id";
 import { postLocale } from "@/lib/locale-client";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 
@@ -79,7 +78,7 @@ export default function JoinPage() {
 
   // Fingerprint recognition state
   const [recognizedDevices, setRecognizedDevices] = useState<RecognizedDevice[]>([]);
-  const [isCheckingFingerprint, setIsCheckingFingerprint] = useState(true);
+  const [isCheckingDevice, setIsCheckingDevice] = useState(true);
 
   // Fresh-install detection: when no families exist yet, default to "Create"
   // mode and surface a welcome message instead of asking for a code that
@@ -90,29 +89,26 @@ export default function JoinPage() {
   const searchParams = useSearchParams();
   const joinFamily = useJoinFamily();
   const createFamily = useCreateFamilyWithDevice();
-  const findByFingerprint = useFindDeviceByFingerprint();
+  const findRecognizedDevice = useFindRecognizedDevice();
   const quickRejoin = useQuickRejoin();
 
   const loading = joinFamily.isPending || createFamily.isPending || quickRejoin.isPending;
 
-  // Check fingerprint on mount
+  // Recognize only this browser's saved random device ID.
   useEffect(() => {
-    const checkFingerprint = async () => {
+    const checkDevice = async () => {
       try {
-        const fingerprint = getDeviceFingerprint();
-        if (fingerprint) {
-          const result = await findByFingerprint.mutateAsync(fingerprint);
-          if (result && result.length > 0) {
-            setRecognizedDevices(result);
-          }
+        const result = await findRecognizedDevice.mutateAsync();
+        if (result && result.length > 0) {
+          setRecognizedDevices(result);
         }
       } catch (e) {
-        console.log("Fingerprint check failed:", e);
+        console.log("Device check failed:", e);
       } finally {
-        setIsCheckingFingerprint(false);
+        setIsCheckingDevice(false);
       }
     };
-    checkFingerprint();
+    checkDevice();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -258,7 +254,7 @@ export default function JoinPage() {
         className="relative z-10 w-full max-w-6xl"
       >
         {/* Header / Welcome hero */}
-        {!modeChosen && recognizedDevices.length === 0 && !isFreshInstall && !isCheckingFingerprint ? (
+        {!modeChosen && recognizedDevices.length === 0 && !isFreshInstall && !isCheckingDevice ? (
           <div className="grid gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:gap-16">
             <div>
               <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
@@ -399,7 +395,7 @@ export default function JoinPage() {
 
         {/* Quick Rejoin Section (shown when device is recognized) */}
         <AnimatePresence>
-          {!isCheckingFingerprint && recognizedDevices.length > 0 && (
+          {!isCheckingDevice && recognizedDevices.length > 0 && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
@@ -593,14 +589,11 @@ export default function JoinPage() {
           </div>
         )}
 
-        {/* Recovery hint — shows after the fingerprint check has run
-            and found no recognized device, but only on the Join tab
-            (not Create tab / fresh install). Helps users who wiped
-            site data + got a different fingerprint due to a browser
-            update find their family code on another device. */}
+        {/* After site data is cleared, the saved device ID is gone. Show where
+            to find the family code needed to rejoin. */}
         {!isFreshInstall &&
           modeChosen &&
-          !isCheckingFingerprint &&
+          !isCheckingDevice &&
           recognizedDevices.length === 0 &&
           mode === "join" && (
             <motion.div
