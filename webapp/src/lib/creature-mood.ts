@@ -50,10 +50,49 @@ export function wallMinutes(now: Date, timeZone?: string | null): number {
   return read(undefined);
 }
 
-/** True from 20:00 up to (not including) 06:30 in the family's time zone. */
-export function isSleepyTime(now: Date, timeZone?: string | null): boolean {
+/**
+ * The family's creature bedtime (Settings -> Creatures): asleep from `sleep`
+ * up to `wake`, minutes since midnight on the family's clock. 20:00 to 06:30
+ * unless the family chose otherwise.
+ */
+export interface Bedtime {
+  sleep: number;
+  wake: number;
+}
+
+export const DEFAULT_BEDTIME: Bedtime = { sleep: SLEEPY_FROM_MINUTE, wake: AWAKE_FROM_MINUTE };
+
+/** "HH:MM" (24-hour) to minutes since midnight, or null. */
+export function parseClock(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value.trim());
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+/** Minutes since midnight to "HH:MM". */
+export function formatClock(minutes: number): string {
+  const m = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/** The stored setting ({ sleep: "HH:MM", wake: "HH:MM" }), whole and valid, or the default. */
+export function readBedtime(value: unknown): Bedtime {
+  const v = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  const sleep = parseClock(v.sleep);
+  const wake = parseClock(v.wake);
+  return sleep === null || wake === null ? DEFAULT_BEDTIME : { sleep, wake };
+}
+
+/**
+ * True from the bedtime's `sleep` up to (not including) its `wake`, in the
+ * family's time zone; across midnight when `sleep` is later than `wake`. The
+ * same time for both is no bedtime at all.
+ */
+export function isSleepyTime(now: Date, timeZone?: string | null, bedtime: Bedtime = DEFAULT_BEDTIME): boolean {
+  const { sleep, wake } = bedtime;
+  if (sleep === wake) return false;
   const m = wallMinutes(now, timeZone);
-  return m >= SLEEPY_FROM_MINUTE || m < AWAKE_FROM_MINUTE;
+  return sleep > wake ? m >= sleep || m < wake : m >= sleep && m < wake;
 }
 
 /** True when the task was ticked off on `today` (a family date key). */
@@ -106,6 +145,8 @@ export interface MoodInput {
   now: Date;
   /** The family's time zone; the runtime's own when unset. */
   timeZone?: string | null;
+  /** The family's creature bedtime; 20:00 to 06:30 when unset. */
+  bedtime?: Bedtime;
 }
 
 /**
@@ -113,8 +154,8 @@ export interface MoodInput {
  * everything at 20:15 is asleep, not partying. Happy needs at least one task
  * done today and none left; a day with no tasks is a normal day.
  */
-export function creatureMood({ personId, tasks, now, timeZone }: MoodInput): CreatureMood {
-  if (isSleepyTime(now, timeZone)) return "sleepy";
+export function creatureMood({ personId, tasks, now, timeZone, bedtime }: MoodInput): CreatureMood {
+  if (isSleepyTime(now, timeZone, bedtime)) return "sleepy";
   const { open, done } = childDayTasks(personId, tasks, now, timeZone);
   return open === 0 && done > 0 ? "happy" : "normal";
 }

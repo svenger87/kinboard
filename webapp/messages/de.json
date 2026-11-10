@@ -3139,7 +3139,14 @@
       "adjustmentsEmpty": "Noch nichts.",
       "adjustTakeBack": "Rückgängig",
       "adjustTakeBackAria": "Diese Änderung um {count} Punkte rückgängig machen",
-      "adjustTakenBack": "Rückgängig gemacht"
+      "adjustTakenBack": "Rückgängig gemacht",
+      "homeLabel": "Kreaturen auf der Startseite",
+      "homeHint": "Die Kreaturen der Kinder laufen unten über die Startseite, ruhen sich aus, hüpfen und spielen miteinander. Tippe eine an, dann hüpft sie. Die Animationen-Einstellung jedes Bildschirms (Einstellungen → Design) kann sie stillhalten oder ausblenden.",
+      "bedtimeLabel": "Schlafenszeit",
+      "bedtimeHint": "Zwischen diesen Zeiten schlafen die Kreaturen: auf der Startseite legen sie sich hin, im Widget sehen sie müde aus.",
+      "bedtimeSleep": "Schlafen ab",
+      "bedtimeWake": "Wach um",
+      "bedtimeReset": "Zurück auf {sleep}–{wake}"
     }
   },
   "settingsSearch": {
@@ -3239,6 +3246,7 @@
       "google_person-mapping": "Personenzuordnung, Person zuordnen, wer, Familienmitglied, Regeln",
       "creatures": "Kreatur, Kreaturen, Drache, Haustier, Avatar, Belohnung, Belohnungen, Punkte, Aufgabenpunkte, Laden, wachsen",
       "creatures_children": "Kreatur, einschalten, Art, Drache, wächst mit, Punkte, Geld, Laden",
+      "creatures_home": "Kreaturen auf der Startseite, laufen, spielen, Haustiere, Schlafenszeit, schlafen, aufwachen",
       "creatures_inbox": "Belohnungswünsche, warten, erlauben, ablehnen, Freigabe, einlösen",
       "creatures_rewards": "Belohnungen, Punkte, Aufgabenpunkte, einlösen, Preise, Prämien",
       "theme_festivals": "Feste, Weihnachten, Advent, Nikolaus, Sankt Martin, Martinstag, Laternen, Schlitten, Weihnachtsmann, Schmuck, Dekoration, festlich, Silvester, Feuerwerk, Konfetti"
@@ -5519,5 +5527,9 @@
     "dog": "Hund",
     "cat": "Katze",
     "wifi": "Netzwerk"
+  },
+  "creaturesOnHome": {
+    "aria": "Die Kreaturen der Kinder",
+    "tapAria": "Kreatur von {name}"
   }
 }

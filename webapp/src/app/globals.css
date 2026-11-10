@@ -1116,3 +1116,71 @@ html[data-screensaver] nav {
    (.festival-tasks), so no widget changes. Dressing sits on a card's border
    and in its padding, never over text or a control; checked at 320px, on a
    1920x1080 wall and in WebKit (e2e/festivals-ui.spec.ts). */
+
+/* Creatures on Home (components/creatures-on-home.tsx). The drawing's own
+   "z"s would lie down with it: hidden, and two upright ones float over a
+   sleeping creature instead. */
+.home-creature .creature-zzz {
+  display: none;
+}
+.home-creature .creature-ground {
+  display: none;
+}
+.home-creature-shadow {
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.32), rgb(0 0 0 / 0));
+  transform-origin: 50% 50%;
+  pointer-events: none;
+}
+/* A classic picture dozing, or an egg asleep: dimmed a little. */
+.home-creature[data-art="picture"][data-lying="true"] .home-creature-body,
+.home-creature[data-egg="true"][data-lying="true"] .home-creature-body {
+  filter: brightness(0.8) saturate(0.85);
+}
+.home-creature-zzz {
+  position: absolute;
+  bottom: 62%;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.1em;
+  font-family: Fredoka, ui-rounded, sans-serif;
+  font-weight: 700;
+  font-size: calc(var(--home-creature-size, 80px) * 0.26);
+  line-height: 1;
+  color: rgb(232 240 255);
+  text-shadow: 0 0 2px rgb(20 28 60 / 0.9), 0 1px 3px rgb(0 0 0 / 0.5);
+  pointer-events: none;
+}
+/* Above the head: lying on its side the head is at the end it faces; a picture's is on top. */
+.home-creature[data-art="drawn"][data-dir="1"] .home-creature-zzz {
+  bottom: 48%;
+  left: 2%;
+}
+.home-creature[data-art="drawn"][data-dir="-1"] .home-creature-zzz {
+  bottom: 48%;
+  left: 68%;
+}
+.home-creature[data-art="picture"] .home-creature-zzz {
+  bottom: 72%;
+  left: 62%;
+}
+.home-creature[data-egg="true"][data-art] .home-creature-zzz {
+  bottom: 66%;
+  left: 60%;
+}
+.home-creature-zzz span {
+  animation: home-creature-zzz 2.6s ease-in-out infinite;
+}
+.home-creature-zzz span:nth-child(2) {
+  font-size: 0.7em;
+  animation-delay: 1.3s;
+}
+@keyframes home-creature-zzz {
+  0% { opacity: 0; transform: translateY(0); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-1.6rem); }
+}
+:root:not([data-motion="full"]) .home-creature-zzz span {
+  animation: none;
+  opacity: 0.9;
+}

@@ -3139,7 +3139,14 @@
       "adjustmentsEmpty": "Rien pour l’instant.",
       "adjustTakeBack": "Annuler",
       "adjustTakeBackAria": "Annuler ce changement de {count} points",
-      "adjustTakenBack": "Annulé"
+      "adjustTakenBack": "Annulé",
+      "homeLabel": "Créatures sur l'accueil",
+      "homeHint": "Les créatures des enfants se promènent en bas de l'écran d'accueil, se reposent, sautent et jouent ensemble. Touchez-en une et elle saute. Le réglage Animations de chaque écran (Réglages → Thème) peut les garder immobiles ou les masquer.",
+      "bedtimeLabel": "Heure du coucher",
+      "bedtimeHint": "Les créatures dorment entre ces heures : sur l'accueil elles se couchent, dans le widget elles ont l'air endormies.",
+      "bedtimeSleep": "Endormies à partir de",
+      "bedtimeWake": "Réveillées à",
+      "bedtimeReset": "Revenir à {sleep}–{wake}"
     }
   },
   "settingsSearch": {
@@ -3239,6 +3246,7 @@
       "google_person-mapping": "attribution des personnes, attribuer, qui, membre de la famille, règles",
       "creatures": "créature, créatures, dragon, animal, avatar, récompense, récompenses, points, points de tâches, boutique, grandir",
       "creatures_children": "créature, activer, espèce, dragon, grandit avec, points, argent, boutique",
+      "creatures_home": "créatures sur l'accueil, promener, jouer, animaux, coucher, dormir, réveil",
       "creatures_inbox": "demandes de récompense, en attente, accepter, refuser, échanger",
       "creatures_rewards": "récompenses, points, points de tâches, échanger, cadeaux",
       "theme_festivals": "fêtes, Noël, Avent, Saint-Nicolas, Saint-Martin, lanternes, traîneau, Père Noël, décorations, festif, Saint-Sylvestre, feu d'artifice, confettis"
@@ -5519,5 +5527,9 @@
     "dog": "Chien",
     "cat": "Chat",
     "wifi": "Réseau"
+  },
+  "creaturesOnHome": {
+    "aria": "Les créatures des enfants",
+    "tapAria": "La créature de {name}"
   }
 }
