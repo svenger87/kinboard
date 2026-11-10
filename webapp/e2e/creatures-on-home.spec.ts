@@ -244,9 +244,15 @@ test("Home: off unless switched on, gone with animations off, still with reduced
   expect(home).toContain('if (on !== true || motion === "off" || kids.length === 0) return null;');
   expect(home).toContain('return <CreatureFloor kids={kids} still={motion !== "full"} />;');
   expect(home).toContain("const FRAME_MS = 1000 / 30;");
-  expect(home).toContain("const onVisibility = () => (document.hidden ? stop() : start());");
+  // No steps while the page is hidden or the screensaver covers Home.
+  expect(home).toContain('const covered = () => document.hidden || document.documentElement.hasAttribute("data-screensaver");');
+  expect(home).toContain('screensaver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-screensaver"] });');
   expect(home).toContain('className="creature-floor pointer-events-none fixed inset-x-0 z-[15]"');
-  expect(home).toContain('style={{ bottom: "var(--nav-spacing, 0px)", height: Math.round(size * 1.6) }}');
+  expect(home).toContain('style={{ bottom: "var(--nav-spacing, 0px)", height: floorHeight }}');
+  // Home keeps the floor's height free at its bottom, so the creatures walk below the widgets.
+  expect(home).toContain('root.style.setProperty("--home-creature-floor", `${floorHeight}px`);');
+  expect(read("src/app/page.tsx")).toContain('className="has-fab home-column ');
+  expect(read("src/app/globals.css")).toMatch(/html\[data-home-creatures\] \.home-column \{\s*padding-bottom: var\(--home-creature-floor\);/);
   expect(home).toContain('className="pointer-events-auto flex size-full items-end justify-center rounded-full');
   // A little smaller than the widget's: 50 to 72 px; a classic picture at 0.8 of that, as it fills its frame.
   expect(home).toContain("const size = Math.round(Math.min(72, Math.max(50, width / 18)));");

@@ -868,6 +868,17 @@
   pointer-events: none;
 }
 
+/* Creatures on Home (components/creatures-on-home.tsx): the floor they walk
+   on is kept free at the bottom of Home, inside the same height, so they walk
+   below the widgets rather than over the lowest of them. The floor is taller
+   than the lights button's corner, so that spacer isn't needed on top. */
+html[data-home-creatures] .home-column {
+  padding-bottom: var(--home-creature-floor);
+}
+html[data-home-creatures] .home-column.has-fab::after {
+  height: 0;
+}
+
 /* Ambient gradient glow for dashboard */
 /* ambient-glow animation removed - blur + animation was too expensive on ARM GPU */
 

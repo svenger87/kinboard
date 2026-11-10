@@ -157,7 +157,7 @@ export default function DashboardPage() {
           so the floating lights button stops sitting on top of the last
           widget's content (audit KB-04). */}
       <div
-        className="has-fab relative z-10 flex flex-col p-4 md:p-6 lg:p-8 safe-area-inset"
+        className="has-fab home-column relative z-10 flex flex-col p-4 md:p-6 lg:p-8 safe-area-inset"
         style={{ minHeight: "calc(100vh - var(--nav-spacing))" }}
       >
         <h1 className="sr-only">{t("ariaWidgets")}</h1>

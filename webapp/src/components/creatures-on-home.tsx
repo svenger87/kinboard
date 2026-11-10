@@ -98,6 +98,19 @@ function CreatureFloor({ kids, still }: FloorProps) {
   const sleepingRef = useRef<ReadonlySet<string>>(new Set());
   sleepingRef.current = bedtimeNow ? new Set(cast.map((c) => c.person.id)) : new Set();
 
+  // Home keeps the floor's height free at its bottom (page.tsx), so the
+  // creatures walk below the widgets instead of over the lowest of them.
+  const floorHeight = Math.round(size * 1.6);
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--home-creature-floor", `${floorHeight}px`);
+    root.setAttribute("data-home-creatures", "");
+    return () => {
+      root.style.removeProperty("--home-creature-floor");
+      root.removeAttribute("data-home-creatures");
+    };
+  }, [floorHeight]);
+
   useEffect(() => {
     const el = floorRef.current;
     if (!el) return;
@@ -171,7 +184,9 @@ function CreatureFloor({ kids, still }: FloorProps) {
     [size, still],
   );
 
-  // The loop: a step and a frame at most 30 times a second; none while hidden.
+  // The loop: a step and a frame at most 30 times a second; none while the
+  // page is hidden or the screensaver covers Home, which on a wall display is
+  // most of the day.
   useEffect(() => {
     if (width === 0) return;
     let raf = 0;
@@ -202,8 +217,9 @@ function CreatureFloor({ kids, still }: FloorProps) {
       }
       draw(now);
     };
+    const covered = () => document.hidden || document.documentElement.hasAttribute("data-screensaver");
     const start = () => {
-      if (!raf && !document.hidden) {
+      if (!raf && !covered()) {
         last = performance.now();
         raf = requestAnimationFrame(tick);
       }
@@ -212,13 +228,16 @@ function CreatureFloor({ kids, still }: FloorProps) {
       cancelAnimationFrame(raf);
       raf = 0;
     };
-    const onVisibility = () => (document.hidden ? stop() : start());
+    const onCover = () => (covered() ? stop() : start());
     random = Math.random;
     start();
-    document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("visibilitychange", onCover);
+    const screensaver = new MutationObserver(onCover);
+    screensaver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-screensaver"] });
     return () => {
       stop();
-      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("visibilitychange", onCover);
+      screensaver.disconnect();
     };
   }, [width, size, still, draw, show]);
 
@@ -232,7 +251,7 @@ function CreatureFloor({ kids, still }: FloorProps) {
     <div
       ref={floorRef}
       className="creature-floor pointer-events-none fixed inset-x-0 z-[15]"
-      style={{ bottom: "var(--nav-spacing, 0px)", height: Math.round(size * 1.6) }}
+      style={{ bottom: "var(--nav-spacing, 0px)", height: floorHeight }}
       data-testid="home-creatures"
       data-count={cast.length}
       aria-label={t("aria")}

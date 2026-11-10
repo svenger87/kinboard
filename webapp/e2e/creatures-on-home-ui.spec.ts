@@ -124,6 +124,30 @@ test.describe("creatures on Home", () => {
       const after = await positions(page);
       expect(Math.max(...kids.map((id) => Math.abs(after[id] - before[id]))), JSON.stringify({ before, after })).toBeGreaterThan(15);
 
+      // Home keeps the floor free at its bottom: the column's bottom padding is the floor's height,
+      // so the lowest widget ends above the creatures instead of under them.
+      const room = await page.evaluate(() => {
+        const floorEl = document.querySelector<HTMLElement>('[data-testid="home-creatures"]')!;
+        const column = document.querySelector<HTMLElement>(".home-column")!;
+        return { floor: floorEl.getBoundingClientRect().height, padding: parseFloat(getComputedStyle(column).paddingBottom) };
+      });
+      expect(room.floor).toBeGreaterThan(0);
+      expect(room.padding).toBeCloseTo(room.floor, 0);
+
+      // Under the screensaver they stop: nobody sees them, and on a wall display that is most of the day.
+      await page.evaluate(() => document.documentElement.setAttribute("data-screensaver", "true"));
+      await page.waitForTimeout(500);
+      const covered = await positions(page);
+      await page.waitForTimeout(6_000);
+      expect(await positions(page), "no steps under the screensaver").toEqual(covered);
+      await page.evaluate(() => document.documentElement.removeAttribute("data-screensaver"));
+      await expect
+        .poll(async () => {
+          const now = await positions(page);
+          return Math.max(...kids.map((id) => Math.abs(now[id] - covered[id])));
+        }, { timeout: 20_000 })
+        .toBeGreaterThan(5);
+
       // Taps elsewhere on the floor go through to the page.
       const free = await page.evaluate(() => {
         const floorEl = document.querySelector<HTMLElement>('[data-testid="home-creatures"]')!;
