@@ -704,6 +704,19 @@ export default function BirthdaysPage() {
                             {nextDaysUntil === 0 ? t("todayHero") : t("daysSuffix", { count: nextDaysUntil })}
                           </p>
                         </div>
+                        {/* The list below starts after this birthday, so its
+                            edit button lives here (#445). Always visible: a
+                            wall display has no hover. */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-3 right-3 size-9"
+                          onClick={() => openEditDialog(nextBirthday)}
+                          aria-label={t("editAria", { name: nextBirthday.name })}
+                          data-testid="birthday-hero-edit"
+                        >
+                          <Edit className="size-4" />
+                        </Button>
                         {/* Gift icon (decorative) */}
                         <div className="hidden sm:block relative">
                           {nextDaysUntil === 0 ? (
