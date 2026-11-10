@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted 2026-11-10 (§8). Parts already shipped elsewhere (§3.0); the rest is built in the order in §8 |
+| **Status** | Done 2026-11-10. Built: §3.2 (#455), §3.4 (#456), §3.1 (#461), on top of §3.0. Dropped by the owner: §3.3 and §3.5 |
 | **Date** | 2026-11-05, revised 2026-11-10 after 1.15.0 |
 | **Depends on** | drawn creatures and their moods (RFC-016, RFC-017, `lib/creature-mood.ts`), creatures on Home and the family bedtime (#447), the festival engine (RFC-020), the Animations switch (#421), the screensaver's burn-in shift (`BURN_IN_OFFSETS`) |
 
@@ -103,7 +103,10 @@ the events list stays where it is. At the start time it goes away.
 
 The wording depends on whose event it is (§4).
 
-### 3.3 A birthday
+### 3.3 A birthday (dropped)
+
+*Not built: the owner dropped it on 2026-11-10. The idle screen's birthday list stays as it is.*
+
 
 On a family member's birthday (the birthdays list), the idle screen says so
 under the clock all day, with the festival engine's confetti and a party hat
@@ -121,7 +124,10 @@ second one for the screen; a family that wants the screen dark longer than
 the children sleep is §8.4. For a display in a hallway or a kitchen that is
 on all night, this takes the most away and adds nothing.
 
-### 3.5 "This day, n years ago"
+### 3.5 "This day, n years ago" (dropped)
+
+*Not built: the owner dropped it on 2026-11-10. It would only ever have worked for uploaded photos.*
+
 
 When a photo was taken on today's date in an earlier year, it comes up
 before the others (the photo bag still shuffles; these go first), with the
@@ -211,6 +217,8 @@ at home (a screen any visitor sees is the wrong place for it).
 **Build order:** §3.2 the hour-before line, then §3.4 night, then §3.1 the
 creatures on the idle screen (after a measurement on a Pi), then §3.3 the
 birthday, then §3.5 "this day".
+
+**Outcome (2026-11-10):** §3.2, §3.4 and §3.1 shipped in that order (#455, #456, #461); §3.3 and §3.5 were dropped.
 
 ## 9. Not in this RFC
 
