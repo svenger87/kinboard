@@ -283,7 +283,7 @@
     "createSubmitting": "Creating…",
     "createError": "Failed to create family.",
     "restoreButton": "Restore from backup",
-    "restoreFailed": "Restore failed — is this a Kinboard backup file?",
+    "restoreFailed": "Restore failed. The reason is below. A Kinboard backup is the .json file from Settings → Data & backup.",
     "restoreWarnings": "Restored with {count} skipped items"
   },
   "holidays": {

@@ -283,7 +283,7 @@
     "createSubmitting": "Erstellen…",
     "createError": "Fehler beim Erstellen der Familie.",
     "restoreButton": "Aus Sicherung wiederherstellen",
-    "restoreFailed": "Wiederherstellung fehlgeschlagen — ist das eine Kinboard-Sicherungsdatei?",
+    "restoreFailed": "Wiederherstellung fehlgeschlagen. Der Grund steht darunter. Eine Kinboard-Sicherung ist die .json-Datei aus Einstellungen → Daten & Sicherung.",
     "restoreWarnings": "Mit {count} übersprungenen Einträgen wiederhergestellt"
   },
   "holidays": {

@@ -283,7 +283,7 @@
     "createSubmitting": "Création…",
     "createError": "Échec de la création de la famille.",
     "restoreButton": "Restaurer depuis une sauvegarde",
-    "restoreFailed": "Échec de la restauration — est-ce un fichier de sauvegarde Kinboard ?",
+    "restoreFailed": "La restauration a échoué. La raison est indiquée ci-dessous. Une sauvegarde Kinboard est le fichier .json de Réglages → Données & sauvegarde.",
     "restoreWarnings": "Restauré avec {count} éléments ignorés"
   },
   "holidays": {
