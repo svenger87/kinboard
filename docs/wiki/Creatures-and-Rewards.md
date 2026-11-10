@@ -34,8 +34,11 @@ The stages, the look editor and the cheering when a task is ticked off are descr
 | **Tasks page** | Each child's creature, small, beside their name and points; it cheers when one of their tasks is ticked off. Only for children with a creature. |
 | **A child's profile** (tap them on the dashboard) | The creature, the points to spend and *To the rewards*. |
 | **Pocket money page and widget** | Unchanged: the creature next to the money, for families who use both. |
+| **Home, walking about** (off unless switched on) | Every child's creature along the bottom of Home, above the navigation: they walk, rest, hop, and with two or more they find each other and play (hopping in turns, a game of chase, hearts). Tap one and it hops. At bedtime each walks to its spot and lies down until morning. Eggs stay put and wobble, and at bedtime sleep where they are (still, dimmed, with the z's). |
 
-On the dashboard, the tasks page and the profile the creatures stand still -- a wall display's Raspberry Pi has nothing to redraw -- and move only for the second and a half they cheer. They are sleepy at night and happy once the day's tasks are done.
+On the dashboard, the tasks page and the profile the creatures stand still -- a wall display's Raspberry Pi has nothing to redraw -- and move only for the second and a half they cheer. They are sleepy at the family's bedtime and happy once the day's tasks are done.
+
+**Settings → Creatures → Creatures on Home** switches the walking creatures on, and sets the family's **bedtime** (asleep from / awake at, 20:00 to 06:30 unless changed), which every creature keeps: on Home they lie down, everywhere else they look sleepy. A bedtime can cross midnight or sit inside a day (a nap). Home's creatures follow each screen's **Animations** setting (Settings → Theme): Reduced keeps them standing at their spots (lying down at bedtime), Off leaves them out. What moves is one transform per creature, at most 30 times a second, and nothing runs while the screen is hidden.
 
 ## A child's own device
 

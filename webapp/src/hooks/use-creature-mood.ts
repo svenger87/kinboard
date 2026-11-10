@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSetting, useTodos } from "@/hooks/use-supabase-queries";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { isValidTimeZone } from "@/lib/integration-event-input";
-import { creatureMood, type CreatureMood } from "@/lib/creature-mood";
+import { creatureMood, readBedtime, type Bedtime, type CreatureMood } from "@/lib/creature-mood";
 import { currentMinute, MINUTE_MS, subscribeMinuteClock } from "@/lib/minute-clock";
 
 /**
@@ -40,6 +40,15 @@ export function useMinuteClock(): number {
 }
 
 /**
+ * The family's creature bedtime (Settings -> Creatures), re-read every minute
+ * so a change made on another screen reaches a wall display.
+ */
+export function useCreatureBedtime(): Bedtime {
+  const { data } = useSetting<unknown>(SETTINGS_KEYS.creatureBedtime, null, { refetchInterval: 60_000 });
+  return readBedtime(data);
+}
+
+/**
  * A child's creature's mood right now (lib/creature-mood.ts): from the
  * family's tasks -- the same todos query every task screen shares, so a tick
  * anywhere turns the creature happy as soon as the list updates -- and the
@@ -48,7 +57,8 @@ export function useMinuteClock(): number {
 export function useCreatureMood(personId: string | null | undefined): CreatureMood {
   const minute = useMinuteClock();
   const timeZone = useFamilyTimeZone();
+  const bedtime = useCreatureBedtime();
   const { data: tasks } = useTodos({ enabled: Boolean(personId) });
   if (!personId || minute === 0) return "normal";
-  return creatureMood({ personId, tasks: tasks ?? [], now: new Date(minute * MINUTE_MS), timeZone });
+  return creatureMood({ personId, tasks: tasks ?? [], now: new Date(minute * MINUTE_MS), timeZone, bedtime });
 }

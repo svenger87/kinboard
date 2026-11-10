@@ -82,12 +82,20 @@ export interface DrawContext {
  * Where a creature starts: stage 1 is the closed beginning, stage 2 the baby
  * peeking out of it.
  */
-export type OriginKind = "egg" | "starEgg" | "jelly" | "basket" | "box" | "leaves" | "cushion";
+/** The ears a basket shows at stage 1 (SpeciesArt.originEars). */
+export type OriginEars = "pointed" | "floppy";
+
+export type OriginKind = "egg" | "starEgg" | "jelly" | "eggCase" | "basket" | "box" | "leaves" | "cushion";
 
 /** What a species draws itself; the rest is the skeleton's. */
 export interface SpeciesArt {
   /** Its beginning; an egg when unset. */
   origin?: OriginKind;
+  /**
+   * The ears peeking over the rim of a basket at stage 1: pointed (the cat,
+   * the bunny; the default) or floppy, drooping over the rim (the dog).
+   */
+  originEars?: OriginEars;
   /** The creature's own colours, in every style. Unset: the style's palette (the dragon). */
   colors?: SpeciesColors;
   /** The person skeleton (princess, prince): skin tone and hair instead of an accent. */
@@ -493,10 +501,50 @@ function leafPile(ctx: DrawContext): ReactNode {
 }
 
 /**
+ * A mermaid's purse: the leathery egg case a shark pup grows in, a rounded
+ * pouch with a curly tendril at each corner. `top` is where the pouch begins;
+ * stage 2 shows only its lower part, the pup's head out of the top.
+ */
+const CASE = "#C99A55";
+const CASE_DARK = "#9C6F35";
+function eggCase(ctx: DrawContext, top: number): ReactNode {
+  const { st } = ctx;
+  const s = strokeOf(st);
+  const curl = (x: number, y: number, d: number, up: number, k = 1) => (
+    <path
+      key={`${x}-${y}`}
+      d={`M ${x} ${y} q ${d * 10 * k} ${up * 4 * k} ${d * 14 * k} ${up * 14 * k} q ${d * 2 * k} ${up * 8 * k} ${d * -5 * k} ${up * 8 * k} q ${d * -5 * k} 0 ${d * -3 * k} ${up * -5 * k}`}
+      fill="none"
+      stroke={st.stroke || CASE_DARK}
+      strokeWidth={st.stroke ? 3.5 : 3.2}
+      strokeLinecap="round"
+    />
+  );
+  const open = top > 100;
+  return (
+    <>
+      {!open && [curl(70, top + 6, -1, -1), curl(130, top + 6, 1, -1)]}
+      {[curl(68, 166, -1, 1, 0.62), curl(132, 166, 1, 1, 0.62)]}
+      <path
+        d={
+          open
+            ? `M 64 ${top} L 74 ${top - 10} L 84 ${top} L 94 ${top - 10} L 104 ${top} L 114 ${top - 10} L 124 ${top} L 136 ${top - 8} Q 140 150 134 170 Q 100 184 66 170 Q 60 150 64 ${top} Z`
+            : `M 70 ${top} Q 100 ${top - 8} 130 ${top} Q 142 124 134 170 Q 100 184 66 170 Q 58 124 70 ${top} Z`
+        }
+        fill={CASE}
+        {...s}
+      />
+      <path d={`M 76 ${top + (open ? 6 : 10)} Q 72 140 78 164`} stroke={CASE_DARK} strokeWidth="2.6" fill="none" strokeLinecap="round" opacity="0.6" />
+      <path d={`M 124 ${top + (open ? 6 : 10)} Q 128 140 122 164`} stroke={CASE_DARK} strokeWidth="2.6" fill="none" strokeLinecap="round" opacity="0.6" />
+    </>
+  );
+}
+
+/**
  * Stage 1: the closed beginning, wobbling now and then. The egg kinds show a
  * crack when asked (the hatching scene); the others have nothing to crack.
  */
-export function originClosed(ctx: DrawContext, kind: OriginKind, cracked: boolean): ReactNode {
+export function originClosed(ctx: DrawContext, kind: OriginKind, cracked: boolean, ears: OriginEars = "pointed"): ReactNode {
   const { st } = ctx;
   const p = st.pal;
   const s = strokeOf(st);
@@ -508,6 +556,25 @@ export function originClosed(ctx: DrawContext, kind: OriginKind, cracked: boolea
       return egg(ctx, cracked, kind === "starEgg");
     case "basket":
       // ears and the top of a head peeking over the rim
+      if (ears === "floppy") {
+        // the top of the head, its two ears drooping over the rim in front
+        return (
+          <g className="creature-part creature-wobble">
+            <path d="M 68 132 Q 100 92 132 132" fill={fill} {...s} />
+            {basket(ctx)}
+            <g data-part="floppy-ears">
+              {[-1, 1].map((d) => (
+                <path
+                  key={d}
+                  d={`M ${100 + d * 14} 108 Q ${100 + d * 38} 104 ${100 + d * 42} 128 Q ${100 + d * 46} 152 ${100 + d * 36} 160 Q ${100 + d * 24} 160 ${100 + d * 24} 140 Q ${100 + d * 24} 120 ${100 + d * 14} 108 Z`}
+                  fill={accent}
+                  {...s}
+                />
+              ))}
+            </g>
+          </g>
+        );
+      }
       return (
         <g className="creature-part creature-wobble">
           {[-1, 1].map((d) => (
@@ -548,6 +615,17 @@ export function originClosed(ctx: DrawContext, kind: OriginKind, cracked: boolea
           {leafPile(ctx)}
         </g>
       );
+    case "eggCase":
+      // The pup curled up inside, seen through a lighter window in the case.
+      return (
+        <g className="creature-part creature-wobble">
+          {eggCase(ctx, 76)}
+          <ellipse cx="100" cy="124" rx="20" ry="30" fill="#E8C98E" opacity="0.85" />
+          <path d="M 92 104 Q 112 108 110 126 Q 108 144 92 146 Q 104 132 92 104 Z" fill={p.body} opacity="0.8" />
+          <ellipse cx="90" cy="98" rx="5" ry="10" fill="#FFFFFF" opacity="0.45" transform="rotate(-15 90 98)" />
+          {cracked && crack(ctx)}
+        </g>
+      );
     case "jelly":
       return (
         <g className="creature-part creature-wobble">
@@ -585,6 +663,8 @@ export function originOpen(ctx: DrawContext, kind: OriginKind): ReactNode {
       return cushion(ctx);
     case "leaves":
       return leafPile(ctx);
+    case "eggCase":
+      return eggCase(ctx, 138);
     case "jelly":
       return (
         <>
@@ -630,7 +710,7 @@ export function drawCreature({ art, style, tier, mood, uid, cracked = false, loo
   const scale = STAGE_SCALE[tier];
 
   let inner: ReactNode;
-  if (tier === 1) inner = originClosed(ctx, art.origin ?? "egg", cracked);
+  if (tier === 1) inner = originClosed(ctx, art.origin ?? "egg", cracked, art.originEars);
   else if (tier === 2) inner = hatchling(ctx, art, mood);
   else
     inner = (

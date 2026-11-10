@@ -128,7 +128,7 @@ test.describe("what is not drawn is the classic picture", () => {
 
   test("a creature with no classic pictures is, in Classic, its Gumdrop drawing standing still", () => {
     const drawnOnly = AVATAR_CATALOG.filter((s) => !hasClassicArt(s.id)).map((s) => s.id);
-    expect(drawnOnly.length).toBe(12);
+    expect(drawnOnly.length).toBe(14);
     for (const species of drawnOnly) {
       for (const tier of TIERS) {
         const html = render({ species, tier, style: "classic" });

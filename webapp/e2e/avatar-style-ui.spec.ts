@@ -263,7 +263,7 @@ test("the species picker offers all fourteen drawn and the classic three, and a 
     const card = page.getByTestId(`creature-card-${kidId}`);
     await expect(card).toBeVisible({ timeout: 30_000 });
     await card.getByTestId("creature-switch").click();
-    const drawn = ["dragon", "cat", "axolotl", "owl", "robot", "unicorn", "fox", "penguin", "bunny", "rex", "trike", "stego", "princess", "prince"];
+    const drawn = ["dragon", "cat", "axolotl", "owl", "robot", "unicorn", "fox", "penguin", "bunny", "rex", "trike", "stego", "shark", "dog", "princess", "prince"];
     for (const species of drawn) {
       const option = card.locator(`button[data-species="${species}"]`);
       await expect(option).toBeVisible();

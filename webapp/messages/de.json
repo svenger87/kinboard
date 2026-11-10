@@ -2712,7 +2712,7 @@
       "changeCreatureTitle": "Figur von {name} wechseln",
       "changeCreatureHint": "Stufe, Zeichenstil, Farben und Name bleiben, wie sie sind. Nur Eltern können die Figur wechseln, hier.",
       "changeCreatureWhoFallback": "Die Figur von {name}",
-      "changeCreatureConfirm": "{who} wird {species, select, dragon {zum Drachen} cat {zur Katze} axolotl {zum Axolotl} owl {zur Eule} robot {zum Roboter} unicorn {zum Einhorn} fox {zum Fuchs} penguin {zum Pinguin} bunny {zum Hasen} rex {zum T-Rex} trike {zum Triceratops} stego {zum Stegosaurus} princess {zur Prinzessin} prince {zum Prinzen} astronaut {zum Astronauten} plant {zur Pflanze} wizard {zum Magier} other {zu: {label}}}. Stufe und Aussehen bleiben.",
+      "changeCreatureConfirm": "{who} wird {species, select, dragon {zum Drachen} cat {zur Katze} axolotl {zum Axolotl} owl {zur Eule} robot {zum Roboter} unicorn {zum Einhorn} fox {zum Fuchs} penguin {zum Pinguin} bunny {zum Hasen} rex {zum T-Rex} trike {zum Triceratops} stego {zum Stegosaurus} shark {zum Hai} dog {zum Hund} princess {zur Prinzessin} prince {zum Prinzen} astronaut {zum Astronauten} plant {zur Pflanze} wizard {zum Magier} other {zu: {label}}}. Stufe und Aussehen bleiben.",
       "changeCreatureSave": "{label} wählen",
       "changeCreatureSaveIdle": "Figur auswählen",
       "speciesCurrent": "Aktuell",
@@ -3139,7 +3139,14 @@
       "adjustmentsEmpty": "Noch nichts.",
       "adjustTakeBack": "Rückgängig",
       "adjustTakeBackAria": "Diese Änderung um {count} Punkte rückgängig machen",
-      "adjustTakenBack": "Rückgängig gemacht"
+      "adjustTakenBack": "Rückgängig gemacht",
+      "homeLabel": "Kreaturen auf der Startseite",
+      "homeHint": "Die Kreaturen der Kinder laufen unten über die Startseite, ruhen sich aus, hüpfen und spielen miteinander. Tippe eine an, dann hüpft sie. Die Animationen-Einstellung jedes Bildschirms (Einstellungen → Design) kann sie stillhalten oder ausblenden.",
+      "bedtimeLabel": "Schlafenszeit",
+      "bedtimeHint": "Zwischen diesen Zeiten schlafen die Kreaturen: auf der Startseite legen sie sich hin, im Widget sehen sie müde aus.",
+      "bedtimeSleep": "Schlafen ab",
+      "bedtimeWake": "Wach um",
+      "bedtimeReset": "Zurück auf {sleep}–{wake}"
     }
   },
   "settingsSearch": {
@@ -3239,6 +3246,7 @@
       "google_person-mapping": "Personenzuordnung, Person zuordnen, wer, Familienmitglied, Regeln",
       "creatures": "Kreatur, Kreaturen, Drache, Haustier, Avatar, Belohnung, Belohnungen, Punkte, Aufgabenpunkte, Laden, wachsen",
       "creatures_children": "Kreatur, einschalten, Art, Drache, wächst mit, Punkte, Geld, Laden",
+      "creatures_home": "Kreaturen auf der Startseite, laufen, spielen, Haustiere, Schlafenszeit, schlafen, aufwachen",
       "creatures_inbox": "Belohnungswünsche, warten, erlauben, ablehnen, Freigabe, einlösen",
       "creatures_rewards": "Belohnungen, Punkte, Aufgabenpunkte, einlösen, Preise, Prämien",
       "theme_festivals": "Feste, Weihnachten, Advent, Nikolaus, Sankt Martin, Martinstag, Laternen, Schlitten, Weihnachtsmann, Schmuck, Dekoration, festlich, Silvester, Feuerwerk, Konfetti"
@@ -4855,6 +4863,28 @@
         "tier7": "Mächtiger Stego",
         "tier8": "Stego-König"
       },
+      "shark": {
+        "label": "Hai",
+        "tier1": "Nixentäschchen",
+        "tier2": "Haibaby",
+        "tier3": "Kleiner Hai",
+        "tier4": "Wellenreiter",
+        "tier5": "Riffentdecker",
+        "tier6": "Knabberhai",
+        "tier7": "Leuchthai",
+        "tier8": "Haikönig"
+      },
+      "dog": {
+        "label": "Hund",
+        "tier1": "Körbchen",
+        "tier2": "Welpe",
+        "tier3": "Hündchen",
+        "tier4": "Schnüffelnase",
+        "tier5": "Ballprofi",
+        "tier6": "Bester Kumpel",
+        "tier7": "Superhund",
+        "tier8": "Hundekönig"
+      },
       "princess": {
         "label": "Prinzessin",
         "tier1": "Kronkissen",
@@ -5519,5 +5549,9 @@
     "dog": "Hund",
     "cat": "Katze",
     "wifi": "Netzwerk"
+  },
+  "creaturesOnHome": {
+    "aria": "Die Kreaturen der Kinder",
+    "tapAria": "Kreatur von {name}"
   }
 }

@@ -3139,7 +3139,14 @@
       "adjustmentsEmpty": "None yet.",
       "adjustTakeBack": "Undo",
       "adjustTakeBackAria": "Undo this change of {count} points",
-      "adjustTakenBack": "Undone"
+      "adjustTakenBack": "Undone",
+      "homeLabel": "Creatures on Home",
+      "homeHint": "The children's creatures walk along the bottom of the Home screen, rest, hop and play with each other. Tap one and it hops. Each screen's Animations setting (Settings → Theme) can keep them still or hide them.",
+      "bedtimeLabel": "Bedtime",
+      "bedtimeHint": "The creatures sleep between these times: on Home they lie down, in the widget they look sleepy.",
+      "bedtimeSleep": "Asleep from",
+      "bedtimeWake": "Awake at",
+      "bedtimeReset": "Back to {sleep}–{wake}"
     }
   },
   "settingsSearch": {
@@ -3239,6 +3246,7 @@
       "google_person-mapping": "person mapping, assign person, who, family member, rules",
       "creatures": "creature, creatures, dragon, pet, avatar, rewards, points, task points, shop, grows",
       "creatures_children": "creature, switch on, species, dragon, grows with, points, money, shop",
+      "creatures_home": "creatures on home, walk, play, pets, animals, bedtime, sleep, wake",
       "creatures_inbox": "reward requests, waiting, approve, deny, inbox, redeem",
       "creatures_rewards": "rewards, points, task points, redeem, prizes, treats",
       "theme_festivals": "festivals, Christmas, Advent, St Nicholas, Nikolaus, St Martin, lanterns, sleigh, Santa, decorations, holidays, seasonal, New Year's Eve, fireworks, confetti"
@@ -4855,6 +4863,28 @@
         "tier7": "Mighty Stego",
         "tier8": "Stego King"
       },
+      "shark": {
+        "label": "Shark",
+        "tier1": "Mermaid's Purse",
+        "tier2": "Shark Pup",
+        "tier3": "Little Shark",
+        "tier4": "Wave Rider",
+        "tier5": "Reef Explorer",
+        "tier6": "Chomper",
+        "tier7": "Glow Shark",
+        "tier8": "Shark King"
+      },
+      "dog": {
+        "label": "Dog",
+        "tier1": "Basket",
+        "tier2": "Puppy",
+        "tier3": "Doggy",
+        "tier4": "Sniffer",
+        "tier5": "Fetch Champ",
+        "tier6": "Best Buddy",
+        "tier7": "Super Pup",
+        "tier8": "Top Dog"
+      },
       "princess": {
         "label": "Princess",
         "tier1": "Crown Cushion",
@@ -5519,5 +5549,9 @@
     "dog": "Dog",
     "cat": "Cat",
     "wifi": "Network"
+  },
+  "creaturesOnHome": {
+    "aria": "The children's creatures",
+    "tapAria": "{name}'s creature"
   }
 }

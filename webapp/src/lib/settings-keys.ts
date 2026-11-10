@@ -5,6 +5,8 @@ export const SETTINGS_KEYS = {
   weatherLocation: "weather_location",
   weatherUnits: "weather_units",
   weatherEffects: "weather_effects",
+  creatureBedtime: "creature_bedtime",
+  creaturesOnHome: "creatures_on_home",
   // RFC-020: { enabled, chosen }, chosen null for the country's common
   // festivals (lib/festival-settings.ts).
   festivals: "festivals",

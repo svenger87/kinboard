@@ -44,7 +44,7 @@ test("the species is behind the PIN, and only the catalog's species are taken", 
   expect(read(ROUTE)).toMatch(/if \(parsed\.parental\) \{\s*const locked = await requireSettingsUnlock/);
   // The allow-list is the catalog itself, so the new creatures are in it.
   expect(rules).toMatch(/new Set\(avatarCatalog\.species\.map/);
-  for (const id of ["rex", "trike", "stego", "princess", "prince", "unicorn", "fox", "penguin", "bunny", "axolotl", "owl", "robot"]) {
+  for (const id of ["rex", "trike", "stego", "princess", "prince", "unicorn", "fox", "penguin", "bunny", "axolotl", "owl", "robot", "shark", "dog"]) {
     expect(avatarCatalog.species.map((s) => s.id), id).toContain(id);
   }
 });

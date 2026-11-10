@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { CreaturesHomeSettings } from "@/components/settings/creatures-home-settings";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
@@ -113,6 +114,7 @@ export default function CreaturesSettingsPage() {
           )}
         </div>
 
+        <CreaturesHomeSettings />
         <RewardCatalogue />
       </div>
     </main>
