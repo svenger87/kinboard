@@ -82,12 +82,20 @@ export interface DrawContext {
  * Where a creature starts: stage 1 is the closed beginning, stage 2 the baby
  * peeking out of it.
  */
+/** The ears a basket shows at stage 1 (SpeciesArt.originEars). */
+export type OriginEars = "pointed" | "floppy";
+
 export type OriginKind = "egg" | "starEgg" | "jelly" | "eggCase" | "basket" | "box" | "leaves" | "cushion";
 
 /** What a species draws itself; the rest is the skeleton's. */
 export interface SpeciesArt {
   /** Its beginning; an egg when unset. */
   origin?: OriginKind;
+  /**
+   * The ears peeking over the rim of a basket at stage 1: pointed (the cat,
+   * the bunny; the default) or floppy, drooping over the rim (the dog).
+   */
+  originEars?: OriginEars;
   /** The creature's own colours, in every style. Unset: the style's palette (the dragon). */
   colors?: SpeciesColors;
   /** The person skeleton (princess, prince): skin tone and hair instead of an accent. */
@@ -536,7 +544,7 @@ function eggCase(ctx: DrawContext, top: number): ReactNode {
  * Stage 1: the closed beginning, wobbling now and then. The egg kinds show a
  * crack when asked (the hatching scene); the others have nothing to crack.
  */
-export function originClosed(ctx: DrawContext, kind: OriginKind, cracked: boolean): ReactNode {
+export function originClosed(ctx: DrawContext, kind: OriginKind, cracked: boolean, ears: OriginEars = "pointed"): ReactNode {
   const { st } = ctx;
   const p = st.pal;
   const s = strokeOf(st);
@@ -548,6 +556,25 @@ export function originClosed(ctx: DrawContext, kind: OriginKind, cracked: boolea
       return egg(ctx, cracked, kind === "starEgg");
     case "basket":
       // ears and the top of a head peeking over the rim
+      if (ears === "floppy") {
+        // the top of the head, its two ears drooping over the rim in front
+        return (
+          <g className="creature-part creature-wobble">
+            <path d="M 68 132 Q 100 92 132 132" fill={fill} {...s} />
+            {basket(ctx)}
+            <g data-part="floppy-ears">
+              {[-1, 1].map((d) => (
+                <path
+                  key={d}
+                  d={`M ${100 + d * 14} 108 Q ${100 + d * 38} 104 ${100 + d * 42} 128 Q ${100 + d * 46} 152 ${100 + d * 36} 160 Q ${100 + d * 24} 160 ${100 + d * 24} 140 Q ${100 + d * 24} 120 ${100 + d * 14} 108 Z`}
+                  fill={accent}
+                  {...s}
+                />
+              ))}
+            </g>
+          </g>
+        );
+      }
       return (
         <g className="creature-part creature-wobble">
           {[-1, 1].map((d) => (
@@ -683,7 +710,7 @@ export function drawCreature({ art, style, tier, mood, uid, cracked = false, loo
   const scale = STAGE_SCALE[tier];
 
   let inner: ReactNode;
-  if (tier === 1) inner = originClosed(ctx, art.origin ?? "egg", cracked);
+  if (tier === 1) inner = originClosed(ctx, art.origin ?? "egg", cracked, art.originEars);
   else if (tier === 2) inner = hatchling(ctx, art, mood);
   else
     inner = (

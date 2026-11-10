@@ -114,6 +114,9 @@ test.describe("each grows the way the workshop drew it", () => {
     // the egg kinds crack before they hatch; a basket has nothing to crack
     for (const species of ["rex", "unicorn", "axolotl", "shark"]) expect(render({ species, tier: 1, style: "gumdrop", cracked: true })).toContain('data-part="crack"');
     expect(render({ species: "cat", tier: 1, style: "gumdrop", cracked: true })).not.toContain('data-part="crack"');
+    // the dog's basket shows floppy ears over the rim; the cat's and the bunny's the pointed ones
+    expect(has(at("dog", 1), "floppy-ears")).toBe(true);
+    for (const species of ["cat", "bunny"]) expect(has(at(species, 1), "floppy-ears"), species).toBe(false);
     // the star egg has stars where the egg has spots
     expect(at("unicorn", 1).match(/<circle/g)?.length ?? 0).toBeLessThan(at("rex", 1).match(/<circle/g)?.length ?? 0);
   });

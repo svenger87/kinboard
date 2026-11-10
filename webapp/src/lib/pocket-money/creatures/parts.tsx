@@ -27,6 +27,7 @@ import {
   strokeOf,
   type CreatureMood,
   type DrawContext,
+  type OriginEars,
   type OriginKind,
   type SpeciesArt,
 } from "./skeleton";
@@ -141,6 +142,8 @@ export function animalBody(c: Draw, b: AnimalBodyParts): ReactNode {
 
 export interface SpeciesDef {
   origin: OriginKind;
+  /** A basket's ears at stage 1: pointed unless set. */
+  originEars?: OriginEars;
   colors: SpeciesColors;
   head: HeadParts;
   /** Behind the body: a tail, a ring of plates. */
@@ -160,6 +163,7 @@ const at = (ctx: DrawContext, stage: number, mood: CreatureMood): Draw => ({ ...
 export function speciesFrom(def: SpeciesDef): SpeciesArt {
   return {
     origin: def.origin,
+    originEars: def.originEars,
     colors: def.colors,
     person: def.person,
     fullBody(ctx: DrawContext, stage: AvatarTier, mood: CreatureMood) {

@@ -1,8 +1,8 @@
 /** @jsxImportSource react */
 // The pragma is a no-op for Next; see ./skeleton.tsx.
 /**
- * The dog: naps in a basket; floppy ears that grow longer every stage, a
- * patch round one eye and a wagging tail. A collar with a golden tag from
+ * The dog: naps in a basket, its ears drooping over the rim; floppy ears
+ * that grow longer every stage, a patch round one eye and a wagging tail. A collar with a golden tag from
  * the Sniffer (4), a ball to fetch from the Fetch Champ (5), and a hero's
  * cape as the Super Pup (7). When happy its tongue pokes out.
  */
@@ -15,6 +15,7 @@ const CAPE = "#3D7DD8";
 
 export const dog = speciesFrom({
   origin: "basket",
+  originEars: "floppy",
   colors: { body: "#C98A55", belly: "#FFF0DC", accent: "#6E4428" },
   head: {
     under(c, cx, cy, r) {
