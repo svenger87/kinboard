@@ -41,8 +41,8 @@ cd "$SCRIPT_DIR"
 
 FROM_VERSIONS=("$@")
 if [ ${#FROM_VERSIONS[@]} -eq 0 ]; then
-  # The latest stable and the RC channel production runs.
-  FROM_VERSIONS=(1.13.0 1.14.0-rc.6)
+  # The previous stable and the current one: where a user upgrades from.
+  FROM_VERSIONS=(1.13.0 1.15.0)
 fi
 
 # Isolated from prod (kinboard: 3002/5433/8101) and kbaudit (3010/5442/8110).
