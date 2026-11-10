@@ -17,6 +17,7 @@ from aio_ld2410 import LD2410
 SERIAL_PORT = "/dev/ttyUSB0"
 BAUD_RATE = 256000
 API_URL = os.environ.get("KINBOARD_URL", "http://localhost:3001").rstrip("/") + "/api/presence"
+SENSOR_TOKEN = os.environ.get("KINBOARD_PRESENCE_TOKEN", "")
 DEVICE_ID = None  # Auto-detected from family store cookie
 DISPLAY_OFF_DELAY = 30  # seconds after no presence before display off
 
@@ -92,7 +93,7 @@ async def post_presence(session, device_id: str, presence: bool, distance: int):
     """POST presence state to webapp API."""
     try:
         import aiohttp
-        async with session.post(API_URL, json={
+        async with session.post(API_URL, headers={"Authorization": f"Bearer {SENSOR_TOKEN}"}, json={
             "device_id": device_id,
             "presence": presence,
             "distance": distance,

@@ -510,20 +510,11 @@ export default function DevicesSettingsPage() {
 
                 <div>
                   <h4 className="font-medium mb-2">{t("presenceHelpStep2Heading")}</h4>
-                  <p className="text-muted-foreground mb-2">
+                  <p className="text-muted-foreground">
                     {t.rich("presenceHelpStep2Body", {
                       code: (chunks) => <code className="bg-muted px-1 rounded">{chunks}</code>,
                     })}
                   </p>
-                  <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">
-{`# Installation
-pip install aio-ld2410 requests
-
-# Run
-python presence_detector.py \\
-  --device-id YOUR_DEVICE_ID \\
-  --url http://localhost:3000`}
-                  </pre>
                 </div>
 
                 <div>
@@ -540,11 +531,6 @@ python presence_detector.py \\
                       bold: (chunks) => <strong>{chunks}</strong>,
                     })}
                   </p>
-                  <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">
-{`python presence_simulator.py \\
-  --device-id YOUR_DEVICE_ID \\
-  --url http://localhost:3000`}
-                  </pre>
                 </div>
 
                 <div>
@@ -569,6 +555,14 @@ python presence_detector.py \\
                 </div>
 
                 <div className="pt-2 border-t">
+                  <a
+                    href="https://github.com/svenger87/kinboard/wiki/Presence-Sensor"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2"
+                  >
+                    {t("presenceHelpWikiLink")}
+                  </a>
                   <p className="text-xs text-muted-foreground">
                     {t.rich("presenceHelpTip", {
                       bold: (chunks) => <strong>{chunks}</strong>,

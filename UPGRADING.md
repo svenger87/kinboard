@@ -7,6 +7,22 @@ The releases below are the exceptions.
 
 ---
 
+## 1.15 — the presence sensor needs a token
+
+**Only if a presence sensor (LD2410) posts to Kinboard.** `/api/presence` now
+refuses updates without a token: 503 while the server has none, 401 when the
+two differ. The Diun self-update does not create it.
+
+1. Add `PRESENCE_SENSOR_TOKEN=<random>` to `webapp/docker/.env`
+   (`openssl rand -hex 32`), then recreate the webapp with your usual compose
+   files (`up -d webapp`; a restart does not read `.env` again). A new install
+   gets one from `setup.sh`.
+2. On the kiosk, set `KINBOARD_PRESENCE_TOKEN` to the same value and restart the
+   sensor script (wiki: Presence-Sensor). The scripts in `hardware/` and `kiosk/`
+   send it; an older copy of the script does not.
+
+---
+
 ## 1.15 — one container serves everything
 
 **With the Diun auto-update, there is nothing to do.** Read on if you upgrade by

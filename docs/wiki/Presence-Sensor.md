@@ -37,6 +37,32 @@ BAUD_RATE = 256000          # LD2410's default baud rate
 DISPLAY_OFF_DELAY = 30      # seconds of no-presence before screen off
 WATCHDOG_TIMEOUT = 30       # restart serial connection if no data this long
 API_URL = os.environ.get("KINBOARD_URL", "http://localhost:3001").rstrip("/") + "/api/presence"
+SENSOR_TOKEN = os.environ.get("KINBOARD_PRESENCE_TOKEN", "")
+```
+
+Run `./setup.sh --non-interactive` from the repository root to add
+`PRESENCE_SENSOR_TOKEN` to `webapp/docker/.env`. Setup keeps an existing value
+on later runs unless you pass `--force`. On a manual install, generate one with
+`openssl rand -hex 32`.
+Put the same value in `KINBOARD_PRESENCE_TOKEN` on the kiosk. Recreate the webapp
+with your usual Docker Compose files after changing `.env`; a container restart
+does not load changed environment variables. The API rejects sensor updates
+until the token is configured.
+
+For a manual Windows run, set the token and Kinboard address in PowerShell
+before starting the script:
+
+```powershell
+$env:KINBOARD_PRESENCE_TOKEN = "the-same-random-value-as-the-webapp"
+$env:KINBOARD_URL = "http://YOUR_KINBOARD_HOST:3001"
+```
+
+For the scheduled task below, save the token in the kiosk user's environment
+and sign out and back in before testing the task:
+
+```powershell
+[Environment]::SetEnvironmentVariable("KINBOARD_PRESENCE_TOKEN", "the-same-random-value-as-the-webapp", "User")
+[Environment]::SetEnvironmentVariable("KINBOARD_URL", "http://YOUR_KINBOARD_HOST:3001", "User")
 ```
 
 The `find_serial_port()` helper auto-picks the FTDI port; if you have multiple USB-serial adapters, hardcode `port = "COM3"` (or whatever).
@@ -78,12 +104,11 @@ This is what the [Kiosk-Windows-11-Mele-4C](Kiosk-Windows-11-Mele-4C) reference 
 
 ## Software (Linux)
 
-Same `presence-sensor.py` script works on Linux with two changes:
-
-1. The display-power code path uses `SendMessage(SC_MONITORPOWER)` — that's Windows-only. On Linux you need to swap to your DPMS backend (`wlopm`, `xset`, or `hyprctl`).
-2. The serial port name will be `/dev/ttyUSB0` (or similar) instead of `COM3`.
-
-Edit the `set_display_power()` function:
+Use the repo's `kiosk/presence-sensor.py` on a GNOME/Mutter kiosk. It reads the
+sensor at `/dev/ttyUSB0` and controls display power through Mutter's D-Bus
+interface. Install `aio-ld2410` and `aiohttp` in the Python environment used
+by the service. On another desktop, adapt its `set_display_power()` function
+to that desktop's display control command, for example:
 
 ```python
 def set_display_power(on):
@@ -100,6 +125,7 @@ Description=LD2410 presence sensor for Kinboard
 After=graphical-session.target
 
 [Service]
+EnvironmentFile=%h/.config/kinboard/presence-sensor.env
 ExecStart=/usr/bin/python3 /home/kiosk/presence-sensor.py YOUR_DEVICE_ID
 Restart=on-failure
 RestartSec=5
@@ -108,7 +134,18 @@ RestartSec=5
 WantedBy=default.target
 ```
 
-Enable: `systemctl --user enable --now presence-sensor.service`.
+Create `~/.config/kinboard/presence-sensor.env` with the following lines and
+make it readable only by the kiosk user (`chmod 600`):
+
+```dotenv
+KINBOARD_PRESENCE_TOKEN=the-same-random-value-as-the-webapp
+KINBOARD_URL=http://YOUR_KINBOARD_HOST:3001
+```
+
+Enable: `systemctl --user daemon-reload` followed by
+`systemctl --user enable --now presence-sensor.service`. If the service was
+already running, use `systemctl --user restart presence-sensor.service` after
+changing the environment file.
 
 ## How the data flows
 
@@ -122,9 +159,9 @@ USB-UART adapter (FTDI / CH340)
     │ /dev/ttyUSB0 or COM3
     ▼
 presence-sensor.py
-    ├──► POST {presence, distance, device_id} → /api/presence
-    │       └─► Kinboard webapp updates `devices.last_presence` in DB
-    │             └─► live updates → other clients see the state change
+    ├──► POST {presence, distance, device_id} with Bearer token → /api/presence
+    │       └─► Kinboard webapp stores the latest state in memory
+    │             └─► the kiosk polls the state while the sensor is enabled
     │
     └──► On no-presence > DISPLAY_OFF_DELAY:
             SendMessage(SC_MONITORPOWER, 2)   (Windows: turn display off)
@@ -133,7 +170,10 @@ presence-sensor.py
 
 ## Reading the dashboard
 
-When the sensor is connected, `/settings/devices` shows a green dot next to "Presence sensor" with the current distance. Useful for debugging — wave at the sensor and the distance updates within ~1s.
+Open **Settings → Screensaver → Presence** on the kiosk to check its live
+status. Wave at the sensor; the displayed state updates on the next poll.
+Presence state resets when the webapp restarts and returns when the sensor
+posts again.
 
 ## Configuring sensitivity (optional)
 
@@ -159,6 +199,8 @@ The script writes to `C:\presence-sensor.log` (Windows) or wherever you configur
 | Symptom | Likely cause |
 |---|---|
 | **No serial port found** | USB-UART driver missing. Check Device Manager (Windows) or `dmesg` (Linux) for the device. FTDI drivers are usually built-in; CH340 needs a download from wch.cn. |
+| **API returns 401** | `KINBOARD_PRESENCE_TOKEN` on the kiosk does not match `PRESENCE_SENSOR_TOKEN` in `webapp/docker/.env`. Recreate the webapp after changing the Docker value. |
+| **API returns 503** | `PRESENCE_SENSOR_TOKEN` is empty in the running webapp. Run setup again or set it manually, then recreate the webapp. |
 | **"Permission denied" on /dev/ttyUSB0** | User not in the `dialout` group: `sudo usermod -aG dialout $USER`, then re-login. |
 | **Detected presence but display doesn't turn off** | The Windows `SC_MONITORPOWER` message doesn't always work — depends on monitor + driver. As a fallback, force-blank via PowerShell: `(Add-Type ... SendMessage(...))`. |
 | **Distance reads 0 always** | Sensor wired to TX/RX swap incorrectly. Try swapping the wires. |

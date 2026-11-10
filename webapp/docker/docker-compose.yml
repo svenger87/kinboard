@@ -312,6 +312,7 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       CRON_SECRET: ${CRON_SECRET}
+      PRESENCE_SENSOR_TOKEN: ${PRESENCE_SENSOR_TOKEN:-}
       # School holidays from the OpenHolidays API (RFC-014 §5). "off" turns
       # the sync off for the whole install: no request leaves the server.
       SCHOOL_HOLIDAY_SYNC: ${SCHOOL_HOLIDAY_SYNC:-}
