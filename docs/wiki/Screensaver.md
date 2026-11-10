@@ -9,8 +9,8 @@ Top → bottom:
 1. **Background photo** — fades between images from the configured photo source ([Immich](Immich), a DLNA server, an iCloud Shared Album or Unsplash — see [Photos](Photos))
 2. **Clock + date** (bottom-left) — large, low-contrast white-on-photo
 3. **Photo credit** (bottom-center) — photographer name + location, small text
-4. **Birthdays today** — if anyone has a birthday today
-5. **Upcoming events / next 7 days** — small overlay top-right showing the next 5 events
+4. **Upcoming events** (bottom-right) — the next 4 by default; 1 to 5 under **Settings → Screensaver → Events**
+5. **Birthdays** (under the events) — those in the next 30 days, 3 by default; **Settings → Screensaver → Birthdays** turns them off or sets 1 to 5
 6. **Solar widget** — if energy integration on screensaver is toggled, current solar production
 7. **Tesla widget** — if Tesla integration on screensaver is toggled (battery, range)
 8. **News headlines** — RSS-fed news headlines, slowly rotating
@@ -115,6 +115,9 @@ Tapping the screensaver doesn't dismiss it when a news modal is open — only th
 | Presence mode (Screensaver only / Display off) | Settings → Screensaver |
 | Presence delay | Settings → Screensaver |
 | Photo rotation interval | Settings → Screensaver |
+| News on the screensaver, large clock and events | Settings → Screensaver |
+| How many events (1–5) | Settings → Screensaver → Events |
+| Birthdays on or off, and how many (1–5) | Settings → Screensaver → Birthdays |
 | Show solar / Tesla widgets on screensaver | Settings → Home Assistant → Energy / Settings → Tesla |
 
 ## Patterns that work well
