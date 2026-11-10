@@ -19,6 +19,7 @@ import { useScreensaverSettings, useUpdateScreensaverSettings } from "@/hooks/us
 import { useFamilyStore } from "@/stores/family-store";
 import { usePresence } from "@/hooks/use-presence";
 import { PageHeader } from "@/components/page-header";
+import { SCREENSAVER_LIST_COUNTS, screensaverListCount } from "@/types/screensaver";
 
 // Numeric values; labels resolved per-locale via t() at render
 const SCREENSAVER_TIMEOUTS = [
@@ -83,9 +84,15 @@ export default function ScreensaverSettingsPage() {
     });
   };
 
-  const updateDisplayOption = (field: "showNews" | "largeDetails", value: boolean) => {
+  const updateDisplayOption = (field: "showNews" | "largeDetails" | "showBirthdays", value: boolean) => {
     updateSettings.mutate({ key: "screensaver", value: { ...settings, [field]: value } });
   };
+
+  const updateListCount = (field: "eventCount" | "birthdayCount", value: string) => {
+    updateSettings.mutate({ key: "screensaver", value: { ...settings, [field]: parseInt(value, 10) } });
+  };
+
+  const showBirthdays = settings.showBirthdays ?? true;
 
   if (isLoading) {
     return (
@@ -123,6 +130,51 @@ export default function ScreensaverSettingsPage() {
               <p className="text-xs text-muted-foreground">{t("largeDetailsDescription")}</p>
             </div>
             <Switch id="screensaver-large" checked={settings.largeDetails ?? false} onCheckedChange={(value) => updateDisplayOption("largeDetails", value)} disabled={updateSettings.isPending} />
+          </div>
+          <div id="lists" data-setting="lists" className="flex items-center justify-between gap-4">
+            <div>
+              <Label htmlFor="screensaver-event-count">{t("eventCountLabel")}</Label>
+              <p className="text-xs text-muted-foreground">{t("eventCountDescription")}</p>
+            </div>
+            <Select
+              value={String(screensaverListCount(settings.eventCount, 4))}
+              onValueChange={(value) => updateListCount("eventCount", value)}
+              disabled={updateSettings.isPending}
+            >
+              <SelectTrigger id="screensaver-event-count" className="w-20" data-testid="screensaver-event-count">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SCREENSAVER_LIST_COUNTS.map((n) => (
+                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label htmlFor="screensaver-birthdays">{t("showBirthdaysLabel")}</Label>
+              <p className="text-xs text-muted-foreground">{t("showBirthdaysDescription")}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {showBirthdays && (
+                <Select
+                  value={String(screensaverListCount(settings.birthdayCount, 3))}
+                  onValueChange={(value) => updateListCount("birthdayCount", value)}
+                  disabled={updateSettings.isPending}
+                >
+                  <SelectTrigger className="w-20" aria-label={t("birthdayCountLabel")} data-testid="screensaver-birthday-count">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SCREENSAVER_LIST_COUNTS.map((n) => (
+                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Switch id="screensaver-birthdays" checked={showBirthdays} onCheckedChange={(value) => updateDisplayOption("showBirthdays", value)} disabled={updateSettings.isPending} />
+            </div>
           </div>
         </Card>
 

@@ -7,6 +7,7 @@ import { useClock } from "@/hooks/use-clock";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useBirthdays, useEvents, useHolidayEntries, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, useToday, useWeather, type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
+import { screensaverListCount } from "@/types/screensaver";
 import { useFamilyStore } from "@/stores/family-store";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
 import { PersonAvatar } from "@/components/person-avatar";
@@ -201,6 +202,9 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // Configurable photo rotation interval from settings
   const { photoRotationInterval, settings: screensaverSettings } = useScreensaverSettings();
   const largeDetails = screensaverSettings.largeDetails ?? false;
+  const eventCount = screensaverListCount(screensaverSettings.eventCount, 4);
+  const birthdayCount = screensaverListCount(screensaverSettings.birthdayCount, 3);
+  const showBirthdays = screensaverSettings.showBirthdays ?? true;
   const photoRotationMs = photoRotationInterval * 1000;
 
   // Update clock every 60 seconds - screensaver only shows hours:minutes, not seconds
@@ -601,7 +605,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
 
   // Process upcoming birthdays (next 30 days)
   const upcomingBirthdays = useMemo(() => {
-    if (!birthdays) return [];
+    if (!birthdays || !showBirthdays) return [];
     return birthdays
       .map((birthday) => {
         const person = people?.find((p) => p.id === birthday.person_id);
@@ -615,11 +619,11 @@ export function Screensaver({ photos }: ScreensaverProps) {
       })
       .filter((b) => b.daysUntil <= 30)
       .sort((a, b) => a.daysUntil - b.daysUntil)
-      .slice(0, 3);
-  }, [birthdays, people, today]);
+      .slice(0, birthdayCount);
+  }, [birthdays, people, today, showBirthdays, birthdayCount]);
 
   // Process upcoming events. Holidays are all-day items among them, counted
-  // against the same four rows; a break already under way is filed under
+  // against the same rows (four unless the family chose 1 to 5); a break already under way is filed under
   // today, with the day it ends.
   const upcomingEvents = useMemo(() => {
     const holidayItems = holidays.map((h) => ({
@@ -656,8 +660,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
     // Holidays first, so on a tie the sort (stable) keeps them ahead.
     return [...holidayItems, ...eventItems]
       .sort((a, b) => a.start.getTime() - b.start.getTime())
-      .slice(0, 4);
-  }, [events, people, holidays, todayKey, locale, dateLocale]);
+      .slice(0, eventCount);
+  }, [events, people, holidays, todayKey, locale, dateLocale, eventCount]);
 
   return (
     <div

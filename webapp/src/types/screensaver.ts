@@ -26,6 +26,23 @@ export interface ScreensaverSettings {
   photoRotationInterval: number;
   showNews?: boolean;
   largeDetails?: boolean;
+  // How many events the screensaver lists, 1 to 5 (#282).
+  eventCount?: number;
+  // Whether it lists birthdays at all, and how many, 1 to 5.
+  showBirthdays?: boolean;
+  birthdayCount?: number;
+}
+
+/** The choices for both lists. */
+export const SCREENSAVER_LIST_COUNTS = [1, 2, 3, 4, 5] as const;
+
+/**
+ * A stored list length as a whole number from 1 to 5; anything else (never
+ * set, hand-edited, a string) is `fallback`, which is what the screensaver
+ * showed before the setting existed: four events, three birthdays.
+ */
+export function screensaverListCount(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 5 ? value : fallback;
 }
 
 export const DEFAULT_SCREENSAVER_SETTINGS: ScreensaverSettings = {
@@ -35,6 +52,9 @@ export const DEFAULT_SCREENSAVER_SETTINGS: ScreensaverSettings = {
   photoRotationInterval: 30,
   showNews: true,
   largeDetails: false,
+  eventCount: 4,
+  showBirthdays: true,
+  birthdayCount: 3,
 };
 
 export interface PresenceState {
