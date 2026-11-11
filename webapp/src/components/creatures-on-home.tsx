@@ -18,7 +18,7 @@ import { MINUTE_MS } from "@/lib/minute-clock";
 import { classicIsDrawn, effectiveStyle } from "@/lib/pocket-money/creatures";
 import { readLook } from "@/lib/pocket-money/creatures/look";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { placeRoamers, poke, pose, stepRoamers, type RoamEvent, type Roamer } from "@/lib/creatures/roam";
+import { placeRoamers, poke, pose, stepRoamers, type Platform, type RoamEvent, type Roamer } from "@/lib/creatures/roam";
 import type { Creature, PocketMoneyAccount, Person } from "@/types/database";
 
 /**
@@ -71,6 +71,10 @@ export function CreaturesOnIdle({ dim = false }: { dim?: boolean }) {
 }
 
 const FRAME_MS = 1000 / 30;
+/** Home's widget cards, whose top edges the creatures jump up onto (the festival dressing's cards, and the full-bleed ones). */
+const PLATFORM_SELECTOR = ".festival-grid > :not(button)";
+/** How often the cards are measured again: they move when the page scrolls, a widget loads or one is switched off. */
+const PLATFORM_MS = 1000;
 /**
  * A classic picture fills about 94% of its frame and a drawing about three
  * quarters, so at the same size the pictures look bigger (the galaxy most of
@@ -146,6 +150,43 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
     return () => ro.disconnect();
   }, []);
 
+  // The cards' top edges, on Home only: where a creature may jump up and walk.
+  // Measured once a second and on a scroll, not every frame; a creature on a
+  // card rides it as it moves, and jumps down when it goes.
+  const platforms = useRef<Platform[]>([]);
+  useEffect(() => {
+    platforms.current = [];
+    if (placement !== "home" || still || width === 0) return;
+    const ids = new WeakMap<Element, string>();
+    let n = 0;
+    const measure = () => {
+      const floor = floorRef.current;
+      if (!floor || document.hidden || document.documentElement.hasAttribute("data-screensaver")) return;
+      const f = floor.getBoundingClientRect();
+      const found: Platform[] = [];
+      for (const el of document.querySelectorAll(PLATFORM_SELECTOR)) {
+        const r = el.getBoundingClientRect();
+        if (r.width < size * 2.5 || r.height < size * 0.5) continue;
+        // Room for a creature's head above the card, and the card's top above the floor's strip.
+        if (r.top < size * 1.4 || r.top > f.top - size * 0.5) continue;
+        let id = ids.get(el);
+        if (!id) ids.set(el, (id = `card-${n++}`));
+        found.push({ id, left: r.left - f.left, right: r.right - f.left, top: Math.round(f.bottom - r.top) });
+      }
+      platforms.current = found;
+    };
+    measure();
+    const timer = window.setInterval(measure, PLATFORM_MS);
+    window.addEventListener("scroll", measure, { passive: true, capture: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("scroll", measure, { capture: true });
+      window.removeEventListener("resize", measure);
+      platforms.current = [];
+    };
+  }, [placement, still, width, size]);
+
   // Who is on the floor: placed again when a child is added or removed, or an egg hatches.
   useEffect(() => {
     if (width === 0) return;
@@ -181,13 +222,15 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
         const el = elements.current.get(r.id);
         if (!el) continue;
         const p = still ? { lift: 0, tilt: 0, lying: r.state === "asleep" } : pose(r, now, size);
+        // Up on a card, or on the way: its feet that far above the floor.
+        const up = r.y ?? 0;
         // Lying down and getting up take 0.7 s.
         const k = r.state === "asleep" ? Math.min(1, (now - r.since) / 700) : r.state === "waking" ? Math.max(0, 1 - (now - r.since) / 700) : 0;
         const ready = still ? (p.lying ? 1 : 0) : k;
         if (ready > 0.5) nextLying.add(r.id);
         const left = snap(r.x - size / 2);
         const picture = el.outer.dataset.art === "picture";
-        el.outer.style.transform = `translate3d(${left}px, ${snap(-p.lift)}px, 0)`;
+        el.outer.style.transform = `translate3d(${left}px, ${snap(-(up + p.lift))}px, 0)`;
         el.inner.style.transform = r.egg
           ? // An egg sleeps where it stands: it just stops wobbling (and dims, in CSS).
             `scaleX(${r.dir}) rotate(${p.tilt.toFixed(1)}deg)`
@@ -200,7 +243,7 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
         // The shadow stays on the floor: smaller and fainter in the air, longer lying down.
         const air = Math.min(1, p.lift / (size * 0.4));
         const stretch = (picture ? PICTURE_SCALE : 1) * (1 - 0.45 * air) + (picture || r.egg ? 0 : 0.35 * ready);
-        el.shadow.style.transform = `translate3d(${left}px, 0, 0) scaleX(${stretch.toFixed(3)})`;
+        el.shadow.style.transform = `translate3d(${left}px, ${snap(-up)}px, 0) scaleX(${stretch.toFixed(3)})`;
         el.shadow.style.opacity = (1 - 0.6 * air).toFixed(2);
         if (el.outer.dataset.state !== r.state) el.outer.dataset.state = r.state;
         const dir = String(r.dir);
@@ -231,7 +274,7 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
       if (!still) {
         const { roamers: next, events } = stepRoamers(
           roamers.current,
-          { width, size, now, sleeping: sleepingRef.current },
+          { width, size, now, sleeping: sleepingRef.current, platforms: platforms.current },
           dt,
           random,
         );
