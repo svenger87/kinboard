@@ -8,6 +8,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Creatures climb onto the widgets.** With Creatures on Home switched on, now and then a creature walks to the foot of a widget card, jumps up onto its top edge, strolls along it, sometimes hops across to the card next to it, and jumps back down. They come down at bedtime, and when a card scrolls away or is switched off. A tap mid-jump sends a heart and lets it land first. Home only; the screensaver's creatures stay on the floor, and with Animations on Reduced they stand still as before.
+
 - **The children's creatures on the screensaver.** Settings → Creatures → *Creatures on the screensaver*, off unless switched on and separate from Home's switch: the same creatures walk along the bottom of the screensaver, under the clock and the events, which move up to make room. Tapping one makes it hop without waking the screen; at bedtime they sleep there, and with the screensaver's Night on they lie faint under the dim clock. On Home and here the drawings now stand still while the creatures walk (no breathing or tail sway): on a CPU throttled six times, two creatures with those animations kept the screensaver's main thread 37% busy, without them 15% (3.7% with none) (RFC-021).
 
 - **Night on the screensaver.** Settings → Screensaver → *Night*, off unless switched on: during the family's bedtime (the times under Settings → Creatures, 20:00 to 06:30 unless changed) the screensaver shows a dim clock on black and nothing else, no photo, no news, no events, and stops loading photos. The clock drifts a few pixels now and then against burn-in, and a touch wakes the screen as always. One bedtime for the whole household: the screen's night is the children's (RFC-021).
