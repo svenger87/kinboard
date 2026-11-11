@@ -276,6 +276,10 @@ test("Home: off unless switched on, gone with animations off, still with reduced
   // One shadow each, flat on the floor; the drawing's own is hidden here, or it would turn with a creature lying down.
   expect(css).toMatch(/\.home-creature \.creature-ground \{\s*display: none;/);
   expect(home).toContain("el.shadow.style.transform = `translate3d(${left}px, 0, 0) scaleX(${stretch.toFixed(3)})`;");
+  // Whole device pixels while walking: a sub-pixel offset makes the edge shimmer on a GPU.
+  expect(home).toContain("const snap = (v: number) => (Math.round(v * dpr) / dpr).toFixed(2);");
+  expect(home).toContain("const left = snap(r.x - size / 2);");
+  expect(home).toContain("el.outer.style.transform = `translate3d(${left}px, ${snap(-p.lift)}px, 0)`;");
 });
 
 test("the mood hook and settings: one family bedtime, re-read every minute; the switch and times on Settings -> Creatures", () => {

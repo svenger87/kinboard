@@ -19,6 +19,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - **A backup that won't restore says why.** "Restore from backup" on the join screen showed "is this a Kinboard backup file?" for every failure, while the server knew the reason: an unknown format, a table that wouldn't insert, the size, too many attempts. The message now shows that reason underneath, and stays up long enough to read or photograph (#458).
+- **Walking creatures no longer flicker at their edges.** On a desktop browser the creatures' outlines shimmered while they walked on the screensaver: each frame put them at a fraction of a pixel, and the graphics card smoothed the edge differently every time. They now move in whole screen pixels.
+
 ### Security
 
 ## [1.15.0] - 2026-11-10
