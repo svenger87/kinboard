@@ -170,6 +170,12 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
 
   const draw = useCallback(
     (now: number) => {
+      // Whole device pixels: at a fraction the compositor resamples the
+      // creature's layer at a new sub-pixel offset every frame, and its edge
+      // shimmers while it walks (seen on a desktop GPU on the idle screen's
+      // dark background; software rendering in tests does not show it).
+      const dpr = window.devicePixelRatio || 1;
+      const snap = (v: number) => (Math.round(v * dpr) / dpr).toFixed(2);
       const nextLying = new Set<string>();
       for (const r of roamers.current) {
         const el = elements.current.get(r.id);
@@ -179,9 +185,9 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
         const k = r.state === "asleep" ? Math.min(1, (now - r.since) / 700) : r.state === "waking" ? Math.max(0, 1 - (now - r.since) / 700) : 0;
         const ready = still ? (p.lying ? 1 : 0) : k;
         if (ready > 0.5) nextLying.add(r.id);
-        const left = (r.x - size / 2).toFixed(1);
+        const left = snap(r.x - size / 2);
         const picture = el.outer.dataset.art === "picture";
-        el.outer.style.transform = `translate3d(${left}px, ${(-p.lift).toFixed(1)}px, 0)`;
+        el.outer.style.transform = `translate3d(${left}px, ${snap(-p.lift)}px, 0)`;
         el.inner.style.transform = r.egg
           ? // An egg sleeps where it stands: it just stops wobbling (and dims, in CSS).
             `scaleX(${r.dir}) rotate(${p.tilt.toFixed(1)}deg)`
