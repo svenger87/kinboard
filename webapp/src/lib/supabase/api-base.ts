@@ -18,7 +18,7 @@
  * `localhost:8130` once took production down (2026-08-06).
  */
 
-import { postgrestUrl } from "@/lib/rest-proxy";
+import { postgrestFetch, postgrestUrl } from "@/lib/rest-proxy";
 
 /** The marker `window.__ENV` carries: the browser uses its own origin. */
 export const SAME_ORIGIN = "same-origin";
@@ -57,4 +57,17 @@ export function serverSupabaseUrl(env: EnvLike = process.env): string {
     "POSTGREST_URL is not set: server-side code needs PostgREST's internal address " +
       "(docker-compose.yml sets POSTGREST_URL=http://rest:3000; for `next dev`, set it in .env.local)",
   );
+}
+
+/**
+ * The fetch the server clients are built with. Against PostgREST it strips the
+ * `/rest/v1` prefix supabase-js adds; against Kong (a compose file from before
+ * 1.15, POSTGREST_URL unset) it leaves the URL alone, because Kong routes on
+ * that prefix. Stripping it there sent every server query to a path Kong has
+ * no route for: the family count came back empty, and the join page offered to
+ * create a family on an install that had three.
+ */
+export function serverSupabaseFetch(env: EnvLike = process.env): typeof fetch {
+  const direct = postgrestUrl(env);
+  return direct ? postgrestFetch(direct) : (input, init) => fetch(input, init);
 }
