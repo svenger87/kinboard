@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Kinboard found no family after updating to 1.15 without `git pull`.** An install that pulled the 1.15 image but still started it with its old compose file (Kong, auth and storage still running) sent every server-side database query to an address Kong has no route for. The family count came back empty, the join page offered to create a new family, and joining with the code failed. The server now keeps Kong's `/rest/v1` path on such installs. Updating the checkout as UPGRADING.md describes is still the way to finish the move to 1.15.
 - **A backup that won't restore says why.** "Restore from backup" on the join screen showed "is this a Kinboard backup file?" for every failure, while the server knew the reason: an unknown format, a table that wouldn't insert, the size, too many attempts. The message now shows that reason underneath, and stays up long enough to read or photograph (#458).
 - **Walking creatures no longer flicker at their edges.** On a desktop browser the creatures' outlines shimmered while they walked on the screensaver: each frame put them at a fraction of a pixel, and the graphics card smoothed the edge differently every time. They now move in whole screen pixels.
 
