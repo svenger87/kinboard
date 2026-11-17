@@ -22,6 +22,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The large clock on a portrait screen fills the column.** With *Large clock and events* on a portrait screen, the screensaver now lays out like a family's mockup: one column, the time and the date as wide as the event cards, and 60px between the events, the birthdays and the clock, and to the left and bottom edges, measured to the letters rather than their line boxes. On 1080×1920 the time grows from 128px to 222px. On a short portrait screen the time stays within 18% of the screen's height. Landscape screens keep their layout (#282).
+
 - **Even spacing on the screensaver.** The clock, the events and the birthdays at the bottom of the screensaver now sit at one even distance from each other: 24px, or 40px with the large clock and events. Before, the lists were 16px apart and the clock 24px below them. With the large clock and on landscape screens, the clock's row was also half again as tall as its digits, which left a wide gap above and below the time. The photo counter ("12 / 99") moved from under the birthdays to the bottom right corner, where it no longer pushes the clock down (#282).
 
 ### Fixed
