@@ -32,8 +32,16 @@ import { readFileSync } from "node:fs";
 
 const source = readFileSync("src/components/screensaver.tsx", "utf8");
 
-/** Every `className="..."` literal in the component. */
-const classLiterals = [...source.matchAll(/className="([^"]*)"/g)].map((m) => m[1]);
+/**
+ * Every `className="..."` literal in the component, and every template one
+ * (className={`...`}) with `${sectionGap}`, the stack's one gap (#282),
+ * written out as the classes it stands for.
+ */
+const sectionGap = source.match(/const sectionGap = largeDetails \? "(gap-\d+)" : "(gap-\d+)";/);
+const classLiterals = [
+  ...[...source.matchAll(/className="([^"]*)"/g)].map((m) => m[1]),
+  ...[...source.matchAll(/className=\{`([^`]*)`\}/g)].map((m) => m[1].replace("${sectionGap}", sectionGap ? `${sectionGap[1]} ${sectionGap[2]}` : "")),
+];
 
 const find = (needle: string) => {
   const hits = classLiterals.filter((c) => c.includes(needle));
