@@ -50,7 +50,7 @@ export function IcloudSection() {
       return;
     }
 
-    await saveSettings.mutateAsync({ token: result.token, album_name: result.streamName });
+    await saveSettings.mutateAsync({ token: result.token, album_name: result.streamName, format: result.format });
     setLink("");
     toast.success(t("connected", { album: result.streamName ?? "", count: result.photoCount ?? 0 }));
   };

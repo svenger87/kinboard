@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { parseAlbumToken, fetchAlbum } from "@/lib/icloud-album";
+import { parseAlbumLink, fetchAlbum, fetchCloudKitPhotos } from "@/lib/icloud-album";
 
 /**
  * Check a shared-album link before saving it.
@@ -25,16 +25,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
-  const token = parseAlbumToken(body.link);
-  if (!token) {
+  const parsed = parseAlbumLink(body.link);
+  if (!parsed) {
     return NextResponse.json({ ok: false, error: "not_an_icloud_link" }, { status: 200 });
   }
 
   try {
-    const album = await fetchAlbum(token);
+    if (parsed.format === "cloudkit") {
+      const { streamName, photos } = await fetchCloudKitPhotos(parsed.token, 500);
+      return NextResponse.json({
+        ok: true,
+        token: parsed.token,
+        format: parsed.format,
+        streamName,
+        photoCount: photos.length,
+      });
+    }
+    const album = await fetchAlbum(parsed.token);
     return NextResponse.json({
       ok: true,
-      token,
+      token: parsed.token,
+      format: parsed.format,
       streamName: album.streamName,
       photoCount: album.photos.length,
     });

@@ -226,7 +226,9 @@ export function parseAssetUrls(body: unknown): Map<string, string> {
 export async function getSharedAlbumPhotos(
   token: string,
   limit = 100,
+  format: IcloudAlbumFormat = "legacy",
 ): Promise<{ streamName: string; photos: IcloudResolvedPhoto[] }> {
+  if (format === "cloudkit") return fetchCloudKitPhotos(token, limit);
   const album = await fetchAlbum(token);
 
   // Newest first: a shared album is chronological and the recent end is the
@@ -266,4 +268,205 @@ export async function getSharedAlbumPhotos(
   }
 
   return { streamName: album.streamName, photos };
+}
+
+// ── CloudKit shared albums (local patch, 2026-11-17) ──────────────────
+//
+// iOS/macOS 26 retired Shared Streams: the current share link is
+// `photos.icloud.com/shared/album/<token>` and the album lives in
+// CloudKit, not on the sharedstreams shards — the legacy calls answer
+// 404 for these tokens. CloudKit Web Services still needs no account:
+// `records/resolve` trades the link's shortGUID for the shared zone plus
+// a short-lived anonymous token, and `records/query` on the CPL index
+// returns each photo's master record with signed download URLs inline.
+// The URLs expire like the legacy ones, so nothing here caches either.
+
+export type IcloudAlbumFormat = "legacy" | "cloudkit";
+
+export function parseAlbumLink(
+  input: string,
+): { token: string; format: IcloudAlbumFormat } | null {
+  const raw = input.trim();
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.toLowerCase();
+    if (host === "icloud.com" || host.endsWith(".icloud.com")) {
+      const seg = url.pathname.split("/").filter(Boolean);
+      const i = seg.indexOf("album");
+      if (
+        i > 0 &&
+        seg[i - 1] === "shared" &&
+        seg[i + 1] &&
+        /^[0-9A-Za-z_-]{10,}$/.test(seg[i + 1])
+      ) {
+        return { token: seg[i + 1], format: "cloudkit" };
+      }
+    }
+  } catch {
+    // Not a URL at all — try the legacy shapes below.
+  }
+  const token = parseAlbumToken(raw);
+  return token ? { token, format: "legacy" } : null;
+}
+
+const CK_HOST = "https://ckdatabasews.icloud.com";
+const CK_CONTAINER = "com.apple.photos.cloud";
+// Telemetry parameters the web app sends; the server accepts any value.
+const CK_PARAMS = "clientBuildNumber=2620BuildBeta48&clientMasteringNumber=2620BuildBeta48";
+const CK_INDEX = "CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted";
+
+interface CkField {
+  value?: unknown;
+}
+interface CkRecord {
+  recordName?: string;
+  recordType?: string;
+  created?: { timestamp?: number };
+  fields?: Record<string, CkField | undefined>;
+}
+
+async function ckPost(url: string, body: unknown): Promise<Record<string, unknown>> {
+  const res = await postJson(url, body);
+  if (!res.ok) throw new Error(`icloud: cloudkit returned ${res.status}`);
+  return (await res.json()) as Record<string, unknown>;
+}
+
+async function resolveCloudKitAlbum(token: string): Promise<{
+  streamName: string;
+  partition: string;
+  accessToken: string;
+  zone: { zoneName: string; ownerRecordName?: string; zoneType?: string };
+}> {
+  const data = await ckPost(
+    `${CK_HOST}/database/1/${CK_CONTAINER}/production/public/records/resolve?${CK_PARAMS}`,
+    { shortGUIDs: [{ value: token }] },
+  );
+  const results = data.results as Array<Record<string, unknown>> | undefined;
+  const first = results?.[0];
+  const zone = first?.zoneID as
+    | { zoneName?: string; ownerRecordName?: string; zoneType?: string }
+    | undefined;
+  const access = first?.anonymousPublicAccess as
+    | { token?: string; databasePartition?: string }
+    | undefined;
+  if (!zone?.zoneName || !access?.token) {
+    throw new Error("icloud: album not found \u2014 is the public website still on?");
+  }
+  const share = first?.share as { fields?: Record<string, CkField | undefined> } | undefined;
+  const title = share?.fields?.["cloudkit.title"]?.value;
+  const partitionRaw = access.databasePartition;
+  return {
+    streamName: typeof title === "string" && title ? title : "iCloud Album",
+    partition: (typeof partitionRaw === "string" && partitionRaw ? partitionRaw : CK_HOST).replace(/:443$/, ""),
+    accessToken: access.token,
+    zone: { zoneName: zone.zoneName, ownerRecordName: zone.ownerRecordName, zoneType: zone.zoneType },
+  };
+}
+
+export async function fetchCloudKitPhotos(
+  token: string,
+  limit = 100,
+): Promise<{ streamName: string; photos: IcloudResolvedPhoto[] }> {
+  const { streamName, partition, accessToken, zone } = await resolveCloudKitAlbum(token);
+  const url =
+    `${partition}/database/1/${CK_CONTAINER}/production/shared/records/query?${CK_PARAMS}` +
+    `&publicAccessAuthToken=${encodeURIComponent(accessToken)}`;
+  const zoneID = {
+    zoneName: zone.zoneName,
+    ownerRecordName: zone.ownerRecordName ?? "",
+    zoneType: zone.zoneType ?? "REGULAR_CUSTOM_ZONE",
+  };
+
+  const masters = new Map<string, CkRecord>();
+  const assetOrder: { master: string; date: number | null }[] = [];
+  let marker: string | undefined;
+  for (let page = 0; page < 25; page++) {
+    const data = await ckPost(url, {
+      query: {
+        recordType: CK_INDEX,
+        filterBy: [
+          {
+            fieldName: "direction",
+            comparator: "EQUALS",
+            fieldValue: { value: "DESCENDING", type: "STRING" },
+          },
+        ],
+      },
+      zoneID,
+      resultsLimit: 200,
+      ...(marker ? { continuationMarker: marker } : {}),
+    });
+    const records = (data.records as CkRecord[] | undefined) ?? [];
+    for (const rec of records) {
+      if (rec.recordType === "CPLMaster" && rec.recordName) {
+        masters.set(rec.recordName, rec);
+      } else if (rec.recordType === "CPLAsset") {
+        const ref = rec.fields?.masterRef?.value as { recordName?: string } | undefined;
+        const when = rec.fields?.assetDate?.value ?? rec.fields?.addedDate?.value;
+        if (ref?.recordName) {
+          assetOrder.push({ master: ref.recordName, date: typeof when === "number" ? when : null });
+        }
+      }
+    }
+    marker = typeof data.continuationMarker === "string" ? data.continuationMarker : undefined;
+    if (!marker || assetOrder.length >= limit) break;
+  }
+
+  const photos: IcloudResolvedPhoto[] = [];
+  const seen = new Set<string>();
+  const push = (rec: CkRecord, date: number | null) => {
+    if (!rec.recordName || seen.has(rec.recordName) || photos.length >= limit) return;
+    seen.add(rec.recordName);
+    const photo = cloudKitPhoto(rec, date);
+    if (photo) photos.push(photo);
+  };
+  for (const a of assetOrder) {
+    const rec = masters.get(a.master);
+    if (rec) push(rec, a.date);
+  }
+  // Masters whose asset record fell outside the fetched pages still count.
+  for (const rec of masters.values()) push(rec, null);
+  return { streamName, photos };
+}
+
+function cloudKitPhoto(rec: CkRecord, assetDateMs: number | null): IcloudResolvedPhoto | null {
+  const f = rec.fields ?? {};
+  const itemType =
+    typeof f.itemType?.value === "string" ? (f.itemType.value as string).toLowerCase() : "";
+  if (itemType.includes("movie") || itemType.includes("video") || itemType.includes("quicktime")) {
+    return null;
+  }
+  // JPEG derivatives first: browsers cannot render the HEIC original.
+  // Smallest that still covers a wall display, else the largest available.
+  const cands: { url: string; width: number; height: number; jpeg: boolean }[] = [];
+  for (const [k, fv] of Object.entries(f)) {
+    if (!k.startsWith("res") || !k.endsWith("Res") || k.includes("Vid")) continue;
+    const v = fv?.value as { downloadURL?: string } | undefined;
+    if (!v?.downloadURL) continue;
+    const base = k.slice(0, -3);
+    const w = f[`${base}Width`]?.value;
+    const h = f[`${base}Height`]?.value;
+    cands.push({
+      url: v.downloadURL,
+      width: typeof w === "number" ? w : 0,
+      height: typeof h === "number" ? h : 0,
+      jpeg: k.includes("JPEG"),
+    });
+  }
+  if (cands.length === 0) return null;
+  const jpegs = cands.filter((c) => c.jpeg);
+  const pool = jpegs.length > 0 ? jpegs : cands;
+  const covering = pool.filter((c) => c.width >= 1600).sort((a, b) => a.width - b.width);
+  const best = covering[0] ?? [...pool].sort((a, b) => b.width - a.width)[0];
+  const imported = f.importDate?.value;
+  const ts =
+    assetDateMs ?? (typeof imported === "number" ? imported : null) ?? rec.created?.timestamp ?? null;
+  return {
+    id: rec.recordName ?? best.url,
+    caption: null,
+    dateCreated: ts ? new Date(ts).toISOString() : null,
+    url: best.url,
+    width: best.width,
+    height: best.height,
+  };
 }
