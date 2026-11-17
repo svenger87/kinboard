@@ -1,0 +1,71 @@
+--- patches/pocket-money-widget.tsx.orig-v1.15.0	2026-11-17 16:20:44.480631773 -0500
++++ webapp/src/components/widgets/pocket-money-widget.tsx	2026-11-17 16:20:46.689621903 -0500
+@@ -1,10 +1,8 @@
+ "use client";
+ 
+ import Link from "next/link";
+-import { useEffect, useState } from "react";
+ import { PiggyBank } from "lucide-react";
+ import { useTranslations } from "next-intl";
+-import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
+ import { Card } from "@/components/ui/card";
+ import { Progress } from "@/components/ui/progress";
+ import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
+@@ -23,11 +21,6 @@
+   const t = useTranslations("dashboard.pluginDiscover");
+   const enabled = useIsPluginEnabled("pocket-money");
+   const { data: accounts = [] } = usePocketMoneyAccounts();
+-  const [activeId, setActiveId] = useState<string | null>(null);
+-
+-  useEffect(() => {
+-    if (!activeId && accounts.length > 0) setActiveId(accounts[0].id);
+-  }, [accounts, activeId]);
+ 
+   if (!enabled) {
+     return (
+@@ -54,30 +47,24 @@
+     );
+   }
+ 
+-  const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
+-
++  // Local patch (2026-11-17, for Lei): show every child's balance at once,
++  // stacked, instead of the stock one-kid tab toggle. Re-apply after
++  // Kinboard updates — see ~/kinboard/patches/.
+   return (
+     <Link href="/pocket-money" className="block h-full">
+       <Card className="p-4 space-y-3 h-full accent-border-top">
+-        {accounts.length > 1 && (
+-          <SegmentedControl value={active.id} onValueChange={(v) => setActiveId(v)}>
+-            {accounts.map((a) => (
+-              <SegmentedControlItem
+-                key={a.id}
+-                value={a.id}
+-                onClick={(e) => {
+-                  // Prevent the wrapping <Link> from firing when the user
+-                  // taps a tab; they want to switch tabs, not navigate.
+-                  e.stopPropagation();
+-                  e.preventDefault();
+-                }}
+-              >
+-                <PersonName accountPersonId={a.person_id} />
+-              </SegmentedControlItem>
+-            ))}
+-          </SegmentedControl>
+-        )}
+-        <PocketMoneyWidgetTab account={active} />
++        <div className="space-y-3" data-all-kids="true">
++          {accounts.map((a) => (
++            <div key={a.id} className="space-y-1">
++              {accounts.length > 1 && (
++                <p className="text-xs font-medium text-muted-foreground">
++                  <PersonName accountPersonId={a.person_id} />
++                </p>
++              )}
++              <PocketMoneyWidgetTab account={a} />
++            </div>
++          ))}
++        </div>
+       </Card>
+     </Link>
+   );
