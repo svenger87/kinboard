@@ -198,6 +198,10 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // Configurable photo rotation interval from settings
   const { photoRotationInterval, settings: screensaverSettings } = useScreensaverSettings();
   const largeDetails = screensaverSettings.largeDetails ?? false;
+  // One gap between the sections of the bottom stack (events, birthdays, the
+  // clock), so the spacing is even: it was 16px between the lists and 24px
+  // above the clock (#282). Wider with the large details, as the text is.
+  const sectionGap = largeDetails ? "gap-10" : "gap-6";
   const eventCount = screensaverListCount(screensaverSettings.eventCount, 4);
   const birthdayCount = screensaverListCount(screensaverSettings.birthdayCount, 3);
   const showBirthdays = screensaverSettings.showBirthdays ?? true;
@@ -1097,7 +1101,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
         source — DOM order is what the landscape layout reads.
       */}
       <div
-        className="absolute inset-x-4 bottom-[calc(3rem+var(--idle-creature-floor,0px))] flex flex-col-reverse gap-6 safe-area-inset landscape:lg:contents"
+        className={`absolute inset-x-4 bottom-[calc(3rem+var(--idle-creature-floor,0px))] flex flex-col-reverse ${sectionGap} safe-area-inset landscape:lg:contents`}
       >
       {/* Clock overlay - bottom left (compact for mobile & portrait). A festival's fireworks go up over it (RFC-020). */}
       <div
@@ -1110,7 +1114,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
           <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white clock-display tracking-tighter leading-none`}>
             {hours}
           </span>
-          <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white/30 mx-1 landscape:lg:mx-2`}>
+          <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white/30 mx-1 landscape:lg:mx-2 leading-none`}>
             :
           </span>
           <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white clock-display tracking-tighter leading-none`}>
@@ -1134,7 +1138,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       {/* Right side - Events and Birthdays (above clock for portrait/mobile, right side for landscape desktop) */}
       <div
         ref={eventsBlockRef}
-        className="max-w-sm landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:right-12 flex flex-col gap-4 landscape:lg:gap-6 safe-area-inset screensaver-slide-right"
+        className={`max-w-sm landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:right-12 flex flex-col ${sectionGap} safe-area-inset screensaver-slide-right`}
         style={{ animationDelay: "0.7s", maxWidth: largeDetails ? "36rem" : undefined, ...burnInStyle }}
       >
         {/* Upcoming Events */}
@@ -1267,17 +1271,22 @@ export function Screensaver({ photos }: ScreensaverProps) {
           </div>
         )}
 
-        {/* Photo indicator - simple counter instead of dots to reduce DOM elements */}
-        {photoUrls.length > 1 && (
-          <div className="flex justify-end pt-2">
-            <span className="text-white/40 text-xs">
-              {currentPhotoIndex + 1} / {photoUrls.length}
-            </span>
-          </div>
-        )}
       </div>
       </div>
       {/* end bottom cluster */}
+
+      {/* Photo indicator - simple counter instead of dots to reduce DOM elements.
+          In the bottom corner rather than under the birthdays, where it added
+          a line to the stack and made the gap above the clock uneven (#282). */}
+      {photoUrls.length > 1 && (
+        <span
+          className="absolute bottom-4 right-4 text-white/40 text-xs safe-area-inset screensaver-fade-in"
+          style={{ animationDelay: "1s", ...burnInStyle }}
+          data-testid="screensaver-photo-count"
+        >
+          {currentPhotoIndex + 1} / {photoUrls.length}
+        </span>
+      )}
 
       {/* Photo metadata / attribution */}
       {currentPhotoMetadata?.photographer && (
