@@ -22,6 +22,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Even spacing on the screensaver.** The clock, the events and the birthdays at the bottom of the screensaver now sit at one even distance from each other: 24px, or 40px with the large clock and events. Before, the lists were 16px apart and the clock 24px below them. With the large clock and on landscape screens, the clock's row was also half again as tall as its digits, which left a wide gap above and below the time. The photo counter ("12 / 99") moved from under the birthdays to the bottom right corner, where it no longer pushes the clock down (#282).
+
 ### Fixed
 
 - **Kinboard found no family after updating to 1.15 without `git pull`.** An install that pulled the 1.15 image but still started it with its old compose file (Kong, auth and storage still running) sent every server-side database query to an address Kong has no route for. The family count came back empty, the join page offered to create a new family, and joining with the code failed. The server now keeps Kong's `/rest/v1` path on such installs. Updating the checkout as UPGRADING.md describes is still the way to finish the move to 1.15.
