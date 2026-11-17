@@ -1,26 +1,49 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { PiggyBank } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
 import { useCreatureMood } from "@/hooks/use-creature-mood";
 import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
-import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople, usePointTotals, useOwnedItems, useCreatures, activeCreatureOf } from "@/hooks";
+import { usePocketMoneyAccounts, usePocketMoneyAccountTransactions, usePocketMoneyGoals, usePeople, usePointTotals, useOwnedItems, useCreatures, activeCreatureOf, useSetting } from "@/hooks";
 import { creatureStage } from "@/lib/creatures/stage";
 import { readLook } from "@/lib/pocket-money/creatures/look";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { PluginDiscoverCard } from "./plugin-discover-card";
 import { formatCents } from "@/lib/pocket-money/format";
-import type { PocketMoneyAccount } from "@/types/database";
+import type { PocketMoneyAccount, PocketMoneyTransaction } from "@/types/database";
 import { useFestivalLook } from "@/hooks/use-festival";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { DEFAULT_POCKET_MONEY_WIDGET_SETTINGS, type PocketMoneyWidgetSettings } from "@/types/widgets";
 
-export function PocketMoneyWidget() {
+// Local patch (2026-11-17, for Lei; v2): the layout is a widget setting
+// (Settings → Widgets → Pocket Money). "toggle" is the stock one-child
+// switcher, "all" stacks every child in one card, and "perChild" renders
+// one card per child — the dashboard passes personId, the same pattern as
+// the schedule widget's perChild. Each child can also list its last N
+// transactions (setting, default 3). Source of truth:
+// github.com/leigao84/kinboard, branch patch/pocket-money-all-kids.
+export function PocketMoneyWidget({ personId }: { personId?: string }) {
   const t = useTranslations("dashboard.pluginDiscover");
   const enabled = useIsPluginEnabled("pocket-money");
   const { data: accounts = [] } = usePocketMoneyAccounts();
+  const { data: pmSettings } = useSetting<PocketMoneyWidgetSettings>(
+    SETTINGS_KEYS.pocketMoneyWidget,
+    DEFAULT_POCKET_MONEY_WIDGET_SETTINGS,
+  );
+  const mode = pmSettings?.displayMode ?? DEFAULT_POCKET_MONEY_WIDGET_SETTINGS.displayMode;
+  const recentCount =
+    pmSettings?.recentTransactions ?? DEFAULT_POCKET_MONEY_WIDGET_SETTINGS.recentTransactions;
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeId && accounts.length > 0) setActiveId(accounts[0].id);
+  }, [accounts, activeId]);
 
   if (!enabled) {
     return (
@@ -34,7 +57,12 @@ export function PocketMoneyWidget() {
       />
     );
   }
-  if (accounts.length === 0) {
+
+  const own = personId ? accounts.filter((a) => a.person_id === personId) : accounts;
+  if (own.length === 0) {
+    // A per-child card for a child without an account renders nothing; the
+    // standalone widget keeps the stock "no accounts yet" discover card.
+    if (personId) return null;
     return (
       <PluginDiscoverCard
         pluginId="pocket-money"
@@ -47,9 +75,53 @@ export function PocketMoneyWidget() {
     );
   }
 
-  // Local patch (2026-11-17, for Lei): show every child's balance at once,
-  // stacked, instead of the stock one-kid tab toggle. Re-apply after
-  // Kinboard updates — see ~/kinboard/patches/.
+  if (personId) {
+    const a = own[0];
+    return (
+      <Link href="/pocket-money" className="block h-full">
+        <Card className="p-4 space-y-2 h-full accent-border-top">
+          <p className="text-xs font-medium text-muted-foreground">
+            <PersonName accountPersonId={a.person_id} />
+          </p>
+          <PocketMoneyWidgetTab account={a} />
+          <RecentTransactions account={a} count={recentCount} />
+        </Card>
+      </Link>
+    );
+  }
+
+  if (mode === "toggle") {
+    const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
+    return (
+      <Link href="/pocket-money" className="block h-full">
+        <Card className="p-4 space-y-3 h-full accent-border-top">
+          {accounts.length > 1 && (
+            <SegmentedControl value={active.id} onValueChange={(v) => setActiveId(v)}>
+              {accounts.map((a) => (
+                <SegmentedControlItem
+                  key={a.id}
+                  value={a.id}
+                  onClick={(e) => {
+                    // Prevent the wrapping <Link> from firing when the user
+                    // taps a tab; they want to switch tabs, not navigate.
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                >
+                  <PersonName accountPersonId={a.person_id} />
+                </SegmentedControlItem>
+              ))}
+            </SegmentedControl>
+          )}
+          <PocketMoneyWidgetTab account={active} />
+          <RecentTransactions account={active} count={recentCount} />
+        </Card>
+      </Link>
+    );
+  }
+
+  // "all" — also the standalone fallback when "perChild" is set: the
+  // dashboard renders personId cards instead in that mode.
   return (
     <Link href="/pocket-money" className="block h-full">
       <Card className="p-4 space-y-3 h-full accent-border-top">
@@ -62,11 +134,52 @@ export function PocketMoneyWidget() {
                 </p>
               )}
               <PocketMoneyWidgetTab account={a} />
+              <RecentTransactions account={a} count={recentCount} />
             </div>
           ))}
         </div>
       </Card>
     </Link>
+  );
+}
+
+const TX_TYPE_KEYS: Record<PocketMoneyTransaction["type"], string> = {
+  allowance: "txTypeAllowance",
+  manual_deposit: "txTypeDeposit",
+  interest: "txTypeInterest",
+  withdrawal: "txTypeWithdrawal",
+  adjustment: "txTypeAdjustment",
+};
+
+function RecentTransactions({ account, count }: { account: PocketMoneyAccount; count: number }) {
+  const t = useTranslations("pocketMoney");
+  const { data: txs = [] } = usePocketMoneyAccountTransactions(count > 0 ? account.id : undefined);
+  if (count <= 0 || txs.length === 0) return null;
+  const recent = [...txs]
+    .sort((x, y) => y.created_at.localeCompare(x.created_at))
+    .slice(0, count);
+  const dayFmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+  return (
+    <ul className="space-y-0.5 pt-1">
+      {recent.map((tx) => (
+        <li key={tx.id} className="flex items-baseline gap-2 text-xs text-muted-foreground">
+          <span className="flex-1 min-w-0 truncate">
+            {tx.note?.trim() ? tx.note : t(TX_TYPE_KEYS[tx.type] as never)}
+          </span>
+          <span className="shrink-0">{dayFmt.format(new Date(tx.created_at))}</span>
+          <span
+            className={`shrink-0 tabular-nums font-medium ${
+              tx.amount_cents >= 0
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-red-600 dark:text-red-400"
+            }`}
+          >
+            {tx.amount_cents >= 0 ? "+" : "−"}
+            {formatCents(Math.abs(tx.amount_cents), account.currency)}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

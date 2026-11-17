@@ -112,3 +112,21 @@ export const DEFAULT_SCHEDULE_WIDGET_SETTINGS: ScheduleWidgetSettings = {
   equalSize: false,
   tomorrowFrom: "off",
 };
+
+/**
+ * Local patch: dashboard pocket-money widget layout. Deliberately its own
+ * settings row (like ScheduleWidgetSettings), not a key in
+ * `widget_visibility`.
+ */
+export interface PocketMoneyWidgetSettings {
+  /** "toggle" = stock one-child switcher; "all" = every child stacked in
+   *  one card; "perChild" = one card per child (dashboard-rendered). */
+  displayMode: "toggle" | "all" | "perChild";
+  /** How many recent transactions to list under each child (0 = off). */
+  recentTransactions: number;
+}
+
+export const DEFAULT_POCKET_MONEY_WIDGET_SETTINGS: PocketMoneyWidgetSettings = {
+  displayMode: "all",
+  recentTransactions: 3,
+};

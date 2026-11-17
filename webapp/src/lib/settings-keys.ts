@@ -20,6 +20,9 @@ export const SETTINGS_KEYS = {
   theme: "theme",
   widgetVisibility: "widget_visibility",
   scheduleWidget: "schedule_widget",
+  // Local patch: { displayMode, recentTransactions } for the
+  // pocket-money dashboard widget.
+  pocketMoneyWidget: "pocket_money_widget",
   // { presets: number[] }, the timer widget's buttons in whole minutes;
   // absent means 3, 5, 10 and 15 (lib/timer-presets.ts).
   timerWidget: "timer_widget",

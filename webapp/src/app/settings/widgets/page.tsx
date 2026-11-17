@@ -30,14 +30,15 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { PageHeader } from "@/components/page-header";
 import { useSetting, useUpdateSetting, usePeople, useSchedules } from "@/hooks";
 import { timetabledChildren } from "@/lib/timetabled-children";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
-import { DEFAULT_WIDGET_VISIBILITY, DEFAULT_SCHEDULE_WIDGET_SETTINGS } from "@/types/widgets";
+import { DEFAULT_WIDGET_VISIBILITY, DEFAULT_SCHEDULE_WIDGET_SETTINGS, DEFAULT_POCKET_MONEY_WIDGET_SETTINGS } from "@/types/widgets";
 import { useHomeLayout } from "@/hooks/use-home-layout";
-import type { WidgetVisibility, ScheduleWidgetSettings } from "@/types/widgets";
+import type { WidgetVisibility, ScheduleWidgetSettings, PocketMoneyWidgetSettings } from "@/types/widgets";
 import { useWidgetOrder, mergeWidgetOrder } from "@/hooks/use-widget-order";
 import { TimerPresetsEditor } from "@/components/settings/timer-presets-editor";
 
@@ -99,6 +100,21 @@ export default function WidgetSettingsPage() {
   );
   const updateScheduleWidget = useUpdateSetting<ScheduleWidgetSettings>();
   const perChild = scheduleWidget?.perChild ?? DEFAULT_SCHEDULE_WIDGET_SETTINGS.perChild;
+
+  // Local patch: pocket-money widget display mode + recent transactions.
+  const { data: pocketMoneyWidget } = useSetting<PocketMoneyWidgetSettings>(
+    SETTINGS_KEYS.pocketMoneyWidget,
+    DEFAULT_POCKET_MONEY_WIDGET_SETTINGS,
+  );
+  const updatePocketMoneyWidget = useUpdateSetting<PocketMoneyWidgetSettings>();
+  const pmMode = pocketMoneyWidget?.displayMode ?? DEFAULT_POCKET_MONEY_WIDGET_SETTINGS.displayMode;
+  const pmRecent =
+    pocketMoneyWidget?.recentTransactions ?? DEFAULT_POCKET_MONEY_WIDGET_SETTINGS.recentTransactions;
+  const setPm = (patch: Partial<PocketMoneyWidgetSettings>) =>
+    updatePocketMoneyWidget.mutate({
+      key: SETTINGS_KEYS.pocketMoneyWidget,
+      value: { ...DEFAULT_POCKET_MONEY_WIDGET_SETTINGS, ...(pocketMoneyWidget ?? {}), ...patch },
+    });
 
   // Named here so the switch can say who it will actually affect. A family
   // with no timetable built yet sees the hint instead — turning the option
@@ -275,6 +291,35 @@ export default function WidgetSettingsPage() {
                               disabled={!enabled || updateScheduleWidget.isPending}
                               aria-label={t("scheduleTomorrowLabel")}
                             />}
+                        </div>
+                      )}
+                      {widget.key === "pocketMoney" && (
+                        <div className="mt-3 border-t border-border/40 pt-3 space-y-4">
+                          <div>
+                            <p className="text-sm font-medium mb-2">{t("pocketMoneyDisplayLabel")}</p>
+                            <SegmentedControl
+                              value={pmMode}
+                              onValueChange={(v) =>
+                                setPm({ displayMode: v as PocketMoneyWidgetSettings["displayMode"] })
+                              }
+                            >
+                              <SegmentedControlItem value="toggle">{t("pocketMoneyModeToggle")}</SegmentedControlItem>
+                              <SegmentedControlItem value="all">{t("pocketMoneyModeAll")}</SegmentedControlItem>
+                              <SegmentedControlItem value="perChild">{t("pocketMoneyModePerChild")}</SegmentedControlItem>
+                            </SegmentedControl>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium mb-2">{t("pocketMoneyRecentLabel")}</p>
+                            <SegmentedControl
+                              value={String(pmRecent)}
+                              onValueChange={(v) => setPm({ recentTransactions: Number(v) })}
+                            >
+                              <SegmentedControlItem value="0">{t("pocketMoneyRecentOff")}</SegmentedControlItem>
+                              <SegmentedControlItem value="3">3</SegmentedControlItem>
+                              <SegmentedControlItem value="5">5</SegmentedControlItem>
+                              <SegmentedControlItem value="10">10</SegmentedControlItem>
+                            </SegmentedControl>
+                          </div>
                         </div>
                       )}
                       {widget.key === "timers" && <TimerPresetsEditor disabled={!enabled} />}

@@ -1,37 +1,342 @@
---- patches/pocket-money-widget.tsx.orig-v1.15.0	2026-11-17 16:20:44.480631773 -0500
-+++ webapp/src/components/widgets/pocket-money-widget.tsx	2026-11-17 16:20:46.689621903 -0500
-@@ -1,10 +1,8 @@
- "use client";
- 
- import Link from "next/link";
--import { useEffect, useState } from "react";
- import { PiggyBank } from "lucide-react";
- import { useTranslations } from "next-intl";
--import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
+diff --git a/webapp/messages/de.json b/webapp/messages/de.json
+index 4418e72..3a2bc62 100644
+--- a/webapp/messages/de.json
++++ b/webapp/messages/de.json
+@@ -1155,6 +1155,12 @@
+       "scheduleLabel": "Stundenplan",
+       "scheduleDescription": "Heutiger Schulstundenplan",
+       "schedulePerChildLabel": "Pro Kind ein Widget",
++      "pocketMoneyDisplayLabel": "Display",
++      "pocketMoneyModeToggle": "Toggle",
++      "pocketMoneyModeAll": "All children",
++      "pocketMoneyModePerChild": "One widget per child",
++      "pocketMoneyRecentLabel": "Recent transactions per child",
++      "pocketMoneyRecentOff": "Off",
+       "scheduleEqualSizeLabel": "Alle Schulstunden gleich groß",
+       "scheduleTomorrowLabel": "Nächsten Schultag anzeigen ab",
+       "scheduleTomorrowDescription": "Abends den nächsten Schultag zeigen; standardmäßig aus.",
+@@ -4965,6 +4971,11 @@
+     "nextAllowanceTomorrow": "{amount} Taschengeld kommt morgen",
+     "nextAllowanceInDays": "{amount} Taschengeld in {days} Tagen ({date})",
+     "nextAllowanceShort": "{amount} in {days} T",
++    "txTypeAllowance": "Allowance",
++    "txTypeDeposit": "Deposit",
++    "txTypeInterest": "Interest",
++    "txTypeWithdrawal": "Withdrawal",
++    "txTypeAdjustment": "Adjustment",
+     "stagesSheetOpenAria": "Alle Entwicklungsstufen anzeigen",
+     "stagesSheetTitle": "Entwicklungsstufen",
+     "stagesSheetDescription": "Spare mehr, um die nächste Stufe zu erreichen.",
+diff --git a/webapp/messages/en.json b/webapp/messages/en.json
+index 80447c6..b0ed5dc 100644
+--- a/webapp/messages/en.json
++++ b/webapp/messages/en.json
+@@ -1155,6 +1155,12 @@
+       "scheduleLabel": "School schedule",
+       "scheduleDescription": "Today's school schedule",
+       "schedulePerChildLabel": "One widget per child",
++      "pocketMoneyDisplayLabel": "Display",
++      "pocketMoneyModeToggle": "Toggle",
++      "pocketMoneyModeAll": "All children",
++      "pocketMoneyModePerChild": "One widget per child",
++      "pocketMoneyRecentLabel": "Recent transactions per child",
++      "pocketMoneyRecentOff": "Off",
+       "scheduleEqualSizeLabel": "Show all classes equally",
+       "scheduleTomorrowLabel": "Show next school day from",
+       "scheduleTomorrowDescription": "Show the next school day in the evening; off by default.",
+@@ -4965,6 +4971,11 @@
+     "nextAllowanceTomorrow": "{amount} pocket money arrives tomorrow",
+     "nextAllowanceInDays": "{amount} pocket money in {days} days ({date})",
+     "nextAllowanceShort": "{amount} in {days}d",
++    "txTypeAllowance": "Allowance",
++    "txTypeDeposit": "Deposit",
++    "txTypeInterest": "Interest",
++    "txTypeWithdrawal": "Withdrawal",
++    "txTypeAdjustment": "Adjustment",
+     "stagesSheetOpenAria": "Show all evolution stages",
+     "stagesSheetTitle": "Evolution stages",
+     "stagesSheetDescription": "Save more to grow into each next stage.",
+diff --git a/webapp/messages/fr.json b/webapp/messages/fr.json
+index eb63c74..1e4da43 100644
+--- a/webapp/messages/fr.json
++++ b/webapp/messages/fr.json
+@@ -1155,6 +1155,12 @@
+       "scheduleLabel": "Emploi du temps scolaire",
+       "scheduleDescription": "Emploi du temps du jour",
+       "schedulePerChildLabel": "Un widget par enfant",
++      "pocketMoneyDisplayLabel": "Display",
++      "pocketMoneyModeToggle": "Toggle",
++      "pocketMoneyModeAll": "All children",
++      "pocketMoneyModePerChild": "One widget per child",
++      "pocketMoneyRecentLabel": "Recent transactions per child",
++      "pocketMoneyRecentOff": "Off",
+       "scheduleEqualSizeLabel": "Afficher tous les cours à taille égale",
+       "scheduleTomorrowLabel": "Afficher le prochain jour d’école dès",
+       "scheduleTomorrowDescription": "Afficher le prochain jour d’école le soir ; désactivé par défaut.",
+@@ -4965,6 +4971,11 @@
+     "nextAllowanceTomorrow": "{amount} d'argent de poche arrive demain",
+     "nextAllowanceInDays": "{amount} d'argent de poche dans {days} jours ({date})",
+     "nextAllowanceShort": "{amount} dans {days} j",
++    "txTypeAllowance": "Allowance",
++    "txTypeDeposit": "Deposit",
++    "txTypeInterest": "Interest",
++    "txTypeWithdrawal": "Withdrawal",
++    "txTypeAdjustment": "Adjustment",
+     "stagesSheetOpenAria": "Afficher tous les stades d'évolution",
+     "stagesSheetTitle": "Stades d'évolution",
+     "stagesSheetDescription": "Épargnez plus pour atteindre chaque stade suivant.",
+diff --git a/webapp/src/app/page.tsx b/webapp/src/app/page.tsx
+index 83ce0fd..11a6fd7 100644
+--- a/webapp/src/app/page.tsx
++++ b/webapp/src/app/page.tsx
+@@ -40,16 +40,20 @@ import {
+   useSetting,
+   usePeople,
+   useSchedules,
++  usePocketMoneyAccounts,
+ } from "@/hooks";
+ import { timetabledChildren } from "@/lib/timetabled-children";
+ import { SETTINGS_KEYS } from "@/lib/settings-keys";
+ import { useHomeLayout } from "@/hooks/use-home-layout";
++import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
+ import { useStartRedirect } from "@/hooks/use-device-owner";
+ import { mergeWidgetOrder, useWidgetOrder } from "@/hooks/use-widget-order";
+ import type { WidgetKey } from "@/hooks/use-widget-order";
+ import {
+   DEFAULT_SCHEDULE_WIDGET_SETTINGS,
+   type ScheduleWidgetSettings,
++  DEFAULT_POCKET_MONEY_WIDGET_SETTINGS,
++  type PocketMoneyWidgetSettings,
+ } from "@/types/widgets";
+ import { DEFAULT_WIDGET_VISIBILITY, DEFAULT_WIDGET_ORDER, migrateLegacyWidgetVisibility } from "@/types/widgets";
+ import type { WidgetVisibility } from "@/types/widgets";
+@@ -103,6 +107,24 @@ export default function DashboardPage() {
+   const { data: schedules } = useSchedules();
+   const perChildCards =
+     w.schedule && perChild ? timetabledChildren(people, schedules) : [];
++
++  // Local patch: one pocket-money card per child when the widget's
++  // displayMode setting is "perChild" (Settings -> Widgets -> Pocket
++  // Money), mirroring the schedule widget's perChild above.
++  const { data: pocketMoneyWidgetSettings } = useSetting<PocketMoneyWidgetSettings>(
++    SETTINGS_KEYS.pocketMoneyWidget,
++    DEFAULT_POCKET_MONEY_WIDGET_SETTINGS,
++  );
++  const { data: pmAccounts } = usePocketMoneyAccounts();
++  const pmPluginEnabled = useIsPluginEnabled("pocket-money");
++  const pmPerChildAccounts =
++    w.pocketMoney &&
++    pmPluginEnabled &&
++    (pocketMoneyWidgetSettings?.displayMode ??
++      DEFAULT_POCKET_MONEY_WIDGET_SETTINGS.displayMode) === "perChild" &&
++    (pmAccounts?.length ?? 0) > 1
++      ? pmAccounts ?? []
++      : [];
+   const widgetCards: Record<WidgetKey, React.ReactNode> = {
+     weather: <Weather />,
+     upcomingEvents: <UpcomingEvents maxEvents={3} />,
+@@ -120,7 +142,11 @@ export default function DashboardPage() {
+     notes: <NotesWidget maxItems={3} />,
+     vehicles: <VehiclesWidget />,
+     stonks: <StonksWidget />,
+-    pocketMoney: <PocketMoneyWidget />,
++    pocketMoney: pmPerChildAccounts.length > 0
++      ? pmPerChildAccounts.map((a) => (
++          <PocketMoneyWidget key={a.person_id} personId={a.person_id} />
++        ))
++      : <PocketMoneyWidget />,
+     creatures: <CreaturesWidget />,
+     photos: <PhotosWidget />,
+     timers: <TimerWidget />,
+diff --git a/webapp/src/app/settings/widgets/page.tsx b/webapp/src/app/settings/widgets/page.tsx
+index 5e24856..29f2848 100644
+--- a/webapp/src/app/settings/widgets/page.tsx
++++ b/webapp/src/app/settings/widgets/page.tsx
+@@ -30,14 +30,15 @@ import {
+ import type { LucideIcon } from "lucide-react";
  import { Card } from "@/components/ui/card";
- import { Progress } from "@/components/ui/progress";
+ import { Switch } from "@/components/ui/switch";
++import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
+ import { PageHeader } from "@/components/page-header";
+ import { useSetting, useUpdateSetting, usePeople, useSchedules } from "@/hooks";
+ import { timetabledChildren } from "@/lib/timetabled-children";
+ import { SETTINGS_KEYS } from "@/lib/settings-keys";
+ import { useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
+-import { DEFAULT_WIDGET_VISIBILITY, DEFAULT_SCHEDULE_WIDGET_SETTINGS } from "@/types/widgets";
++import { DEFAULT_WIDGET_VISIBILITY, DEFAULT_SCHEDULE_WIDGET_SETTINGS, DEFAULT_POCKET_MONEY_WIDGET_SETTINGS } from "@/types/widgets";
+ import { useHomeLayout } from "@/hooks/use-home-layout";
+-import type { WidgetVisibility, ScheduleWidgetSettings } from "@/types/widgets";
++import type { WidgetVisibility, ScheduleWidgetSettings, PocketMoneyWidgetSettings } from "@/types/widgets";
+ import { useWidgetOrder, mergeWidgetOrder } from "@/hooks/use-widget-order";
+ import { TimerPresetsEditor } from "@/components/settings/timer-presets-editor";
+ 
+@@ -100,6 +101,21 @@ export default function WidgetSettingsPage() {
+   const updateScheduleWidget = useUpdateSetting<ScheduleWidgetSettings>();
+   const perChild = scheduleWidget?.perChild ?? DEFAULT_SCHEDULE_WIDGET_SETTINGS.perChild;
+ 
++  // Local patch: pocket-money widget display mode + recent transactions.
++  const { data: pocketMoneyWidget } = useSetting<PocketMoneyWidgetSettings>(
++    SETTINGS_KEYS.pocketMoneyWidget,
++    DEFAULT_POCKET_MONEY_WIDGET_SETTINGS,
++  );
++  const updatePocketMoneyWidget = useUpdateSetting<PocketMoneyWidgetSettings>();
++  const pmMode = pocketMoneyWidget?.displayMode ?? DEFAULT_POCKET_MONEY_WIDGET_SETTINGS.displayMode;
++  const pmRecent =
++    pocketMoneyWidget?.recentTransactions ?? DEFAULT_POCKET_MONEY_WIDGET_SETTINGS.recentTransactions;
++  const setPm = (patch: Partial<PocketMoneyWidgetSettings>) =>
++    updatePocketMoneyWidget.mutate({
++      key: SETTINGS_KEYS.pocketMoneyWidget,
++      value: { ...DEFAULT_POCKET_MONEY_WIDGET_SETTINGS, ...(pocketMoneyWidget ?? {}), ...patch },
++    });
++
+   // Named here so the switch can say who it will actually affect. A family
+   // with no timetable built yet sees the hint instead — turning the option
+   // on would otherwise look like it did nothing.
+@@ -277,6 +293,35 @@ export default function WidgetSettingsPage() {
+                             />}
+                         </div>
+                       )}
++                      {widget.key === "pocketMoney" && (
++                        <div className="mt-3 border-t border-border/40 pt-3 space-y-4">
++                          <div>
++                            <p className="text-sm font-medium mb-2">{t("pocketMoneyDisplayLabel")}</p>
++                            <SegmentedControl
++                              value={pmMode}
++                              onValueChange={(v) =>
++                                setPm({ displayMode: v as PocketMoneyWidgetSettings["displayMode"] })
++                              }
++                            >
++                              <SegmentedControlItem value="toggle">{t("pocketMoneyModeToggle")}</SegmentedControlItem>
++                              <SegmentedControlItem value="all">{t("pocketMoneyModeAll")}</SegmentedControlItem>
++                              <SegmentedControlItem value="perChild">{t("pocketMoneyModePerChild")}</SegmentedControlItem>
++                            </SegmentedControl>
++                          </div>
++                          <div>
++                            <p className="text-sm font-medium mb-2">{t("pocketMoneyRecentLabel")}</p>
++                            <SegmentedControl
++                              value={String(pmRecent)}
++                              onValueChange={(v) => setPm({ recentTransactions: Number(v) })}
++                            >
++                              <SegmentedControlItem value="0">{t("pocketMoneyRecentOff")}</SegmentedControlItem>
++                              <SegmentedControlItem value="3">3</SegmentedControlItem>
++                              <SegmentedControlItem value="5">5</SegmentedControlItem>
++                              <SegmentedControlItem value="10">10</SegmentedControlItem>
++                            </SegmentedControl>
++                          </div>
++                        </div>
++                      )}
+                       {widget.key === "timers" && <TimerPresetsEditor disabled={!enabled} />}
+                       {widget.key === "tasks" && (
+                         <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/40 pt-3">
+diff --git a/webapp/src/components/widgets/pocket-money-widget.tsx b/webapp/src/components/widgets/pocket-money-widget.tsx
+index cf1483f..98837a0 100644
+--- a/webapp/src/components/widgets/pocket-money-widget.tsx
++++ b/webapp/src/components/widgets/pocket-money-widget.tsx
+@@ -10,19 +10,35 @@ import { Progress } from "@/components/ui/progress";
  import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
-@@ -23,11 +21,6 @@
+ import { useCreatureMood } from "@/hooks/use-creature-mood";
+ import { nextAllowanceDate, daysUntil } from "@/lib/pocket-money/allowance";
+-import { usePocketMoneyAccounts, usePocketMoneyGoals, usePeople, usePointTotals, useOwnedItems, useCreatures, activeCreatureOf } from "@/hooks";
++import { usePocketMoneyAccounts, usePocketMoneyAccountTransactions, usePocketMoneyGoals, usePeople, usePointTotals, useOwnedItems, useCreatures, activeCreatureOf, useSetting } from "@/hooks";
+ import { creatureStage } from "@/lib/creatures/stage";
+ import { readLook } from "@/lib/pocket-money/creatures/look";
+ import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
+ import { PluginDiscoverCard } from "./plugin-discover-card";
+ import { formatCents } from "@/lib/pocket-money/format";
+-import type { PocketMoneyAccount } from "@/types/database";
++import type { PocketMoneyAccount, PocketMoneyTransaction } from "@/types/database";
+ import { useFestivalLook } from "@/hooks/use-festival";
++import { SETTINGS_KEYS } from "@/lib/settings-keys";
++import { DEFAULT_POCKET_MONEY_WIDGET_SETTINGS, type PocketMoneyWidgetSettings } from "@/types/widgets";
+ 
+-export function PocketMoneyWidget() {
++// Local patch (2026-11-17, for Lei; v2): the layout is a widget setting
++// (Settings → Widgets → Pocket Money). "toggle" is the stock one-child
++// switcher, "all" stacks every child in one card, and "perChild" renders
++// one card per child — the dashboard passes personId, the same pattern as
++// the schedule widget's perChild. Each child can also list its last N
++// transactions (setting, default 3). Source of truth:
++// github.com/leigao84/kinboard, branch patch/pocket-money-all-kids.
++export function PocketMoneyWidget({ personId }: { personId?: string }) {
    const t = useTranslations("dashboard.pluginDiscover");
    const enabled = useIsPluginEnabled("pocket-money");
    const { data: accounts = [] } = usePocketMoneyAccounts();
--  const [activeId, setActiveId] = useState<string | null>(null);
--
--  useEffect(() => {
--    if (!activeId && accounts.length > 0) setActiveId(accounts[0].id);
--  }, [accounts, activeId]);
++  const { data: pmSettings } = useSetting<PocketMoneyWidgetSettings>(
++    SETTINGS_KEYS.pocketMoneyWidget,
++    DEFAULT_POCKET_MONEY_WIDGET_SETTINGS,
++  );
++  const mode = pmSettings?.displayMode ?? DEFAULT_POCKET_MONEY_WIDGET_SETTINGS.displayMode;
++  const recentCount =
++    pmSettings?.recentTransactions ?? DEFAULT_POCKET_MONEY_WIDGET_SETTINGS.recentTransactions;
+   const [activeId, setActiveId] = useState<string | null>(null);
  
-   if (!enabled) {
+   useEffect(() => {
+@@ -41,7 +57,12 @@ export function PocketMoneyWidget() {
+       />
+     );
+   }
+-  if (accounts.length === 0) {
++
++  const own = personId ? accounts.filter((a) => a.person_id === personId) : accounts;
++  if (own.length === 0) {
++    // A per-child card for a child without an account renders nothing; the
++    // standalone widget keeps the stock "no accounts yet" discover card.
++    if (personId) return null;
      return (
-@@ -54,30 +47,24 @@
+       <PluginDiscoverCard
+         pluginId="pocket-money"
+@@ -54,35 +75,114 @@ export function PocketMoneyWidget() {
      );
    }
  
 -  const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
--
-+  // Local patch (2026-11-17, for Lei): show every child's balance at once,
-+  // stacked, instead of the stock one-kid tab toggle. Re-apply after
-+  // Kinboard updates — see ~/kinboard/patches/.
++  if (personId) {
++    const a = own[0];
++    return (
++      <Link href="/pocket-money" className="block h-full">
++        <Card className="p-4 space-y-2 h-full accent-border-top">
++          <p className="text-xs font-medium text-muted-foreground">
++            <PersonName accountPersonId={a.person_id} />
++          </p>
++          <PocketMoneyWidgetTab account={a} />
++          <RecentTransactions account={a} count={recentCount} />
++        </Card>
++      </Link>
++    );
++  }
++
++  if (mode === "toggle") {
++    const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
++    return (
++      <Link href="/pocket-money" className="block h-full">
++        <Card className="p-4 space-y-3 h-full accent-border-top">
++          {accounts.length > 1 && (
++            <SegmentedControl value={active.id} onValueChange={(v) => setActiveId(v)}>
++              {accounts.map((a) => (
++                <SegmentedControlItem
++                  key={a.id}
++                  value={a.id}
++                  onClick={(e) => {
++                    // Prevent the wrapping <Link> from firing when the user
++                    // taps a tab; they want to switch tabs, not navigate.
++                    e.stopPropagation();
++                    e.preventDefault();
++                  }}
++                >
++                  <PersonName accountPersonId={a.person_id} />
++                </SegmentedControlItem>
++              ))}
++            </SegmentedControl>
++          )}
++          <PocketMoneyWidgetTab account={active} />
++          <RecentTransactions account={active} count={recentCount} />
++        </Card>
++      </Link>
++    );
++  }
+ 
++  // "all" — also the standalone fallback when "perChild" is set: the
++  // dashboard renders personId cards instead in that mode.
    return (
      <Link href="/pocket-money" className="block h-full">
        <Card className="p-4 space-y-3 h-full accent-border-top">
@@ -63,9 +368,95 @@
 +                </p>
 +              )}
 +              <PocketMoneyWidgetTab account={a} />
++              <RecentTransactions account={a} count={recentCount} />
 +            </div>
 +          ))}
 +        </div>
        </Card>
      </Link>
    );
+ }
+ 
++const TX_TYPE_KEYS: Record<PocketMoneyTransaction["type"], string> = {
++  allowance: "txTypeAllowance",
++  manual_deposit: "txTypeDeposit",
++  interest: "txTypeInterest",
++  withdrawal: "txTypeWithdrawal",
++  adjustment: "txTypeAdjustment",
++};
++
++function RecentTransactions({ account, count }: { account: PocketMoneyAccount; count: number }) {
++  const t = useTranslations("pocketMoney");
++  const { data: txs = [] } = usePocketMoneyAccountTransactions(count > 0 ? account.id : undefined);
++  if (count <= 0 || txs.length === 0) return null;
++  const recent = [...txs]
++    .sort((x, y) => y.created_at.localeCompare(x.created_at))
++    .slice(0, count);
++  const dayFmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
++  return (
++    <ul className="space-y-0.5 pt-1">
++      {recent.map((tx) => (
++        <li key={tx.id} className="flex items-baseline gap-2 text-xs text-muted-foreground">
++          <span className="flex-1 min-w-0 truncate">
++            {tx.note?.trim() ? tx.note : t(TX_TYPE_KEYS[tx.type] as never)}
++          </span>
++          <span className="shrink-0">{dayFmt.format(new Date(tx.created_at))}</span>
++          <span
++            className={`shrink-0 tabular-nums font-medium ${
++              tx.amount_cents >= 0
++                ? "text-emerald-600 dark:text-emerald-400"
++                : "text-red-600 dark:text-red-400"
++            }`}
++          >
++            {tx.amount_cents >= 0 ? "+" : "−"}
++            {formatCents(Math.abs(tx.amount_cents), account.currency)}
++          </span>
++        </li>
++      ))}
++    </ul>
++  );
++}
++
+ function PersonName({ accountPersonId }: { accountPersonId: string }) {
+   const { data: people = [] } = usePeople();
+   const p = people.find((pp) => pp.id === accountPersonId);
+diff --git a/webapp/src/lib/settings-keys.ts b/webapp/src/lib/settings-keys.ts
+index a7e5805..32f6491 100644
+--- a/webapp/src/lib/settings-keys.ts
++++ b/webapp/src/lib/settings-keys.ts
+@@ -20,6 +20,9 @@ export const SETTINGS_KEYS = {
+   theme: "theme",
+   widgetVisibility: "widget_visibility",
+   scheduleWidget: "schedule_widget",
++  // Local patch: { displayMode, recentTransactions } for the
++  // pocket-money dashboard widget.
++  pocketMoneyWidget: "pocket_money_widget",
+   // { presets: number[] }, the timer widget's buttons in whole minutes;
+   // absent means 3, 5, 10 and 15 (lib/timer-presets.ts).
+   timerWidget: "timer_widget",
+diff --git a/webapp/src/types/widgets.ts b/webapp/src/types/widgets.ts
+index a52af2b..850dd2a 100644
+--- a/webapp/src/types/widgets.ts
++++ b/webapp/src/types/widgets.ts
+@@ -112,3 +112,21 @@ export const DEFAULT_SCHEDULE_WIDGET_SETTINGS: ScheduleWidgetSettings = {
+   equalSize: false,
+   tomorrowFrom: "off",
+ };
++
++/**
++ * Local patch: dashboard pocket-money widget layout. Deliberately its own
++ * settings row (like ScheduleWidgetSettings), not a key in
++ * `widget_visibility`.
++ */
++export interface PocketMoneyWidgetSettings {
++  /** "toggle" = stock one-child switcher; "all" = every child stacked in
++   *  one card; "perChild" = one card per child (dashboard-rendered). */
++  displayMode: "toggle" | "all" | "perChild";
++  /** How many recent transactions to list under each child (0 = off). */
++  recentTransactions: number;
++}
++
++export const DEFAULT_POCKET_MONEY_WIDGET_SETTINGS: PocketMoneyWidgetSettings = {
++  displayMode: "all",
++  recentTransactions: 3,
++};
