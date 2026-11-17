@@ -14,7 +14,7 @@ import { useCreatureBedtime, useFamilyTimeZone } from "@/hooks/use-creature-mood
 import { useFamilyStore } from "@/stores/family-store";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
 import { PersonAvatar } from "@/components/person-avatar";
-import { Cake, Calendar, GraduationCap, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Battery, Zap, Car } from "lucide-react";
+import { Cake, Calendar, GraduationCap, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Battery, Zap, Car } from "lucide-react";
 import { format, differenceInDays, setYear, isPast, addYears, isToday, isTomorrow, addDays, startOfDay, endOfDay, parseISO } from "date-fns";
 import { type Locale } from "date-fns/locale";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
@@ -23,7 +23,8 @@ import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib
 import { toLocalDateKey } from "@/lib/local-date";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
-import { FestivalVisitor } from "@/components/weather-effects";
+import { WeatherEffects } from "@/components/weather-effects";
+import { ScreensaverWeather } from "@/components/screensaver-weather";
 import { CreaturesOnIdle } from "@/components/creatures-on-home";
 
 // Parse date string safely without timezone shift
@@ -128,15 +129,6 @@ function formatEventTime(
 
 // No default photos — screensaver shows clock-only mode when Immich is not connected
 const DEFAULT_PHOTOS: string[] = [];
-
-function screensaverWeatherIcon(condition: string) {
-  const c = condition.toLowerCase();
-  if (c.includes("thunder") || c.includes("gewitter")) return CloudLightning;
-  if (c.includes("snow") || c.includes("schnee")) return CloudSnow;
-  if (c.includes("rain") || c.includes("regen") || c.includes("drizzle") || c.includes("niesel")) return CloudRain;
-  if (c.includes("clear") || c.includes("klar") || c.includes("sun") || c.includes("sonn")) return Sun;
-  return Cloud;
-}
 
 
 /**
@@ -278,7 +270,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
 
   // Weather chip (renders nothing when unconfigured)
   const { data: weather } = useWeather();
-  const WeatherIcon = weather ? screensaverWeatherIcon(weather.conditionMain ?? weather.condition) : null;
+  const showForecast = screensaverSettings.showForecast ?? false;
+  const weatherEffects = screensaverSettings.weatherEffects ?? false;
 
 
   // Fetch energy config and entity states for screensaver solar widget
@@ -779,10 +772,12 @@ export function Screensaver({ photos }: ScreensaverProps) {
         )}
       </div>
 
-      {/* A festival's visitor (RFC-020): above the photo, below the clock and
-          everything else here, every two minutes. Its passes move pixels
-          against burn-in alongside BURN_IN_OFFSETS. */}
-      <FestivalVisitor placement="screensaver" />
+      {/* The weather effects, when switched on for the screensaver (#282),
+          and a festival's visitor (RFC-020): above the photo, below the clock
+          and everything else here. The visitor's passes move pixels against
+          burn-in alongside BURN_IN_OFFSETS. With the effects off this is the
+          visitor alone, as before. */}
+      <WeatherEffects placement="screensaver" enabled={weatherEffects} />
 
       {/* The children's creatures along the bottom edge (RFC-021 §3.1), above
           the photo and under everything that reads. The clock and the events
@@ -854,26 +849,27 @@ export function Screensaver({ photos }: ScreensaverProps) {
         </div>
       )}
 
-      {/* Weather chip - top right (renders nothing when weather unconfigured) */}
-      {weather && WeatherIcon && (
-        <div
-          className="absolute top-4 right-4 landscape:lg:top-12 landscape:lg:right-12 safe-area-inset screensaver-slide-down"
-          style={{ animationDelay: "0.85s", ...burnInStyle }}
-        >
-          <div className="flex items-center gap-3 bg-black/40 rounded-xl px-4 py-2.5">
-            <WeatherIcon className="size-7 text-white" strokeWidth={1.75} />
-            <span className="font-display font-light text-3xl text-white tabular-nums leading-none">
-              {Math.round(weather.temp)}°
-            </span>
-          </div>
+      {/*
+        Top right, one column: the weather (with the forecast strip when it is
+        on, #282) and under it the energy and Tesla widget. They used to sit at
+        fixed offsets from the top, which a taller weather block would run into.
+      */}
+      <div
+        className="absolute top-4 right-4 landscape:lg:top-12 landscape:lg:right-12 flex flex-col items-end gap-3 safe-area-inset"
+        style={burnInStyle}
+      >
+      {/* Weather - renders nothing when weather is unconfigured */}
+      {weather && (
+        <div className="screensaver-slide-down" style={{ animationDelay: "0.85s" }}>
+          <ScreensaverWeather weather={weather} showForecast={showForecast} large={largeDetails} />
         </div>
       )}
 
-      {/* Energy + Tesla widget - top right (if either enabled) */}
+      {/* Energy + Tesla widget (if either enabled) */}
       {(showEnergyWidget || showTeslaWidget) && (
         <div
-          className="absolute top-20 right-4 landscape:lg:top-28 landscape:lg:right-12 pt-12 landscape:lg:pt-0 safe-area-inset screensaver-slide-down"
-          style={{ animationDelay: "0.9s", ...burnInStyle }}
+          className="screensaver-slide-down"
+          style={{ animationDelay: "0.9s" }}
         >
           <div className="bg-black/50 rounded-xl p-4 flex flex-col gap-3 gpu-blur">
             {/* Solar Power */}
@@ -959,6 +955,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
           </div>
         </div>
       )}
+      </div>
+      {/* end top right */}
 
       {/* News detail modal */}
       <AnimatePresence>
@@ -1312,13 +1310,16 @@ export function Screensaver({ photos }: ScreensaverProps) {
         </div>
       )}
 
-      {/* Touch hint */}
+      {/* Touch hint. Not with the forecast on: centred at the top, it ran into
+          the forecast strip on portrait panels and on 1024px landscape ones. */}
+      {!(showForecast && weather) && (
       <p
         className="absolute top-8 left-1/2 -translate-x-1/2 text-white/40 text-sm safe-area-inset screensaver-fade-in"
         style={{ animationDelay: "2s", paddingTop: 'env(safe-area-inset-top, 0)', ...burnInStyle }}
       >
         {t("touchHint")}
       </p>
+      )}
     </div>
   );
 }

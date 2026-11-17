@@ -88,7 +88,7 @@ export default function ScreensaverSettingsPage() {
     });
   };
 
-  const updateDisplayOption = (field: "showNews" | "largeDetails" | "showBirthdays" | "showNextEvent" | "night", value: boolean) => {
+  const updateDisplayOption = (field: "showNews" | "largeDetails" | "showBirthdays" | "showNextEvent" | "night" | "showForecast" | "weatherEffects", value: boolean) => {
     updateSettings.mutate({ key: "screensaver", value: { ...settings, [field]: value } });
   };
 
@@ -134,6 +134,24 @@ export default function ScreensaverSettingsPage() {
               <p className="text-xs text-muted-foreground">{t("largeDetailsDescription")}</p>
             </div>
             <Switch id="screensaver-large" checked={settings.largeDetails ?? false} onCheckedChange={(value) => updateDisplayOption("largeDetails", value)} disabled={updateSettings.isPending} />
+          </div>
+          <div id="forecast" data-setting="forecast" className="flex items-center justify-between gap-4">
+            <div>
+              <Label htmlFor="screensaver-forecast">{t("showForecastLabel")}</Label>
+              <p className="text-xs text-muted-foreground">{t("showForecastDescription")}</p>
+            </div>
+            <Switch id="screensaver-forecast" checked={settings.showForecast ?? false} onCheckedChange={(value) => updateDisplayOption("showForecast", value)} disabled={updateSettings.isPending} />
+          </div>
+          <div id="weather-effects" data-setting="weather-effects" className="flex items-center justify-between gap-4">
+            <div>
+              <Label htmlFor="screensaver-weather-effects">{t("weatherEffectsLabel")}</Label>
+              <p className="text-xs text-muted-foreground">
+                {t.rich("weatherEffectsDescription", {
+                  link: (chunks) => <Link href="/settings/weather#effects" className="underline underline-offset-2">{chunks}</Link>,
+                })}
+              </p>
+            </div>
+            <Switch id="screensaver-weather-effects" checked={settings.weatherEffects ?? false} onCheckedChange={(value) => updateDisplayOption("weatherEffects", value)} disabled={updateSettings.isPending} />
           </div>
           <div id="lists" data-setting="lists" className="flex items-center justify-between gap-4">
             <div>

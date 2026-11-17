@@ -129,6 +129,17 @@ export function currentSlot<T extends { at?: number }>(slots: readonly T[] | nul
   return underway ?? slots.find((s) => s.at! > now);
 }
 
+/**
+ * The slots still to come: those starting after now, in order, for the
+ * screensaver's forecast strip (the weather now stands beside them). A forecast
+ * without slot times (an older server) gives all of its slots.
+ */
+export function upcomingSlots<T extends { at?: number }>(slots: readonly T[] | null | undefined, now: number): T[] {
+  if (!slots) return [];
+  if (slots.some((s) => typeof s.at !== "number")) return [...slots];
+  return slots.filter((s) => s.at! > now);
+}
+
 /** A forecast slot whose precipitation is rain. */
 const RAIN_SLOT = new Set(["Rain", "Drizzle", "Thunderstorm"]);
 

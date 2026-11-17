@@ -164,6 +164,7 @@
       "birthdayToday": "Aujourd'hui !",
       "birthdayDays": "{count, plural, one {# jour} other {# jours}}",
       "photoCreditUnsplash": "Photo : {photographer} / Unsplash",
+      "forecastNow": "Maintenant",
       "holidayUntil": "jusqu'au {date}"
     },
     "pwa": {
@@ -1414,6 +1415,10 @@
       "eventCountDescription": "Combien d’événements à venir afficher",
       "showBirthdaysLabel": "Anniversaires",
       "showBirthdaysDescription": "Afficher les anniversaires des 30 prochains jours, et combien",
+      "showForecastLabel": "Prévisions météo",
+      "showForecastDescription": "À côté de la température, les prochaines heures par pas de 3 heures : météo, température et risque de pluie",
+      "weatherEffectsLabel": "Effets météo",
+      "weatherEffectsDescription": "Neige, pluie, givre et plus sur les photos, comme sur l'accueil. Les effets et leurs seuils se règlent dans <link>Météo</link>.",
       "birthdayCountLabel": "Nombre d’anniversaires",
       "subtitle": "Configurer l'activation automatique",
       "timeoutHeading": "Délai d'inactivité",
@@ -3217,6 +3222,8 @@
       "theme_appearance": "mode sombre, mode clair, 24 heures, horloge, secondes, taille du texte, police",
       "theme_animations": "animations, mouvement, effets, réduire les animations, performances, lent, saccades, raspberry pi",
       "screensaver_lists": "événements, anniversaires, combien, nombre, lignes, liste, masquer les anniversaires",
+      "screensaver_forecast": "prévisions, prévisions météo, horaire, heures, risque de pluie, pluie, température, vêtements, maternelle",
+      "screensaver_weather-effects": "effets météo, neige, pluie, givre, brouillard, orage, animation, météo",
       "screensaver_night": "nuit, sombre, atténué, coucher, horloge seule, marquage",
       "screensaver_timeout": "délai, inactivité, minutes, quand, démarrer",
       "screensaver_rotation": "rotation des photos, diaporama, intervalle, changer de photo, secondes",
