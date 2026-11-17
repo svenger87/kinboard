@@ -189,16 +189,17 @@ test("a preview names effects Kinboard has, and nothing else", () => {
 
 test("the overlay never takes a tap, follows the device's animation switch, stops when hidden, and keeps a frame cap", () => {
   const overlay = codeOnly(read("src/components/weather-effects.tsx"));
-  const layers = overlay.match(/className="[^"]*fixed inset-0[^"]*"/g) ?? [];
-  expect(layers.length).toBe(6);
+  // Each full-screen layer: fixed on Home, absolute on the screensaver (`${layer}`, screensaver-weather.spec.ts).
+  const layers = overlay.match(/className=(?:"|\{`)[^"`]*(?:fixed|\$\{layer\}|\$\{className\}) inset-0[^"`]*(?:"|`)/g) ?? [];
+  expect(layers.length).toBe(7);
   for (const layer of layers) expect(layer, layer).toContain("pointer-events-none");
   // Reduced (or the OS asking) keeps the still layers; Off draws nothing.
   expect(overlay).toContain('const reducedMotion = motion !== "full";');
   expect(overlay).toContain('if (effects.length === 0 || motion === "off") return null;');
   // The scene runs for the weather, or for a festival's visitor (RFC-020, festivals-scene.spec.ts).
   expect(overlay).toContain("{!reducedMotion && (moving.length > 0 || flying) && (");
-  expect(overlay).toContain('{on.has("storm") && !reducedMotion && <StormGlow strength={strength} />}');
-  expect(overlay).toContain("const onVisibility = () => (document.hidden ? stop() : start());");
+  expect(overlay).toContain('{on.has("storm") && !reducedMotion && <StormGlow strength={strength} className={`${layer} ${above}`} />}');
+  expect(overlay).toContain("const onVisibility = () => (document.hidden || covered() ? stop() : start());");
   expect(overlay).toContain("if (t - last < FRAME_MS) return;");
   expect(overlay).toContain("const FRAME_MS = 1000 / 30;");
   expect(overlay.match(/const dpr = Math\.min\(window\.devicePixelRatio \|\| 1, 1\.5\);/g)?.length).toBe(2);

@@ -46,6 +46,13 @@ import {
  * parameter out of the address redraws this component, and a preview held
  * only in its state was gone within a second.
  *
+ * The screensaver draws them too when the family switches that on (Settings
+ * -> Screensaver -> Weather effects, #282): `placement="screensaver"` with
+ * `enabled` from that switch, the thresholds and the chosen effects still
+ * from Settings -> Weather, whatever Home's own switch says. There the layers
+ * sit above the photo and below the clock (absolute, in the screensaver's
+ * order, no z-index), and Home's loop under the screensaver stops drawing.
+ *
  * During a festival (RFC-020) its visitor joins the same scene: one loop,
  * one clock and one wind for the weather behind the widgets and the visitor
  * in front of them (EffectsCanvas). With no festival on, nothing here
@@ -53,10 +60,23 @@ import {
  */
 const PREVIEW_STORE = "kinboard.weatherPreview";
 
-export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] } = {}) {
+export function WeatherEffects({
+  preview: forced,
+  placement = "home",
+  enabled,
+}: {
+  preview?: WeatherEffect[];
+  placement?: Placement;
+  /** The screensaver's own switch; on Home the weather settings' `enabled` decides. */
+  enabled?: boolean;
+} = {}) {
   // Re-read every minute: a change made on another screen reaches this one.
   const { data: stored } = useSetting<unknown>(SETTINGS_KEYS.weatherEffects, DEFAULT_WEATHER_EFFECTS, { refetchInterval: 60_000 });
-  const settings = useMemo(() => normalizeWeatherEffects(stored), [stored]);
+  const settings = useMemo(() => {
+    const s = normalizeWeatherEffects(stored);
+    return enabled === undefined ? s : { ...s, enabled };
+  }, [stored, enabled]);
+  const home = placement === "home";
   const { data: weather } = useWeather();
   // The chance of rain is the forecast's: its next slot, the next few hours.
   // The weather widget's query; asked for here only when the rain effect is on.
@@ -74,7 +94,8 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
   const reducedMotion = motion !== "full";
 
   useEffect(() => {
-    if (forced) return;
+    // `?weather-preview=` is Home's; the screensaver shows the real weather.
+    if (forced || !home) return;
     const url = new URL(window.location.href);
     const asked = parsePreview(url.searchParams.get("weather-preview"));
     let until = Date.now() + PREVIEW_MS;
@@ -107,7 +128,7 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
       }
     }, Math.max(0, until - Date.now()));
     return () => window.clearTimeout(timer);
-  }, [forced]);
+  }, [forced, home]);
 
   // The festival's visitor (RFC-020 §2.1): on Home only, never in the weather settings' own preview.
   const festival = useFestival();
@@ -115,7 +136,7 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
   const tapRef = useRef<HTMLButtonElement>(null);
 
   const effects = forced && forced.length > 0 ? forced : preview.length > 0 ? preview : activeEffects(reading, settings, system);
-  if (effects.length === 0 && visitor) return <FestivalVisitor />;
+  if (effects.length === 0 && visitor) return <FestivalVisitor placement={placement} />;
   if (effects.length === 0 || motion === "off") return null;
   const on = new Set(effects);
   const intensity = settings.intensity;
@@ -128,18 +149,22 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
 
   // The visitor flies only with Animations on (§4); the weather keeps its still layers either way.
   const flying = motion === "full" ? visitor : null;
+  // Home covers the screen above its widgets; the screensaver keeps its own order (above the photo, below the clock).
+  const layer = home ? "fixed" : "absolute";
+  const behind = home ? "z-[5]" : "";
+  const above = home ? "z-20" : "";
 
   return (
     <>
     <div aria-hidden="true" data-testid="weather-effects" data-effects={effects.join(",")} data-visitor={flying ?? undefined}>
       {wet && (
         <div
-          className="weather-gloom pointer-events-none fixed inset-0 z-[5]"
+          className={`weather-gloom pointer-events-none ${layer} inset-0 ${behind}`}
           style={{ opacity: (on.has("storm") ? 0.8 : 0.5) * strength }}
         />
       )}
       {on.has("fog") && (
-        <div className="weather-fog pointer-events-none fixed inset-0 z-[5]" style={{ opacity: 0.5 * strength }} />
+        <div className={`weather-fog pointer-events-none ${layer} inset-0 ${behind}`} style={{ opacity: 0.5 * strength }} />
       )}
       {!reducedMotion && (moving.length > 0 || flying) && (
         <EffectsCanvas
@@ -152,16 +177,17 @@ export function WeatherEffects({ preview: forced }: { preview?: WeatherEffect[] 
           preview={festival?.preview ?? false}
           light={{ fog: on.has("fog"), storm: on.has("storm") }}
           tapRef={tapRef}
+          placement={placement}
         />
       )}
-      {on.has("freezing") && <FrostCanvas strength={strength} />}
+      {on.has("freezing") && <FrostCanvas strength={strength} className={`${layer} ${above}`} />}
       {on.has("heat") && (
-        <div className="weather-heat pointer-events-none fixed inset-0 z-20" style={{ opacity: strength }} />
+        <div className={`weather-heat pointer-events-none ${layer} inset-0 ${above}`} style={{ opacity: strength }} />
       )}
-      {on.has("storm") && !reducedMotion && <StormGlow strength={strength} />}
+      {on.has("storm") && !reducedMotion && <StormGlow strength={strength} className={`${layer} ${above}`} />}
     </div>
     {/* Outside the overlay: the one thing here that takes a tap, and only the visitor's own shape. */}
-    {flying && <VisitorTap ref={tapRef} placement="home" />}
+    {flying && <VisitorTap ref={tapRef} placement={placement} />}
     </>
   );
 }
@@ -236,7 +262,7 @@ function useMinuteClock(): number {
 const LIGHTNING_EVENT = "kinboard:lightning";
 
 /** A soft brightening now and then, never a flash: about a second, every 9 to 20 seconds. */
-function StormGlow({ strength }: { strength: number }) {
+function StormGlow({ strength, className }: { strength: number; className: string }) {
   const [lit, setLit] = useState(false);
   useEffect(() => {
     let timer = 0;
@@ -255,7 +281,7 @@ function StormGlow({ strength }: { strength: number }) {
   }, []);
   return (
     <div
-      className="weather-storm pointer-events-none fixed inset-0 z-20 transition-opacity duration-700 ease-out"
+      className={`weather-storm pointer-events-none ${className} inset-0 transition-opacity duration-700 ease-out`}
       style={{ opacity: lit ? 0.22 * strength : 0 }}
     />
   );
@@ -947,20 +973,27 @@ function EffectsCanvas({
       // With no weather to draw, the loop runs only for a pass.
       if (!weather && !pass) stop();
     };
+    // Home's scene under the screensaver draws nothing anyone sees: it stops
+    // until the screensaver goes, which matters now that the screensaver can
+    // run a weather scene of its own.
+    const covered = () => placement === "home" && document.documentElement.hasAttribute("data-screensaver");
     const start = () => {
-      if (!frame && !document.hidden && (weather || pass)) frame = window.requestAnimationFrame(tick);
+      if (!frame && !document.hidden && !covered() && (weather || pass)) frame = window.requestAnimationFrame(tick);
     };
     const stop = () => {
       window.cancelAnimationFrame(frame);
       frame = 0;
     };
-    const onVisibility = () => (document.hidden ? stop() : start());
+    const onVisibility = () => (document.hidden || covered() ? stop() : start());
     start();
+    const screensaver = new MutationObserver(onVisibility);
+    if (placement === "home") screensaver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-screensaver"] });
     window.addEventListener("resize", resize);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       disposed = true;
       stop();
+      screensaver.disconnect();
       window.clearTimeout(passTimer);
       if (typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idle);
       else window.clearTimeout(idle);
@@ -982,7 +1015,7 @@ function EffectsCanvas({
         <canvas
           ref={ref}
           data-testid="weather-effects-motion"
-          className="pointer-events-none fixed inset-0 z-[5] h-full w-full"
+          className={`pointer-events-none ${layer} inset-0 ${placement === "home" ? "z-[5]" : ""} h-full w-full`}
         />
       )}
       {visitor && (
@@ -1007,7 +1040,7 @@ function EffectsCanvas({
  * in the corners, drawn once (and again on a resize). Above the widgets, but
  * only at the edges.
  */
-function FrostCanvas({ strength }: { strength: number }) {
+function FrostCanvas({ strength, className }: { strength: number; className: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -1079,7 +1112,7 @@ function FrostCanvas({ strength }: { strength: number }) {
   return (
     <canvas
       ref={ref}
-      className="weather-frost pointer-events-none fixed inset-0 z-20 h-full w-full"
+      className={`weather-frost pointer-events-none ${className} inset-0 h-full w-full`}
       style={{ opacity: strength }}
     />
   );

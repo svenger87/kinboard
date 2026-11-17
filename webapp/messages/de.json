@@ -164,6 +164,7 @@
       "birthdayToday": "Heute!",
       "birthdayDays": "{count, plural, one {# Tag} other {# Tage}}",
       "photoCreditUnsplash": "Foto: {photographer} / Unsplash",
+      "forecastNow": "Jetzt",
       "holidayUntil": "bis {date}"
     },
     "pwa": {
@@ -1414,6 +1415,10 @@
       "eventCountDescription": "Wie viele der nächsten Termine angezeigt werden",
       "showBirthdaysLabel": "Geburtstage",
       "showBirthdaysDescription": "Geburtstage der nächsten 30 Tage anzeigen, und wie viele",
+      "showForecastLabel": "Wettervorhersage",
+      "showForecastDescription": "Neben der Temperatur die nächsten Stunden in 3-Stunden-Schritten: Wetter, Temperatur und Regenwahrscheinlichkeit",
+      "weatherEffectsLabel": "Wettereffekte",
+      "weatherEffectsDescription": "Schnee, Regen, Frost und mehr über den Fotos, wie auf dem Startbildschirm. Welche Effekte und ab wann, steht unter <link>Wetter</link>.",
       "birthdayCountLabel": "Anzahl der Geburtstage",
       "subtitle": "Automatische Aktivierung konfigurieren",
       "timeoutHeading": "Inaktivitäts-Timeout",
@@ -3217,6 +3222,8 @@
       "theme_appearance": "Dunkelmodus, Hellmodus, dunkel, 24-Stunden, Uhr, Sekunden, Textgröße, Schriftgröße, größere Schrift",
       "theme_animations": "animationen, bewegung, effekte, bewegung reduzieren, leistung, langsam, ruckeln, raspberry pi",
       "screensaver_lists": "Termine, Geburtstage, wie viele, Anzahl, Zeilen, Liste, Geburtstage ausblenden",
+      "screensaver_forecast": "Vorhersage, Wettervorhersage, stündlich, Stunden, Regenwahrscheinlichkeit, Regen, Temperatur, Kleidung, Kindergarten",
+      "screensaver_weather-effects": "Wettereffekte, Schnee, Regen, Frost, Nebel, Gewitter, Animation, Wetter",
       "screensaver_night": "Nacht, Nachtmodus, dunkel, gedimmt, Schlafenszeit, nur Uhr, Einbrennen",
       "screensaver_timeout": "Wartezeit, Inaktivität, Leerlauf, Minuten, wann, starten",
       "screensaver_rotation": "Bildwechsel, Diashow, Intervall, Fotos wechseln, Sekunden",
