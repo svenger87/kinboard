@@ -19,11 +19,15 @@ export function rescaleItems(
   if (from.rows === to.rows) return { items, dropped: [] };
   const ratio = to.rows / from.rows;
 
-  const scaled = items.map((i) => ({
-    ...i,
-    y: Math.round(i.y * ratio),
-    h: Math.max(SAVER_WIDGETS[i.widget].min.h, Math.round(i.h * ratio)),
-  }));
+  // Both edges are scaled and rounded, not the top and the height on their
+  // own: rounding the two independently let neighbours that touched overlap
+  // by a row, and each pushed the next one down until the last fell off the
+  // screen (the date, on an 800x1280 tablet, with four empty rows above).
+  const scaled = items.map((i) => {
+    const y = Math.round(i.y * ratio);
+    const bottom = Math.round((i.y + i.h) * ratio);
+    return { ...i, y, h: Math.max(SAVER_WIDGETS[i.widget].min.h, bottom - y) };
+  });
 
   const placed = new Map<string, LayoutItem>();
   const dropped: string[] = [];

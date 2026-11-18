@@ -95,9 +95,21 @@ test.describe("rescaleItems", () => {
     const a = items.find((i) => i.id === "a")!;
     const b = items.find((i) => i.id === "b")!;
     expect(to.rows).toBe(17);
-    expect([a.x, a.w, a.y, a.h]).toEqual([2, 5, 8, 8]);
+    // Both edges scale: top 10 → 7.7 → 8, bottom 20 → 15.5 → 15, so 7 rows.
+    expect([a.x, a.w, a.y, a.h]).toEqual([2, 5, 8, 7]);
     expect([b.x, b.w, b.h]).toEqual([7, 4, 3]); // 3 * 17/22 = 2.3, held at the minimum 3
     expect(dropped).toEqual([]);
+  });
+  test("the built-in portrait keeps every widget on a portrait tablet (800x1280, 20 rows)", () => {
+    // Rounding top and height on their own made touching neighbours overlap
+    // by a row; each pushed the next down and the date fell off the screen.
+    const src = builtInScreensaver(1080, 1920);
+    const tablet = gridFor(800, 1280)!;
+    expect(tablet.rows).toBe(20);
+    const r = rescaleItems(src, from, tablet);
+    expect(r.dropped).toEqual([]);
+    expect(r.items.map((i) => i.widget).sort()).toEqual(src.map((i) => i.widget).sort());
+    expect(validateItems(r.items, 800, 1280).ok).toBe(true);
   });
   test("an item pushed past the last row is dropped", () => {
     const stack = [0, 3, 6, 9, 12, 15, 18].map((y, i) => item({ id: `n${i}`, y, h: 3 }));
