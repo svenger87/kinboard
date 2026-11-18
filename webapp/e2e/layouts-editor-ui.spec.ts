@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { postJoin } from "./session";
 import { psql, psqlRow, sqlText } from "./helpers/assistant-connect";
 import { gridFor } from "../src/lib/layouts/grid";
-import { collides } from "../src/lib/layouts/validate";
+import { collides, validateItems } from "../src/lib/layouts/validate";
 import type { LayoutItem } from "../src/lib/layouts/types";
 
 /**
@@ -194,6 +194,7 @@ test("a widget dragged onto another is refused: nothing overlaps", async ({ brow
   const page = await openEditor(browser);
   const weather = page.locator("[data-editor-item=weatherNow]");
   const news = page.locator("[data-editor-item=news]");
+  const start = await boxOf(weather);
   const n = (await news.boundingBox())!;
   const w = (await weather.boundingBox())!;
   await dragBy(page, weather, n.x + n.width / 2 - (w.x + w.width / 2), n.y + n.height / 2 - (w.y + w.height / 2));
@@ -209,6 +210,13 @@ test("a widget dragged onto another is refused: nothing overlaps", async ({ brow
     }
   }
   expect(collides(boxes.find((b) => b.id === "weatherNow")!, boxes.find((b) => b.id === "news")!)).toBe(false);
+  // It did move: toward the news, as far as the free cells allowed.
+  const end = await boxOf(weather);
+  expect(end, "the weather did not move at all").not.toEqual(start);
+  expect(end.x).toBeLessThan(start.x);
+  await save(page);
+  const result = validateItems(saved(), SIZE.width, SIZE.height);
+  expect(result.ok, JSON.stringify(result)).toBe(true);
   await page.context().close();
 });
 
@@ -250,6 +258,31 @@ test("removing a widget returns it to the palette, adding places it on free cell
   await page.context().close();
 });
 
+test("unsaved changes survive the settings locking again", async ({ browser }) => {
+  const page = await openEditor(browser);
+  const date = page.locator("[data-editor-item=date]");
+  const before = await boxOf(date);
+  await date.click();
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(async () => (await boxOf(date)).x).toBe(before.x + 1);
+  // What a 403 pin_required does (relockSettings): drop the unlock, tell PinGuard.
+  await page.evaluate(() => {
+    sessionStorage.removeItem("kinboard_settings_unlock");
+    window.dispatchEvent(new Event("kinboard:settings-relock"));
+  });
+  await expect(page.getByTestId("editor-canvas")).toHaveCount(0);
+  await page.locator("input").first().waitFor();
+  await page.locator("input").first().focus();
+  await page.keyboard.type(PIN);
+  await expect(page.getByTestId("editor-canvas")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("editor-draft-notice")).toBeVisible();
+  await expect.poll(async () => (await boxOf(page.locator("[data-editor-item=date]"))).x).toBe(before.x + 1);
+  await save(page);
+  expect(savedItem("date")).toMatchObject({ ...before, x: before.x + 1 });
+  await expect(page.getByTestId("editor-draft-notice")).toHaveCount(0);
+  await page.context().close();
+});
+
 test("a landscape preview adapts the layout without changing it", async ({ browser }) => {
   const page = await openEditor(browser);
   await page.getByTestId("screen-picker").click();
@@ -274,7 +307,7 @@ test("saving over someone else's change shows the reload message", async ({ brow
   await expect(page.getByTestId("editor-stale")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("editor-stale")).toContainText(/reload|neu laden|recharge/i);
   await page.getByTestId("editor-reload").click();
-  await expect(page.getByTestId("editor-stale")).toHaveCount(0);
+  await expect(page.getByTestId("editor-stale")).toHaveCount(0, { timeout: 15_000 });
   await expect(page.locator("[data-editor-item=weatherNow]")).toHaveAttribute("data-text", "XL");
   await page.context().close();
 });

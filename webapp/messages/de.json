@@ -3229,7 +3229,7 @@
           "overlap": "{name} überlappt ein anderes Widget.",
           "duplicate": "{name} ist doppelt auf dem Bildschirm.",
           "bad_text_size": "{name} hat eine unbekannte Textgröße.",
-          "pinRequired": "Die Einstellungen sind wieder gesperrt – gib die PIN ein und speichere noch einmal.",
+          "pinRequired": "Die Einstellungen wurden gesperrt – gib die PIN ein; deine nicht gespeicherten Änderungen bleiben erhalten.",
           "generic": "Das Layout konnte nicht gespeichert werden. Bitte versuche es noch einmal."
         },
         "preview": {
@@ -3285,6 +3285,10 @@
           "energy": "Energie",
           "vehicles": "Tesla",
           "photoCount": "Fotoanzahl"
+        },
+        "draft": {
+          "restored": "Nicht gespeicherte Änderungen wiederhergestellt.",
+          "lost": "Dieses Layout wurde inzwischen geändert; deine nicht gespeicherten Änderungen konnten nicht wiederhergestellt werden."
         }
       }
     }

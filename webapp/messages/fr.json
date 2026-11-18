@@ -3229,7 +3229,7 @@
           "overlap": "{name} chevauche un autre widget.",
           "duplicate": "{name} figure deux fois sur l’écran.",
           "bad_text_size": "{name} a une taille de texte inconnue.",
-          "pinRequired": "Les réglages sont de nouveau verrouillés — saisissez le code PIN et enregistrez à nouveau.",
+          "pinRequired": "Les réglages ont été verrouillés — saisissez le code PIN ; vos modifications non enregistrées sont conservées.",
           "generic": "La disposition n’a pas pu être enregistrée. Veuillez réessayer."
         },
         "preview": {
@@ -3285,6 +3285,10 @@
           "energy": "Énergie",
           "vehicles": "Tesla",
           "photoCount": "Nombre de photos"
+        },
+        "draft": {
+          "restored": "Modifications non enregistrées restaurées.",
+          "lost": "Cette disposition a été modifiée entre-temps ; vos modifications non enregistrées n’ont pas pu être restaurées."
         }
       }
     }

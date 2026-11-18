@@ -3229,7 +3229,7 @@
           "overlap": "{name} overlaps another widget.",
           "duplicate": "{name} is on the screen twice.",
           "bad_text_size": "{name} has an unknown text size.",
-          "pinRequired": "Settings are locked again — enter the PIN and save once more.",
+          "pinRequired": "Settings were locked — enter the PIN; your unsaved changes are kept.",
           "generic": "The layout could not be saved. Please try again."
         },
         "preview": {
@@ -3285,6 +3285,10 @@
           "energy": "Energy",
           "vehicles": "Tesla",
           "photoCount": "Photo count"
+        },
+        "draft": {
+          "restored": "Unsaved changes restored.",
+          "lost": "This layout changed meanwhile; your unsaved changes could not be restored."
         }
       }
     }

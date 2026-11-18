@@ -36,8 +36,43 @@ const LAYOUT_ERRORS: readonly string[] = ["unknown_widget", "out_of_bounds", "be
 const WIDGET_KEYS = Object.keys(SAVER_WIDGETS) as SaverWidgetKey[];
 
 /** Where the arrow keys belong to the control under focus rather than to the canvas. */
-const OWN_ARROWS = "input, textarea, select, [contenteditable='true'], [role='group'], [role='radiogroup'], [role='listbox'], [role='menu'], [role='slider'], [role='dialog']";
+const OWN_ARROWS = "input, textarea, select, [contenteditable='true'], [role='group'], [role='radiogroup'], [role='listbox'], [role='menu'], [role='slider']";
 const TEXT_ENTRY = "input, textarea, select, [contenteditable='true']";
+/** An open dialog (the reset confirmation, a select's list) owns the keyboard. */
+const OPEN_DIALOG = "[role='dialog'], [role='alertdialog'], [role='listbox']";
+
+/**
+ * Unsaved changes, kept for this tab while they are unsaved: the PIN screen
+ * that comes back when Settings lock again unmounts the editor, and the
+ * changes must survive it. Tied to the stamp they were made on, so they are
+ * never laid over someone else's newer save.
+ */
+interface Draft {
+  items: LayoutItem[];
+  stamp: string;
+}
+const draftKey = (id: string) => `kinboard_layout_draft:${id}`;
+
+function readDraft(id: string): Draft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(draftKey(id));
+    if (!raw) return null;
+    const d = JSON.parse(raw) as Partial<Draft>;
+    return Array.isArray(d.items) && typeof d.stamp === "string" ? { items: d.items, stamp: d.stamp } : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(id: string, draft: Draft | null): void {
+  try {
+    if (draft) sessionStorage.setItem(draftKey(id), JSON.stringify(draft));
+    else sessionStorage.removeItem(draftKey(id));
+  } catch {
+    /* Storage unavailable: the changes last as long as the editor does. */
+  }
+}
 
 /**
  * The editor of one layout's screensaver: the palette, the canvas with the
@@ -62,6 +97,13 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const [stale, setStale] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloading, setReloading] = useState(false);
+  // Read once, on mount: a draft from before the PIN screen came back.
+  const [draft] = useState(() => {
+    const d = readDraft(layout.id);
+    if (!d) return null;
+    return { items: d.items, restorable: d.stamp === layout.updated_at };
+  });
+  const [notice, setNotice] = useState<"restored" | "lost" | null>(draft ? (draft.restorable ? "restored" : "lost") : null);
   const saveLayout = useSaveLayout();
 
   // The editor needs the screensaver's data for the widgets, not its photos;
@@ -87,6 +129,18 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
     },
     [items, names],
   );
+
+  // A draft made on the copy just loaded comes back as the present (one undo
+  // returns to the saved copy); one made on an older copy is dropped.
+  useEffect(() => {
+    if (!draft) return;
+    if (draft.restorable) set(draft.items);
+    else writeDraft(layout.id, null);
+  }, [draft, layout.id, set]);
+
+  useEffect(() => {
+    writeDraft(layout.id, dirty ? { items, stamp } : null);
+  }, [layout.id, dirty, items, stamp]);
 
   const commit = useCallback(
     (next: LayoutItem[]) => {
@@ -121,7 +175,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
       const target = e.target instanceof Element ? e.target : null;
-      if (target?.closest(TEXT_ENTRY)) return;
+      if (target?.closest(TEXT_ENTRY) || document.querySelector(OPEN_DIALOG)) return;
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
       if (mod && (key === "z" || key === "y")) {
@@ -162,6 +216,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       const saved = await saveLayout.mutateAsync({ id: layout.id, screensaver: sent, updated_at: stamp });
       setStamp(saved.updated_at);
       setBaseline(sent);
+      setNotice(null);
       toast.success(t("saved"));
     } catch (err) {
       if (err instanceof LayoutRequestError) {
@@ -177,6 +232,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const reload = async () => {
     setReloading(true);
     try {
+      writeDraft(layout.id, null);
       await onReload();
     } finally {
       setReloading(false);
@@ -233,6 +289,11 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
         </div>
       </div>
 
+      {notice && (
+        <div role="status" data-testid="editor-draft-notice" className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm">
+          {t(`draft.${notice}`)}
+        </div>
+      )}
       {stale && (
         <div role="alert" data-testid="editor-stale" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
           <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />

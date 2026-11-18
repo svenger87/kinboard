@@ -204,7 +204,8 @@ export function EditorCanvas({
             >
               {items.map((item) => {
                 const Widget = SAVER_WIDGET_COMPONENTS[item.widget];
-                const box = { width: item.w * grid.cell + (item.w - 1) * 24, height: item.h * grid.cell + (item.h - 1) * 24 };
+                const rect = boxRect(item, grid);
+                const box = { width: Math.round(rect.width), height: Math.round(rect.height) };
                 const selected = item.id === selectedId;
                 return (
                   <div
