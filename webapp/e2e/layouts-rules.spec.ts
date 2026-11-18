@@ -40,6 +40,9 @@ test.describe("validateItems", () => {
   test("two clocks are a duplicate", () =>
     expect(check([item({ id: "a", widget: "clock", h: 2 }), item({ id: "b", widget: "clock", x: 6, h: 2 })]))
       .toMatchObject({ error: "duplicate" }));
+  test("two items with the same id are a duplicate", () =>
+    expect(check([item({ id: "a", widget: "clock", h: 2 }), item({ id: "a", widget: "date", x: 6, h: 2 })]))
+      .toEqual({ ok: false, error: "duplicate", itemId: "a" }));
   test("text XXL is bad", () =>
     expect(check([item({ id: "a", text: "XXL" as never })])).toMatchObject({ error: "bad_text_size" }));
   test("not an array is rejected", () => expect(check({})).toMatchObject({ ok: false }));

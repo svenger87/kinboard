@@ -28,11 +28,15 @@ export function validateItems(items: unknown, width: number, height: number): Va
   if (!grid || !Array.isArray(items)) return fail("out_of_bounds");
 
   const out: LayoutItem[] = [];
+  const ids = new Set<string>();
   for (const raw of items) {
     if (!raw || typeof raw !== "object") return fail("out_of_bounds");
     const r = raw as Record<string, unknown>;
     if (typeof r.id !== "string" || r.id === "") return fail("out_of_bounds");
     const id = r.id;
+    // rescaleItems keys by id, so two items may not share one.
+    if (ids.has(id)) return fail("duplicate", id);
+    ids.add(id);
     if (typeof r.widget !== "string" || !Object.hasOwn(SAVER_WIDGETS, r.widget)) return fail("unknown_widget", id);
     if (typeof r.text !== "string" || !TEXT_SIZES.includes(r.text)) return fail("bad_text_size", id);
     const { x, y, w, h } = r;
