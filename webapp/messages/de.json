@@ -2191,6 +2191,7 @@
         "errorNotIcloud": "Das sieht nicht nach einem iCloud-Link für geteilte Alben aus.",
         "errorUnreachable": "Album konnte nicht gelesen werden. Prüfe, ob „Öffentliche Website“ noch aktiv ist.",
         "connected": "Mit „{album}“ verbunden — {count} Fotos",
+        "connectedMany": "Mit „{album}“ verbunden — mehr als {count} Fotos",
         "photoCount": "{count} Fotos in diesem Album",
         "disconnectButton": "Trennen",
         "disconnectTitle": "Dieses Album trennen?",

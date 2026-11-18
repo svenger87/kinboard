@@ -6,6 +6,7 @@ import { getSharedAlbumPhotos } from "@/lib/icloud-album";
 interface IcloudSettings {
   token: string;
   album_name?: string;
+  format?: "legacy" | "cloudkit";
 }
 
 /**
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { streamName, photos } = await getSharedAlbumPhotos(settings.token, limit);
+    const { streamName, photos } = await getSharedAlbumPhotos(settings.token, limit, settings.format ?? "legacy");
     return NextResponse.json({ streamName, photos });
   } catch (e) {
     // An album whose sharing was switched off should empty the screensaver,

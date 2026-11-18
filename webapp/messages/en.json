@@ -2191,6 +2191,7 @@
         "errorNotIcloud": "That doesn’t look like an iCloud shared album link.",
         "errorUnreachable": "Could not read that album. Check that “Public Website” is still switched on.",
         "connected": "Connected to “{album}” — {count} photos",
+        "connectedMany": "Connected to “{album}” — more than {count} photos",
         "photoCount": "{count} photos in this album",
         "disconnectButton": "Disconnect",
         "disconnectTitle": "Disconnect this album?",
