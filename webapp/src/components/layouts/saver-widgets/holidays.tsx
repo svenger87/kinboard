@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { GraduationCap } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { ListBox } from "@/components/layouts/list-box";
 import { useScreensaverDataContext } from "@/components/layouts/screensaver-data-context";
 import { EventRow, useEventWhen, type ScreensaverEvent } from "@/components/screensaver-rows";
@@ -18,7 +18,7 @@ export function HolidaysWidget(_: SaverWidgetProps) {
   const moreLabel = useMoreLabel();
   const holidays = useMemo(() => eventsAhead.filter((e) => e.holiday), [eventsAhead]);
   return (
-    <ListFrame icon={GraduationCap} label={tl("holidaysLabel")}>
+    <ListFrame icon={Calendar} label={tl("holidaysLabel")}>
       <ListBox
         items={holidays}
         keyOf={keyOf}

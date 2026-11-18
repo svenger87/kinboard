@@ -9,13 +9,14 @@ import { NotSetUp, ValueFrame, type SaverWidgetProps } from "./shared";
 
 /** The weather now: the built-in screensaver's chip (icon and temperature), fitted to the box. */
 export function WeatherNowWidget({ box, editing }: SaverWidgetProps) {
-  const { weather } = useScreensaverDataContext();
+  const { weather, weatherFailed } = useScreensaverDataContext();
   const t = useTranslations("components.layouts");
   const ref = useRef<HTMLDivElement>(null);
   const size = useFitToBox(ref, box, [weather?.temp, weather?.conditionIcon]);
-  // null: no location set (undefined is still loading, and shows nothing).
+  // null: the server has no weather service. Loading, or a location the
+  // service cannot find, leaves no data.
   if (weather === null) return editing ? <NotSetUp text={t("notSetUp.weatherNow")} /> : null;
-  if (!weather) return null;
+  if (!weather) return weatherFailed && editing ? <NotSetUp text={t("weatherFailed")} /> : null;
   return (
     <ValueFrame fitted={size !== null}>
       <div ref={ref} className="block w-fit shrink-0" style={size ? { fontSize: size } : undefined}>

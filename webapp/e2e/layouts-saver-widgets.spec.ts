@@ -70,6 +70,35 @@ test("a widget not set up shows its hint only while editing", () => {
   }
 });
 
+test("weather: no service is a server matter, a failed load points at the location", () => {
+  for (const key of ["weatherNow", "forecast"]) {
+    const src = read(`${DIR}/${FILES[key]}.tsx`);
+    // null is the server's "no API key"; a failed query shows its own hint.
+    expect(src, key).toMatch(/if \(weather === null\) return editing \? <NotSetUp/);
+    expect(src, key).toMatch(/weatherFailed && editing \? <NotSetUp text=\{t\("weatherFailed"\)\} \/> : null/);
+  }
+  for (const locale of ["de", "en", "fr"]) {
+    const layouts = JSON.parse(read(`messages/${locale}.json`)).components.layouts;
+    expect(layouts.weatherFailed, locale).toBeTruthy();
+    expect(layouts.notSetUp.weatherNow, locale).toMatch(/Kinboard/);
+  }
+});
+
+test("the photo counter's hint waits until the photos have loaded", () => {
+  const src = read(`${DIR}/photo-count.tsx`);
+  expect(src).toMatch(/if \(photoCount === 0 && photosLoading\) return null;/);
+});
+
+test("the forecast widget fits its slots to the box, not the viewport", () => {
+  const src = read(`${DIR}/forecast.tsx`);
+  expect(src).toMatch(/<ScaledForecast\b/);
+  expect(src).toMatch(/forecastSlotsFor\(box\.width/);
+  const weather = read("src/components/screensaver-weather.tsx");
+  const scaled = weather.slice(weather.indexOf("export function ScaledForecast"), weather.indexOf("export const SCALED_FORECAST_EM_HEIGHT"));
+  expect(scaled).not.toMatch(/\bmd:/);
+  expect(scaled).not.toMatch(/\btext-(xs|sm|base|lg|xl|2xl|3xl)\b/);
+});
+
 test("widgets read the data from the context, never the hook", () => {
   for (const file of Object.values(FILES)) {
     const src = read(`${DIR}/${file}.tsx`);

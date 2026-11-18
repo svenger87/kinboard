@@ -169,11 +169,13 @@ export function useScreensaverData({ photos }: { photos?: string[] } = {}) {
   const { entries: holidays } = useHolidayEntries(todayKey, toLocalDateKey(new Date(endDate)), events, { eventList: true });
 
   // Fetch photos from configured source (Immich or Unsplash)
-  const { photos: sourcePhotos } = usePhotoSource();
+  const { photos: sourcePhotos, isLoading: photosLoading } = usePhotoSource();
   const family = useFamilyStore((s) => s.family);
 
   // Weather chip (renders nothing when unconfigured)
-  const { data: weather } = useWeather();
+  // `weather` is null when the server has no weather service (no API key);
+  // a location it cannot resolve is an error, with no data.
+  const { data: weather, isError: weatherFailed } = useWeather();
 
   // Fetch energy config and entity states for screensaver solar widget
   const energyConfig = useEnergyConfig();
@@ -524,6 +526,7 @@ export function useScreensaverData({ photos }: { photos?: string[] } = {}) {
     formattedDate,
     soon,
     weather,
+    weatherFailed,
     upcomingEvents,
     upcomingBirthdays,
     eventsAhead,
@@ -539,6 +542,7 @@ export function useScreensaverData({ photos }: { photos?: string[] } = {}) {
     teslaChargingRate,
     photoUrls,
     photoCount: photoUrls.length,
+    photosLoading,
     photoIndex: currentPhotoIndex,
     previousPhotoIndex,
     currentBlobUrl,

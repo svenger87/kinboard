@@ -327,18 +327,19 @@ export function EnergyRows({
   gridPower,
   scale,
 }: Pick<ScreensaverData, "solarPower" | "batterySoc" | "gridPower"> & { scale: Exclude<RowScale, "large"> }) {
+  const t = useTranslations("components.screensaver");
   return (
     <>
       {/* Solar Power */}
       {solarPower !== null && (
-        <Stat icon={Sun} tint="bg-energy-solar/20" color="text-energy-solar" label="Solar" scale={scale}>
+        <Stat icon={Sun} tint="bg-energy-solar/20" color="text-energy-solar" label={t("energySolar")} scale={scale}>
           {watts(solarPower)}
         </Stat>
       )}
 
       {/* Battery SOC */}
       {batterySoc !== null && (
-        <Stat icon={Battery} tint="bg-energy-battery/20" color="text-energy-battery" label="Batterie" scale={scale}>
+        <Stat icon={Battery} tint="bg-energy-battery/20" color="text-energy-battery" label={t("energyBattery")} scale={scale}>
           {Math.round(batterySoc)}%
         </Stat>
       )}
@@ -349,7 +350,7 @@ export function EnergyRows({
           icon={Zap}
           tint={gridPower > 0 ? "bg-destructive/20" : "bg-success/20"}
           color={gridPower > 0 ? "text-destructive" : "text-success"}
-          label={gridPower > 0 ? "Bezug" : "Einspeisung"}
+          label={gridPower > 0 ? t("energyGridImport") : t("energyGridExport")}
           scale={scale}
         >
           {watts(Math.abs(gridPower))}
@@ -366,6 +367,7 @@ export function TeslaRows({
   teslaChargingRate,
   scale,
 }: Pick<ScreensaverData, "teslaBattery" | "teslaRange" | "teslaChargingRate"> & { scale: Exclude<RowScale, "large"> }) {
+  const t = useTranslations("components.screensaver");
   const box = scale === "box";
   return (
     <>
@@ -379,7 +381,7 @@ export function TeslaRows({
 
       {/* Tesla Charging */}
       {teslaChargingRate !== null && teslaChargingRate > 0 && (
-        <Stat icon={Zap} tint="bg-energy-grid/20" color="text-energy-grid" label="Laden" scale={scale}>
+        <Stat icon={Zap} tint="bg-energy-grid/20" color="text-energy-grid" label={t("teslaCharging")} scale={scale}>
           {teslaChargingRate.toFixed(1)} kW
         </Stat>
       )}

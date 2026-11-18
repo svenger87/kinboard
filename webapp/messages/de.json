@@ -169,7 +169,12 @@
       "lessonsTomorrow": "Morgen in der Schule",
       "lessonsOn": "{day} in der Schule",
       "lessonsBring": "Mitnehmen: {items}",
-      "holidayUntil": "bis {date}"
+      "holidayUntil": "bis {date}",
+      "energySolar": "Solar",
+      "energyBattery": "Batterie",
+      "energyGridImport": "Bezug",
+      "energyGridExport": "Einspeisung",
+      "teslaCharging": "Laden"
     },
     "pwa": {
       "updateTitle": "Update verfügbar",
@@ -214,12 +219,13 @@
         "lessons": "Heute keine Schulstunden"
       },
       "notSetUp": {
-        "weatherNow": "Wetter: Ort unter Einstellungen → Wetter festlegen",
-        "forecast": "Wettervorhersage: Ort unter Einstellungen → Wetter festlegen",
+        "weatherNow": "Wetter: Auf diesem Kinboard-Server ist kein Wetterdienst eingerichtet – das lässt sich in den Einstellungen nicht ändern",
+        "forecast": "Wettervorhersage: Auf diesem Kinboard-Server ist kein Wetterdienst eingerichtet – das lässt sich in den Einstellungen nicht ändern",
         "energy": "Energie: unter Einstellungen → Energie die Anzeige im Bildschirmschoner einschalten",
         "vehicles": "Tesla: unter Einstellungen → Tesla „Auf Bildschirmschoner anzeigen“ einschalten",
         "photoCount": "Fotos: eine Fotoquelle unter Einstellungen → Fotos wählen"
-      }
+      },
+      "weatherFailed": "Wetter konnte nicht geladen werden – Ort unter Einstellungen → Wetter prüfen"
     }
   },
   "localeSwitcher": {

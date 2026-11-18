@@ -27,6 +27,9 @@ const EXTRA: LayoutItem[] = [
   { id: "lessons", widget: "lessons", x: 6, y: 11, w: 6, h: 3, text: "M" },
   { id: "energy", widget: "energy", x: 0, y: 14, w: 6, h: 3, text: "M" },
   { id: "vehicles", widget: "vehicles", x: 6, y: 14, w: 6, h: 3, text: "M" },
+  // The forecast at its smallest box and in a large one, beside the clock.
+  { id: "forecast-small", widget: "forecast", x: 0, y: 17, w: 4, h: 2, text: "M" },
+  { id: "forecast-large", widget: "forecast", x: 6, y: 17, w: 6, h: 5, text: "XL" },
 ];
 
 function Widgets({ editing }: { editing: boolean }) {

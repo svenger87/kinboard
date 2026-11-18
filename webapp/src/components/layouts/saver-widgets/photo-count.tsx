@@ -8,11 +8,12 @@ import { NotSetUp, ValueFrame, type SaverWidgetProps } from "./shared";
 
 /** Which photo is showing, of how many ("3 / 45"). */
 export function PhotoCountWidget({ box, editing }: SaverWidgetProps) {
-  const { photoIndex, photoCount } = useScreensaverDataContext();
+  const { photoIndex, photoCount, photosLoading } = useScreensaverDataContext();
   const t = useTranslations("components.layouts");
   const ref = useRef<HTMLSpanElement>(null);
   const text = `${Math.max(photoIndex, 0) + 1} / ${photoCount}`;
   const size = useFitToBox(ref, box, [text]);
+  if (photoCount === 0 && photosLoading) return null;
   if (photoCount === 0) return editing ? <NotSetUp text={t("notSetUp.photoCount")} /> : null;
   return (
     <ValueFrame fitted={size !== null} align="center">

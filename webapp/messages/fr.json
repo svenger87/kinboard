@@ -169,7 +169,12 @@
       "lessonsTomorrow": "À l’école demain",
       "lessonsOn": "À l’école {day}",
       "lessonsBring": "À emporter : {items}",
-      "holidayUntil": "jusqu'au {date}"
+      "holidayUntil": "jusqu'au {date}",
+      "energySolar": "Solaire",
+      "energyBattery": "Batterie",
+      "energyGridImport": "Soutirage",
+      "energyGridExport": "Injection",
+      "teslaCharging": "Recharge"
     },
     "pwa": {
       "updateTitle": "Mise à jour disponible",
@@ -214,12 +219,13 @@
         "lessons": "Pas de cours aujourd'hui"
       },
       "notSetUp": {
-        "weatherNow": "Météo : définir un lieu dans Paramètres → Météo",
-        "forecast": "Prévisions : définir un lieu dans Paramètres → Météo",
+        "weatherNow": "Météo : aucun service météo n'est configuré sur ce serveur Kinboard – aucun réglage de l'application ne peut y remédier",
+        "forecast": "Prévisions : aucun service météo n'est configuré sur ce serveur Kinboard – aucun réglage de l'application ne peut y remédier",
         "energy": "Énergie : activer l'affichage sur l'économiseur d'écran dans Paramètres → Énergie",
         "vehicles": "Tesla : activer « Afficher sur l'économiseur d'écran » dans Paramètres → Tesla",
         "photoCount": "Photos : choisir une source de photos dans Paramètres → Photos"
-      }
+      },
+      "weatherFailed": "La météo n'a pas pu être chargée – vérifier le lieu dans Paramètres → Météo"
     }
   },
   "localeSwitcher": {

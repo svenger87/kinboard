@@ -34,28 +34,28 @@ export function useScreensaverDataContext(): ScreensaverData {
  */
 export function useScreensaverDataValue(data: ScreensaverData): ScreensaverData {
   const {
-    hours, minutes, date, nightNow, formattedDate, soon, weather,
+    hours, minutes, date, nightNow, formattedDate, soon, weather, weatherFailed,
     upcomingEvents, upcomingBirthdays, eventsAhead, birthdaysAhead, news,
     showEnergyWidget, showTeslaWidget, solarPower, batterySoc, gridPower,
     teslaBattery, teslaRange, teslaChargingRate,
-    photoUrls, photoCount, photoIndex, previousPhotoIndex,
+    photoUrls, photoCount, photosLoading, photoIndex, previousPhotoIndex,
     currentBlobUrl, previousBlobUrl, aspectAt, currentPhotoMetadata,
   } = data;
   return useMemo(
     () => ({
-      hours, minutes, date, nightNow, formattedDate, soon, weather,
+      hours, minutes, date, nightNow, formattedDate, soon, weather, weatherFailed,
       upcomingEvents, upcomingBirthdays, eventsAhead, birthdaysAhead, news,
       showEnergyWidget, showTeslaWidget, solarPower, batterySoc, gridPower,
       teslaBattery, teslaRange, teslaChargingRate,
-      photoUrls, photoCount, photoIndex, previousPhotoIndex,
+      photoUrls, photoCount, photosLoading, photoIndex, previousPhotoIndex,
       currentBlobUrl, previousBlobUrl, aspectAt, currentPhotoMetadata,
     }),
     [
-      hours, minutes, date, nightNow, formattedDate, soon, weather,
+      hours, minutes, date, nightNow, formattedDate, soon, weather, weatherFailed,
       upcomingEvents, upcomingBirthdays, eventsAhead, birthdaysAhead, news,
       showEnergyWidget, showTeslaWidget, solarPower, batterySoc, gridPower,
       teslaBattery, teslaRange, teslaChargingRate,
-      photoUrls, photoCount, photoIndex, previousPhotoIndex,
+      photoUrls, photoCount, photosLoading, photoIndex, previousPhotoIndex,
       currentBlobUrl, previousBlobUrl, aspectAt, currentPhotoMetadata,
     ],
   );
