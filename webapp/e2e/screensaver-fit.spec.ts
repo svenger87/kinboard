@@ -33,3 +33,8 @@ test("the news list ends before the weather column, or moves under it", () => {
   expect(code).toContain("const newsUnder = weatherBox !== null && weatherBox.w > 0 && newsBeside < 256;");
   expect(code).toMatch(/\.\.\.newsStyle, \.\.\.burnInStyle/);
 });
+
+test("a one-pixel change to a fitted size is ignored, so the clock cannot flip between two sizes", () => {
+  // 390px kiosk: 118px and 119px alternated about thirty times a second.
+  expect(hook()).toContain("prev.every((v, i) => Math.abs(v - next[i]) <= 1) ? prev : next");
+});

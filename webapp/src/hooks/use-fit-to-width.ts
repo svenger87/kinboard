@@ -53,7 +53,15 @@ export function useFitToWidth(
         const fit = Math.floor((size * width) / now);
         return max ? Math.min(fit, Math.floor(max(width))) : fit;
       });
-      setSizes((prev) => (prev && prev.length === next.length && prev.every((v, i) => v === next[i]) ? prev : next));
+      // A change of one pixel to a size already fitted is ignored. Where the
+      // fitted text just reaches the box, the box caps its width and the next
+      // reading comes out a fraction over: 119px measures as 118, 118 as 119,
+      // about thirty times a second, and the screensaver never stood still
+      // (a 390px kiosk, holiday-widgets-ui). One pixel of font is about two
+      // and a half of width, well inside what anyone can see.
+      setSizes((prev) =>
+        prev && prev.length === next.length && prev.every((v, i) => Math.abs(v - next[i]) <= 1) ? prev : next,
+      );
     };
     measure();
     const ro = new ResizeObserver(measure);
