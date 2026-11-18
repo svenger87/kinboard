@@ -18,6 +18,7 @@ import { useCameras } from "@/hooks/use-cameras";
 import { takeoverCamera } from "@/lib/camera-takeover";
 import { useFamilyStore } from "@/stores/family-store";
 import { Screensaver } from "@/components/screensaver";
+import { useLayoutDefaults, useLayouts, useOwnDeviceLayout } from "@/hooks/use-layouts";
 import { AuthGuard } from "@/components/auth-guard";
 import { clearUnlock, isSettingsPath } from "@/lib/pin-session";
 import { PWAProvider } from "@/components/pwa-provider";
@@ -112,6 +113,21 @@ function SettingsUnlockReaper() {
 }
 
 // Global screensaver - activates on idle on any page (except join/shopping)
+/**
+ * Keeps the three queries a screensaver resolves its layout from loaded while
+ * the screen is awake, so an activation finds them answered: the screensaver
+ * is mounted only while idle, and starting them then left a moment in which a
+ * kiosk with a layout had nothing to draw (and, before that was gated, drew
+ * the built-in screensaver first). Three small rows, kept fresh by the change
+ * feed.
+ */
+function LayoutQueriesWarm() {
+  useLayouts();
+  useLayoutDefaults();
+  useOwnDeviceLayout();
+  return null;
+}
+
 function ScreensaverProvider({ children }: { children: ReactNode }) {
   // `presenceControlMode` is deliberately not read here. Its other value,
   // 'display_power', would mean cutting power to the panel — which no browser
@@ -216,6 +232,7 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
+      {device && screensaverTimeout > 0 && <LayoutQueriesWarm />}
       {promptShownOn(pathname, !!device) && <AssistantActionPrompt />}
       {shownTakeover && shownCamera && (
         <CameraTakeover

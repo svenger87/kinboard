@@ -116,6 +116,60 @@ test.afterAll(async () => {
   expect(psql(`SELECT count(*) FROM layouts WHERE name LIKE '${P}%'`)).toBe("0");
 });
 
+/**
+ * Watches the page every animation frame until the designed clock is there
+ * (and one second more): how many frames showed a built-in block or the touch
+ * hint, and how many showed the layout. The app navigates to the same URL
+ * once after a load, which ends a page.evaluate; the watch then starts again
+ * on the new document, and the frames add up.
+ */
+async function watchActivation(page: Page, timeoutMs = 45_000) {
+  const total = { builtIn: 0, layout: 0 };
+  const until = Date.now() + timeoutMs;
+  while (Date.now() < until) {
+    try {
+      const r = await page.evaluate(
+        (ms) =>
+          new Promise<{ builtIn: number; layout: number; done: boolean }>((resolve) => {
+            const out = { builtIn: 0, layout: 0, done: false };
+            const end = performance.now() + ms;
+            let doneAt = 0;
+            const tick = () => {
+              if (document.querySelector("[data-saver-block], [data-testid=screensaver-touch-hint]")) out.builtIn++;
+              if (document.querySelector("[data-layout-item=clock]")) {
+                out.layout++;
+                doneAt ||= performance.now() + 1000;
+              }
+              if ((doneAt && performance.now() > doneAt) || performance.now() > end) {
+                out.done = !!doneAt;
+                resolve(out);
+              } else requestAnimationFrame(tick);
+            };
+            tick();
+          }),
+        until - Date.now(),
+      );
+      total.builtIn += r.builtIn;
+      total.layout += r.layout;
+      if (r.done) return total;
+    } catch (e) {
+      if (!String(e).includes("Execution context was destroyed")) throw e;
+    }
+  }
+  return total;
+}
+
+test("a kiosk with a layout never draws the built-in blocks on its way to the layout", async ({ browser }) => {
+  test.setTimeout(90_000);
+  const ctx = await screenFor(browser, apiA, deviceA);
+  // A fresh page: the layout queries start cold when the screensaver comes up.
+  const page = await open(ctx);
+  const frames = await watchActivation(page);
+  expect(frames.layout, "the layout came up").toBeGreaterThan(0);
+  expect(frames.builtIn, "frames that showed the built-in screensaver").toBe(0);
+  await ctx.close();
+});
+
 test("an assigned layout is drawn at its boxes, then unassigning restores the built-in blocks live", async ({ browser }) => {
   test.setTimeout(90_000);
   const ctx = await screenFor(browser, apiA, deviceA);
@@ -151,11 +205,16 @@ test("a kiosk with no layout and no default keeps the built-in blocks", async ({
   test.setTimeout(90_000);
   const ctx = await screenFor(browser, apiB, deviceB);
   const page = await open(ctx);
+  // The control for the watch in the first test: here it counts built-in frames.
+  const frames = await watchActivation(page, 20_000);
+  expect(frames.builtIn).toBeGreaterThan(0);
+  expect(frames.layout).toBe(0);
   await page.waitForSelector("[data-saver-block=clock]", { timeout: 45_000 });
   for (let i = 0; i < 6; i++) {
     await expect(page.locator("[data-layout-item]")).toHaveCount(0);
     await expect(page.locator("[data-saver-block=clock]")).toHaveCount(1);
     await page.waitForTimeout(500);
   }
+
   await ctx.close();
 });

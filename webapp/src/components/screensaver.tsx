@@ -33,6 +33,8 @@ const MODAL_INACTIVITY_TIMEOUT = 5 * 60 * 1000;
  * So the overlay layer walks a small closed loop of offsets: nothing moves far
  * enough or fast enough to catch the eye, but no edge stays on one pixel.
  */
+/** How long a screensaver waits for the layout queries before it draws the built-in blocks anyway. */
+const LAYOUT_WAIT_MS = 1500;
 const BURN_IN_OFFSETS = ["0px 0px", "8px 5px", "-5px 8px", "6px -7px", "-8px -4px"];
 const BURN_IN_INTERVAL = 4 * 60 * 1000;
 /** Long enough that the shift reads as drift rather than a step. */
@@ -118,6 +120,18 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // weather column, the bottom cluster and the photo counter below.
   const active = useActiveLayout("screensaver");
   const designed = active.layout && active.grid ? { items: active.items, grid: active.grid } : null;
+  // Until the layout queries have answered, neither the built-in blocks nor a
+  // layout: a kiosk with a layout must not show the built-in screensaver
+  // first and then swap. The photo shows meanwhile. Should the answer take
+  // longer than LAYOUT_WAIT_MS (a query failing and retrying), the built-in
+  // screensaver comes, so the screen is never left empty.
+  const [waitedForLayout, setWaitedForLayout] = useState(false);
+  useEffect(() => {
+    if (active.ready) return;
+    const timer = setTimeout(() => setWaitedForLayout(true), LAYOUT_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [active.ready]);
+  const showBuiltIn = !designed && (active.ready || waitedForLayout);
   const {
     hours, minutes, nightNow, formattedDate, soon, weather,
     upcomingEvents, upcomingBirthdays, news,
@@ -357,7 +371,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
             are lifted by the floor's height (--idle-creature-floor). */}
         <CreaturesOnIdle />
 
-        {!designed && (
+        {showBuiltIn && (
           <>
         {/* News list - top left (always rendered for data-no-wake) */}
         {(screensaverSettings.showNews ?? true) && news && news.length > 0 && (
@@ -546,7 +560,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
           elevated
         />
 
-        {!designed && (
+        {showBuiltIn && (
           <>
         {/*
           Bottom cluster: the clock and the events/birthdays block.
@@ -697,7 +711,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
 
         {/* Touch hint. Not with a designed layout (it owns the screen), and not with the forecast on: centred at the top, it ran into
             the forecast strip on portrait panels and on 1024px landscape ones. */}
-        {!(showForecast && weather) && !designed && (
+        {!(showForecast && weather) && showBuiltIn && (
         <p
           data-testid="screensaver-touch-hint"
           className="absolute top-8 left-1/2 -translate-x-1/2 text-white/40 text-sm safe-area-inset screensaver-fade-in"

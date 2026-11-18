@@ -40,6 +40,14 @@ async function request<T>(url: string, method: string, body?: unknown): Promise<
   return r.status === 204 ? (undefined as T) : ((await r.json()) as T);
 }
 
+/**
+ * How long the layout queries stay cached without a component using them.
+ * The screensaver, the one reader on a kiosk, is mounted only while the screen
+ * is idle: with the default five minutes, every activation after a longer
+ * wake started cold. The rows are tiny, and the change feed keeps them fresh.
+ */
+const LAYOUT_GC_MS = 24 * 3600_000;
+
 /** The family's layouts, oldest first. */
 export function useLayouts() {
   const supabase = createClient();
@@ -48,6 +56,7 @@ export function useLayouts() {
   return useQuery({
     queryKey: ["layouts", familyId],
     enabled: !!familyId,
+    gcTime: LAYOUT_GC_MS,
     queryFn: async (): Promise<Layout[]> => {
       const { data, error } = await supabase
         .from("layouts" as never)
@@ -62,7 +71,7 @@ export function useLayouts() {
 
 /** Which layout each orientation uses on kiosks. */
 export function useLayoutDefaults() {
-  return useSetting<LayoutDefaults>(SETTINGS_KEYS.layoutDefaults, NO_DEFAULTS);
+  return useSetting<LayoutDefaults>(SETTINGS_KEYS.layoutDefaults, NO_DEFAULTS, { gcTime: LAYOUT_GC_MS });
 }
 
 /**
@@ -78,6 +87,7 @@ export function useOwnDeviceLayout() {
   return useQuery({
     queryKey: ["layouts", familyId, "device", deviceId],
     enabled: !!familyId && !!deviceId,
+    gcTime: LAYOUT_GC_MS,
     queryFn: async (): Promise<{ id: string; layoutId: string | null; isKiosk: boolean }> => {
       const { data, error } = await supabase
         .from("devices")
