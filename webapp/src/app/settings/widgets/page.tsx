@@ -297,15 +297,18 @@ export default function WidgetSettingsPage() {
                         <div className="mt-3 border-t border-border/40 pt-3 space-y-4">
                           <div>
                             <p className="text-sm font-medium mb-2">{t("pocketMoneyDisplayLabel")}</p>
+                            {/* Three long labels: full width, and they wrap on a
+                                phone instead of pushing the page sideways. */}
                             <SegmentedControl
+                              className="flex w-full h-auto"
                               value={pmMode}
                               onValueChange={(v) =>
                                 setPm({ displayMode: v as PocketMoneyWidgetSettings["displayMode"] })
                               }
                             >
-                              <SegmentedControlItem value="toggle">{t("pocketMoneyModeToggle")}</SegmentedControlItem>
-                              <SegmentedControlItem value="all">{t("pocketMoneyModeAll")}</SegmentedControlItem>
-                              <SegmentedControlItem value="perChild">{t("pocketMoneyModePerChild")}</SegmentedControlItem>
+                              <SegmentedControlItem value="toggle" className="flex-1 min-w-0 whitespace-normal text-center leading-tight">{t("pocketMoneyModeToggle")}</SegmentedControlItem>
+                              <SegmentedControlItem value="all" className="flex-1 min-w-0 whitespace-normal text-center leading-tight">{t("pocketMoneyModeAll")}</SegmentedControlItem>
+                              <SegmentedControlItem value="perChild" className="flex-1 min-w-0 whitespace-normal text-center leading-tight">{t("pocketMoneyModePerChild")}</SegmentedControlItem>
                             </SegmentedControl>
                           </div>
                           <div>
