@@ -100,6 +100,8 @@ export interface Database {
           fingerprint_history: string[];
           /** Who the device belongs to (RFC-017 §8.2); written only by PATCH /api/devices/[id]. */
           person_id: string | null;
+          /** The screen's size as it last reported it; written only by POST /api/screen. */
+          screen: import("@/lib/device-screen").DeviceScreen | null;
         };
         Insert: {
           id?: string;

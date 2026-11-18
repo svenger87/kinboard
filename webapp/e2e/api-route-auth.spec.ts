@@ -273,6 +273,7 @@ test("a route that still takes family_id checks it against the session", () => {
     // the person are looked up in; the body carries only `{ person_id }`
     // (lib/device-owner.ts refuses any other field).
     "devices/[id]/route.ts",
+    "screen/route.ts",
     // Presence takes a device id, then looks it up with the family id from
     // the session. The request never supplies a family id.
     "presence/route.ts",
