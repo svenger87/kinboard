@@ -35,8 +35,9 @@ test("switched on, it follows the family's bedtime on the family's clock", () =>
 
 test("at night the screensaver draws the clock alone, and stops the photos", () => {
   const saver = readFileSync("src/components/screensaver.tsx", "utf8");
-  expect(saver).toContain("const nightNow = isScreensaverNight(screensaverSettings.night, date, familyTimeZone, bedtime);");
-  expect(saver).toContain("if (nightNow || photoUrls.length <= 1 || currentPhotoIndex === -1) return;");
+  const hook = readFileSync("src/hooks/use-screensaver-data.ts", "utf8");
+  expect(hook).toContain("const nightNow = isScreensaverNight(screensaverSettings.night, date, familyTimeZone, bedtime);");
+  expect(hook).toContain("if (nightNow || photoUrls.length <= 1 || currentPhotoIndex === -1) return;");
   // The night branch returns before the photo, the news, the events and the festival visitor.
   const night = saver.indexOf('data-testid="screensaver-night"');
   const photo = saver.indexOf("{/* Background Photo");

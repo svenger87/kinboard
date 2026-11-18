@@ -169,7 +169,12 @@
       "lessonsTomorrow": "At school tomorrow",
       "lessonsOn": "At school on {day}",
       "lessonsBring": "Bring: {items}",
-      "holidayUntil": "until {date}"
+      "holidayUntil": "until {date}",
+      "energySolar": "Solar",
+      "energyBattery": "Battery",
+      "energyGridImport": "Grid import",
+      "energyGridExport": "Grid export",
+      "teslaCharging": "Charging"
     },
     "pwa": {
       "updateTitle": "Update available",
@@ -202,7 +207,26 @@
       "permissionDenied": "Notifications weren't allowed. Enable them for this site in your browser settings.",
       "vapidMissing": "The push server isn't configured. Set the VAPID keys in .env."
     },
-    "backTo": "Back to {target}"
+    "backTo": "Back to {target}",
+    "layouts": {
+      "more": "+{count} more",
+      "holidaysLabel": "Holidays",
+      "empty": {
+        "events": "No events in the next 7 days",
+        "birthdays": "No birthdays in the next 30 days",
+        "holidays": "No holidays in the next 7 days",
+        "news": "No news",
+        "lessons": "No lessons today"
+      },
+      "notSetUp": {
+        "weatherNow": "Weather: no weather service is set up on this Kinboard server – no setting in the app can change that",
+        "forecast": "Forecast: no weather service is set up on this Kinboard server – no setting in the app can change that",
+        "energy": "Energy: turn on the screensaver display under Settings → Energy",
+        "vehicles": "Tesla: turn on “Show on screensaver” under Settings → Tesla",
+        "photoCount": "Photos: choose a photo source under Settings → Photos"
+      },
+      "weatherFailed": "The weather could not be loaded – check the location under Settings → Weather"
+    }
   },
   "localeSwitcher": {
     "label": "Language"
@@ -1074,6 +1098,8 @@
     "itemThemeDescription": "Colors and clock display",
     "itemScreensaverLabel": "Screensaver",
     "itemScreensaverDescription": "Timeout and presence sensor",
+    "itemLayoutsLabel": "Layouts",
+    "itemLayoutsDescription": "Design the screensaver per screen",
     "itemWeatherLabel": "Weather",
     "itemWeatherDescription": "Location for weather data",
     "itemNotificationsLabel": "Notifications",
@@ -1470,7 +1496,11 @@
       "seconds30": "30 seconds",
       "seconds60": "1 minute",
       "seconds120": "2 minutes",
-      "seconds300": "5 minutes"
+      "seconds300": "5 minutes",
+      "layoutNote": {
+        "assigned": "{names} {count, plural, one {uses} other {use}} the designed layout “{layout}”.",
+        "change": "Change it under <link>Settings → Layouts</link>. The settings below apply to screens without a layout."
+      }
     },
     "weather": {
       "title": "Weather",
@@ -1697,7 +1727,17 @@
       "belongsToNobody": "The family",
       "belongsToHint": "A child's own device opens on their creature and rewards. Kiosks always open on the dashboard.",
       "belongsToKioskNote": "Kiosk: opens on the dashboard",
-      "belongsToFailed": "Could not save who the device belongs to"
+      "belongsToFailed": "Could not save who the device belongs to",
+      "layoutLabel": "Layout",
+      "layoutAria": "Layout for {name}",
+      "layoutBuiltIn": "Built-in",
+      "layoutAspect": "Made for {layoutWidth}×{layoutHeight} — this screen is {width}×{height}",
+      "layoutDropped": "Not shown on this screen: {names}",
+      "layoutUsesDefault": "Uses the default layout “{name}”",
+      "layoutOtherOrientationDefault": "“{name}” is for {orientation, select, portrait {portrait} other {landscape}} screens; while this screen is turned this way it shows the default “{fallback}”.",
+      "layoutOtherOrientationBuiltIn": "“{name}” is for {orientation, select, portrait {portrait} other {landscape}} screens; while this screen is turned this way it shows the built-in screensaver.",
+      "layoutNoDefaults": "Not a wall screen: the default layouts do not apply to it.",
+      "layoutFailed": "The layout could not be changed."
     },
     "cameras": {
       "title": "Cameras",
@@ -3176,6 +3216,180 @@
       "bedtimeSleep": "Asleep from",
       "bedtimeWake": "Awake at",
       "bedtimeReset": "Back to {sleep}–{wake}"
+    },
+    "layouts": {
+      "title": "Layouts",
+      "subtitle": "Design the screensaver of your wall screens",
+      "loadFailed": "The layouts could not be loaded.",
+      "retry": "Try again",
+      "empty": "No layouts yet. Create one to arrange a wall screen's screensaver yourself.",
+      "shape": "{width}×{height} · {orientation, select, portrait {portrait} other {landscape}}",
+      "usedByNone": "Not shown on any screen",
+      "usedByAssigned": "Assigned to {names}",
+      "usedByDefault": "Default on {names}",
+      "badgePortrait": "Portrait default",
+      "badgeLandscape": "Landscape default",
+      "edit": "Edit",
+      "editAria": "Edit {name}",
+      "duplicateAria": "Duplicate {name}",
+      "deleteAria": "Delete {name}",
+      "new": {
+        "button": "New layout",
+        "title": "New layout",
+        "description": "It starts from the built-in screensaver arrangement for the size you choose; you rearrange it in the editor.",
+        "name": "Name",
+        "namePlaceholder": "e.g. Kitchen portrait",
+        "screenHint": "The size the layout is drawn for. Screens of other sizes get it rescaled.",
+        "create": "Create and edit",
+        "cancel": "Cancel",
+        "failed": "The layout could not be created. Please try again."
+      },
+      "duplicate": {
+        "button": "Duplicate",
+        "title": "Duplicate “{name}”",
+        "description": "The copy keeps the arrangement and the screen size. It is not assigned to any screen.",
+        "name": "Name",
+        "defaultName": "{name} (copy)",
+        "create": "Duplicate",
+        "cancel": "Cancel",
+        "done": "“{name}” created",
+        "failed": "The layout could not be duplicated. Please try again."
+      },
+      "delete": {
+        "button": "Delete",
+        "title": "Delete “{name}”?",
+        "description": "The layout is deleted for good.",
+        "devicesBuiltIn": "{names} will show the built-in screensaver again.",
+        "devicesDefault": "{names} will use the default “{layout}” instead.",
+        "default": "It is the {orientation, select, portrait {portrait} other {landscape}} default; wall screens without a layout of their own will show the built-in screensaver again.",
+        "confirm": "Delete",
+        "cancel": "Cancel",
+        "done": "“{name}” deleted",
+        "failed": "The layout could not be deleted. Please try again."
+      },
+      "defaults": {
+        "title": "Default layouts",
+        "description": "Wall screens (kiosk devices) without a layout of their own use these, depending on how they are turned. Other screens keep the built-in screensaver.",
+        "portrait": "Portrait default",
+        "landscape": "Landscape default",
+        "builtIn": "Built-in",
+        "failed": "The default could not be saved. Please try again."
+      },
+      "editor": {
+        "title": "Layout",
+        "subtitle": "Screensaver · drawn for {width}×{height}",
+        "notFound": "This layout does not exist (any more).",
+        "loadFailed": "The layouts could not be loaded.",
+        "tooSmall": "This layout's screen ({width}×{height}) is too small for the grid.",
+        "undo": "Undo",
+        "undoHint": "Undo (Ctrl+Z)",
+        "redo": "Redo",
+        "redoHint": "Redo (Ctrl+Shift+Z)",
+        "reset": "Reset",
+        "resetTitle": "Reset to the built-in arrangement?",
+        "resetDescription": "The screen gets today's standard screensaver arrangement for its shape. You can undo this until you leave the page.",
+        "resetConfirm": "Reset",
+        "resetCancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving…",
+        "saved": "Layout saved",
+        "stale": "Someone changed this layout meanwhile — reload to see it.",
+        "reload": "Reload",
+        "errors": {
+          "unknown_widget": "{name}: this widget is not known.",
+          "out_of_bounds": "{name} does not fit on the screen.",
+          "below_minimum": "{name} is smaller than its minimum size.",
+          "overlap": "{name} overlaps another widget.",
+          "duplicate": "{name} is on the screen twice.",
+          "bad_text_size": "{name} has an unknown text size.",
+          "pinRequired": "Settings were locked — enter the PIN; your unsaved changes are kept.",
+          "generic": "The layout could not be saved. Please try again."
+        },
+        "preview": {
+          "readOnly": "Preview: this screen has {rows} rows, the layout {layoutRows}, so the arrangement is adapted. Switch back to the layout's own size to edit it.",
+          "dropped": "No room on this screen for: {names}"
+        },
+        "screen": {
+          "label": "Screen",
+          "own": "Layout size — {width}×{height}",
+          "device": "{name} — {width}×{height}",
+          "devices": "Your screens",
+          "presetsLabel": "Common sizes",
+          "presets": {
+            "portrait1080": "Full HD portrait — {width}×{height}",
+            "portrait1080at150": "Full HD portrait at 150% — {width}×{height}",
+            "landscape1080": "Full HD landscape — {width}×{height}",
+            "landscape1080at150": "Full HD landscape at 150% — {width}×{height}",
+            "tabletLandscape": "Tablet landscape — {width}×{height}",
+            "tabletPortrait": "Tablet portrait — {width}×{height}"
+          },
+          "custom": "Custom — {width}×{height}",
+          "customOpen": "Custom size…",
+          "customForm": {
+            "title": "Custom size",
+            "description": "The screen's size in CSS pixels, as the browser on it reports it.",
+            "width": "Width (px)",
+            "height": "Height (px)",
+            "tooSmall": "At least 600 px wide and room for 6 rows",
+            "apply": "Use this size",
+            "cancel": "Cancel"
+          }
+        },
+        "palette": {
+          "title": "Widgets",
+          "add": "Add {name}",
+          "allPlaced": "Every widget is on the screen.",
+          "noRoom": "No free space — make room first"
+        },
+        "inspector": {
+          "empty": "Select a widget on the screen to change it.",
+          "size": "{w}×{h} cells",
+          "min": "at least {w}×{h}",
+          "textSize": "Text size",
+          "textSizes": {
+            "S": "Small",
+            "M": "Medium",
+            "L": "Large",
+            "XL": "Extra large"
+          },
+          "remove": "Remove",
+          "keys": "Arrow keys move the selected widget, Delete removes it, Ctrl+Z undoes."
+        },
+        "widgets": {
+          "clock": "Clock",
+          "date": "Date",
+          "nextEvent": "Next event",
+          "weatherNow": "Weather now",
+          "forecast": "Forecast",
+          "events": "Events",
+          "birthdays": "Birthdays",
+          "holidays": "Holidays",
+          "news": "News",
+          "lessons": "Lessons",
+          "energy": "Energy",
+          "vehicles": "Tesla",
+          "photoCount": "Photo count"
+        },
+        "draft": {
+          "restored": "Unsaved changes restored.",
+          "lost": "This layout changed meanwhile; your unsaved changes could not be restored."
+        },
+        "copy": {
+          "button": "Make a copy for this size",
+          "title": "Copy for {width}×{height}",
+          "description": "A new layout for this size, made from the saved layout. Widgets that do not fit are left out.",
+          "name": "Name",
+          "defaultName": "{name} {width}×{height}",
+          "unsaved": "This layout has unsaved changes. Save them before copying, or copy the saved version?",
+          "create": "Create copy",
+          "saveAndCopy": "Save and copy",
+          "discardAndCopy": "Discard and copy",
+          "cancel": "Cancel",
+          "failed": "The copy could not be created. Please try again.",
+          "pinRequired": "Settings were locked — enter the PIN and try again.",
+          "dropped": "Not on this size: {names}"
+        }
+      }
     }
   },
   "settingsSearch": {
@@ -3197,6 +3411,8 @@
       "navigation": "navigation, menu, tabs, bottom bar, order, reorder, hide",
       "theme": "design, theme, colours, colors, dark mode, light mode, clock, appearance, look",
       "screensaver": "screensaver, idle, timeout, sleep, presence, motion sensor, slideshow",
+      "layouts": "layout, designer, arrangement, widgets, screensaver, wall screen, kiosk, portrait, landscape",
+      "layouts_defaults": "default, fallback, portrait, landscape, kiosk, wall screen",
       "weather": "weather, forecast, location, city, temperature",
       "notifications": "notifications, push, alerts, reminders, quiet hours",
       "language": "language, English, German, French, translation, region",

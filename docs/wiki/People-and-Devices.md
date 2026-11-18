@@ -54,6 +54,10 @@ Hides the nav drawer, disables admin actions (creating/leaving a family), and re
 
 Toggle on when an [LD2410 presence sensor](Presence-Sensor) is wired into this device. Reveals the device ID (needed by the presence-sensor script), a live presence indicator, and a "Connection lost" badge if the sensor stops reporting for >30 s.
 
+### Layout
+
+Under each device, **Layout** picks the screensaver arrangement it shows: *Built-in*, or one of the family's [layouts](Layouts). A wall screen (kiosk) without one uses the family's portrait or landscape default, if set; the row says which ("Uses the default layout “Küche hochkant”") and warns when the screen's shape is far from the layout's. Phones and screens narrower than 600px keep the built-in screensaver. Each row also shows the size the screen reports, which is what a layout is drawn for.
+
 ### Removing a device (revocation)
 
 Tap delete → confirm. The device's row is removed from the family — it can no longer read/write until it re-joins with the family code. **The device's local cookie isn't invalidated**, so a physically-present device just gets logged out, not bricked. You can't remove "this device" from the list (would lock yourself out); use **Settings → Leave family** on the active device instead. Devices that haven't pinged in 30+ days are good candidates to prune — Kinboard doesn't auto-delete stale devices.
@@ -76,3 +80,4 @@ If a browser's cookies/site data are wiped, the device has lost its saved id and
 - [Schedule](Schedule) — the "child" toggle enables school features
 - [Google-Calendar](Google-Calendar) — assign Google calendars to people
 - [Presence-Sensor](Presence-Sensor) — using a device's ID in the LD2410 script
+- [Layouts](Layouts) — a screensaver arrangement per screen

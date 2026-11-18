@@ -67,8 +67,9 @@ test("the words, in every language", () => {
 test("on unless switched off, and wired under the clock", () => {
   expect(DEFAULT_SCREENSAVER_SETTINGS.showNextEvent).toBe(true);
   const saver = readFileSync("src/components/screensaver.tsx", "utf8");
-  expect(saver).toContain("const showNextEvent = screensaverSettings.showNextEvent ?? true;");
-  expect(saver).toContain("personId: e.person_id || e.calendar?.person_id || null,");
+  const hook = readFileSync("src/hooks/use-screensaver-data.ts", "utf8");
+  expect(hook).toContain("const showNextEvent = screensaverSettings.showNextEvent ?? true;");
+  expect(hook).toContain("personId: e.person_id || e.calendar?.person_id || null,");
   expect(saver).toContain('data-testid="screensaver-next-event"');
   // Under the date, inside the clock block that drifts against burn-in.
   const clock = saver.indexOf('data-festival-anchor="screensaver-clock"');

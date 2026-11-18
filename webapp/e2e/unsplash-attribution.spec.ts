@@ -22,6 +22,8 @@ import { join } from "node:path";
 
 const src = (...p: string[]) => readFileSync(join(__dirname, "..", "src", ...p), "utf8");
 const screensaver = src("components", "screensaver.tsx");
+// The rotation and the Unsplash report moved with the data into the hook.
+const saverData = src("hooks", "use-screensaver-data.ts");
 const photosRoute = src("app", "api", "unsplash", "photos", "route.ts");
 const trackRoute = src("app", "api", "unsplash", "track-download", "route.ts");
 
@@ -83,13 +85,13 @@ test.describe("the display event", () => {
   });
 
   test("the screensaver reports it once per photo", () => {
-    expect(screensaver).toContain("/api/unsplash/track-download");
-    expect(screensaver).toContain("reportedDownloads.current.has(downloadLocation)");
-    expect(screensaver).toContain("reportedDownloads.current.add(downloadLocation)");
+    expect(saverData).toContain("/api/unsplash/track-download");
+    expect(saverData).toContain("reportedDownloads.current.has(downloadLocation)");
+    expect(saverData).toContain("reportedDownloads.current.add(downloadLocation)");
   });
 
   test("a reporting failure can't affect the screensaver", () => {
-    const block = screensaver.slice(screensaver.indexOf("/api/unsplash/track-download") - 400);
+    const block = saverData.slice(saverData.indexOf("/api/unsplash/track-download") - 400);
     expect(block.slice(0, 900)).toContain(".catch(");
   });
 
@@ -97,6 +99,8 @@ test.describe("the display event", () => {
     expect(trackRoute).toContain("Client-ID");
     expect(screensaver).not.toContain("Client-ID");
     expect(screensaver).not.toContain("access_key");
+    expect(saverData).not.toContain("Client-ID");
+    expect(saverData).not.toContain("access_key");
   });
 
   test("the tracking route only calls Unsplash", () => {

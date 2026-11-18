@@ -18,7 +18,7 @@ import { DEFAULT_MONTHLY_TERMS } from "../src/lib/unsplash-defaults";
  *    returned exactly one portrait photo — shrinking the whole pool.
  */
 
-const screensaver = readFileSync(join(__dirname, "..", "src", "components", "screensaver.tsx"), "utf8");
+const screensaver = readFileSync(join(__dirname, "..", "src", "hooks", "use-screensaver-data.ts"), "utf8");
 const route = readFileSync(join(__dirname, "..", "src", "app", "api", "unsplash", "photos", "route.ts"), "utf8");
 
 /** The shuffle bag, mirroring makeShuffledOrder. */

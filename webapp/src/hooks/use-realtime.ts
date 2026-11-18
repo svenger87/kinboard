@@ -74,7 +74,8 @@ type TableName =
   | "pocket_money_accounts"
   | "pocket_money_transactions"
   | "pocket_money_goals"
-  | "pocket_money_withdrawal_requests";
+  | "pocket_money_withdrawal_requests"
+  | "layouts";
 
 const ALL_TABLES: TableName[] = [
   "people",
@@ -112,6 +113,7 @@ const ALL_TABLES: TableName[] = [
   "pocket_money_transactions",
   "pocket_money_goals",
   "pocket_money_withdrawal_requests",
+  "layouts",
 ];
 
 interface UseRealtimeOptions {
@@ -148,6 +150,10 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
 
       // Invalidate the appropriate query based on the table
       switch (table) {
+        case "layouts":
+          // By prefix: covers the layout list and each device's assignment.
+          batch.invalidateQueries({ queryKey: ["layouts", family.id] });
+          break;
         case "people":
           batch.invalidateQueries({
             queryKey: queryKeys.people(family.id),

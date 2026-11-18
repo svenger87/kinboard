@@ -92,9 +92,10 @@ test("the migration runs again on the next boot and changes nothing", () => {
 
 // Written only by the server, like person_id: screen (085_device_screen.sql,
 // POST /api/screen), so one screen cannot set another's size.
-const SERVER_ONLY = new Set(["person_id", "screen"]);
+// layout_id (086_layouts.sql, written only by the server): which layout it shows.
+const SERVER_ONLY = new Set(["person_id", "screen", "layout_id"]);
 
-test("grants: the browser roles may write every column of a device but person_id and screen", () => {
+test("grants: the browser roles may write every column of a device but person_id, screen and layout_id", () => {
   for (const role of ["anon", "authenticated"]) {
     const cols = psql(`SELECT column_name FROM information_schema.columns
       WHERE table_schema = 'public' AND table_name = 'devices' ORDER BY ordinal_position`).split("\n");

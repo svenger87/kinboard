@@ -101,6 +101,7 @@ test("every family-scoped table is under row-level security", () => {
     "point_purchases",
     "bring_removals",
     "event_series",
+    "layouts",
   ]);
 
   // - event_series: repeating events in local calendars. Its own RLS + a
@@ -114,6 +115,17 @@ test("every family-scoped table is under row-level security", () => {
   expect(seriesSql).toMatch(/REVOKE ALL ON TABLE public\.event_series FROM anon;/i);
   expect(seriesSql).toMatch(/REVOKE ALL ON TABLE public\.event_series FROM authenticated;/i);
   expect(browserWriteGrants(seriesSql, "event_series")).toEqual([]);
+
+  // - layouts: the family's named screen layouts. Its own RLS + a
+  //   family-scoped SELECT-only policy, REVOKE ALL from anon/authenticated and
+  //   only SELECT given back, in migrations/086_layouts.sql. Every write is
+  //   the service role's.
+  const layoutsSql = codeOnly(readFileSync(join(DOCKER, "migrations/086_layouts.sql"), "utf8"), { sql: true });
+  expect(layoutsSql).toMatch(/ALTER TABLE public\.layouts ENABLE ROW LEVEL SECURITY;/i);
+  expect(layoutsSql).toMatch(/CREATE POLICY layouts_family_read ON public\.layouts\s+FOR SELECT USING \(family_id = public\.current_family_id\(\)\);/i);
+  expect(layoutsSql).toMatch(/REVOKE ALL ON TABLE public\.layouts FROM anon;/i);
+  expect(layoutsSql).toMatch(/REVOKE ALL ON TABLE public\.layouts FROM authenticated;/i);
+  expect(browserWriteGrants(layoutsSql, "layouts")).toEqual([]);
 
   // - bring_removals (#407): what the Bring! sync still has to take off the
   //   Bring! list. RLS on with no policy, REVOKE ALL from anon/authenticated

@@ -169,7 +169,12 @@
       "lessonsTomorrow": "À l’école demain",
       "lessonsOn": "À l’école {day}",
       "lessonsBring": "À emporter : {items}",
-      "holidayUntil": "jusqu'au {date}"
+      "holidayUntil": "jusqu'au {date}",
+      "energySolar": "Solaire",
+      "energyBattery": "Batterie",
+      "energyGridImport": "Soutirage",
+      "energyGridExport": "Injection",
+      "teslaCharging": "Recharge"
     },
     "pwa": {
       "updateTitle": "Mise à jour disponible",
@@ -202,7 +207,26 @@
       "permissionDenied": "Les notifications ont été refusées. Autorisez-les pour ce site dans les réglages de votre navigateur.",
       "vapidMissing": "Le serveur push n'est pas configuré. Renseignez les clés VAPID dans .env."
     },
-    "backTo": "Retour à {target}"
+    "backTo": "Retour à {target}",
+    "layouts": {
+      "more": "+{count} de plus",
+      "holidaysLabel": "Vacances et jours fériés",
+      "empty": {
+        "events": "Aucun événement dans les 7 prochains jours",
+        "birthdays": "Aucun anniversaire dans les 30 prochains jours",
+        "holidays": "Ni vacances ni jours fériés dans les 7 prochains jours",
+        "news": "Aucune actualité",
+        "lessons": "Pas de cours aujourd'hui"
+      },
+      "notSetUp": {
+        "weatherNow": "Météo : aucun service météo n'est configuré sur ce serveur Kinboard – aucun réglage de l'application ne peut y remédier",
+        "forecast": "Prévisions : aucun service météo n'est configuré sur ce serveur Kinboard – aucun réglage de l'application ne peut y remédier",
+        "energy": "Énergie : activer l'affichage sur l'économiseur d'écran dans Paramètres → Énergie",
+        "vehicles": "Tesla : activer « Afficher sur l'économiseur d'écran » dans Paramètres → Tesla",
+        "photoCount": "Photos : choisir une source de photos dans Paramètres → Photos"
+      },
+      "weatherFailed": "La météo n'a pas pu être chargée – vérifier le lieu dans Paramètres → Météo"
+    }
   },
   "localeSwitcher": {
     "label": "Langue"
@@ -1074,6 +1098,8 @@
     "itemThemeDescription": "Couleurs et affichage de l'horloge",
     "itemScreensaverLabel": "Économiseur d'écran",
     "itemScreensaverDescription": "Délai d'inactivité et capteur de présence",
+    "itemLayoutsLabel": "Dispositions",
+    "itemLayoutsDescription": "Concevoir l’économiseur pour chaque écran",
     "itemWeatherLabel": "Météo",
     "itemWeatherDescription": "Emplacement pour les données météo",
     "itemNotificationsLabel": "Notifications",
@@ -1470,7 +1496,11 @@
       "seconds30": "30 secondes",
       "seconds60": "1 minute",
       "seconds120": "2 minutes",
-      "seconds300": "5 minutes"
+      "seconds300": "5 minutes",
+      "layoutNote": {
+        "assigned": "{names} {count, plural, one {utilise} other {utilisent}} la disposition conçue « {layout} ».",
+        "change": "Modifiez-la sous <link>Paramètres → Dispositions</link>. Les réglages ci-dessous s’appliquent aux écrans sans disposition."
+      }
     },
     "weather": {
       "title": "Météo",
@@ -1697,7 +1727,17 @@
       "belongsToNobody": "La famille",
       "belongsToHint": "L'appareil d'un enfant s'ouvre sur sa créature et ses récompenses. Un kiosque s'ouvre toujours sur le tableau de bord.",
       "belongsToKioskNote": "Kiosque : s'ouvre sur le tableau de bord",
-      "belongsToFailed": "Impossible d'enregistrer à qui appartient l'appareil"
+      "belongsToFailed": "Impossible d'enregistrer à qui appartient l'appareil",
+      "layoutLabel": "Disposition",
+      "layoutAria": "Disposition de {name}",
+      "layoutBuiltIn": "Intégrée",
+      "layoutAspect": "Conçue pour {layoutWidth}×{layoutHeight} — cet écran fait {width}×{height}",
+      "layoutDropped": "Non affiché sur cet écran : {names}",
+      "layoutUsesDefault": "Utilise la disposition par défaut « {name} »",
+      "layoutOtherOrientationDefault": "« {name} » est prévue pour les écrans en {orientation, select, portrait {portrait} other {paysage}} ; tant que cet écran est orienté ainsi, il affiche la disposition par défaut « {fallback} ».",
+      "layoutOtherOrientationBuiltIn": "« {name} » est prévue pour les écrans en {orientation, select, portrait {portrait} other {paysage}} ; tant que cet écran est orienté ainsi, il affiche l’économiseur intégré.",
+      "layoutNoDefaults": "Pas un écran mural : les dispositions par défaut ne s’y appliquent pas.",
+      "layoutFailed": "La disposition n’a pas pu être modifiée."
     },
     "cameras": {
       "title": "Caméras",
@@ -3176,6 +3216,180 @@
       "bedtimeSleep": "Endormies à partir de",
       "bedtimeWake": "Réveillées à",
       "bedtimeReset": "Revenir à {sleep}–{wake}"
+    },
+    "layouts": {
+      "title": "Dispositions",
+      "subtitle": "Concevez l’économiseur d’écran de vos écrans muraux",
+      "loadFailed": "Les dispositions n’ont pas pu être chargées.",
+      "retry": "Réessayer",
+      "empty": "Aucune disposition pour l’instant. Créez-en une pour agencer vous-même l’économiseur d’un écran mural.",
+      "shape": "{width}×{height} · {orientation, select, portrait {portrait} other {paysage}}",
+      "usedByNone": "Affichée sur aucun écran",
+      "usedByAssigned": "Attribuée à {names}",
+      "usedByDefault": "Par défaut sur {names}",
+      "badgePortrait": "Par défaut en portrait",
+      "badgeLandscape": "Par défaut en paysage",
+      "edit": "Modifier",
+      "editAria": "Modifier {name}",
+      "duplicateAria": "Dupliquer {name}",
+      "deleteAria": "Supprimer {name}",
+      "new": {
+        "button": "Nouvelle disposition",
+        "title": "Nouvelle disposition",
+        "description": "Elle part de l’agencement intégré de l’économiseur pour la taille choisie ; vous la réorganisez ensuite dans l’éditeur.",
+        "name": "Nom",
+        "namePlaceholder": "p. ex. Cuisine portrait",
+        "screenHint": "La taille pour laquelle la disposition est conçue. Les écrans d’une autre taille la reçoivent mise à l’échelle.",
+        "create": "Créer et modifier",
+        "cancel": "Annuler",
+        "failed": "La disposition n’a pas pu être créée. Veuillez réessayer."
+      },
+      "duplicate": {
+        "button": "Dupliquer",
+        "title": "Dupliquer « {name} »",
+        "description": "La copie garde l’agencement et la taille d’écran. Elle n’est attribuée à aucun écran.",
+        "name": "Nom",
+        "defaultName": "{name} (copie)",
+        "create": "Dupliquer",
+        "cancel": "Annuler",
+        "done": "« {name} » créée",
+        "failed": "La disposition n’a pas pu être dupliquée. Veuillez réessayer."
+      },
+      "delete": {
+        "button": "Supprimer",
+        "title": "Supprimer « {name} » ?",
+        "description": "La disposition est supprimée définitivement.",
+        "devicesBuiltIn": "{names} {count, plural, one {affichera} other {afficheront}} de nouveau l’économiseur intégré.",
+        "devicesDefault": "{names} {count, plural, one {utilisera} other {utiliseront}} la disposition par défaut « {layout} ».",
+        "default": "C’est la disposition par défaut en {orientation, select, portrait {portrait} other {paysage}} ; les écrans muraux sans disposition propre afficheront de nouveau l’économiseur intégré.",
+        "confirm": "Supprimer",
+        "cancel": "Annuler",
+        "done": "« {name} » supprimée",
+        "failed": "La disposition n’a pas pu être supprimée. Veuillez réessayer."
+      },
+      "defaults": {
+        "title": "Dispositions par défaut",
+        "description": "Les écrans muraux (appareils en mode kiosque) sans disposition propre utilisent celles-ci, selon leur orientation. Les autres écrans gardent l’économiseur intégré.",
+        "portrait": "Par défaut en portrait",
+        "landscape": "Par défaut en paysage",
+        "builtIn": "Intégrée",
+        "failed": "La disposition par défaut n’a pas pu être enregistrée. Veuillez réessayer."
+      },
+      "editor": {
+        "title": "Disposition",
+        "subtitle": "Économiseur d’écran · conçu pour {width}×{height}",
+        "notFound": "Cette disposition n’existe pas (ou plus).",
+        "loadFailed": "Les dispositions n’ont pas pu être chargées.",
+        "tooSmall": "L’écran de cette disposition ({width}×{height}) est trop petit pour la grille.",
+        "undo": "Annuler",
+        "undoHint": "Annuler (Ctrl+Z)",
+        "redo": "Rétablir",
+        "redoHint": "Rétablir (Ctrl+Maj+Z)",
+        "reset": "Réinitialiser",
+        "resetTitle": "Revenir à la disposition standard ?",
+        "resetDescription": "L’écran reprend la disposition standard actuelle de l’économiseur pour son format. Vous pouvez l’annuler tant que vous restez sur la page.",
+        "resetConfirm": "Réinitialiser",
+        "resetCancel": "Annuler",
+        "save": "Enregistrer",
+        "saving": "Enregistrement…",
+        "saved": "Disposition enregistrée",
+        "stale": "Quelqu’un a modifié cette disposition entre-temps — rechargez pour voir la modification.",
+        "reload": "Recharger",
+        "errors": {
+          "unknown_widget": "{name} : ce widget est inconnu.",
+          "out_of_bounds": "{name} ne tient pas sur l’écran.",
+          "below_minimum": "{name} est plus petit que sa taille minimale.",
+          "overlap": "{name} chevauche un autre widget.",
+          "duplicate": "{name} figure deux fois sur l’écran.",
+          "bad_text_size": "{name} a une taille de texte inconnue.",
+          "pinRequired": "Les réglages ont été verrouillés — saisissez le code PIN ; vos modifications non enregistrées sont conservées.",
+          "generic": "La disposition n’a pas pu être enregistrée. Veuillez réessayer."
+        },
+        "preview": {
+          "readOnly": "Aperçu : cet écran a {rows} rangées, la disposition {layoutRows}, la disposition est donc adaptée. Revenez à la taille de la disposition pour la modifier.",
+          "dropped": "Pas de place sur cet écran pour : {names}"
+        },
+        "screen": {
+          "label": "Écran",
+          "own": "Taille de la disposition — {width}×{height}",
+          "device": "{name} — {width}×{height}",
+          "devices": "Vos écrans",
+          "presetsLabel": "Tailles courantes",
+          "presets": {
+            "portrait1080": "Full HD portrait — {width}×{height}",
+            "portrait1080at150": "Full HD portrait à 150 % — {width}×{height}",
+            "landscape1080": "Full HD paysage — {width}×{height}",
+            "landscape1080at150": "Full HD paysage à 150 % — {width}×{height}",
+            "tabletLandscape": "Tablette paysage — {width}×{height}",
+            "tabletPortrait": "Tablette portrait — {width}×{height}"
+          },
+          "custom": "Personnalisée — {width}×{height}",
+          "customOpen": "Taille personnalisée…",
+          "customForm": {
+            "title": "Taille personnalisée",
+            "description": "La taille de l’écran en pixels CSS, telle que le navigateur de cet écran la signale.",
+            "width": "Largeur (px)",
+            "height": "Hauteur (px)",
+            "tooSmall": "Au moins 600 px de large et la place pour 6 rangées",
+            "apply": "Utiliser cette taille",
+            "cancel": "Annuler"
+          }
+        },
+        "palette": {
+          "title": "Widgets",
+          "add": "Ajouter {name}",
+          "allPlaced": "Tous les widgets sont sur l’écran.",
+          "noRoom": "Plus de place libre — faites de la place d’abord"
+        },
+        "inspector": {
+          "empty": "Sélectionnez un widget sur l’écran pour le modifier.",
+          "size": "{w}×{h} cases",
+          "min": "au moins {w}×{h}",
+          "textSize": "Taille du texte",
+          "textSizes": {
+            "S": "Petite",
+            "M": "Moyenne",
+            "L": "Grande",
+            "XL": "Très grande"
+          },
+          "remove": "Retirer",
+          "keys": "Les flèches déplacent le widget sélectionné, Suppr le retire, Ctrl+Z annule."
+        },
+        "widgets": {
+          "clock": "Horloge",
+          "date": "Date",
+          "nextEvent": "Prochain rendez-vous",
+          "weatherNow": "Météo actuelle",
+          "forecast": "Prévisions",
+          "events": "Rendez-vous",
+          "birthdays": "Anniversaires",
+          "holidays": "Vacances et jours fériés",
+          "news": "Actualités",
+          "lessons": "Emploi du temps",
+          "energy": "Énergie",
+          "vehicles": "Tesla",
+          "photoCount": "Nombre de photos"
+        },
+        "draft": {
+          "restored": "Modifications non enregistrées restaurées.",
+          "lost": "Cette disposition a été modifiée entre-temps ; vos modifications non enregistrées n’ont pas pu être restaurées."
+        },
+        "copy": {
+          "button": "Créer une copie pour cette taille",
+          "title": "Copie pour {width}×{height}",
+          "description": "Une nouvelle disposition pour cette taille, créée à partir de la disposition enregistrée. Les widgets qui ne tiennent pas sont laissés de côté.",
+          "name": "Nom",
+          "defaultName": "{name} {width}×{height}",
+          "unsaved": "Cette disposition a des modifications non enregistrées. Les enregistrer avant de copier, ou copier la version enregistrée ?",
+          "create": "Créer la copie",
+          "saveAndCopy": "Enregistrer et copier",
+          "discardAndCopy": "Abandonner et copier",
+          "cancel": "Annuler",
+          "failed": "La copie n’a pas pu être créée. Veuillez réessayer.",
+          "pinRequired": "Les réglages ont été verrouillés — saisissez le code PIN et réessayez.",
+          "dropped": "Pas sur cette taille : {names}"
+        }
+      }
     }
   },
   "settingsSearch": {
@@ -3197,6 +3411,8 @@
       "navigation": "navigation, menu, onglets, barre, ordre, réorganiser, masquer",
       "theme": "design, thème, couleurs, mode sombre, mode clair, horloge, apparence",
       "screensaver": "économiseur d'écran, veille, délai, présence, capteur de mouvement, diaporama",
+      "layouts": "disposition, mise en page, agencement, conception, widgets, économiseur d’écran, écran mural, kiosque, portrait, paysage, layout",
+      "layouts_defaults": "par défaut, repli, portrait, paysage, kiosque, écran mural",
       "weather": "météo, prévisions, emplacement, ville, température",
       "notifications": "notifications, push, alertes, rappels, heures calmes",
       "language": "langue, anglais, allemand, français, traduction, région",

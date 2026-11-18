@@ -48,6 +48,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Device } from "@/types/database";
+import { DeviceLayoutPicker } from "@/components/layouts/device-layout-picker";
+import { useLayoutDefaults, useLayouts } from "@/hooks/use-layouts";
 
 function getDeviceType(userAgent: string | null): string {
   if (!userAgent) return "display";
@@ -86,6 +88,8 @@ export default function DevicesSettingsPage() {
   const deleteDevice = useDeleteDevice();
   const setOwner = useSetDeviceOwner();
   const { data: people = [] } = usePeople();
+  const { data: layouts } = useLayouts();
+  const { data: layoutDefaults } = useLayoutDefaults();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -220,6 +224,7 @@ export default function DevicesSettingsPage() {
                 return (
                   <motion.div
                     key={device.id}
+                    data-device-id={device.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
@@ -229,7 +234,7 @@ export default function DevicesSettingsPage() {
                     // were squeezed on top of it and the kiosk switch ended up
                     // drawn over the device name (audit KB-71). Below `sm` the
                     // controls now get their own row underneath.
-                    className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4"
+                    className="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-0"
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-4">
                     {/* Icon */}
@@ -473,6 +478,14 @@ export default function DevicesSettingsPage() {
                       </div>
                     )}
                     </div>
+                    )}
+
+                    {/* Its layout (Settings → Layouts), on a line of its own under the name, once the layouts are known. */}
+                    {/* Only once the family has a layout: until then nothing here changes. */}
+                    {!isEditing && layouts && layouts.length > 0 && layoutDefaults && (
+                      <div className="sm:basis-full sm:pl-[3.75rem]">
+                        <DeviceLayoutPicker device={device} layouts={layouts} defaults={layoutDefaults} />
+                      </div>
                     )}
                   </motion.div>
                 );

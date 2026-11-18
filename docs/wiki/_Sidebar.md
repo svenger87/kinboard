@@ -48,6 +48,7 @@
 - [[School schedule|Schedule]]
 - [[Smart home & energy|Smart-Home]]
 - [[Screensaver]]
+- [[Layouts]]
 - [[People & devices|People-and-Devices]]
 - [[Recycle bin|Recycle-Bin]]
 - [[Creatures & rewards|Creatures-and-Rewards]]

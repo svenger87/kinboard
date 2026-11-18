@@ -32,15 +32,33 @@ function subscribedTables(): string[] {
   return [...block[1].matchAll(/"([a-z_]+)"/g)].map((m) => m[1]);
 }
 
-/** The file that creates the trigger, and the tables it puts it on. */
-function changeFeed(): { file: string; tables: Set<string>; sql: string } {
+/**
+ * The trigger and the tables it is on. 084_change_feed.sql defines the
+ * function and puts the trigger on its list of tables in a loop (`file`, `sql`);
+ * a table made later (086_layouts.sql) puts its own on itself with a single
+ * CREATE TRIGGER, since 084 is checksummed and cannot change. `tables` is the
+ * union of both; `later` maps each of those later tables to its migration.
+ */
+function changeFeed(): { file: string; tables: Set<string>; sql: string; later: Map<string, string> } {
   const files = migrationFiles().filter((f) => /CREATE\s+TRIGGER\s+kinboard_change_feed\b/i.test(sqlOf(f)));
-  expect(files, "exactly one migration creates the kinboard_change_feed trigger").toHaveLength(1);
-  const sql = sqlOf(files[0]);
+  const loops = files.filter((f) => /FOREACH\s+t\s+IN\s+ARRAY[\s\S]*?kinboard_change_feed/i.test(sqlOf(f)));
+  expect(loops, "exactly one migration loops the kinboard_change_feed trigger over a table list").toHaveLength(1);
+  const file = loops[0];
+  const sql = sqlOf(file);
   // The table list of the loop that creates the trigger.
   const loop = /FOREACH\s+t\s+IN\s+ARRAY\s+ARRAY\[([\s\S]*?)\]\s*LOOP[\s\S]*?kinboard_change_feed/i.exec(sql);
-  if (!loop) throw new Error(`could not find the trigger's table list in ${files[0]}`);
-  return { file: files[0], tables: new Set([...loop[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1])), sql };
+  if (!loop) throw new Error(`could not find the trigger's table list in ${file}`);
+  const tables = new Set([...loop[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]));
+  const later = new Map<string, string>();
+  for (const f of files.filter((x) => x !== file)) {
+    const own = [...sqlOf(f).matchAll(/CREATE\s+TRIGGER\s+kinboard_change_feed\b[\s\S]*?\bON\s+public\.([a-z_]+)/gi)];
+    expect(own.length, `${f} puts the trigger on at least one table`).toBeGreaterThan(0);
+    for (const m of own) {
+      tables.add(m[1]);
+      later.set(m[1], f);
+    }
+  }
+  return { file, tables, sql, later };
 }
 
 test("every table the screens follow has the change-feed trigger", () => {
@@ -81,10 +99,12 @@ test("the trigger migration sorts after every file that creates a followed table
   // The loop skips a table that does not exist yet (to_regclass), so on a
   // fresh database a table created by a later file would get no trigger, and
   // nothing would say so.
-  const { file } = changeFeed();
+  const { file, later } = changeFeed();
   const late: string[] = [];
   let creators = 0;
   for (const table of subscribedTables()) {
+    // A table with a trigger of its own, in the file that makes it, needs no loop.
+    if (later.has(table)) continue;
     const create = new RegExp(`CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?(?:public\\.)?${table}\\b`, "i");
     for (const f of migrationFiles()) {
       if (f === file || !create.test(sqlOf(f))) continue;

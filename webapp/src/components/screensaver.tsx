@@ -1,27 +1,17 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useTranslations, useLocale } from "next-intl";
-import { getIntlLocale } from "@/i18n/intl-locale";
-import { useClock } from "@/hooks/use-clock";
+import { useTranslations } from "next-intl";
+import { useScreensaverData } from "@/hooks/use-screensaver-data";
+import { DesignedScreensaver } from "@/components/layouts/designed-screensaver";
+import { useActiveLayout } from "@/hooks/use-active-layout";
+import { ScreensaverDataProvider, useScreensaverDataValue } from "@/components/layouts/screensaver-data-context";
+import { BirthdayRow, EnergyRows, EventRow, NewsCard, SectionLabel, TeslaRows, useEventWhen, useNewsTime } from "@/components/screensaver-rows";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useBirthdays, useEvents, useHolidayEntries, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, useToday, useWeather, type NewsItem } from "@/hooks";
+import { type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
-import { screensaverListCount } from "@/types/screensaver";
-import { nextEventLine } from "@/lib/next-event-line";
-import { isScreensaverNight } from "@/lib/screensaver-night";
-import { useCreatureBedtime, useFamilyTimeZone } from "@/hooks/use-creature-mood";
-import { useFamilyStore } from "@/stores/family-store";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
-import { PersonAvatar } from "@/components/person-avatar";
-import { Cake, Calendar, GraduationCap, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Battery, Zap, Car } from "lucide-react";
-import { format, differenceInDays, setYear, isPast, addYears, isToday, isTomorrow, addDays, startOfDay, endOfDay, parseISO } from "date-fns";
-import { type Locale } from "date-fns/locale";
-import { getDateFnsLocale } from "@/lib/date-fns-locale";
-import { hasBirthYear } from "@/lib/birthday";
-import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib/holiday-entries";
-import { toLocalDateKey } from "@/lib/local-date";
-import { useTimeFormat } from "@/hooks/use-time-format";
+import { Cake, Calendar, Newspaper, X, ExternalLink, BookOpen, Clock } from "lucide-react";
 import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
 import { WeatherEffects } from "@/components/weather-effects";
 import { ScreensaverWeather } from "@/components/screensaver-weather";
@@ -29,13 +19,6 @@ import { ScreensaverLessons } from "@/components/screensaver-lessons";
 import { CreaturesOnIdle } from "@/components/creatures-on-home";
 import { useFitToWidth, useMediaQuery } from "@/hooks/use-fit-to-width";
 
-// Parse date string safely without timezone shift
-// "1990-01-28" should be January 28th local, not UTC midnight
-function parseBirthdayDate(dateStr: string): Date {
-  return parseISO(dateStr + "T12:00:00");
-}
-/** Delay before cleaning up old blob URLs, allowing animations to finish (ms) */
-const BLOB_CLEANUP_DELAY = 2500;
 /** Auto-close news modal after this much inactivity (ms) */
 const MODAL_INACTIVITY_TIMEOUT = 5 * 60 * 1000;
 
@@ -50,6 +33,8 @@ const MODAL_INACTIVITY_TIMEOUT = 5 * 60 * 1000;
  * So the overlay layer walks a small closed loop of offsets: nothing moves far
  * enough or fast enough to catch the eye, but no edge stays on one pixel.
  */
+/** How long a screensaver waits for the layout queries before it draws the built-in blocks anyway. */
+const LAYOUT_WAIT_MS = 1500;
 const BURN_IN_OFFSETS = ["0px 0px", "8px 5px", "-5px 8px", "6px -7px", "-8px -4px"];
 const BURN_IN_INTERVAL = 4 * 60 * 1000;
 /** Long enough that the shift reads as drift rather than a step. */
@@ -59,78 +44,6 @@ interface ScreensaverProps {
   photos?: string[];
 }
 
-// `now` defaults to the current date; pass a tick value (see `useToday`) so
-// callers recompute when the calendar day rolls over.
-function getNextBirthday(date: Date, now: Date = new Date()): Date {
-  const today = startOfDay(now);
-  const thisYearBirthday = startOfDay(setYear(date, today.getFullYear()));
-
-  if (differenceInDays(today, thisYearBirthday) > 0) {
-    return addYears(thisYearBirthday, 1);
-  }
-  return thisYearBirthday;
-}
-
-function getDaysUntilBirthday(date: Date, now: Date = new Date()): number {
-  const nextBirthday = getNextBirthday(date, now);
-  return differenceInDays(startOfDay(nextBirthday), startOfDay(now));
-}
-
-function calculateUpcomingAge(birthDate: Date): number {
-  const nextBirthday = getNextBirthday(birthDate);
-  return nextBirthday.getFullYear() - birthDate.getFullYear();
-}
-
-/**
- * The order photos are shown in.
- *
- * Rotation used to pick a random index each time, excluding only the one on
- * screen — sampling with replacement. With the ~45 photos a fetch returns and
- * a 30-second rotation, that means a photo comes back around after roughly
- * ten others, about every five minutes, while a few of the fetched photos are
- * never shown at all before the hourly refetch replaces them. That is why the
- * same pictures kept turning up.
- *
- * A shuffle bag deals the whole set in a random order and only reshuffles
- * once it is exhausted, so every photo is shown before any repeats — first
- * repeat after 46 rather than 10, measured over the same pool.
- */
-function makeShuffledOrder(length: number, avoidFirst = -1): number[] {
-  const order = Array.from({ length }, (_, i) => i);
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  // Don't open a fresh bag with the photo that's already on screen — that's
-  // the one visible repeat a shuffle can still produce, at the seam.
-  if (length > 1 && order[0] === avoidFirst) {
-    [order[0], order[order.length - 1]] = [order[order.length - 1], order[0]];
-  }
-  return order;
-}
-
-function formatEventTime(
-  start: Date,
-  allDay: boolean | undefined,
-  labels: { today: string; tomorrow: string },
-  dateLocale: Locale,
-  // Passed in rather than read here: this is a module-level helper, so it
-  // can't call the hook that knows the household's 24-hour setting.
-  formatTime: (value: Date | string | number) => string,
-): string {
-  if (allDay) {
-    if (isToday(start)) return labels.today;
-    if (isTomorrow(start)) return labels.tomorrow;
-    return format(start, "EEE", { locale: dateLocale });
-  }
-  const timeStr = formatTime(start);
-  if (isToday(start)) return `${labels.today}, ${timeStr}`;
-  if (isTomorrow(start)) return `${labels.tomorrow}, ${timeStr}`;
-  return `${format(start, "EEE", { locale: dateLocale })}, ${formatTime(start)}`;
-}
-
-// No default photos — screensaver shows clock-only mode when Immich is not connected
-const DEFAULT_PHOTOS: string[] = [];
 
 
 /**
@@ -187,38 +100,46 @@ function ScreensaverPhotoLayer({
 }
 
 export function Screensaver({ photos }: ScreensaverProps) {
-  const { formatTime, use24Hour } = useTimeFormat();
   const t = useTranslations("components.screensaver");
-  const locale = useLocale();
-  const dateLocale = getDateFnsLocale(locale);
-  const intlLocale = getIntlLocale(locale);
-  const eventLabels = useMemo(
-    () => ({ today: t("eventToday"), tomorrow: t("eventTomorrow") }),
-    [t]
-  );
+  const eventWhen = useEventWhen();
+  const formatNewsTime = useNewsTime();
 
-  // Configurable photo rotation interval from settings
-  const { photoRotationInterval, settings: screensaverSettings } = useScreensaverSettings();
+  const { settings: screensaverSettings } = useScreensaverSettings();
   const largeDetails = screensaverSettings.largeDetails ?? false;
   // One gap between the sections of the bottom stack (events, birthdays, the
   // clock), so the spacing is even: it was 16px between the lists and 24px
   // above the clock (#282). Wider with the large details, as the text is.
   const sectionGap = largeDetails ? "gap-10" : "gap-6";
-  const eventCount = screensaverListCount(screensaverSettings.eventCount, 4);
-  const birthdayCount = screensaverListCount(screensaverSettings.birthdayCount, 3);
-  const showBirthdays = screensaverSettings.showBirthdays ?? true;
-  const showNextEvent = screensaverSettings.showNextEvent ?? true;
-  const photoRotationMs = photoRotationInterval * 1000;
+  const rowScale = largeDetails ? "large" : "normal";
 
-  // Update clock every 60 seconds - screensaver only shows hours:minutes, not seconds
-  // Without the second argument this defaulted to 24-hour, so the screensaver
-  // ignored the household's setting entirely (issue #198).
-  const { hours, minutes, date } = useClock(60000, use24Hour);
-  // Night (RFC-021 §3.4): during the family's bedtime, a dim clock alone.
-  const familyTimeZone = useFamilyTimeZone();
-  const bedtime = useCreatureBedtime();
-  const nightNow = isScreensaverNight(screensaverSettings.night, date, familyTimeZone, bedtime);
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(-1); // -1 means not initialized
+  // The data comes from one hook, called once here (it also runs the photo
+  // rotation), and handed to the layout widgets through the context below.
+  const data = useScreensaverData({ photos });
+  const screensaverData = useScreensaverDataValue(data);
+  // The layout this screen was given, if any: it replaces the news, the
+  // weather column, the bottom cluster and the photo counter below.
+  const active = useActiveLayout("screensaver");
+  const designed = active.layout && active.grid ? { items: active.items, grid: active.grid } : null;
+  // Until the layout queries have answered, neither the built-in blocks nor a
+  // layout: a kiosk with a layout must not show the built-in screensaver
+  // first and then swap. The photo shows meanwhile. Should the answer take
+  // longer than LAYOUT_WAIT_MS (a query failing and retrying), the built-in
+  // screensaver comes, so the screen is never left empty.
+  const [waitedForLayout, setWaitedForLayout] = useState(false);
+  useEffect(() => {
+    if (active.ready) return;
+    const timer = setTimeout(() => setWaitedForLayout(true), LAYOUT_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [active.ready]);
+  const showBuiltIn = !designed && (active.ready || waitedForLayout);
+  const {
+    hours, minutes, nightNow, formattedDate, soon, weather,
+    upcomingEvents, upcomingBirthdays, news,
+    showEnergyWidget, showTeslaWidget, solarPower, batterySoc, gridPower,
+    teslaBattery, teslaRange, teslaChargingRate,
+    photoUrls, photoIndex: currentPhotoIndex, previousPhotoIndex,
+    currentBlobUrl, previousBlobUrl, aspectAt, currentPhotoMetadata,
+  } = data;
   // The screen's own shape, which decides whether a photo is cropped or
   // letterboxed. Kinboard runs on portrait wall panels as well as landscape
   // ones, and a tablet gets rotated, so this is measured rather than assumed.
@@ -234,304 +155,15 @@ export function Screensaver({ photos }: ScreensaverProps) {
       window.removeEventListener("orientationchange", measure);
     };
   }, []);
-  // The shuffled running order and how far through it we are. Refs, because
-  // advancing the bag must not re-render — the rotation effect already
-  // re-runs on every photo change.
-  const photoOrder = useRef<number[]>([]);
-  const photoOrderCursor = useRef(0);
-  const [previousPhotoIndex, setPreviousPhotoIndex] = useState(-1);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [readerOpen, setReaderOpen] = useState(false);
   const [modalLastInteraction, setModalLastInteraction] = useState<number>(0);
 
-  // Fetch birthdays and events
-  const { data: birthdays } = useBirthdays();
-  const { data: people } = usePeople();
-
-  // Fetch news
-  const { data: news } = useNews();
-
-  // Re-render at midnight so the query window and the birthday countdowns
-  // follow the day. Nothing unmounts a screensaver, so without this it would
-  // still be asking for the week it started in a week later.
-  const today = useToday();
-
-  // Get events for the next 7 days
-  const { startDate, endDate } = useMemo(() => {
-    const start = new Date(today); // useToday() is already start-of-day
-    return {
-      startDate: start.toISOString(),
-      endDate: endOfDay(addDays(start, 7)).toISOString(),
-    };
-  }, [today]);
-  const { data: events } = useEvents(startDate, endDate);
-  // Public and school holidays in the same window, behind the calendar's
-  // holiday switch; one a holiday calendar already lists is not listed twice.
-  const todayKey = toLocalDateKey(new Date(today));
-  const { entries: holidays } = useHolidayEntries(todayKey, toLocalDateKey(new Date(endDate)), events, { eventList: true });
-
-  // Fetch photos from configured source (Immich or Unsplash)
-  const { photos: sourcePhotos } = usePhotoSource();
-  const family = useFamilyStore((s) => s.family);
-
-  // Weather chip (renders nothing when unconfigured)
-  const { data: weather } = useWeather();
   const showForecast = screensaverSettings.showForecast ?? false;
   const showLessons = screensaverSettings.showLessons ?? false;
   const weatherEffects = screensaverSettings.weatherEffects ?? false;
 
 
-  // Fetch energy config and entity states for screensaver solar widget
-  const energyConfig = useEnergyConfig();
-  const energyEntityIds = useMemo(() => {
-    if (!energyConfig?.show_on_screensaver) return [];
-    return [
-      energyConfig.solar_power,
-      energyConfig.battery_soc,
-      energyConfig.grid_power,
-    ].filter((id): id is string => !!id);
-  }, [energyConfig]);
-  const { data: energyEntities } = useHomeAssistantEntityStates(
-    energyEntityIds,
-    !!energyConfig?.show_on_screensaver
-  );
-
-  // Parse energy values
-  const solarPower = useMemo(() => {
-    if (!energyConfig?.solar_power || !energyEntities) return null;
-    const entity = energyEntities.find(e => e.entity_id === energyConfig.solar_power);
-    return entity ? parseFloat(entity.state) : null;
-  }, [energyConfig, energyEntities]);
-
-  const batterySoc = useMemo(() => {
-    if (!energyConfig?.battery_soc || !energyEntities) return null;
-    const entity = energyEntities.find(e => e.entity_id === energyConfig.battery_soc);
-    return entity ? parseFloat(entity.state) : null;
-  }, [energyConfig, energyEntities]);
-
-  const gridPower = useMemo(() => {
-    if (!energyConfig?.grid_power || !energyEntities) return null;
-    const entity = energyEntities.find(e => e.entity_id === energyConfig.grid_power);
-    return entity ? parseFloat(entity.state) : null;
-  }, [energyConfig, energyEntities]);
-
-  // Fetch Tesla config and entity states for screensaver Tesla widget
-  const teslaConfig = useTeslaConfig();
-  const teslaEntityIds = useMemo(() => {
-    if (!teslaConfig?.show_on_screensaver) return [];
-    return [
-      teslaConfig.battery_level,
-      teslaConfig.battery_range,
-      teslaConfig.charging_rate || teslaConfig.charger_power,
-    ].filter((id): id is string => !!id);
-  }, [teslaConfig]);
-  const { data: teslaEntities } = useHomeAssistantEntityStates(
-    teslaEntityIds,
-    !!teslaConfig?.show_on_screensaver
-  );
-
-  // Parse Tesla values
-  const teslaBattery = useMemo(() => {
-    if (!teslaConfig?.battery_level || !teslaEntities) return null;
-    const entity = teslaEntities.find(e => e.entity_id === teslaConfig.battery_level);
-    return entity ? parseFloat(entity.state) : null;
-  }, [teslaConfig, teslaEntities]);
-
-  const teslaRange = useMemo(() => {
-    if (!teslaConfig?.battery_range || !teslaEntities) return null;
-    const entity = teslaEntities.find(e => e.entity_id === teslaConfig.battery_range);
-    return entity ? parseFloat(entity.state) : null;
-  }, [teslaConfig, teslaEntities]);
-
-  const teslaChargingRate = useMemo(() => {
-    const sensorId = teslaConfig?.charging_rate || teslaConfig?.charger_power;
-    if (!sensorId || !teslaEntities) return null;
-    const entity = teslaEntities.find(e => e.entity_id === sensorId);
-    return entity ? parseFloat(entity.state) : null;
-  }, [teslaConfig, teslaEntities]);
-
-  const showEnergyWidget = energyConfig?.show_on_screensaver && solarPower !== null;
-  const showTeslaWidget = teslaConfig?.show_on_screensaver && teslaBattery !== null;
-
-  // Use source photos if available, otherwise use props or default
-  const photoUrls = useMemo(() => {
-    if (sourcePhotos && sourcePhotos.length > 0) {
-      return sourcePhotos.map((p) => p.url);
-    }
-    return photos || DEFAULT_PHOTOS;
-  }, [sourcePhotos, photos]);
-
-  // Photos already reported to Unsplash this session. Their guidelines want
-  // one request per display event, not one per render.
-  const reportedDownloads = useRef<Set<string>>(new Set());
-
-  // Get metadata for the current photo (for Unsplash attribution)
-  const currentPhotoMetadata = useMemo(() => {
-    if (currentPhotoIndex < 0 || !sourcePhotos || sourcePhotos.length === 0) return null;
-    return sourcePhotos[currentPhotoIndex]?.metadata || null;
-  }, [currentPhotoIndex, sourcePhotos]);
-
-  // Dimensions where the source reports them (the uploaded library does; the
-  // other four do not). null means "let the browser measure it on load".
-  const aspectAt = useCallback(
-    (index: number): number | null => {
-      if (index < 0 || !sourcePhotos) return null;
-      const photo = sourcePhotos[index];
-      return photo ? aspectOf(photo.width, photo.height) : null;
-    },
-    [sourcePhotos],
-  );
-
-  // Tell Unsplash the photo was displayed.
-  //
-  // Their guidelines: "When your application performs something similar to a
-  // download (like when a user chooses the image to include in a blog post,
-  // set as a header, etc.), you must send a request to the download endpoint."
-  // Showing one as wallpaper is that event, and Kinboard has never sent it —
-  // which is how a photographer's download count reflects the use.
-  //
-  // Fire and forget, once per photo per session: it reports something that
-  // already happened, so a failure must not affect what happens next.
-  useEffect(() => {
-    const downloadLocation = currentPhotoMetadata?.downloadLocation;
-    const familyId = family?.id;
-    if (!downloadLocation || !familyId) return;
-    if (reportedDownloads.current.has(downloadLocation)) return;
-    reportedDownloads.current.add(downloadLocation);
-
-    void fetch("/api/unsplash/track-download", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ family_id: familyId, download_location: downloadLocation }),
-      keepalive: true,
-    }).catch(() => {
-      // Reporting is best-effort; the screensaver carries on regardless.
-    });
-  }, [currentPhotoMetadata, family?.id]);
-
-  // Blob URL cache
-  const blobCache = useRef<Map<number, string>>(new Map());
-  const [currentBlobUrl, setCurrentBlobUrl] = useState<string | null>(null);
-  const [previousBlobUrl, setPreviousBlobUrl] = useState<string | null>(null);
-
-  // Load image as blob and create object URL
-  const loadImageAsBlob = useCallback(async (url: string): Promise<string | null> => {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) return null;
-      const blob = await response.blob();
-      return URL.createObjectURL(blob);
-    } catch {
-      return null;
-    }
-  }, []);
-
-  // Cleanup old blob URLs to free memory
-  const cleanupOldBlobs = useCallback((keepIndices: number[]) => {
-    const toDelete: number[] = [];
-    blobCache.current.forEach((blobUrl, index) => {
-      if (!keepIndices.includes(index)) {
-        URL.revokeObjectURL(blobUrl);
-        toDelete.push(index);
-      }
-    });
-    toDelete.forEach(index => blobCache.current.delete(index));
-  }, []);
-
-  // Initialize: load first random photo
-  useEffect(() => {
-    if (photoUrls.length === 0 || currentPhotoIndex !== -1) return;
-
-    photoOrder.current = makeShuffledOrder(photoUrls.length);
-    photoOrderCursor.current = 1;
-    const initIndex = photoOrder.current[0];
-
-    (async () => {
-      const blobUrl = await loadImageAsBlob(photoUrls[initIndex]);
-      if (blobUrl) {
-        blobCache.current.set(initIndex, blobUrl);
-        // Set index and blob URL together — no gap, no flicker
-        setCurrentBlobUrl(blobUrl);
-        setCurrentPhotoIndex(initIndex);
-      }
-    })();
-  }, [photoUrls, currentPhotoIndex, loadImageAsBlob]);
-
-  // Rotate photos at configured interval — preload fully before switching
-  useEffect(() => {
-    // No photos at night: nothing to show them, nothing to download.
-    if (nightNow || photoUrls.length <= 1 || currentPhotoIndex === -1) return;
-
-    const timer = setInterval(async () => {
-      // A new set of photos arrived (the hourly refetch), or the bag ran
-      // out — deal a fresh one rather than indexing into a stale order.
-      if (
-        photoOrder.current.length !== photoUrls.length ||
-        photoOrderCursor.current >= photoOrder.current.length
-      ) {
-        photoOrder.current = makeShuffledOrder(photoUrls.length, currentPhotoIndex);
-        photoOrderCursor.current = 0;
-      }
-      const nextIndex = photoOrder.current[photoOrderCursor.current];
-      photoOrderCursor.current += 1;
-
-      // Ensure the next image blob is ready before switching
-      let nextBlobUrl = blobCache.current.get(nextIndex) ?? null;
-      if (!nextBlobUrl) {
-        nextBlobUrl = await loadImageAsBlob(photoUrls[nextIndex]);
-        if (nextBlobUrl) {
-          blobCache.current.set(nextIndex, nextBlobUrl);
-        }
-      }
-
-      if (!nextBlobUrl) return; // skip transition if load failed
-
-      // Set all state atomically — React batches these, so only one render
-      setPreviousBlobUrl(currentBlobUrl);
-      setPreviousPhotoIndex(currentPhotoIndex);
-      setCurrentBlobUrl(nextBlobUrl);
-      setCurrentPhotoIndex(nextIndex);
-
-      // Cleanup old blobs after crossfade animation completes
-      setTimeout(() => {
-        cleanupOldBlobs([nextIndex, currentPhotoIndex].filter(i => i >= 0));
-      }, BLOB_CLEANUP_DELAY);
-    }, photoRotationMs);
-
-    return () => clearInterval(timer);
-  }, [photoUrls, currentPhotoIndex, currentBlobUrl, photoRotationMs, loadImageAsBlob, cleanupOldBlobs, nightNow]);
-
-  // Proactively preload the next image mid-interval so it's ready when the timer fires
-  useEffect(() => {
-    if (photoUrls.length <= 1 || currentPhotoIndex === -1) return;
-
-    const preloadTimer = setTimeout(async () => {
-      // Preload the photo that is genuinely next, not a guess. This used to
-      // pick at random, which with a set of ~45 had about a one-in-45 chance
-      // of preloading the one actually shown next — so the crossfade nearly
-      // always waited on a cold fetch anyway. The running order knows.
-      const order = photoOrder.current;
-      if (order.length === 0) return;
-      const candidateIndex = order[photoOrderCursor.current % order.length];
-      if (!blobCache.current.has(candidateIndex)) {
-        const blobUrl = await loadImageAsBlob(photoUrls[candidateIndex]);
-        if (blobUrl) {
-          blobCache.current.set(candidateIndex, blobUrl);
-        }
-      }
-    }, photoRotationMs / 2);
-
-    return () => clearTimeout(preloadTimer);
-  }, [photoUrls, currentPhotoIndex, photoRotationMs, loadImageAsBlob]);
-
-  // Cleanup all blobs on unmount
-  useEffect(() => {
-    const cache = blobCache.current;
-    return () => {
-      cache.forEach(blobUrl => URL.revokeObjectURL(blobUrl));
-      cache.clear();
-    };
-  }, []);
 
   // Set body attribute when modal is open to disable screensaver wake
   useEffect(() => {
@@ -586,108 +218,6 @@ export function Screensaver({ photos }: ScreensaverProps) {
   const handleModalInteraction = () => {
     setModalLastInteraction(Date.now());
   };
-
-  // Format relative time for news
-  const formatNewsTime = (pubDate: string) => {
-    try {
-      const date = new Date(pubDate);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMins / 60);
-
-      if (diffMins < 1) return t("newsJustNow");
-      if (diffMins < 60) return t("newsMinutes", { minutes: diffMins });
-      if (diffHours < 24) return t("newsHours", { hours: diffHours });
-      // `P` is date-fns' localised short date, so French reads as French
-      // instead of falling into the English branch of a de/else ternary.
-      return format(date, "P", { locale: dateLocale });
-    } catch {
-      return "";
-    }
-  };
-
-  const formattedDate = date.toLocaleDateString(intlLocale, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-
-  // Process upcoming birthdays (next 30 days)
-  const upcomingBirthdays = useMemo(() => {
-    if (!birthdays || !showBirthdays) return [];
-    return birthdays
-      .map((birthday) => {
-        const person = people?.find((p) => p.id === birthday.person_id);
-        return {
-          id: birthday.id,
-          name: birthday.name,
-          date: parseBirthdayDate(birthday.date),
-          daysUntil: getDaysUntilBirthday(parseBirthdayDate(birthday.date), new Date(today)),
-          personColor: person?.color,
-        };
-      })
-      .filter((b) => b.daysUntil <= 30)
-      .sort((a, b) => a.daysUntil - b.daysUntil)
-      .slice(0, birthdayCount);
-  }, [birthdays, people, today, showBirthdays, birthdayCount]);
-
-  // Process upcoming events. Holidays are all-day items among them, counted
-  // against the same rows (four unless the family chose 1 to 5); a break already under way is filed under
-  // today, with the day it ends.
-  const upcomingEvents = useMemo(() => {
-    const holidayItems = holidays.map((h) => ({
-      id: h.id,
-      title: h.emoji ? `${h.emoji} ${h.title}` : h.title,
-      start: entryListDay(h, todayKey),
-      allDay: true,
-      location: null as string | null,
-      color: HOLIDAY_COLOR,
-      personName: null as string | null,
-      personColor: null as string | null,
-      personAvatar: null as string | null,
-      holiday: h.kind,
-      until: h.endKey > h.startKey ? format(keyToDate(h.endKey), holidayEndPattern(locale), { locale: dateLocale }) : null,
-    }));
-    const eventItems = (events ?? [])
-      .map((event) => {
-        const personId = event.person_id || event.calendar?.person_id;
-        const person = personId ? people?.find((p) => p.id === personId) : undefined;
-        return {
-          id: event.id,
-          title: event.title,
-          start: new Date(event.start_at),
-          allDay: event.all_day,
-          location: event.location,
-          color: person?.color || event.calendar?.color || "#3b82f6",
-          personName: person?.name ?? null,
-          personColor: person?.color ?? null,
-          personAvatar: person?.avatar_url ?? null,
-          holiday: null,
-          until: null,
-        };
-      });
-    // Holidays first, so on a tie the sort (stable) keeps them ahead.
-    return [...holidayItems, ...eventItems]
-      .sort((a, b) => a.start.getTime() - b.start.getTime())
-      .slice(0, eventCount);
-  }, [events, people, holidays, todayKey, locale, dateLocale, eventCount]);
-
-  // In the hour before an event that starts at a time, one line under the
-  // date (RFC-021 §3.2). `date` is the clock's, so it moves on the minute.
-  const soon = useMemo(() => {
-    if (!showNextEvent) return null;
-    return nextEventLine(
-      (events ?? []).map((e) => ({
-        title: e.title,
-        start: new Date(e.start_at),
-        allDay: e.all_day,
-        personId: e.person_id || e.calendar?.person_id || null,
-      })),
-      date,
-      people ?? [],
-    );
-  }, [showNextEvent, events, date, people]);
 
   // The news list stops above whatever sits below it on the screen (the
   // clock, and the events where they share its column): it used to run down
@@ -777,621 +307,420 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // screen as always (the screensaver gate listens on the document).
   if (nightNow) {
     return (
-      <div className="fixed inset-0 z-[100] bg-black screensaver-fade-in" data-testid="screensaver-night">
-        <div className="absolute inset-0 flex items-center justify-center" style={burnInStyle}>
-          <span className="font-display font-light text-white/35 clock-display tracking-tighter leading-none text-[clamp(5rem,18vw,12rem)]">
-            {hours}
-            <span className="mx-1 text-white/20 landscape:lg:mx-2">:</span>
-            {minutes}
-          </span>
+      <ScreensaverDataProvider value={screensaverData}>
+        <div className="fixed inset-0 z-[100] bg-black screensaver-fade-in" data-testid="screensaver-night">
+          <div className="absolute inset-0 flex items-center justify-center" style={burnInStyle}>
+            <span className="font-display font-light text-white/35 clock-display tracking-tighter leading-none text-[clamp(5rem,18vw,12rem)]">
+              {hours}
+              <span className="mx-1 text-white/20 landscape:lg:mx-2">:</span>
+              {minutes}
+            </span>
+          </div>
+          {/* Asleep along the bottom, faint (RFC-021 §3.4). */}
+          <CreaturesOnIdle dim />
         </div>
-        {/* Asleep along the bottom, faint (RFC-021 §3.4). */}
-        <CreaturesOnIdle dim />
-      </div>
+      </ScreensaverDataProvider>
     );
   }
 
   return (
-    <div
-      className={`fixed inset-0 z-[100] screensaver-fade-in ${
-        currentBlobUrl ? "bg-black" : "screensaver-canvas-empty"
-      }`}
-    >
-      {/* Background Photo - Only render current and previous for performance */}
-      <div className="absolute inset-0">
-        {/* Previous photo (fading out) */}
-        {previousBlobUrl && previousPhotoIndex !== currentPhotoIndex && (
-          <ScreensaverPhotoLayer
-            key={`prev-${previousPhotoIndex}`}
-            src={previousBlobUrl}
-            photoAspect={aspectAt(previousPhotoIndex)}
-            viewportAspect={viewportAspect}
-            className="screensaver-photo screensaver-photo-out"
-          />
-        )}
-        {/* Current photo (fading in) */}
-        {currentBlobUrl && (
-          <ScreensaverPhotoLayer
-            key={`curr-${currentPhotoIndex}`}
-            src={currentBlobUrl}
-            photoAspect={aspectAt(currentPhotoIndex)}
-            viewportAspect={viewportAspect}
-            className="screensaver-photo screensaver-photo-in"
-          />
-        )}
-
-        {/* Gradient overlay for readability */}
-        {currentBlobUrl && (
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40" />
-        )}
-      </div>
-
-      {/* The weather effects, when switched on for the screensaver (#282),
-          and a festival's visitor (RFC-020): above the photo, below the clock
-          and everything else here. The visitor's passes move pixels against
-          burn-in alongside BURN_IN_OFFSETS. With the effects off this is the
-          visitor alone, as before. */}
-      <WeatherEffects placement="screensaver" enabled={weatherEffects} />
-
-      {/* The children's creatures along the bottom edge (RFC-021 §3.1), above
-          the photo and under everything that reads. The clock and the events
-          are lifted by the floor's height (--idle-creature-floor). */}
-      <CreaturesOnIdle />
-
-      {/* News list - top left (always rendered for data-no-wake) */}
-      {(screensaverSettings.showNews ?? true) && news && news.length > 0 && (
-        <div
-          className={`absolute top-12 left-12 w-[min(25rem,55vw)] screensaver-slide-down ${selectedNews ? 'opacity-0 pointer-events-none' : ''}`}
-          style={{ animationDelay: "0.8s", backgroundColor: "rgba(0,0,0,0.001)", ...newsStyle, ...burnInStyle }}
-          data-no-wake
-          data-saver-block="news"
-        >
-          <div className="flex items-center gap-2 text-white/60 mb-3">
-            <Newspaper className="size-4" />
-            <span className="text-xs landscape:lg:text-sm font-medium uppercase tracking-wider">{t("newsLabel")}</span>
-          </div>
-          <div
-            ref={newsListRef}
-            className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto scrollbar-hide"
-            style={{
-              ...(newsRoom !== null ? { maxHeight: `min(60vh, ${newsRoom}px)` } : {}),
-              ...(newsClipped ? { maskImage: "linear-gradient(to bottom, black calc(100% - 3rem), transparent)", WebkitMaskImage: "linear-gradient(to bottom, black calc(100% - 3rem), transparent)" } : {}),
-            }}
-          >
-            {news.slice(0, 6).map((item) => (
-              <button
-                key={item.link}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedNews(item);
-                }}
-                className="w-full flex gap-3 bg-black/50 rounded-lg p-2 hover:bg-black/60 transition-colors text-left group gpu-blur"
-              >
-                {item.image && (
-                  <div className="size-16 rounded-md overflow-hidden shrink-0 bg-white/10">
-                    <img
-                      src={item.image}
-                      alt=""
-                      className="size-full object-cover"
-                      onError={(e) => {
-                        // Hiding just the <img> left its 64px wrapper behind as
-                        // a bare grey rectangle (audit KB-20). Collapse the
-                        // container so the headline takes the full width.
-                        const wrapper = (e.currentTarget as HTMLImageElement).parentElement;
-                        if (wrapper) wrapper.style.display = "none";
-                      }}
-                    />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium leading-snug line-clamp-2 group-hover:text-white/90">
-                    {item.title}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {item.category && (
-                      <span className="text-xs text-info/80 font-medium">
-                        {item.category}
-                      </span>
-                    )}
-                    <span className="text-xs text-white/40">
-                      {formatNewsTime(item.pubDate)}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/*
-        Top right, one column: the weather (with the forecast strip when it is
-        on, #282) and under it the energy and Tesla widget. They used to sit at
-        fixed offsets from the top, which a taller weather block would run into.
-      */}
+    <ScreensaverDataProvider value={screensaverData}>
       <div
-        ref={weatherColumnRef}
-        className="absolute top-12 right-12 flex flex-col items-end gap-3"
-        style={burnInStyle}
-        data-saver-block="weather"
+        className={`fixed inset-0 z-[100] screensaver-fade-in ${
+          currentBlobUrl ? "bg-black" : "screensaver-canvas-empty"
+        }`}
       >
-      {/* Weather - renders nothing when weather is unconfigured */}
-      {weather && (
-        <div className="screensaver-slide-down" style={{ animationDelay: "0.85s" }}>
-          <ScreensaverWeather weather={weather} showForecast={showForecast} large={largeDetails} />
+        {/* Background Photo - Only render current and previous for performance */}
+        <div className="absolute inset-0">
+          {/* Previous photo (fading out) */}
+          {previousBlobUrl && previousPhotoIndex !== currentPhotoIndex && (
+            <ScreensaverPhotoLayer
+              key={`prev-${previousPhotoIndex}`}
+              src={previousBlobUrl}
+              photoAspect={aspectAt(previousPhotoIndex)}
+              viewportAspect={viewportAspect}
+              className="screensaver-photo screensaver-photo-out"
+            />
+          )}
+          {/* Current photo (fading in) */}
+          {currentBlobUrl && (
+            <ScreensaverPhotoLayer
+              key={`curr-${currentPhotoIndex}`}
+              src={currentBlobUrl}
+              photoAspect={aspectAt(currentPhotoIndex)}
+              viewportAspect={viewportAspect}
+              className="screensaver-photo screensaver-photo-in"
+            />
+          )}
+
+          {/* Gradient overlay for readability */}
+          {currentBlobUrl && (
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40" />
+          )}
         </div>
-      )}
 
-      {/* Energy + Tesla widget (if either enabled) */}
-      {(showEnergyWidget || showTeslaWidget) && (
-        <div
-          className="screensaver-slide-down"
-          style={{ animationDelay: "0.9s" }}
-        >
-          <div className="bg-black/50 rounded-xl p-4 flex flex-col gap-3 gpu-blur">
-            {/* Solar Power */}
-            {showEnergyWidget && solarPower !== null && (
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-energy-solar/20">
-                  <Sun className="size-5 text-energy-solar" />
-                </div>
-                <div>
-                  <p className="text-white/60 text-xs">Solar</p>
-                  <p className="text-white font-medium">
-                    {solarPower >= 1000
-                      ? `${(solarPower / 1000).toFixed(1)} kW`
-                      : `${Math.round(solarPower)} W`}
-                  </p>
-                </div>
-              </div>
-            )}
+        {/* The weather effects, when switched on for the screensaver (#282),
+            and a festival's visitor (RFC-020): above the photo, below the clock
+            and everything else here. The visitor's passes move pixels against
+            burn-in alongside BURN_IN_OFFSETS. With the effects off this is the
+            visitor alone, as before. */}
+        <WeatherEffects placement="screensaver" enabled={weatherEffects} />
 
-            {/* Battery SOC */}
-            {showEnergyWidget && batterySoc !== null && (
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-energy-battery/20">
-                  <Battery className="size-5 text-energy-battery" />
-                </div>
-                <div>
-                  <p className="text-white/60 text-xs">Batterie</p>
-                  <p className="text-white font-medium">{Math.round(batterySoc)}%</p>
-                </div>
-              </div>
-            )}
+        {/* The children's creatures along the bottom edge (RFC-021 §3.1), above
+            the photo and under everything that reads. The clock and the events
+            are lifted by the floor's height (--idle-creature-floor). */}
+        <CreaturesOnIdle />
 
-            {/* Grid Power */}
-            {showEnergyWidget && gridPower !== null && (
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${gridPower > 0 ? 'bg-destructive/20' : 'bg-success/20'}`}>
-                  <Zap className={`size-5 ${gridPower > 0 ? 'text-destructive' : 'text-success'}`} />
-                </div>
-                <div>
-                  <p className="text-white/60 text-xs">{gridPower > 0 ? 'Bezug' : 'Einspeisung'}</p>
-                  <p className="text-white font-medium">
-                    {Math.abs(gridPower) >= 1000
-                      ? `${(Math.abs(gridPower) / 1000).toFixed(1)} kW`
-                      : `${Math.round(Math.abs(gridPower))} W`}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Divider between energy and Tesla */}
-            {showEnergyWidget && showTeslaWidget && (
-              <div className="border-t border-white/10" />
-            )}
-
-            {/* Tesla Battery */}
-            {showTeslaWidget && teslaBattery !== null && (
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/20">
-                  <Car className="size-5 text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-white/60 text-xs">Tesla</p>
-                  <p className="text-white font-medium">
-                    {Math.round(teslaBattery)}%
-                    {teslaRange !== null && <span className="text-white/50 text-xs ml-1.5">· {Math.round(teslaRange)} km</span>}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Tesla Charging */}
-            {showTeslaWidget && teslaChargingRate !== null && teslaChargingRate > 0 && (
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-energy-grid/20">
-                  <Zap className="size-5 text-energy-grid" />
-                </div>
-                <div>
-                  <p className="text-white/60 text-xs">Laden</p>
-                  <p className="text-white font-medium">{teslaChargingRate.toFixed(1)} kW</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      </div>
-      {/* end top right */}
-
-      {/* News detail modal */}
-      <AnimatePresence>
-        {selectedNews && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/85"
-            role="dialog"
-            aria-modal="true"
-            aria-label={selectedNews.title}
+        {showBuiltIn && (
+          <>
+        {/* News list - top left (always rendered for data-no-wake) */}
+        {(screensaverSettings.showNews ?? true) && news && news.length > 0 && (
+          <div
+            className={`absolute top-12 left-12 w-[min(25rem,55vw)] screensaver-slide-down ${selectedNews ? 'opacity-0 pointer-events-none' : ''}`}
+            style={{ animationDelay: "0.8s", backgroundColor: "rgba(0,0,0,0.001)", ...newsStyle, ...burnInStyle }}
             data-no-wake
-            onClick={() => setSelectedNews(null)}
-            onMouseMove={handleModalInteraction}
-            onTouchStart={handleModalInteraction}
-            onKeyDown={(e) => { if (e.key === "Escape") setSelectedNews(null); }}
+            data-saver-block="news"
           >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={{ type: "spring", damping: 25 }}
-              className="modal-safe-area relative bg-zinc-900 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto elev-lg"
-              onClick={(e) => e.stopPropagation()}
+            <SectionLabel icon={Newspaper} label={t("newsLabel")} scale="normal" className="mb-3" />
+            <div
+              ref={newsListRef}
+              className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto scrollbar-hide"
+              style={{
+                ...(newsRoom !== null ? { maxHeight: `min(60vh, ${newsRoom}px)` } : {}),
+                ...(newsClipped ? { maskImage: "linear-gradient(to bottom, black calc(100% - 3rem), transparent)", WebkitMaskImage: "linear-gradient(to bottom, black calc(100% - 3rem), transparent)" } : {}),
+              }}
             >
-              {/* News image */}
-              {selectedNews.image && (
-                <div className="relative w-full h-48 landscape:lg:h-64 bg-zinc-800">
-                  <img
-                    src={selectedNews.image}
-                    alt=""
-                    className="size-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/80 to-transparent" />
-                </div>
+              {news.slice(0, 6).map((item) => (
+                <NewsCard key={item.link} item={item} time={formatNewsTime(item.pubDate)} scale="normal" onSelect={setSelectedNews} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/*
+          Top right, one column: the weather (with the forecast strip when it is
+          on, #282) and under it the energy and Tesla widget. They used to sit at
+          fixed offsets from the top, which a taller weather block would run into.
+        */}
+        <div
+          ref={weatherColumnRef}
+          className="absolute top-12 right-12 flex flex-col items-end gap-3"
+          style={burnInStyle}
+          data-saver-block="weather"
+        >
+        {/* Weather - renders nothing when weather is unconfigured */}
+        {weather && (
+          <div className="screensaver-slide-down" style={{ animationDelay: "0.85s" }}>
+            <ScreensaverWeather weather={weather} showForecast={showForecast} large={largeDetails} />
+          </div>
+        )}
+
+        {/* Energy + Tesla widget (if either enabled) */}
+        {(showEnergyWidget || showTeslaWidget) && (
+          <div
+            className="screensaver-slide-down"
+            style={{ animationDelay: "0.9s" }}
+          >
+            <div className="bg-black/50 rounded-xl p-4 flex flex-col gap-3 gpu-blur">
+              {showEnergyWidget && (
+                <EnergyRows solarPower={solarPower} batterySoc={batterySoc} gridPower={gridPower} scale="normal" />
               )}
 
-              {/* Close button */}
-              <button
-                onClick={() => setSelectedNews(null)}
-                className="absolute top-4 right-4 p-2.5 rounded-lg bg-black/50 hover:bg-white/10 text-white/80 hover:text-white transition-all"
-                aria-label={t("newsCloseAria")}
+              {/* Divider between energy and Tesla */}
+              {showEnergyWidget && showTeslaWidget && (
+                <div className="border-t border-white/10" />
+              )}
+
+              {showTeslaWidget && (
+                <TeslaRows teslaBattery={teslaBattery} teslaRange={teslaRange} teslaChargingRate={teslaChargingRate} scale="normal" />
+              )}
+            </div>
+          </div>
+        )}
+        </div>
+        {/* end top right */}
+          </>
+        )}
+
+        {/* News detail modal */}
+        <AnimatePresence>
+          {selectedNews && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/85"
+              role="dialog"
+              aria-modal="true"
+              aria-label={selectedNews.title}
+              data-no-wake
+              onClick={() => setSelectedNews(null)}
+              onMouseMove={handleModalInteraction}
+              onTouchStart={handleModalInteraction}
+              onKeyDown={(e) => { if (e.key === "Escape") setSelectedNews(null); }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                transition={{ type: "spring", damping: 25 }}
+                className="modal-safe-area relative bg-zinc-900 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto elev-lg"
+                onClick={(e) => e.stopPropagation()}
               >
-                <X className="size-6" />
-              </button>
-
-              {/* Content */}
-              <div className="p-6">
-                {/* Category and time */}
-                <div className="flex items-center gap-3 mb-3">
-                  {selectedNews.category && (
-                    <span className="px-2 py-1 bg-info/20 text-info text-xs font-medium rounded">
-                      {selectedNews.category}
-                    </span>
-                  )}
-                  <div className="flex items-center gap-1 text-white/40 text-xs">
-                    <Clock className="size-3" />
-                    <span>{formatNewsTime(selectedNews.pubDate)}</span>
+                {/* News image */}
+                {selectedNews.image && (
+                  <div className="relative w-full h-48 landscape:lg:h-64 bg-zinc-800">
+                    <img
+                      src={selectedNews.image}
+                      alt=""
+                      className="size-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/80 to-transparent" />
                   </div>
-                </div>
-
-                {/* Title */}
-                <h2 className="text-xl landscape:lg:text-2xl font-semibold text-white mb-4 leading-tight">
-                  {selectedNews.title}
-                </h2>
-
-                {/* Description */}
-                {selectedNews.description && (
-                  <p className="text-white/70 text-sm landscape:lg:text-base leading-relaxed mb-6">
-                    {selectedNews.description}
-                  </p>
                 )}
 
-                {/* Actions */}
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={() => setReaderOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
-                  >
-                    <BookOpen className="size-4" />
-                    <span className="text-sm font-medium">{t("newsRead")}</span>
-                  </button>
-                  <a
-                    href={selectedNews.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white/80 rounded-lg transition-colors text-sm"
-                    aria-label={t("newsOpenOriginal")}
-                  >
-                    <ExternalLink className="size-4" />
-                  </a>
-                  <button
-                    onClick={() => setSelectedNews(null)}
-                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white/80 rounded-lg transition-colors text-sm"
-                  >
-                    {t("newsClose")}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* In-app reader-mode sheet — opens on top of the screensaver
-          when the user clicks "Read article". Sanitized HTML, no
-          external nav. */}
-      <NewsArticleSheet
-        url={selectedNews?.link ?? null}
-        open={readerOpen}
-        onOpenChange={(o) => {
-          setReaderOpen(o);
-          if (o) handleModalInteraction();
-        }}
-        fallbackSourceName={selectedNews?.sourceName}
-        elevated
-      />
-
-      {/*
-        Bottom cluster: the clock and the events/birthdays block.
-
-        On a landscape desktop panel these sit in opposite corners and never
-        meet, so each keeps its own absolute position and the wrapper below
-        dissolves (`display: contents`).
-
-        Everywhere else — portrait wall panels, and landscape under `lg` — they
-        stack, and they used to do it by each anchoring itself to the bottom
-        edge with a hand-picked offset: the clock at `bottom-32` (128px) and
-        the block at `bottom-56` (224px), i.e. 96px reserved for a clock that
-        actually renders 108px tall. It overlapped the last event card by 12px,
-        and the reserved figure was a guess that any change to the date string,
-        the locale or the font size would invalidate again.
-
-        One flow container with a real gap cannot be off by 12px, so the
-        spacing stops being a number anybody has to maintain. `flex-col-reverse`
-        keeps the events above the clock without moving either block in the
-        source — DOM order is what the landscape layout reads.
-      */}
-      <div
-        className={`absolute inset-x-12 bottom-[calc(3rem+var(--idle-creature-floor,0px))] flex flex-col-reverse ${sectionGap} landscape:lg:contents`}
-      >
-      {/* Clock overlay - bottom left (compact for mobile & portrait). A festival's fireworks go up over it (RFC-020). */}
-      <div
-        ref={clockBlockRef}
-        data-festival-anchor="screensaver-clock"
-        data-saver-block="clock"
-        className="landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:left-12 screensaver-slide-up"
-        style={{ animationDelay: "0.5s", ...burnInStyle }}
-      >
-        <div
-          ref={clockDigitsRef}
-          className="flex w-fit items-baseline"
-          style={clockFit ? { fontSize: clockFit } : undefined}
-          data-testid="screensaver-clock-digits"
-        >
-          <span className={`font-display font-light ${clockSize} text-white clock-display tracking-tighter leading-none`}>
-            {hours}
-          </span>
-          <span className={`font-display font-light ${clockSize} text-white/30 ${clockFit ? "mx-[0.03em]" : "mx-1 landscape:lg:mx-2"} leading-none`}>
-            :
-          </span>
-          <span className={`font-display font-light ${clockSize} text-white clock-display tracking-tighter leading-none`}>
-            {minutes}
-          </span>
-        </div>
-        <p className={`${largeDetails ? "text-2xl landscape:lg:text-4xl" : "text-xl landscape:lg:text-2xl"} font-light text-white/60 mt-2 tracking-wide`}>
-          {formattedDate}
-        </p>
-        {soon && (
-          <p
-            className={`mt-3 inline-block max-w-full truncate rounded-lg bg-white/15 px-3 py-1 font-semibold text-white ${largeDetails ? "text-2xl landscape:lg:text-3xl" : "text-lg landscape:lg:text-xl"}`}
-            data-testid="screensaver-next-event"
-            data-child={soon.child ? "true" : "false"}
-          >
-            {t(soon.child ? "nextEventChild" : "nextEventAdult", { title: soon.title, minutes: soon.minutes })}
-          </p>
-        )}
-      </div>
-
-      {/* Right side - Events and Birthdays (above clock for portrait/mobile, right side for landscape desktop) */}
-      <div
-        ref={eventsBlockRef}
-        data-saver-block="events"
-        className={`max-w-sm landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:right-12 flex flex-col ${sectionGap} screensaver-slide-right`}
-        style={{ animationDelay: "0.7s", maxWidth: largeDetails ? "36rem" : undefined, ...burnInStyle }}
-      >
-        {/* Upcoming Events */}
-        {upcomingEvents.length > 0 && (
-          <div className="flex flex-col gap-2 landscape:lg:gap-3">
-            <div className="flex items-center gap-2 text-white/60">
-              <Calendar className="size-4" />
-              <span className={`${largeDetails ? "text-lg" : "text-xs landscape:lg:text-sm"} font-medium uppercase tracking-wider`}>{t("eventsLabel")}</span>
-            </div>
-            <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
-              {upcomingEvents.map((event) => (
-                <div
-                  key={event.id}
-                  data-holiday={event.holiday ?? undefined}
-                  className="flex items-center gap-2 landscape:lg:gap-3 bg-black/40 rounded-lg px-3 py-1.5 landscape:lg:px-4 landscape:lg:py-2 gpu-blur"
+                {/* Close button */}
+                <button
+                  onClick={() => setSelectedNews(null)}
+                  className="absolute top-4 right-4 p-2.5 rounded-lg bg-black/50 hover:bg-white/10 text-white/80 hover:text-white transition-all"
+                  aria-label={t("newsCloseAria")}
                 >
-                  {event.holiday ? (
-                    // The calendar's holiday amber, with the holiday's emoji
-                    // or, for a school break, a cap.
-                    <div
-                      className="size-8 rounded-full flex items-center justify-center shrink-0 bg-amber-400/25"
-                      aria-hidden="true"
-                    >
-                      {event.holiday === "school" ? (
-                        <GraduationCap className="size-4 text-amber-300" />
-                      ) : (
-                        <Calendar className="size-4 text-amber-300" />
-                      )}
-                    </div>
-                  ) : event.personName ? (
-                    <PersonAvatar
-                      name={event.personName}
-                      color={event.personColor ?? event.color}
-                      avatarUrl={event.personAvatar}
-                      size={32}
-                      className="shrink-0"
-                    />
-                  ) : (
-                    <div
-                      className="w-1 h-8 rounded-full shrink-0"
-                      style={{ backgroundColor: event.color }}
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    {/* A holiday's name wraps, two lines at most, rather
-                        than being cut: it is the whole of the row. */}
-                    <p
-                      className={`text-white font-medium ${event.holiday ? "line-clamp-2 break-words" : "truncate"} ${largeDetails ? "text-xl" : "text-sm"}`}
-                    >
-                      {event.title}
-                    </p>
-                    <div className={`flex items-center gap-2 text-white/50 ${largeDetails ? "text-base" : "text-xs"}`}>
-                      <span>
-                        {formatEventTime(event.start, event.allDay, eventLabels, dateLocale, formatTime)}
-                        {event.until && ` · ${t("holidayUntil", { date: event.until })}`}
+                  <X className="size-6" />
+                </button>
+
+                {/* Content */}
+                <div className="p-6">
+                  {/* Category and time */}
+                  <div className="flex items-center gap-3 mb-3">
+                    {selectedNews.category && (
+                      <span className="px-2 py-1 bg-info/20 text-info text-xs font-medium rounded">
+                        {selectedNews.category}
                       </span>
-                      {event.location && (
-                        <span className="flex items-center gap-1 truncate">
-                          <MapPin className="size-3 shrink-0" />
-                          <span className="truncate">{event.location}</span>
-                        </span>
-                      )}
+                    )}
+                    <div className="flex items-center gap-1 text-white/40 text-xs">
+                      <Clock className="size-3" />
+                      <span>{formatNewsTime(selectedNews.pubDate)}</span>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* Upcoming Birthdays */}
-        {upcomingBirthdays.length > 0 && (
-          <div className="flex flex-col gap-2 landscape:lg:gap-3">
-            <div className="flex items-center gap-2 text-white/60">
-              <Cake className="size-4" />
-              <span className={`${largeDetails ? "text-lg" : "text-xs landscape:lg:text-sm"} font-medium uppercase tracking-wider`}>{t("birthdaysLabel")}</span>
-            </div>
-            <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
-              {upcomingBirthdays.map((birthday) => (
-                <div
-                  key={birthday.id}
-                  className="flex items-center gap-2 landscape:lg:gap-3 bg-black/40 rounded-lg px-3 py-1.5 landscape:lg:px-4 landscape:lg:py-2 gpu-blur"
-                >
-                  <div
-                    className="size-8 rounded-full flex items-center justify-center shrink-0"
-                    style={{
-                      backgroundColor: birthday.daysUntil === 0
-                        ? "#ec4899"
-                        : birthday.personColor
-                          ? `${birthday.personColor}30`
-                          : "rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    <Cake
-                      className="size-4"
-                      style={{
-                        color: birthday.daysUntil === 0
-                          ? "white"
-                          : birthday.personColor || "rgba(255,255,255,0.7)"
-                      }}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-white font-medium truncate ${largeDetails ? "text-xl" : "text-sm"}`}>
-                      {/* No birth year stored means no age to announce - see hasBirthYear. */}
-                      {hasBirthYear(birthday.date)
-                        ? t("birthdayTurns", { name: birthday.name, age: calculateUpcomingAge(birthday.date) })
-                        : birthday.name}
+                  {/* Title */}
+                  <h2 className="text-xl landscape:lg:text-2xl font-semibold text-white mb-4 leading-tight">
+                    {selectedNews.title}
+                  </h2>
+
+                  {/* Description */}
+                  {selectedNews.description && (
+                    <p className="text-white/70 text-sm landscape:lg:text-base leading-relaxed mb-6">
+                      {selectedNews.description}
                     </p>
-                    <p className={`text-white/50 ${largeDetails ? "text-base" : "text-xs"}`}>
-                      {format(birthday.date, locale === "de" ? "d. MMMM" : "MMMM d", { locale: dateLocale })}
-                    </p>
-                  </div>
-                  <div
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      birthday.daysUntil === 0
-                        ? "bg-pink-500 text-white"
-                        : birthday.daysUntil <= 7
-                        ? "bg-warning/20 text-warning"
-                        : "bg-white/10 text-white/70"
-                    }`}
-                  >
-                    {birthday.daysUntil === 0
-                      ? t("birthdayToday")
-                      : t("birthdayDays", { count: birthday.daysUntil })}
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => setReaderOpen(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+                    >
+                      <BookOpen className="size-4" />
+                      <span className="text-sm font-medium">{t("newsRead")}</span>
+                    </button>
+                    <a
+                      href={selectedNews.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white/80 rounded-lg transition-colors text-sm"
+                      aria-label={t("newsOpenOriginal")}
+                    >
+                      <ExternalLink className="size-4" />
+                    </a>
+                    <button
+                      onClick={() => setSelectedNews(null)}
+                      className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white/80 rounded-lg transition-colors text-sm"
+                    >
+                      {t("newsClose")}
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* The children's lessons and what to bring (#282). */}
-        {showLessons && <ScreensaverLessons large={largeDetails} />}
+        {/* In-app reader-mode sheet — opens on top of the screensaver
+            when the user clicks "Read article". Sanitized HTML, no
+            external nav. */}
+        <NewsArticleSheet
+          url={selectedNews?.link ?? null}
+          open={readerOpen}
+          onOpenChange={(o) => {
+            setReaderOpen(o);
+            if (o) handleModalInteraction();
+          }}
+          fallbackSourceName={selectedNews?.sourceName}
+          elevated
+        />
 
-      </div>
-      </div>
-      {/* end bottom cluster */}
+        {showBuiltIn && (
+          <>
+        {/*
+          Bottom cluster: the clock and the events/birthdays block.
 
-      {/* Photo indicator - simple counter instead of dots to reduce DOM elements.
-          In the bottom corner rather than under the birthdays, where it added
-          a line to the stack and made the gap above the clock uneven (#282). */}
-      {photoUrls.length > 1 && (
-        <span
-          className="absolute bottom-4 right-4 text-white/40 text-xs safe-area-inset screensaver-fade-in"
-          style={{ animationDelay: "1s", ...burnInStyle }}
-          data-testid="screensaver-photo-count"
-        >
-          {currentPhotoIndex + 1} / {photoUrls.length}
-        </span>
-      )}
+          On a landscape desktop panel these sit in opposite corners and never
+          meet, so each keeps its own absolute position and the wrapper below
+          dissolves (`display: contents`).
 
-      {/* Photo metadata / attribution */}
-      {currentPhotoMetadata?.photographer && (
+          Everywhere else — portrait wall panels, and landscape under `lg` — they
+          stack, and they used to do it by each anchoring itself to the bottom
+          edge with a hand-picked offset: the clock at `bottom-32` (128px) and
+          the block at `bottom-56` (224px), i.e. 96px reserved for a clock that
+          actually renders 108px tall. It overlapped the last event card by 12px,
+          and the reserved figure was a guess that any change to the date string,
+          the locale or the font size would invalidate again.
+
+          One flow container with a real gap cannot be off by 12px, so the
+          spacing stops being a number anybody has to maintain. `flex-col-reverse`
+          keeps the events above the clock without moving either block in the
+          source — DOM order is what the landscape layout reads.
+        */}
         <div
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 screensaver-fade-in"
-          style={{ animationDelay: "1s", ...burnInStyle }}
+          className={`absolute inset-x-12 bottom-[calc(3rem+var(--idle-creature-floor,0px))] flex flex-col-reverse ${sectionGap} landscape:lg:contents`}
         >
-          <p className="text-white/30 text-xs text-center">
-            {/*
-              Unsplash's guidelines require crediting Unsplash as well as the
-              photographer, and linking back to their profile. Only the name
-              was shown before, and photographerUrl was fetched and then
-              dropped. On a kiosk nobody taps a screensaver, so the link is
-              there to satisfy the requirement and for anyone who does.
-            */}
-            {currentPhotoMetadata.photographerUrl ? (
-              <a
-                href={currentPhotoMetadata.photographerUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-white/60 transition-colors"
-              >
-                {t("photoCreditUnsplash", { photographer: currentPhotoMetadata.photographer })}
-              </a>
-            ) : (
-              t("photoCredit", { photographer: currentPhotoMetadata.photographer })
-            )}
-            {currentPhotoMetadata.location && ` · ${currentPhotoMetadata.location}`}
+        {/* Clock overlay - bottom left (compact for mobile & portrait). A festival's fireworks go up over it (RFC-020). */}
+        <div
+          ref={clockBlockRef}
+          data-festival-anchor="screensaver-clock"
+          data-saver-block="clock"
+          className="landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:left-12 screensaver-slide-up"
+          style={{ animationDelay: "0.5s", ...burnInStyle }}
+        >
+          <div
+            ref={clockDigitsRef}
+            className="flex w-fit items-baseline"
+            style={clockFit ? { fontSize: clockFit } : undefined}
+            data-testid="screensaver-clock-digits"
+          >
+            <span className={`font-display font-light ${clockSize} text-white clock-display tracking-tighter leading-none`}>
+              {hours}
+            </span>
+            <span className={`font-display font-light ${clockSize} text-white/30 ${clockFit ? "mx-[0.03em]" : "mx-1 landscape:lg:mx-2"} leading-none`}>
+              :
+            </span>
+            <span className={`font-display font-light ${clockSize} text-white clock-display tracking-tighter leading-none`}>
+              {minutes}
+            </span>
+          </div>
+          <p className={`${largeDetails ? "text-2xl landscape:lg:text-4xl" : "text-xl landscape:lg:text-2xl"} font-light text-white/60 mt-2 tracking-wide`}>
+            {formattedDate}
           </p>
+          {soon && (
+            <p
+              className={`mt-3 inline-block max-w-full truncate rounded-lg bg-white/15 px-3 py-1 font-semibold text-white ${largeDetails ? "text-2xl landscape:lg:text-3xl" : "text-lg landscape:lg:text-xl"}`}
+              data-testid="screensaver-next-event"
+              data-child={soon.child ? "true" : "false"}
+            >
+              {t(soon.child ? "nextEventChild" : "nextEventAdult", { title: soon.title, minutes: soon.minutes })}
+            </p>
+          )}
         </div>
-      )}
 
-      {/* Touch hint. Not with the forecast on: centred at the top, it ran into
-          the forecast strip on portrait panels and on 1024px landscape ones. */}
-      {!(showForecast && weather) && (
-      <p
-        className="absolute top-8 left-1/2 -translate-x-1/2 text-white/40 text-sm safe-area-inset screensaver-fade-in"
-        style={{ animationDelay: "2s", paddingTop: 'env(safe-area-inset-top, 0)', ...burnInStyle }}
-      >
-        {t("touchHint")}
-      </p>
-      )}
-    </div>
+        {/* Right side - Events and Birthdays (above clock for portrait/mobile, right side for landscape desktop) */}
+        <div
+          ref={eventsBlockRef}
+          data-saver-block="events"
+          className={`max-w-sm landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:right-12 flex flex-col ${sectionGap} screensaver-slide-right`}
+          style={{ animationDelay: "0.7s", maxWidth: largeDetails ? "36rem" : undefined, ...burnInStyle }}
+        >
+          {/* Upcoming Events */}
+          {upcomingEvents.length > 0 && (
+            <div className="flex flex-col gap-2 landscape:lg:gap-3">
+              <SectionLabel icon={Calendar} label={t("eventsLabel")} scale={rowScale} />
+              <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
+                {upcomingEvents.map((event) => (
+                  <EventRow key={event.id} event={event} when={eventWhen(event)} scale={rowScale} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Upcoming Birthdays */}
+          {upcomingBirthdays.length > 0 && (
+            <div className="flex flex-col gap-2 landscape:lg:gap-3">
+              <SectionLabel icon={Cake} label={t("birthdaysLabel")} scale={rowScale} />
+              <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
+                {upcomingBirthdays.map((birthday) => (
+                  <BirthdayRow key={birthday.id} birthday={birthday} scale={rowScale} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* The children's lessons and what to bring (#282). */}
+          {showLessons && <ScreensaverLessons large={largeDetails} />}
+
+        </div>
+        </div>
+        {/* end bottom cluster */}
+
+        {/* Photo indicator - simple counter instead of dots to reduce DOM elements.
+            In the bottom corner rather than under the birthdays, where it added
+            a line to the stack and made the gap above the clock uneven (#282). */}
+        {photoUrls.length > 1 && (
+          <span
+            className="absolute bottom-4 right-4 text-white/40 text-xs safe-area-inset screensaver-fade-in"
+            style={{ animationDelay: "1s", ...burnInStyle }}
+            data-testid="screensaver-photo-count"
+          >
+            {currentPhotoIndex + 1} / {photoUrls.length}
+          </span>
+        )}
+          </>
+        )}
+
+        {designed && <DesignedScreensaver items={designed.items} grid={designed.grid} style={burnInStyle} />}
+
+        {/* Photo metadata / attribution */}
+        {currentPhotoMetadata?.photographer && (
+          <div
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 screensaver-fade-in"
+            style={{ animationDelay: "1s", ...burnInStyle }}
+          >
+            <p className="text-white/30 text-xs text-center">
+              {/*
+                Unsplash's guidelines require crediting Unsplash as well as the
+                photographer, and linking back to their profile. Only the name
+                was shown before, and photographerUrl was fetched and then
+                dropped. On a kiosk nobody taps a screensaver, so the link is
+                there to satisfy the requirement and for anyone who does.
+              */}
+              {currentPhotoMetadata.photographerUrl ? (
+                <a
+                  href={currentPhotoMetadata.photographerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white/60 transition-colors"
+                >
+                  {t("photoCreditUnsplash", { photographer: currentPhotoMetadata.photographer })}
+                </a>
+              ) : (
+                t("photoCredit", { photographer: currentPhotoMetadata.photographer })
+              )}
+              {currentPhotoMetadata.location && ` · ${currentPhotoMetadata.location}`}
+            </p>
+          </div>
+        )}
+
+        {/* Touch hint. Not with a designed layout (it owns the screen), and not with the forecast on: centred at the top, it ran into
+            the forecast strip on portrait panels and on 1024px landscape ones. */}
+        {!(showForecast && weather) && showBuiltIn && (
+        <p
+          data-testid="screensaver-touch-hint"
+          className="absolute top-8 left-1/2 -translate-x-1/2 text-white/40 text-sm safe-area-inset screensaver-fade-in"
+          style={{ animationDelay: "2s", paddingTop: 'env(safe-area-inset-top, 0)', ...burnInStyle }}
+        >
+          {t("touchHint")}
+        </p>
+        )}
+      </div>
+    </ScreensaverDataProvider>
   );
 }

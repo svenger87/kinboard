@@ -23,6 +23,7 @@ import { SCREENSAVER_LIST_COUNTS, screensaverListCount } from "@/types/screensav
 import Link from "next/link";
 import { useCreatureBedtime } from "@/hooks/use-creature-mood";
 import { formatClock } from "@/lib/creature-mood";
+import { ScreensaverLayoutNote } from "@/components/layouts/screensaver-layout-note";
 
 // Numeric values; labels resolved per-locale via t() at render
 const SCREENSAVER_TIMEOUTS = [
@@ -119,6 +120,8 @@ export default function ScreensaverSettingsPage() {
           subtitle={t("subtitle")}
           className="mb-8"
         />
+
+        <ScreensaverLayoutNote />
 
         <Card className="mb-6 space-y-4 p-4">
           <div className="flex items-center justify-between gap-4">
