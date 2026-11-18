@@ -62,7 +62,7 @@ export function useTestIcloudAlbum() {
   return useMutation({
     mutationFn: async (
       link: string,
-    ): Promise<{ ok: boolean; token?: string; streamName?: string; photoCount?: number; format?: "legacy" | "cloudkit"; error?: string }> => {
+    ): Promise<{ ok: boolean; token?: string; streamName?: string; photoCount?: number; photoCountCapped?: boolean; format?: "legacy" | "cloudkit"; error?: string }> => {
       if (!family?.id) throw new Error("No family");
       const r = await fetch("/api/icloud/test", {
         method: "POST",

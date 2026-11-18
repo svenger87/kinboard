@@ -8,7 +8,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **iCloud shared albums in the current link format.** Albums shared from iOS 26 or macOS 26 use Apple's CloudKit sharing links, which Kinboard could not read: the album saved without complaint and the photos simply never appeared. Both link formats now work. Paste the share link under Settings → Photos as usual and Kinboard detects which kind of link it is, so albums shared from a current iPhone or Mac show their photos like any other.
+- **iCloud shared albums in the current link format.** Albums shared from iOS 26 or macOS 26 use Apple's CloudKit sharing links, which Kinboard could not read: the album saved without complaint and the photos simply never appeared. Both link formats now work. Paste the share link under Settings → Photos as usual and Kinboard detects which kind of link it is, so albums shared from a current iPhone or Mac show their photos like any other. An album added with a current link before this release stayed empty; remove it and add it again under Settings → Photos.
 
 - **The children's lessons on the screensaver.** Settings → Screensaver → *Children's lessons*, off unless switched on: for each child with a timetable, the day's subjects and what to bring, from the list under Settings → Timetable ("Mitnehmen: Sportkleidung, Turnschuhe"). A family sees from across the kitchen that the sports kit goes in the bag today. In the evening it shows the next school day, past weekends and holidays, from the time set for the timetable widget's next-day preview. A child without school that day doesn't appear; with no lessons at all the section is hidden. It sits with the events and birthdays, at the same spacing (#282).
 

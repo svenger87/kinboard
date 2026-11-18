@@ -180,8 +180,8 @@ export async function fetchAlbum(token: string): Promise<IcloudAlbum> {
     if (res.status === 330) {
       const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       const next = body["X-Apple-MMe-Host"];
-      if (typeof next === "string" && next && attempt === 0) {
-        host = next;
+      if (typeof next === "string" && isIcloudHost(next) && attempt === 0) {
+        host = next.toLowerCase();
         continue;
       }
       throw new Error("icloud: redirected without a usable host");
@@ -270,7 +270,7 @@ export async function getSharedAlbumPhotos(
   return { streamName: album.streamName, photos };
 }
 
-// ── CloudKit shared albums (local patch, 2026-11-17) ──────────────────
+// ── CloudKit shared albums ───────────────────────────────────────────
 //
 // iOS/macOS 26 retired Shared Streams: the current share link is
 // `photos.icloud.com/shared/album/<token>` and the album lives in
@@ -310,6 +310,30 @@ export function parseAlbumLink(
 }
 
 const CK_HOST = "https://ckdatabasews.icloud.com";
+
+/**
+ * A host name on Apple's iCloud domain, and nothing else. The server follows
+ * hosts that Apple's responses name (the legacy shard redirect, CloudKit's
+ * database partition); checking them keeps a malformed or hostile answer from
+ * pointing Kinboard's server at some other machine.
+ */
+export function isIcloudHost(host: unknown): host is string {
+  if (typeof host !== "string") return false;
+  const h = host.trim().toLowerCase();
+  return /^([a-z0-9-]+\.)*icloud\.com$/.test(h) && !h.startsWith(".");
+}
+
+/** The partition CloudKit names, as an https origin on iCloud, or the default host. */
+export function cloudKitOrigin(raw: unknown): string {
+  if (typeof raw !== "string" || !raw) return CK_HOST;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" || !isIcloudHost(url.hostname)) return CK_HOST;
+    return `https://${url.hostname.toLowerCase()}`;
+  } catch {
+    return CK_HOST;
+  }
+}
 const CK_CONTAINER = "com.apple.photos.cloud";
 // Telemetry parameters the web app sends; the server accepts any value.
 const CK_PARAMS = "clientBuildNumber=2620BuildBeta48&clientMasteringNumber=2620BuildBeta48";
@@ -318,7 +342,7 @@ const CK_INDEX = "CPLAssetAndMasterByAssetDateWithoutHiddenOrDeleted";
 interface CkField {
   value?: unknown;
 }
-interface CkRecord {
+export interface CkRecord {
   recordName?: string;
   recordType?: string;
   created?: { timestamp?: number };
@@ -357,7 +381,7 @@ async function resolveCloudKitAlbum(token: string): Promise<{
   const partitionRaw = access.databasePartition;
   return {
     streamName: typeof title === "string" && title ? title : "iCloud Album",
-    partition: (typeof partitionRaw === "string" && partitionRaw ? partitionRaw : CK_HOST).replace(/:443$/, ""),
+    partition: cloudKitOrigin(partitionRaw),
     accessToken: access.token,
     zone: { zoneName: zone.zoneName, ownerRecordName: zone.ownerRecordName, zoneType: zone.zoneType },
   };
@@ -409,7 +433,11 @@ export async function fetchCloudKitPhotos(
       }
     }
     marker = typeof data.continuationMarker === "string" ? data.continuationMarker : undefined;
-    if (!marker || assetOrder.length >= limit) break;
+    // Stop once enough photos are in hand. Videos are skipped later, so they
+    // must not count towards the limit, or a video-heavy album comes up short.
+    let usable = 0;
+    for (const rec of masters.values()) if (!isCloudKitVideo(rec)) usable++;
+    if (!marker || usable >= limit) break;
   }
 
   const photos: IcloudResolvedPhoto[] = [];
@@ -429,13 +457,17 @@ export async function fetchCloudKitPhotos(
   return { streamName, photos };
 }
 
-function cloudKitPhoto(rec: CkRecord, assetDateMs: number | null): IcloudResolvedPhoto | null {
+function isCloudKitVideo(rec: CkRecord): boolean {
+  const v = rec.fields?.itemType?.value;
+  const itemType = typeof v === "string" ? v.toLowerCase() : "";
+  // Apple's UTIs: com.apple.quicktime-movie, public.mpeg-4, public.avi, …
+  return /movie|video|quicktime|mpeg-?4|\bavi\b|m4v/.test(itemType);
+}
+
+/** One CloudKit master record as a photo, or null for a video or a record with no usable rendition. Exported for the tests. */
+export function cloudKitPhoto(rec: CkRecord, assetDateMs: number | null): IcloudResolvedPhoto | null {
   const f = rec.fields ?? {};
-  const itemType =
-    typeof f.itemType?.value === "string" ? (f.itemType.value as string).toLowerCase() : "";
-  if (itemType.includes("movie") || itemType.includes("video") || itemType.includes("quicktime")) {
-    return null;
-  }
+  if (isCloudKitVideo(rec)) return null;
   // JPEG derivatives first: browsers cannot render the HEIC original.
   // Smallest that still covers a wall display, else the largest available.
   const cands: { url: string; width: number; height: number; jpeg: boolean }[] = [];

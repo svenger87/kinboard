@@ -32,13 +32,17 @@ export async function POST(request: NextRequest) {
 
   try {
     if (parsed.format === "cloudkit") {
-      const { streamName, photos } = await fetchCloudKitPhotos(parsed.token, 500);
+      // CloudKit pages through the album, so the check stops at a cap rather
+      // than fetching every photo; at the cap the count is "more than".
+      const CHECK_CAP = 500;
+      const { streamName, photos } = await fetchCloudKitPhotos(parsed.token, CHECK_CAP);
       return NextResponse.json({
         ok: true,
         token: parsed.token,
         format: parsed.format,
         streamName,
         photoCount: photos.length,
+        photoCountCapped: photos.length >= CHECK_CAP,
       });
     }
     const album = await fetchAlbum(parsed.token);

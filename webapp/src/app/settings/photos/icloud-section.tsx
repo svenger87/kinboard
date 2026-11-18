@@ -52,7 +52,12 @@ export function IcloudSection() {
 
     await saveSettings.mutateAsync({ token: result.token, album_name: result.streamName, format: result.format });
     setLink("");
-    toast.success(t("connected", { album: result.streamName ?? "", count: result.photoCount ?? 0 }));
+    toast.success(
+      t(result.photoCountCapped ? "connectedMany" : "connected", {
+        album: result.streamName ?? "",
+        count: result.photoCount ?? 0,
+      }),
+    );
   };
 
   if (isLoading) {
