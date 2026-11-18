@@ -138,6 +138,17 @@ test.afterAll(async () => {
   expect(psql(`SELECT count(*) FROM families WHERE name LIKE '${P}%'`)).toBe("0");
 });
 
+test("without any layout, Settings → Devices looks as before: no layout picker, no note", async ({ browser }) => {
+  const page = await open(browser, "/settings/devices");
+  const kitchen = deviceRow(page, kitchenId);
+  await expect(kitchen).toBeVisible({ timeout: 60_000 });
+  // Give the layouts query time to answer: the picker would appear with it.
+  await page.waitForTimeout(2000);
+  await expect(page.getByTestId("device-layout")).toHaveCount(0);
+  await expect(page.getByTestId("device-layout-no-defaults")).toHaveCount(0);
+  await page.context().close();
+});
+
 test("a new layout for the kitchen screen starts from the built-in one and opens the editor", async ({ browser }) => {
   const page = await openLayouts(browser);
   await expect(page.getByTestId("layouts-empty")).toBeVisible();
@@ -171,8 +182,9 @@ test("assigned to the kitchen in Settings → Devices, the layout counts one scr
   const kitchen = deviceRow(page, kitchenId);
   await expect(kitchen.getByTestId("device-layout")).toBeVisible({ timeout: 60_000 });
   await expect(kitchen.getByTestId("device-layout")).toContainText("Built-in");
-  // The desk is no wall screen: the defaults do not reach it.
-  await expect(deviceRow(page, String(deviceJson.id)).getByTestId("device-layout-no-defaults")).toBeVisible();
+  // No default is set yet, so there is nothing to say about defaults on the desk.
+  await expect(deviceRow(page, String(deviceJson.id)).getByTestId("device-layout")).toBeVisible();
+  await expect(deviceRow(page, String(deviceJson.id)).getByTestId("device-layout-no-defaults")).toHaveCount(0);
   await kitchen.getByTestId("device-layout").click();
   await page.getByRole("option", { name: NAME, exact: true }).click();
   await expect.poll(() => psql(`SELECT layout_id FROM devices WHERE id = '${kitchenId}'`)).toBe(layoutId);
@@ -212,6 +224,28 @@ test("the default pickers only offer layouts of their orientation; the portrait 
   await expect(page.getByRole("option")).toHaveText(["Built-in", LANDSCAPE]);
   await page.keyboard.press("Escape");
   expect(defaults().landscape ?? null).toBeNull();
+
+  // With a default set, the desk (no wall screen) says the defaults do not reach it.
+  await page.goto("/settings/devices", { waitUntil: "domcontentloaded" });
+  await expect(deviceRow(page, String(deviceJson.id)).getByTestId("device-layout-no-defaults")).toBeVisible({ timeout: 60_000 });
+  await page.context().close();
+});
+
+test("a default pointing at a layout that is gone shows as Built-in and does not block the other default", async ({ browser }) => {
+  const gone = "00000000-0000-4000-8000-000000000000";
+  psql(`UPDATE settings SET value = jsonb_set(value, '{landscape}', '"${gone}"') WHERE family_id = '${famId}' AND key = 'layout_defaults'`);
+  expect(defaults().landscape).toBe(gone);
+  const page = await openLayouts(browser);
+  await expect(page.getByTestId("default-landscape")).toContainText("Built-in", { timeout: 30_000 });
+  // Changing the other slot used to send the stale id along and fail with bad_default.
+  await page.getByTestId("default-portrait").click();
+  await page.getByRole("option", { name: "Built-in", exact: true }).click();
+  await expect.poll(() => defaults().portrait ?? null).toBeNull();
+  expect(defaults().landscape ?? null).toBeNull();
+  await page.getByTestId("default-portrait").click();
+  await page.getByRole("option", { name: NAME, exact: true }).click();
+  await expect.poll(() => defaults().portrait).toBe(layoutId);
+  await expect(row(page, NAME).getByTestId("layout-badge-portrait")).toHaveText("Portrait default");
   await page.context().close();
 });
 

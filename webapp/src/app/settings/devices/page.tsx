@@ -481,7 +481,8 @@ export default function DevicesSettingsPage() {
                     )}
 
                     {/* Its layout (Settings → Layouts), on a line of its own under the name, once the layouts are known. */}
-                    {!isEditing && layouts && layoutDefaults && (
+                    {/* Only once the family has a layout: until then nothing here changes. */}
+                    {!isEditing && layouts && layouts.length > 0 && layoutDefaults && (
                       <div className="sm:basis-full sm:pl-[3.75rem]">
                         <DeviceLayoutPicker device={device} layouts={layouts} defaults={layoutDefaults} />
                       </div>

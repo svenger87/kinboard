@@ -114,7 +114,7 @@ export function DeviceLayoutPicker({
           {t("layoutDropped", { names: names(result.dropped.map((w) => widgetNames(w))) })}
         </p>
       )}
-      {!own && !device.is_kiosk && (
+      {!own && !device.is_kiosk && (defaults.portrait || defaults.landscape) && (
         <p className="text-xs text-muted-foreground" data-testid="device-layout-no-defaults">
           {t("layoutNoDefaults")}
         </p>
