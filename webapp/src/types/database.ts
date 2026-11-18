@@ -132,6 +132,8 @@ export interface Database {
         Relationships: [];
       };
       layouts: {
+        // A mapped type, not the interface itself: an interface has no index
+        // signature, so it does not satisfy Supabase's Record<string, unknown> Row.
         Row: { [K in keyof import("@/lib/layouts/types").Layout]: import("@/lib/layouts/types").Layout[K] };
         Insert: {
           id?: string;

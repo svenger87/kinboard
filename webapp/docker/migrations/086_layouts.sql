@@ -22,6 +22,8 @@
 -- is not checked against the device's family by the key, so the server checks
 -- it when it sets devices.layout_id.
 --
+-- updated_at is set by the server on every update; there is no trigger for it.
+--
 -- Live updates: the same kinboard_change_feed trigger as 084_change_feed.sql,
 -- which reads family_id from the row.
 --
