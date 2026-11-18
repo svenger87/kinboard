@@ -267,7 +267,11 @@ export default function JoinPage() {
       >
         {/* Header / Welcome hero */}
         {!modeChosen && recognizedDevices.length === 0 && !isFreshInstall && !isCheckingDevice ? (
-          <div className="grid gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:gap-16">
+          // Landscape: 1024px at most, centred, and the card no wider than
+          // 24rem. At 1280 wide (1920x1080 at 150%, a tablet) the two columns
+          // ran edge to edge, 64px from each side, and the card's buttons
+          // were 420px bars.
+          <div className="grid gap-10 lg:mx-auto lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:items-center lg:gap-12 xl:gap-16">
             <div>
               <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
                 <span className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -275,7 +279,7 @@ export default function JoinPage() {
                 </span>
                 {t("welcomeEyebrow")}
               </div>
-              <h1 className="max-w-2xl text-5xl font-display font-medium leading-[0.98] tracking-tight sm:text-6xl lg:text-7xl">
+              <h1 className="max-w-2xl text-5xl font-display font-medium leading-[0.98] tracking-tight sm:text-6xl lg:text-7xl [@media(orientation:landscape)_and_(max-height:800px)]:text-6xl">
                 {t("welcomeTitle")}
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground sm:text-xl">

@@ -32,6 +32,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The join page no longer stretches across a landscape screen.** On a 1280px-wide screen (a 1920×1080 screen at 150%, or a tablet), the welcome ran edge to edge with only 64px of margin, and the sign-up card's buttons were 420px-wide bars. The welcome is now at most 1024px wide and centred, the card at most 24rem wide, and short landscape screens get a smaller heading.
+
 - **The screensaver's clock fits the cards on every screen, and the news stays clear of the weather.** The time could come out 40% wider than the event and birthday cards it is sized to, or too small when the display font arrived late. It is now measured from what is on screen and measured again when the font swaps in. With the forecast on, a portrait screen at 720px wide, which is a 1080×1920 screen at Windows 150%, ran the news list under the weather. The list now ends before the weather, or moves under it where there is no room beside it. Both were found by the new screen matrix (#282).
 
 - **Kinboard found no family after updating to 1.15 without `git pull`.** An install that pulled the 1.15 image but still started it with its old compose file (Kong, auth and storage still running) sent every server-side database query to an address Kong has no route for. The family count came back empty, the join page offered to create a new family, and joining with the code failed. The server now keeps Kong's `/rest/v1` path on such installs. Updating the checkout as UPGRADING.md describes is still the way to finish the move to 1.15.
