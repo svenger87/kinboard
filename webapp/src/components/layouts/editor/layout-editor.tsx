@@ -31,7 +31,7 @@ import { EditorCanvas } from "./canvas";
 import { EditorPalette } from "./palette";
 import { EditorInspector } from "./inspector";
 import { ScreenPicker, type ScreenChoice } from "./screen-picker";
-import { CopyForSize, clearCopyDropped, readCopyDropped } from "./copy-dialog";
+import { CopyForSize, readCopyDropped, releaseCopyDropped } from "./copy-dialog";
 
 const LAYOUT_ERRORS: readonly string[] = ["unknown_widget", "out_of_bounds", "below_minimum", "overlap", "duplicate", "bad_text_size"];
 const WIDGET_KEYS = Object.keys(SAVER_WIDGETS) as SaverWidgetKey[];
@@ -106,7 +106,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   });
   // What a copy for this size left behind, shown once when the copy opens.
   const [copyDropped] = useState(() => readCopyDropped(layout.id));
-  useEffect(() => clearCopyDropped(layout.id), [layout.id]);
+  useEffect(() => () => releaseCopyDropped(layout.id), [layout.id]);
   const ownSize = useMemo(() => ({ width: layout.width, height: layout.height }), [layout.width, layout.height]);
   const [notice, setNotice] = useState<"restored" | "lost" | null>(draft ? (draft.restorable ? "restored" : "lost") : null);
   const saveLayout = useSaveLayout();

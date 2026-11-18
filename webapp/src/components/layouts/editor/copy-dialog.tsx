@@ -15,37 +15,46 @@ import type { Layout, LayoutItem } from "@/lib/layouts/types";
 const droppedKey = (id: string) => `kinboard_layout_dropped:${id}`;
 
 /**
- * Lists already taken out of storage in this page's lifetime, by layout id.
- * The new layout's editor can mount twice while the layout list catches up
- * (seen as two mounts after a copy in about half the runs on a dev server):
- * the first mount cleared the storage, and the second showed no notice. A
- * reload forgets them, as does opening another layout's editor.
+ * The handed-over lists this page has taken out of storage, by layout id,
+ * until the editor showing one is left. The editor page is mounted twice when
+ * it is entered by a client-side navigation (after a copy and on an ordinary
+ * reopen alike, in development and in a production build): the App Router
+ * commits the segment again, above the page, so the page's own loading
+ * branch is not involved. Reading storage on the first mount and clearing it
+ * left the second mount without the note. Kept in memory, so a reload never
+ * shows it again.
  */
 const taken = new Map<string, string[]>();
 
-/** The widgets a copy left behind, handed to the new layout's editor; cleared from storage with clearCopyDropped once shown. */
+/** The widgets a copy left behind, handed to the new layout's editor: taken out of storage once, then kept until releaseCopyDropped. */
 export function readCopyDropped(id: string): string[] {
   if (typeof window === "undefined") return [];
-  for (const other of [...taken.keys()]) if (other !== id) taken.delete(other);
   const kept = taken.get(id);
   if (kept) return kept;
+  let list: string[] = [];
   try {
     const raw = sessionStorage.getItem(droppedKey(id));
     const v = raw ? (JSON.parse(raw) as unknown) : [];
-    const list = Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-    if (list.length > 0) taken.set(id, list);
-    return list;
+    list = Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+    sessionStorage.removeItem(droppedKey(id));
   } catch {
     return [];
   }
+  if (list.length > 0) taken.set(id, list);
+  return list;
 }
 
-export function clearCopyDropped(id: string): void {
-  try {
-    sessionStorage.removeItem(droppedKey(id));
-  } catch {
-    /* noop */
-  }
+/**
+ * Called when an editor unmounts. Once the page no longer shows this layout's
+ * editor (checked after the navigation has moved the URL on), the note is
+ * spent: opening the layout again later shows none. A remount on the same
+ * URL keeps it.
+ */
+export function releaseCopyDropped(id: string): void {
+  if (!taken.has(id)) return;
+  setTimeout(() => {
+    if (!window.location.pathname.endsWith(`/settings/layouts/${id}`)) taken.delete(id);
+  }, 0);
 }
 
 function handOverDropped(id: string, widgets: string[]): void {

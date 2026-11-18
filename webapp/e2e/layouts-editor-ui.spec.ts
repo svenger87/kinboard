@@ -54,7 +54,7 @@ const saved = (): LayoutItem[] => JSON.parse(psql(`SELECT screensaver::text FROM
 const savedItem = (widget: string) => saved().find((i) => i.widget === widget);
 
 /** The editor, in a browser that is the family's device with the settings unlocked. */
-async function openEditor(browser: Browser): Promise<Page> {
+async function openEditor(browser: Browser, id = layoutId): Promise<Page> {
   const ctx = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     serviceWorkers: "block",
@@ -79,7 +79,7 @@ async function openEditor(browser: Browser): Promise<Page> {
     if (document.head) hide();
     else document.addEventListener("DOMContentLoaded", hide);
   }, famId);
-  await page.goto(`/settings/layouts/${layoutId}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`/settings/layouts/${id}`, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("editor-canvas")).toBeVisible({ timeout: 60_000 });
   await expect(page.locator("[data-editor-item=clock]")).toBeVisible();
   return page;
@@ -355,6 +355,44 @@ test("a copy for a 1920x1080 preview is a new valid layout, opened with what it 
   await page.reload();
   await expect(page.getByTestId("editor-canvas")).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId("editor-copy-dropped")).toHaveCount(0);
+  await page.context().close();
+});
+
+test("a copy's note on what it left out is shown once: leaving and reopening the copy shows none", async ({ browser }) => {
+  // A fresh built-in portrait: copied to 1920x1080 it always leaves the birthdays out.
+  const created = await api.post("/api/layouts", { data: { name: `${P}Flur`, ...SIZE, from: "builtin" } });
+  expect(created.status(), await created.text()).toBe(201);
+  const sourceId = (await created.json()).layout.id as string;
+  const page = await openEditor(browser, sourceId);
+  await page.getByTestId("screen-picker").click();
+  await page.getByRole("option", { name: /1920×1080/ }).first().click();
+  await page.getByTestId("editor-copy").click();
+  await page.getByTestId("copy-dialog").getByTestId("copy-name").fill(`${P}Flur quer`);
+  await page.getByTestId("copy-dialog").getByTestId("copy-create").click();
+  await page.waitForURL((url) => url.pathname.startsWith("/settings/layouts/") && !url.pathname.endsWith(sourceId), { timeout: 30_000 });
+  const copyId = page.url().split("/").pop()!;
+  await expect(page.getByTestId("editor-canvas")).toHaveAttribute("data-width", "1920", { timeout: 30_000 });
+  const notice = page.getByTestId("editor-copy-dropped");
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText(EN_NAMES.birthdays);
+  // The editor page is mounted a second time shortly after a client-side
+  // navigation; the note has to outlast that.
+  await page.waitForTimeout(1500);
+  await expect(notice).toBeVisible();
+
+  // Away and back without a reload: Settings, Settings → Layouts, the copy's Edit.
+  await page.locator("main a[title]").first().click();
+  await page.waitForURL((url) => url.pathname === "/settings", { timeout: 30_000 });
+  await page.locator('a[href="/settings/layouts"]').first().click();
+  await page.waitForURL((url) => url.pathname === "/settings/layouts", { timeout: 30_000 });
+  await page.locator(`a[href="/settings/layouts/${copyId}"]`).first().click();
+  await page.waitForURL((url) => url.pathname.endsWith(copyId), { timeout: 30_000 });
+  await expect(page.getByTestId("editor-canvas")).toHaveAttribute("data-width", "1920", { timeout: 30_000 });
+  await expect(page.locator("[data-editor-item=clock]")).toBeVisible();
+  for (let i = 0; i < 4; i++) {
+    await expect(notice).toHaveCount(0);
+    await page.waitForTimeout(500);
+  }
   await page.context().close();
 });
 
