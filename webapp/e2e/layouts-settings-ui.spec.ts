@@ -232,32 +232,70 @@ test("duplicate makes a copy with the same arrangement and size", async ({ brows
   await page.context().close();
 });
 
-test("Settings → Devices warns about a screen of another shape and lists the widgets that do not fit", async ({ browser }) => {
-  // The tablet reports 1280×800 (landscape); a portrait 800×900 screen keeps the layout's orientation but has fewer rows.
-  psql(`UPDATE devices SET layout_id = '${layoutId}' WHERE id = '${tabletId}'`);
-  const page = await open(browser, "/settings/devices");
-  const tablet = deviceRow(page, tabletId);
-  await expect(tablet.getByTestId("device-layout-aspect")).toHaveText("Made for 1080×1920 — this screen is 1280×800", { timeout: 60_000 });
+const enList = (names: string[]) => new Intl.ListFormat("en", { type: "conjunction" }).format(names);
 
-  psql(`UPDATE devices SET screen = ${screenJson(800, 900)} WHERE id = '${tabletId}'`);
+/** The widgets of the layout that an 800×900 screen has no room for, by their English names. */
+function droppedAt800x900(): string[] {
   const items = JSON.parse(psql(`SELECT screensaver::text FROM layouts WHERE id = '${layoutId}'`)) as LayoutItem[];
   const { dropped } = rescaleItems(items, gridFor(1080, 1920)!, gridFor(800, 900)!);
   expect(dropped.length, "the 800×900 screen should lose a widget, or this test checks nothing").toBeGreaterThan(0);
+  return dropped.map((id) => EN_NAMES[items.find((i) => i.id === id)!.widget]);
+}
+
+test("Settings → Devices describes the layout a screen actually draws: none when its own is for the other orientation, else warns about the shape and lists what does not fit", async ({ browser }) => {
+  // The tablet (no kiosk) reports 1280×800, landscape: its own portrait layout is not drawn there.
+  psql(`UPDATE devices SET layout_id = '${layoutId}' WHERE id = '${tabletId}'`);
+  const page = await open(browser, "/settings/devices");
+  const tablet = deviceRow(page, tabletId);
+  await expect(tablet.getByTestId("device-layout-other-orientation")).toHaveText(
+    `“${NAME}” is for portrait screens; while this screen is turned this way it shows the built-in screensaver.`,
+    { timeout: 60_000 },
+  );
+  await expect(tablet.getByTestId("device-layout-aspect")).toHaveCount(0);
+  await expect(tablet.getByTestId("device-layout-dropped")).toHaveCount(0);
+  await expect(tablet.getByTestId("device-layout-default")).toHaveCount(0);
+
+  // A portrait 800×900 screen draws it, rescaled to fewer rows.
+  psql(`UPDATE devices SET screen = ${screenJson(800, 900)} WHERE id = '${tabletId}'`);
+  const names = droppedAt800x900();
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(tablet.getByTestId("device-layout-aspect")).toHaveText("Made for 1080×1920 — this screen is 800×900", { timeout: 60_000 });
-  const names = dropped.map((id) => EN_NAMES[items.find((i) => i.id === id)!.widget]);
-  await expect(tablet.getByTestId("device-layout-dropped")).toHaveText(`Not shown on this screen: ${names.join(", ")}`);
+  await expect(tablet.getByTestId("device-layout-dropped")).toHaveText(`Not shown on this screen: ${enList(names)}`);
+  await expect(tablet.getByTestId("device-layout-other-orientation")).toHaveCount(0);
+  await expect(tablet.getByTestId("device-layout-default")).toHaveCount(0);
 
   psql(`UPDATE devices SET layout_id = NULL, screen = ${screenJson(1280, 800)} WHERE id = '${tabletId}'`);
   await page.context().close();
 });
 
-test("deleting the layout names the screen that falls back; the device and the default go back to built-in", async ({ browser }) => {
+test("a wall screen on the portrait default of another shape gets the warning, and the layout list counts it", async ({ browser }) => {
+  // A kiosk with no layout of its own, 800×900 portrait: it draws the portrait default (the kitchen layout).
+  psql(`UPDATE devices SET is_kiosk = true, layout_id = NULL, screen = ${screenJson(800, 900)} WHERE id = '${tabletId}'`);
+  const names = droppedAt800x900();
+  const page = await open(browser, "/settings/devices");
+  const tablet = deviceRow(page, tabletId);
+  await expect(tablet.getByTestId("device-layout")).toContainText("Built-in", { timeout: 60_000 });
+  await expect(tablet.getByTestId("device-layout-default")).toHaveText(`Uses the default layout “${NAME}”`);
+  await expect(tablet.getByTestId("device-layout-aspect")).toHaveText("Made for 1080×1920 — this screen is 800×900");
+  await expect(tablet.getByTestId("device-layout-dropped")).toHaveText(`Not shown on this screen: ${enList(names)}`);
+  await expect(tablet.getByTestId("device-layout-no-defaults")).toHaveCount(0);
+
+  await page.goto("/settings/layouts", { waitUntil: "domcontentloaded" });
+  const r = row(page, NAME);
+  await expect(r).toHaveAttribute("data-device-count", "2", { timeout: 30_000 });
+  await expect(r.getByTestId("layout-devices")).toHaveText("Assigned to Küche · Default on Tablet");
+  await expect(row(page, COPY).getByTestId("layout-devices")).toHaveText("Not shown on any screen");
+  await page.context().close();
+  // The tablet stays a kiosk on the default for the delete below.
+});
+
+test("deleting the layout names the screens that fall back; the devices and the default go back to built-in", async ({ browser }) => {
   const page = await openLayouts(browser);
   await row(page, NAME).getByTestId("layout-delete").click();
   const dialog = page.getByTestId("delete-dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByTestId("delete-devices")).toContainText("Küche");
+  // Both the screen it is assigned to and the one showing it as the default go back to built-in.
+  await expect(dialog.getByTestId("delete-devices")).toHaveText("Küche and Tablet will show the built-in screensaver again.");
   await expect(dialog.getByTestId("delete-default")).toContainText("portrait default");
   await dialog.getByTestId("delete-confirm").click();
   await expect(row(page, NAME)).toHaveCount(0, { timeout: 30_000 });

@@ -38,10 +38,12 @@ import {
   useSetLayoutDefaults,
 } from "@/hooks/use-layouts";
 import { orientationOf } from "@/lib/layouts/grid";
+import { fallbackAfterDelete, layoutUsage, type LayoutUse } from "@/lib/layouts/usage";
 import type { Layout, LayoutDefaults } from "@/lib/layouts/types";
 import type { Device } from "@/types/database";
 
 const BUILT_IN = "builtin";
+const NOBODY: LayoutUse<Device> = { assigned: [], viaDefault: [] };
 type Orientation = "portrait" | "landscape";
 
 /**
@@ -59,7 +61,8 @@ export default function LayoutsSettingsPage() {
   const [duplicating, setDuplicating] = useState<Layout | null>(null);
   const [deleting, setDeleting] = useState<Layout | null>(null);
 
-  const usersOf = (id: string) => devices.filter((d) => d.layout_id === id);
+  const usage = layoutUsage(devices, layouts ?? [], defaults ?? { portrait: null, landscape: null });
+  const usageOf = (id: string) => usage.get(id) ?? NOBODY;
 
   return (
     <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
@@ -103,7 +106,7 @@ export default function LayoutsSettingsPage() {
               <LayoutRow
                 key={layout.id}
                 layout={layout}
-                users={usersOf(layout.id)}
+                shown={usageOf(layout.id)}
                 defaults={defaults}
                 onDuplicate={() => setDuplicating(layout)}
                 onDelete={() => setDeleting(layout)}
@@ -119,7 +122,7 @@ export default function LayoutsSettingsPage() {
       <DuplicateDialog layout={duplicating} onClose={() => setDuplicating(null)} />
       <DeleteDialog
         layout={deleting}
-        users={deleting ? usersOf(deleting.id) : []}
+        shown={deleting ? usageOf(deleting.id) : NOBODY}
         layouts={layouts ?? []}
         defaults={defaults}
         onClose={() => setDeleting(null)}
@@ -130,13 +133,13 @@ export default function LayoutsSettingsPage() {
 
 function LayoutRow({
   layout,
-  users,
+  shown,
   defaults,
   onDuplicate,
   onDelete,
 }: {
   layout: Layout;
-  users: Device[];
+  shown: LayoutUse<Device>;
   defaults: LayoutDefaults | undefined;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -149,7 +152,7 @@ function LayoutRow({
       className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4"
       data-testid="layout-row"
       data-layout-id={layout.id}
-      data-device-count={users.length}
+      data-device-count={shown.assigned.length + shown.viaDefault.length}
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -171,7 +174,14 @@ function LayoutRow({
           {t("shape", { width: layout.width, height: layout.height, orientation })}
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground" data-testid="layout-devices">
-          {users.length === 0 ? t("usedByNone") : t("usedBy", { names: names(users.map((d) => d.name)) })}
+          {shown.assigned.length + shown.viaDefault.length === 0
+            ? t("usedByNone")
+            : [
+                shown.assigned.length > 0 && t("usedByAssigned", { names: names(shown.assigned.map((d) => d.name)) }),
+                shown.viaDefault.length > 0 && t("usedByDefault", { names: names(shown.viaDefault.map((d) => d.name)) }),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
         </p>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-1">
@@ -409,13 +419,13 @@ function DuplicateDialog({ layout, onClose }: { layout: Layout | null; onClose: 
  */
 function DeleteDialog({
   layout,
-  users,
+  shown,
   layouts,
   defaults,
   onClose,
 }: {
   layout: Layout | null;
-  users: Device[];
+  shown: LayoutUse<Device>;
   layouts: Layout[];
   defaults: LayoutDefaults | undefined;
   onClose: () => void;
@@ -427,15 +437,13 @@ function DeleteDialog({
   const isDefaultFor: Orientation | null =
     layout && defaults?.portrait === layout.id ? "portrait" : layout && defaults?.landscape === layout.id ? "landscape" : null;
 
-  // A wall screen falls back to the default for the way it is turned (when that is another layout); any other screen to built-in.
+  // Every screen showing it (as its own or as a default) gets what resolves without it: another default, or built-in.
   const fallbacks = new Map<string, string[]>();
-  for (const d of users) {
-    if (!layout) break;
-    const turned = d.screen ? orientationOf(d.screen.viewportWidth, d.screen.viewportHeight) : orientationOf(layout.width, layout.height);
-    const def = d.is_kiosk ? defaults?.[turned] : null;
-    const other = def && def !== layout.id ? layouts.find((l) => l.id === def) : undefined;
-    const key = other?.name ?? "";
-    fallbacks.set(key, [...(fallbacks.get(key) ?? []), d.name]);
+  if (layout) {
+    for (const d of [...shown.assigned, ...shown.viaDefault]) {
+      const key = fallbackAfterDelete(d, layout.id, layouts, defaults ?? { portrait: null, landscape: null })?.name ?? "";
+      fallbacks.set(key, [...(fallbacks.get(key) ?? []), d.name]);
+    }
   }
 
   const confirm = async () => {

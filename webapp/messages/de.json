@@ -1499,7 +1499,6 @@
       "seconds300": "5 Minuten",
       "layoutNote": {
         "assigned": "{count, plural, one {{names} nutzt} other {{names} nutzen}} das gestaltete Layout „{layout}“.",
-        "default": "„{layout}“ ist das Standard-Layout für Wandbildschirme ohne eigenes Layout ({orientation, select, portrait {hochkant} other {quer}}).",
         "change": "Ändern kannst du das unter <link>Einstellungen → Layouts</link>. Die Einstellungen hier gelten für Bildschirme ohne Layout."
       }
     },
@@ -1735,6 +1734,8 @@
       "layoutAspect": "Gestaltet für {layoutWidth}×{layoutHeight} – dieser Bildschirm hat {width}×{height}",
       "layoutDropped": "Auf diesem Bildschirm nicht zu sehen: {names}",
       "layoutUsesDefault": "Nutzt das Standard-Layout „{name}“",
+      "layoutOtherOrientationDefault": "„{name}“ ist für {orientation, select, portrait {hochkant} other {quer}} gestellte Bildschirme; solange dieser Bildschirm so gedreht ist, zeigt er das Standard-Layout „{fallback}“.",
+      "layoutOtherOrientationBuiltIn": "„{name}“ ist für {orientation, select, portrait {hochkant} other {quer}} gestellte Bildschirme; solange dieser Bildschirm so gedreht ist, zeigt er den eingebauten Bildschirmschoner.",
       "layoutNoDefaults": "Kein Wandbildschirm: Die Standard-Layouts gelten hier nicht.",
       "layoutFailed": "Das Layout konnte nicht geändert werden."
     },
@@ -3223,8 +3224,9 @@
       "retry": "Erneut versuchen",
       "empty": "Noch keine Layouts. Lege eines an, um den Bildschirmschoner eines Wandbildschirms selbst anzuordnen.",
       "shape": "{width}×{height} · {orientation, select, portrait {hochkant} other {quer}}",
-      "usedByNone": "Auf keinem Bildschirm in Gebrauch",
-      "usedBy": "Genutzt von {names}",
+      "usedByNone": "Auf keinem Bildschirm zu sehen",
+      "usedByAssigned": "Zugewiesen: {names}",
+      "usedByDefault": "Als Standard auf {names}",
       "badgePortrait": "Standard hochkant",
       "badgeLandscape": "Standard quer",
       "edit": "Bearbeiten",

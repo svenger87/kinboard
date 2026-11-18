@@ -1499,7 +1499,6 @@
       "seconds300": "5 minutes",
       "layoutNote": {
         "assigned": "{names} {count, plural, one {uses} other {use}} the designed layout “{layout}”.",
-        "default": "“{layout}” is the {orientation, select, portrait {portrait} other {landscape}} default for wall screens without a layout of their own.",
         "change": "Change it under <link>Settings → Layouts</link>. The settings below apply to screens without a layout."
       }
     },
@@ -1735,6 +1734,8 @@
       "layoutAspect": "Made for {layoutWidth}×{layoutHeight} — this screen is {width}×{height}",
       "layoutDropped": "Not shown on this screen: {names}",
       "layoutUsesDefault": "Uses the default layout “{name}”",
+      "layoutOtherOrientationDefault": "“{name}” is for {orientation, select, portrait {portrait} other {landscape}} screens; while this screen is turned this way it shows the default “{fallback}”.",
+      "layoutOtherOrientationBuiltIn": "“{name}” is for {orientation, select, portrait {portrait} other {landscape}} screens; while this screen is turned this way it shows the built-in screensaver.",
       "layoutNoDefaults": "Not a wall screen: the default layouts do not apply to it.",
       "layoutFailed": "The layout could not be changed."
     },
@@ -3223,8 +3224,9 @@
       "retry": "Try again",
       "empty": "No layouts yet. Create one to arrange a wall screen's screensaver yourself.",
       "shape": "{width}×{height} · {orientation, select, portrait {portrait} other {landscape}}",
-      "usedByNone": "Not used by any screen",
-      "usedBy": "Used by {names}",
+      "usedByNone": "Not shown on any screen",
+      "usedByAssigned": "Assigned to {names}",
+      "usedByDefault": "Default on {names}",
       "badgePortrait": "Portrait default",
       "badgeLandscape": "Landscape default",
       "edit": "Edit",

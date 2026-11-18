@@ -1499,7 +1499,6 @@
       "seconds300": "5 minutes",
       "layoutNote": {
         "assigned": "{names} {count, plural, one {utilise} other {utilisent}} la disposition conçue « {layout} ».",
-        "default": "« {layout} » est la disposition par défaut en {orientation, select, portrait {portrait} other {paysage}} des écrans muraux sans disposition propre.",
         "change": "Modifiez-la sous <link>Paramètres → Dispositions</link>. Les réglages ci-dessous s’appliquent aux écrans sans disposition."
       }
     },
@@ -1735,6 +1734,8 @@
       "layoutAspect": "Conçue pour {layoutWidth}×{layoutHeight} — cet écran fait {width}×{height}",
       "layoutDropped": "Non affiché sur cet écran : {names}",
       "layoutUsesDefault": "Utilise la disposition par défaut « {name} »",
+      "layoutOtherOrientationDefault": "« {name} » est prévue pour les écrans en {orientation, select, portrait {portrait} other {paysage}} ; tant que cet écran est orienté ainsi, il affiche la disposition par défaut « {fallback} ».",
+      "layoutOtherOrientationBuiltIn": "« {name} » est prévue pour les écrans en {orientation, select, portrait {portrait} other {paysage}} ; tant que cet écran est orienté ainsi, il affiche l’économiseur intégré.",
       "layoutNoDefaults": "Pas un écran mural : les dispositions par défaut ne s’y appliquent pas.",
       "layoutFailed": "La disposition n’a pas pu être modifiée."
     },
@@ -3223,8 +3224,9 @@
       "retry": "Réessayer",
       "empty": "Aucune disposition pour l’instant. Créez-en une pour agencer vous-même l’économiseur d’un écran mural.",
       "shape": "{width}×{height} · {orientation, select, portrait {portrait} other {paysage}}",
-      "usedByNone": "Utilisée par aucun écran",
-      "usedBy": "Utilisée par {names}",
+      "usedByNone": "Affichée sur aucun écran",
+      "usedByAssigned": "Attribuée à {names}",
+      "usedByDefault": "Par défaut sur {names}",
       "badgePortrait": "Par défaut en portrait",
       "badgeLandscape": "Par défaut en paysage",
       "edit": "Modifier",
