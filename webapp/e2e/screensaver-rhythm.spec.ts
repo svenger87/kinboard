@@ -23,8 +23,8 @@ test("every part of the clock sets its own line height, so the row is as tall as
 test("one gap between the sections: the lists, and the lists and the clock", () => {
   const code = saver();
   expect(code).toContain('const sectionGap = largeDetails ? "gap-10" : "gap-6";');
-  expect(code).toContain("flex flex-col-reverse ${sectionGap} safe-area-inset landscape:lg:contents");
-  expect(code).toContain("flex flex-col ${sectionGap} safe-area-inset screensaver-slide-right");
+  expect(code).toContain("flex flex-col-reverse ${sectionGap} landscape:lg:contents");
+  expect(code).toContain("flex flex-col ${sectionGap} screensaver-slide-right");
 });
 
 test("the photo counter is out of the stack, in the corner", () => {

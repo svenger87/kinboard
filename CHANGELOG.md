@@ -24,6 +24,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The screensaver's clock as wide as the cards, and even edges.** On a portrait screen the time is now exactly as wide as the event and birthday cards above it, which keep their own width (384px, or 576px with *Large clock and events*). This replaces the column layout from earlier in this release, which stretched the cards across the screen and made everything far too big on a real wall screen. The news, the weather, the clock and the cards now all sit 48px from the screen's edges in both orientations; before, they ranged from 0 to 80px, partly because a notch-padding class added 16px to some blocks and zeroed the news list's top padding (#282).
+
 - **Even spacing on the screensaver.** The clock, the events and the birthdays at the bottom of the screensaver now sit at one even distance from each other: 24px, or 40px with the large clock and events. Before, the lists were 16px apart and the clock 24px below them. With the large clock and on landscape screens, the clock's row was also half again as tall as its digits, which left a wide gap above and below the time. The photo counter ("12 / 99") moved from under the birthdays to the bottom right corner, where it no longer pushes the clock down (#282).
 
 ### Fixed
