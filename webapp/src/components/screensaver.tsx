@@ -694,6 +694,38 @@ export function Screensaver({ photos }: ScreensaverProps) {
   const newsListRef = useRef<HTMLDivElement>(null);
   const clockBlockRef = useRef<HTMLDivElement>(null);
   const eventsBlockRef = useRef<HTMLDivElement>(null);
+  // The news list shares the top of the screen with the weather column. Its
+  // width used to ignore how wide the weather is: with the forecast on, a
+  // portrait screen at 720px ran the news 37px under it (screen matrix).
+  // Now it ends 24px before the weather, and where that leaves less than
+  // 16rem it moves below the weather instead, at the full width.
+  const [weatherBox, setWeatherBox] = useState<{ w: number; h: number; vw: number } | null>(null);
+  // A callback ref: the column is not rendered at night, so an effect run
+  // once on mount would miss it when the night ends.
+  const weatherObserver = useRef<{ ro: ResizeObserver; off: () => void } | null>(null);
+  const weatherColumnRef = useCallback((el: HTMLDivElement | null) => {
+    weatherObserver.current?.ro.disconnect();
+    weatherObserver.current?.off();
+    weatherObserver.current = null;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      const next = { w: Math.round(r.width), h: Math.round(r.height), vw: window.innerWidth };
+      setWeatherBox((prev) => (prev && prev.w === next.w && prev.h === next.h && prev.vw === next.vw ? prev : next));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    weatherObserver.current = { ro, off: () => window.removeEventListener("resize", measure) };
+  }, []);
+  const SAVER_EDGE = 48;
+  const NEWS_MAX = 400; // 25rem
+  const newsBeside = weatherBox ? weatherBox.vw - 2 * SAVER_EDGE - (weatherBox.w ? weatherBox.w + 24 : 0) : NEWS_MAX;
+  const newsUnder = weatherBox !== null && weatherBox.w > 0 && newsBeside < 256;
+  const newsStyle = newsUnder
+    ? { top: SAVER_EDGE + weatherBox!.h + 24, width: Math.min(NEWS_MAX, weatherBox!.vw - 2 * SAVER_EDGE) }
+    : { width: Math.min(NEWS_MAX, newsBeside) };
   // On a portrait screen the time is exactly as wide as the event and
   // birthday cards above it (#282): measured, since the digits have the
   // display font's own widths. The cards keep their own width (max-w-sm, or
@@ -808,7 +840,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       {(screensaverSettings.showNews ?? true) && news && news.length > 0 && (
         <div
           className={`absolute top-12 left-12 w-[min(25rem,55vw)] screensaver-slide-down ${selectedNews ? 'opacity-0 pointer-events-none' : ''}`}
-          style={{ animationDelay: "0.8s", backgroundColor: "rgba(0,0,0,0.001)", ...burnInStyle }}
+          style={{ animationDelay: "0.8s", backgroundColor: "rgba(0,0,0,0.001)", ...newsStyle, ...burnInStyle }}
           data-no-wake
         >
           <div className="flex items-center gap-2 text-white/60 mb-3">
@@ -875,6 +907,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
         fixed offsets from the top, which a taller weather block would run into.
       */}
       <div
+        ref={weatherColumnRef}
         className="absolute top-12 right-12 flex flex-col items-end gap-3"
         style={burnInStyle}
       >

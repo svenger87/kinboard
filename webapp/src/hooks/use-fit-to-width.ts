@@ -10,10 +10,18 @@ import { useLayoutEffect, useState, type RefObject } from "react";
  *
  * Measured, not computed from character counts: the clock's digits and the
  * date's words have the display font's own widths, and a date's length changes
- * from day to day. Text scales linearly with its font size, so one measurement
- * at a known size gives the size that fits. Measured again when the box
- * resizes, when the web font arrives, and whenever `deps` change (the minute,
- * the date).
+ * from day to day. Text scales linearly with its font size, so the size the
+ * target renders at now and the width it has now give the size that fits:
+ * size × box width ÷ width. Both are read from the same layout.
+ *
+ * It used to set a 100px probe on the target and read the width back. On the
+ * screensaver that read sometimes returned the width at the old size (177px
+ * at 72px), and the clock came out at 217px instead of 156px, 40% wider than
+ * the cards it was fitted to (found by scripts/screen-matrix.mjs). Reading
+ * what is rendered cannot mix two states.
+ *
+ * Measured again when the box resizes, when the web font arrives, and
+ * whenever `deps` change (the minute, the date).
  */
 export function useFitToWidth(
   box: RefObject<HTMLElement | null>,
@@ -29,7 +37,6 @@ export function useFitToWidth(
       setSizes(null);
       return;
     }
-    const PROBE = 100;
     const measure = () => {
       const style = getComputedStyle(el);
       const width = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
@@ -37,19 +44,33 @@ export function useFitToWidth(
       const next = targets.map(({ ref, max }) => {
         const t = ref.current;
         if (!t) return 0;
-        const before = t.style.fontSize;
-        t.style.fontSize = `${PROBE}px`;
-        const natural = t.getBoundingClientRect().width;
-        t.style.fontSize = before;
-        if (natural <= 0) return 0;
-        const fit = Math.floor((PROBE * width) / natural);
+        // The size the text renders at: the first text-bearing child's, which
+        // is the row's own when the children inherit it.
+        const text = (t.firstElementChild as HTMLElement | null) ?? t;
+        const size = parseFloat(getComputedStyle(text).fontSize);
+        const now = t.getBoundingClientRect().width;
+        if (!(size > 0) || now <= 0) return 0;
+        const fit = Math.floor((size * width) / now);
         return max ? Math.min(fit, Math.floor(max(width))) : fit;
       });
-      setSizes((prev) => (prev && prev.length === next.length && prev.every((v, i) => v === next[i]) ? prev : next));
+      // A change of one pixel to a size already fitted is ignored. Where the
+      // fitted text just reaches the box, the box caps its width and the next
+      // reading comes out a fraction over: 119px measures as 118, 118 as 119,
+      // about thirty times a second, and the screensaver never stood still
+      // (a 390px kiosk, holiday-widgets-ui). One pixel of font is about two
+      // and a half of width, well inside what anyone can see.
+      setSizes((prev) =>
+        prev && prev.length === next.length && prev.every((v, i) => Math.abs(v - next[i]) <= 1) ? prev : next,
+      );
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    // The targets too: the web font swapping in changes their width without
+    // touching the box, and document.fonts.ready can settle before a font
+    // that is only requested on first use. A fitted target measures to the
+    // same size again, so this cannot loop.
+    for (const { ref } of targets) if (ref.current) ro.observe(ref.current);
     // A cap may read the viewport's height, which can change with the width unchanged.
     window.addEventListener("resize", measure);
     let live = true;
