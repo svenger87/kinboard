@@ -695,9 +695,9 @@ export function Screensaver({ photos }: ScreensaverProps) {
           </div>
         )}
 
-        {/* Touch hint. Not with the forecast on: centred at the top, it ran into
+        {/* Touch hint. Not with a designed layout (it owns the screen), and not with the forecast on: centred at the top, it ran into
             the forecast strip on portrait panels and on 1024px landscape ones. */}
-        {!(showForecast && weather) && (
+        {!(showForecast && weather) && !designed && (
         <p
           className="absolute top-8 left-1/2 -translate-x-1/2 text-white/40 text-sm safe-area-inset screensaver-fade-in"
           style={{ animationDelay: "2s", paddingTop: 'env(safe-area-inset-top, 0)', ...burnInStyle }}

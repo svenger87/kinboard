@@ -55,6 +55,15 @@ test.describe("validateItems", () => {
       const r = validateItems(builtInScreensaver(w, h), w, h);
       expect(r).toMatchObject({ ok: true });
     });
+    test(`built-in screensaver mirrors today's arrangement at ${w}x${h}`, () => {
+      const items = builtInScreensaver(w, h);
+      const at = (k: string) => items.find((i) => i.widget === k)!;
+      expect([at("news").x, at("news").y]).toEqual([0, 0]);
+      expect(at("weatherNow").x + at("weatherNow").w).toBe(12);
+      if (h > w) {
+        expect([at("date").x, at("date").y]).toEqual([at("clock").x, at("clock").y + at("clock").h]);
+      }
+    });
   }
 });
 
