@@ -53,7 +53,7 @@ Phase B (not yet wired): a workflow that boots the full Docker stack, waits for 
 
 ## Screen matrix
 
-Home and the screensaver on every screen Kinboard is hung on (portrait and landscape wall panels at 100% and 150%, tablets, phone, 2560x1440), in de/en/fr, screenshotted and measured for edge distance, overlap, overflow, clipped text and the portrait clock width. Not a Playwright spec: it needs a running stack, a dev server and a family join code, and it temporarily seeds `matrix-` events and birthdays and pauses the family's ringing timers (all put back afterwards).
+Home and the screensaver on every screen Kinboard is hung on (portrait and landscape wall panels at 100% and 150%, tablets, phone, 2560x1440), in de/en/fr, screenshotted and measured for edge distance, overlap, overflow, clipped text and the portrait clock width. Not a Playwright spec: it needs a running stack, a dev server and a family join code, and it temporarily seeds `matrix-` events and birthdays and dismisses the family's run-out timers (all put back afterwards, also on Ctrl-C). Point it only at a demo or test family: that family's real screens see the changes while it runs.
 
 ```bash
 npm run screens -- --base http://localhost:3157 --code DEMO01

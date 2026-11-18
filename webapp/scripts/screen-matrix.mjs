@@ -19,15 +19,25 @@
  * Known findings (understood, not regressions of a change): the phone screen
  * (390x844) screensaver is overfull, news + weather + events + clock do not
  * fit; this predates the matrix. Its rows report overlap/overflow until the
- * phone layout is designed.
+ * phone layout is designed. Landscape at 1280x720 (1920x1080 at 150%): weather
+ * and events overlap 12px on the normal screensaver and 152px with large
+ * details, events 36px from the top edge; tablet landscape 1280x800 with large
+ * details: weather and events overlap 84px. Fix pending in a follow-up PR.
  *
  * Output: one PNG per shot, report.json, and index.html, a contact sheet
  * with every shot and its findings side by side.
  *
  * Needs a running stack and dev server (or a build), and the family's join
- * code (DEMO01 is the demo family with rich data). It joins as its own device, seeds events and birthdays prefixed
- * "matrix-", stubs news and weather, and removes all of it afterwards. The
- * family's screensaver settings are put back as they were.
+ * code (DEMO01 is the demo family with rich data). It joins as its own device,
+ * seeds events and birthdays prefixed "matrix-", stubs news and weather, and
+ * removes all of it afterwards. Timers that have run out are dismissed for the
+ * run (not paused) and un-dismissed afterwards, and the family's screensaver
+ * settings are put back as they were.
+ *
+ * Point it only at a demo or test family: the family's real screens see these
+ * changes while it runs. The saved state goes to <out>/restore-state.json; on
+ * Ctrl-C or kill the script restores it before exiting, and if a run died
+ * harder the next run restores from that file first.
  *
  *   node scripts/screen-matrix.mjs --base http://localhost:3157 --code DEMO01
  *   node scripts/screen-matrix.mjs --only portrait-1080 --locales de --views saver-large
@@ -44,7 +54,7 @@
  */
 import { chromium } from "playwright";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 // ---------------------------------------------------------------- options
@@ -105,11 +115,51 @@ if (!family) {
   console.error(`no family with join code ${CODE}`);
   process.exit(2);
 }
-const savedSaver = psql(`SELECT value::text FROM settings WHERE family_id = ${q(family)} AND key = 'screensaver'`);
 
-function putSaver(value) {
-  psql(`INSERT INTO settings (family_id, key, value) VALUES (${q(family)}, 'screensaver', ${q(JSON.stringify(value))}::jsonb)
+function putSaver(value, fam = family) {
+  psql(`INSERT INTO settings (family_id, key, value) VALUES (${q(fam)}, 'screensaver', ${q(JSON.stringify(value))}::jsonb)
         ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value`);
+}
+
+mkdirSync(OUT, { recursive: true });
+const STATE_FILE = join(OUT, "restore-state.json");
+
+/** Puts one saved state back. Each step is independent; failures are returned. */
+function restore({ family: fam, savedSaver, ringing: ids }) {
+  const failures = [];
+  const step = (name, fn) => {
+    try { fn(); } catch (e) { failures.push(`${name}: ${String(e.message).split("\n")[0]}`); }
+  };
+  // Soft-delete triggers (birthdays) would leave rows in the recycle bin;
+  // these never existed for the family. Scoped to the family.
+  step("events", () => psql(`BEGIN; SET LOCAL session_replication_role = replica;
+    DELETE FROM events WHERE title LIKE 'matrix-%' AND calendar_id IN (SELECT id FROM calendars WHERE family_id = ${q(fam)});
+    COMMIT;`));
+  step("birthdays", () => psql(`BEGIN; SET LOCAL session_replication_role = replica;
+    DELETE FROM birthdays WHERE name LIKE 'matrix-%' AND family_id = ${q(fam)};
+    COMMIT;`));
+  step("devices", () => psql(`BEGIN; SET LOCAL session_replication_role = replica;
+    DELETE FROM devices WHERE hardware_id LIKE 'matrix-%' AND family_id = ${q(fam)};
+    COMMIT;`));
+  if (ids) step("timers", () => psql(`UPDATE timers SET dismissed_at = NULL WHERE family_id = ${q(fam)} AND id IN (${ids.split(",").map(q).join(",")})`));
+  step("screensaver setting", () => {
+    if (savedSaver) putSaver(JSON.parse(savedSaver), fam);
+    else psql(`DELETE FROM settings WHERE family_id = ${q(fam)} AND key = 'screensaver'`);
+  });
+  return failures;
+}
+
+// A run that was killed without cleaning up left its saved state in the file:
+// restore from that first, so this run does not take the polluted state as the original.
+if (existsSync(STATE_FILE)) {
+  const old = JSON.parse(readFileSync(STATE_FILE, "utf8"));
+  console.log(`restoring the state an interrupted run left behind (${STATE_FILE})`);
+  const failed = restore(old);
+  if (failed.length) {
+    console.error(`could not restore: ${failed.join("; ")}`);
+    process.exit(2);
+  }
+  unlinkSync(STATE_FILE);
 }
 
 // A ringing timer keeps the screensaver away (lib/screensaver-gate.ts), and a
@@ -118,13 +168,17 @@ function putSaver(value) {
 // timers have no finished_at and ran out long ago, which is why its
 // screensaver never started. Every undismissed, unpaused timer that has run
 // out, or will within the run, is dismissed and put back afterwards.
-const ringing = psql(`SELECT string_agg(id::text, ',') FROM timers
-  WHERE family_id = ${q(family)} AND dismissed_at IS NULL AND paused_at IS NULL
-    AND started_at + (duration_seconds + COALESCE(paused_seconds, 0)) * interval '1 second' < now() + interval '3 hours'`);
+const saved = {
+  family,
+  savedSaver: psql(`SELECT value::text FROM settings WHERE family_id = ${q(family)} AND key = 'screensaver'`),
+  ringing: psql(`SELECT string_agg(id::text, ',') FROM timers
+    WHERE family_id = ${q(family)} AND dismissed_at IS NULL AND paused_at IS NULL
+      AND started_at + (duration_seconds + COALESCE(paused_seconds, 0)) * interval '1 second' < now() + interval '3 hours'`),
+};
 
 /** Events and birthdays every shot shows, relative to now so they are always upcoming. */
 function seed() {
-  if (ringing) psql(`UPDATE timers SET dismissed_at = now() WHERE id IN (${ringing.split(",").map(q).join(",")})`);
+  if (saved.ringing) psql(`UPDATE timers SET dismissed_at = now() WHERE id IN (${saved.ringing.split(",").map(q).join(",")})`);
   const calendar = psql(`SELECT id FROM calendars WHERE family_id = ${q(family)} ORDER BY created_at LIMIT 1`);
   if (calendar) {
     psql(`INSERT INTO events (calendar_id, title, start_at, end_at) VALUES
@@ -139,16 +193,22 @@ function seed() {
     (${q(family)}, 'matrix-Tante Marie-Louise', (current_date + 20))`);
 }
 
+let cleanedUp = false;
+/** Once: the signal handlers and the finally block both come here. */
 function cleanup() {
-  // Soft-delete triggers would leave rows in the recycle bin; these never existed for the family.
-  psql(`BEGIN; SET LOCAL session_replication_role = replica;
-    DELETE FROM events WHERE title LIKE 'matrix-%';
-    DELETE FROM birthdays WHERE name LIKE 'matrix-%';
-    DELETE FROM devices WHERE hardware_id LIKE 'matrix-%';
-    COMMIT;`);
-  if (ringing) psql(`UPDATE timers SET dismissed_at = NULL WHERE id IN (${ringing.split(",").map(q).join(",")})`);
-  if (savedSaver) putSaver(JSON.parse(savedSaver));
-  else psql(`DELETE FROM settings WHERE family_id = ${q(family)} AND key = 'screensaver'`);
+  if (cleanedUp) return;
+  cleanedUp = true;
+  const failed = restore(saved);
+  if (failed.length) console.error(`cleanup incomplete, ${STATE_FILE} kept for the next run:\n  ${failed.join("\n  ")}`);
+  else if (existsSync(STATE_FILE)) unlinkSync(STATE_FILE);
+}
+for (const [sig, code] of [["SIGINT", 130], ["SIGTERM", 143]]) {
+  process.once(sig, () => {
+    console.error(`\n${sig}: restoring the family's state`);
+    cleanup();
+    try { writeReport(); } catch { /* nothing measured yet */ }
+    process.exit(code);
+  });
 }
 
 // ---------------------------------------------------------------- stubs
@@ -268,8 +328,6 @@ function measure({ view, edge, tolerance }) {
   if (view !== "home") {
     for (const b of boxes) {
       const d = { left: b.x, right: W - b.right, top: b.y, bottom: H - b.bottom };
-      // Only the sides it sits against: within a quarter of the screen. The
-      // events above the clock on a portrait screen sit against no bottom edge.
       // Only the sides it sits against: within a quarter of the screen, with
       // no other block between it and the edge (the events above the clock
       // on a portrait screen sit against the clock, not the bottom).
@@ -331,11 +389,12 @@ const saverBase = {
   largeDetails: false,
 };
 
-mkdirSync(OUT, { recursive: true });
 const results = [];
-const browser = await chromium.launch();
-seed();
+let browser;
 try {
+  browser = await chromium.launch();
+  writeFileSync(STATE_FILE, JSON.stringify(saved));
+  seed();
   for (const screen of screens) {
     for (const locale of locales) {
       const ctx = await browser.newContext({
@@ -409,11 +468,14 @@ try {
   }
 } finally {
   cleanup();
-  await browser.close();
+  await browser?.close().catch(() => {});
+  writeReport();
 }
+if (STRICT && results.some((r) => r.findings.length)) process.exit(1);
 
 // ---------------------------------------------------------------- report
 
+function writeReport() {
 writeFileSync(join(OUT, "report.json"), JSON.stringify({ base: BASE, at: new Date().toISOString(), edge: EDGE, results }, null, 2));
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -438,4 +500,4 @@ ${[...new Set(results.map((r) => r.screen))].map((id) => {
 }).join("\n")}`;
 writeFileSync(join(OUT, "index.html"), html);
 console.log(`\n${results.length} shots, ${total} finding(s). Contact sheet: ${join(OUT, "index.html")}`);
-if (STRICT && total > 0) process.exit(1);
+}
