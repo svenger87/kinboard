@@ -3,6 +3,8 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { useScreensaverData } from "@/hooks/use-screensaver-data";
+import { DesignedScreensaver } from "@/components/layouts/designed-screensaver";
+import { useActiveLayout } from "@/hooks/use-active-layout";
 import { ScreensaverDataProvider, useScreensaverDataValue } from "@/components/layouts/screensaver-data-context";
 import { BirthdayRow, EnergyRows, EventRow, NewsCard, SectionLabel, TeslaRows, useEventWhen, useNewsTime } from "@/components/screensaver-rows";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -112,6 +114,10 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // rotation), and handed to the layout widgets through the context below.
   const data = useScreensaverData({ photos });
   const screensaverData = useScreensaverDataValue(data);
+  // The layout this screen was given, if any: it replaces the news, the
+  // weather column, the bottom cluster and the photo counter below.
+  const active = useActiveLayout("screensaver");
+  const designed = active.layout && active.grid ? { items: active.items, grid: active.grid } : null;
   const {
     hours, minutes, nightNow, formattedDate, soon, weather,
     upcomingEvents, upcomingBirthdays, news,
@@ -351,6 +357,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
             are lifted by the floor's height (--idle-creature-floor). */}
         <CreaturesOnIdle />
 
+        {!designed && (
+          <>
         {/* News list - top left (always rendered for data-no-wake) */}
         {(screensaverSettings.showNews ?? true) && news && news.length > 0 && (
           <div
@@ -417,6 +425,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
         )}
         </div>
         {/* end top right */}
+          </>
+        )}
 
         {/* News detail modal */}
         <AnimatePresence>
@@ -536,6 +546,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
           elevated
         />
 
+        {!designed && (
+          <>
         {/*
           Bottom cluster: the clock and the events/birthdays block.
 
@@ -647,6 +659,10 @@ export function Screensaver({ photos }: ScreensaverProps) {
             {currentPhotoIndex + 1} / {photoUrls.length}
           </span>
         )}
+          </>
+        )}
+
+        {designed && <DesignedScreensaver items={designed.items} grid={designed.grid} style={burnInStyle} />}
 
         {/* Photo metadata / attribution */}
         {currentPhotoMetadata?.photographer && (
