@@ -12,8 +12,10 @@ export const dynamic = "force-dynamic";
  *
  * Which layout a screen shows (null: the built-in one). The device and the
  * layout must both be the session's family's -- the foreign key checks
- * neither. Touches updated_at on the layout it leaves and the one it takes,
- * so the change feed tells the screens on both. Behind the settings PIN; the
+ * neither. Rewrites the layout it leaves and the one it takes with their own
+ * family_id (a no-op that still fires the change feed trigger), so the
+ * screens learn of it. updated_at is left alone: bumping it would make an
+ * open editor's next save fail as stale. Behind the settings PIN; the
  * browser roles cannot write devices.layout_id (migrations/086_layouts.sql).
  * Answers with the whole device row.
  */
@@ -64,11 +66,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return notFound();
 
+  // A failure from here on leaves the device changed but the layouts not
+  // touched: the screens learn on their next refetch instead of at once.
   const touched = [device.layout_id, layoutId].filter((x, i, a): x is string => !!x && a.indexOf(x) === i);
   if (touched.length > 0) {
     const { error: touchErr } = await db
       .from("layouts")
-      .update({ updated_at: new Date().toISOString() })
+      .update({ family_id: familyId })
       .in("id", touched)
       .eq("family_id", familyId);
     if (touchErr) return NextResponse.json({ error: touchErr.message }, { status: 500 });

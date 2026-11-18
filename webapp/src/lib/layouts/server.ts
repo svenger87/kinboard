@@ -3,6 +3,7 @@
  * size, and the family's per-orientation defaults (a row of `settings`).
  */
 import { NextResponse } from "next/server";
+import { gridFor } from "./grid";
 import type { LayoutDefaults } from "./types";
 
 export const DEFAULTS_KEY = "layout_defaults";
@@ -30,7 +31,9 @@ export function sizeOk(width: unknown, height: unknown): width is number {
   return (
     Number.isInteger(width) && Number.isInteger(height) &&
     (width as number) >= 600 && (width as number) <= 20000 &&
-    (height as number) >= 300 && (height as number) <= 20000
+    (height as number) >= 300 && (height as number) <= 20000 &&
+    // A size the grid has no rows for (under 6) could never hold a screensaver.
+    gridFor(width as number, height as number) !== null
   );
 }
 

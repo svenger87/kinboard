@@ -107,6 +107,10 @@ test("create from builtin: 201 with the built-in screensaver", async () => {
   expect((await bad.json()).error).toBe("bad_name");
   const size = await api.post("/api/layouts", { data: { name: "ok", width: 10, height: 1920 } });
   expect((await size.json()).error).toBe("bad_size");
+  // In range, but fewer than 6 grid rows: no screensaver could ever fit.
+  const flat = await api.post("/api/layouts", { data: { name: "ok", width: 1920, height: 600, from: "builtin" } });
+  expect(flat.status()).toBe(400);
+  expect((await flat.json()).error).toBe("bad_size");
 });
 
 test("PATCH: a valid change, a stale stamp, an overlap, unknown keys", async () => {
@@ -132,6 +136,10 @@ test("PATCH: a valid change, a stale stamp, an overlap, unknown keys", async () 
   expect(over.status()).toBe(400);
   expect((await over.json()).error).toBe("overlap");
   expect(stamp(layoutId)).toBe(before);
+
+  const junk = await api.patch(`/api/layouts/${layoutId}`, { data: { name: "x", updated_at: "not a date" } });
+  expect(junk.status()).toBe(400);
+  expect((await junk.json()).error).toBe("bad_body");
 
   const unk = await api.patch(`/api/layouts/${layoutId}`, { data: { home: [], updated_at: fresh } });
   expect(unk.status()).toBe(400);
@@ -162,20 +170,20 @@ test("another family's layout is 404 on every route", async () => {
   expect(dev()).toBe("null");
 });
 
-test("assign: sets the device and touches the layouts' stamps; unassign touches the old one", async () => {
+test("assign and unassign set the device and leave updated_at alone", async () => {
   await unlock();
   const before = stamp(layoutId);
   const res = await api.put(`/api/devices/${deviceId}/layout`, { data: { layout_id: layoutId } });
   expect(res.status(), await res.text()).toBe(200);
   expect((await res.json()).device).toMatchObject({ id: deviceId, layout_id: layoutId });
   expect(dev()).toBe(layoutId);
-  expect(stamp(layoutId)).not.toBe(before);
+  expect(stamp(layoutId)).toBe(before); // an open editor must not go stale
 
   const mid = stamp(layoutId);
   const un = await api.put(`/api/devices/${deviceId}/layout`, { data: { layout_id: null } });
   expect(un.status()).toBe(200);
   expect(dev()).toBe("null");
-  expect(stamp(layoutId)).not.toBe(mid);
+  expect(stamp(layoutId)).toBe(mid);
 });
 
 test("defaults: matching orientation only; delete clears the slot and the device", async () => {

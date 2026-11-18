@@ -17,6 +17,9 @@ const PATCHABLE = new Set(["name", "screensaver", "updated_at"]);
  * editor loaded: if the row has moved on, 409 stale and nothing is written,
  * so two editors cannot overwrite each other unseen. The screensaver is
  * checked against the layout's own size. `home` is not editable yet.
+ *
+ * Clients must echo `updated_at` exactly as the server returned it; an
+ * unparseable one is 400 bad_body.
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -28,7 +31,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const body = await readJson(request);
   if (!body || Object.keys(body).some((k) => !PATCHABLE.has(k))) return fail("bad_body");
-  if (typeof body.updated_at !== "string" || body.updated_at === "") return fail("bad_body");
+  if (typeof body.updated_at !== "string" || Number.isNaN(Date.parse(body.updated_at))) return fail("bad_body");
 
   const familyId = auth.session.familyId;
   const db = createAdminClient() as any;
@@ -62,13 +65,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .eq("updated_at", body.updated_at)
     .select("*")
     .maybeSingle();
-  if (error) {
-    // A stamp that is not a timestamp can never match the row.
-    if (/invalid input syntax|date\/time/i.test(error.message)) return fail("stale", 409);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) {
-    const { data: again } = await db.from("layouts").select("id").eq("id", id).eq("family_id", familyId).maybeSingle();
+    const { data: again, error: againErr } = await db
+      .from("layouts")
+      .select("id")
+      .eq("id", id)
+      .eq("family_id", familyId)
+      .maybeSingle();
+    if (againErr) return NextResponse.json({ error: againErr.message }, { status: 500 });
     return again ? fail("stale", 409) : notFound();
   }
   return NextResponse.json({ layout: data });
@@ -101,12 +106,15 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!gone) return notFound();
 
-  const { data: setting } = await db
+  // A failure from here on leaves the layout deleted but the default still
+  // naming it: resolution then falls through to the built-in layout.
+  const { data: setting, error: settingErr } = await db
     .from("settings")
     .select("value")
     .eq("family_id", familyId)
     .eq("key", DEFAULTS_KEY)
     .maybeSingle();
+  if (settingErr) return NextResponse.json({ error: settingErr.message }, { status: 500 });
   if (setting) {
     const d = readDefaults(setting.value);
     if (d.portrait === id || d.landscape === id) {
