@@ -309,3 +309,31 @@ export function usePointTotals(): { ready: boolean; totalsFor: (personId: string
       ),
   };
 }
+
+/**
+ * A child's latest task awards and adjustments, newest first, for the
+ * pocket-money widget's recent activity (lib/pocket-money/point-history.ts).
+ * Only `limit` rows: the merged list never needs more of them than it shows.
+ * Keyed under "todo-point-awards" and the family, so every invalidation of
+ * the awards (a task ticked, an adjustment, realtime) refreshes it too.
+ */
+export function usePointAwardHistory(personId: string | undefined, limit: number) {
+  const familyId = useFamilyStore((s) => s.family?.id);
+  return useQuery({
+    queryKey: ["todo-point-awards", familyId, "history", personId, limit],
+    enabled: Boolean(familyId && personId && limit > 0),
+    queryFn: async (): Promise<
+      Pick<PointAwardRow, "id" | "person_id" | "points" | "kind" | "note" | "todo_id" | "created_at">[]
+    > => {
+      const { data, error } = await (createClient() as any)
+        .from("todo_point_awards")
+        .select("id,person_id,points,kind,note,todo_id,created_at")
+        .eq("family_id", familyId)
+        .eq("person_id", personId)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}

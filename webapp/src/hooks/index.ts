@@ -481,6 +481,7 @@ export {
   usePointAdjustments,
   useAdjustPoints,
   useRemoveAdjustment,
+  usePointAwardHistory,
 } from "./use-point-rewards";
 export {
   useCreatures,
