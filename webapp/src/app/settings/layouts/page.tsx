@@ -215,7 +215,14 @@ function LayoutRow({
 function DefaultsCard({ layouts, defaults }: { layouts: Layout[]; defaults: LayoutDefaults | undefined }) {
   const t = useTranslations("settings.layouts.defaults");
   const setDefaults = useSetLayoutDefaults();
-  const current: LayoutDefaults = defaults ?? { portrait: null, landscape: null };
+  // What each picker shows: a stored id that is not one of the family's
+  // layouts of that orientation (deleted elsewhere, say) is the built-in, and
+  // is sent as null, so it can never make the other slot's change fail.
+  const valid = (slot: Orientation): string | null => {
+    const id = defaults?.[slot] ?? null;
+    return id && layouts.some((l) => l.id === id && orientationOf(l.width, l.height) === slot) ? id : null;
+  };
+  const current: LayoutDefaults = { portrait: valid("portrait"), landscape: valid("landscape") };
 
   const change = async (slot: Orientation, value: string) => {
     try {
@@ -234,7 +241,7 @@ function DefaultsCard({ layouts, defaults }: { layouts: Layout[]; defaults: Layo
       </div>
       {(["portrait", "landscape"] as const).map((slot) => {
         const options = layouts.filter((l) => orientationOf(l.width, l.height) === slot);
-        const value = current[slot] && options.some((l) => l.id === current[slot]) ? current[slot]! : BUILT_IN;
+        const value = current[slot] ?? BUILT_IN;
         return (
           <div key={slot} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <Label id={`default-${slot}-label`}>{t(slot)}</Label>

@@ -39,6 +39,9 @@ const DEDICATED_ROUTE_KEYS: Record<string, string> = {
   [SETTINGS_KEYS.holidayRegion]: "/api/holidays/region",
   // RFC-014 §5: the switch and the school region empty or refill synced rows.
   [SETTINGS_KEYS.schoolHolidaySync]: "/api/school-holidays/sync",
+  // Which layout every wall screen without its own shows: behind the settings
+  // PIN, and each id checked to be one of the family's layouts of that shape.
+  [SETTINGS_KEYS.layoutDefaults]: "/api/layouts/defaults",
 };
 
 function dedicatedRoute(key: unknown): NextResponse | null {

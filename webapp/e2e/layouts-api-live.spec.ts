@@ -184,7 +184,10 @@ test("another family's layout is 404 on every route", async () => {
   expect((await api.put(`/api/devices/${deviceId}/layout`, { data: { layout_id: otherLayoutId } })).status()).toBe(404);
   expect((await api.put(`/api/devices/${otherDeviceId}/layout`, { data: { layout_id: layoutId } })).status()).toBe(404);
   expect((await api.post("/api/layouts", { data: { name: "x", width: 1080, height: 1920, from: otherLayoutId } })).status()).toBe(404);
-  expect((await api.put("/api/layouts/defaults", { data: { portrait: otherLayoutId, landscape: null } })).status()).toBe(400);
+  // As a default, another family's layout is no layout of this family's: it counts as none.
+  const asDefault = await api.put("/api/layouts/defaults", { data: { portrait: otherLayoutId, landscape: null } });
+  expect(asDefault.status()).toBe(200);
+  expect((await asDefault.json()).defaults).toEqual({ portrait: null, landscape: null });
   expect(psql(`SELECT count(*) FROM layouts WHERE id = '${otherLayoutId}'`)).toBe("1");
   expect(dev()).toBe("null");
 });
@@ -224,4 +227,35 @@ test("defaults: matching orientation only; delete clears the slot and the device
   expect(JSON.parse(defaults())).toEqual({ portrait: null, landscape: wide });
   expect(psql(`SELECT count(*) FROM layouts WHERE id = '${layoutId}'`)).toBe("0");
   expect((await api.delete(`/api/layouts/${layoutId}`)).status()).toBe(404);
+});
+
+test("defaults: an id with no layout behind it counts as null, so a dangling slot can be cleared", async () => {
+  await unlock();
+  const wide = psqlRow(`INSERT INTO layouts (family_id, name, width, height) VALUES ('${famId}', '${P}wide2', 1920, 1080) RETURNING id`);
+  const gone = "00000000-0000-4000-8000-000000000000";
+  // A stale value, as the settings page may still hold it after a delete elsewhere.
+  psql(`INSERT INTO settings (family_id, key, value) VALUES ('${famId}', 'layout_defaults', '{"portrait":"${gone}","landscape":null}'::jsonb)
+        ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value`);
+  const res = await api.put("/api/layouts/defaults", { data: { portrait: gone, landscape: wide } });
+  expect(res.status(), await res.text()).toBe(200);
+  expect((await res.json()).defaults).toEqual({ portrait: null, landscape: wide });
+  expect(JSON.parse(defaults())).toEqual({ portrait: null, landscape: wide });
+  // Another family's layout is no layout of this family's either.
+  const theirs = await api.put("/api/layouts/defaults", { data: { portrait: otherLayoutId, landscape: wide } });
+  expect(theirs.status()).toBe(200);
+  expect(JSON.parse(defaults())).toEqual({ portrait: null, landscape: wide });
+  // A layout of the family in the wrong orientation is still refused.
+  const wrong = await api.put("/api/layouts/defaults", { data: { portrait: wide, landscape: null } });
+  expect(wrong.status()).toBe(400);
+});
+
+test("the generic settings route does not write layout_defaults, unlocked or not", async () => {
+  await unlock();
+  const before = defaults();
+  const res = await api.put("/api/settings", { data: { family_id: famId, key: "layout_defaults", value: { portrait: otherLayoutId, landscape: null } } });
+  expect(res.status()).toBe(403);
+  expect((await res.json()).error).toContain("/api/layouts/defaults");
+  const del = await api.delete("/api/settings", { data: { family_id: famId, key: "layout_defaults" } });
+  expect(del.status()).toBe(403);
+  expect(defaults()).toBe(before);
 });

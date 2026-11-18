@@ -38,3 +38,14 @@ test("GET /api/layouts needs a session only", () => {
   expect(start).toBeGreaterThanOrEqual(0);
   expect(src.slice(start, end)).not.toContain("requireSettingsUnlock");
 });
+
+test("the generic settings route leaves layout_defaults to /api/layouts/defaults", () => {
+  const src = readFileSync(join(ROOT, "settings/route.ts"), "utf8");
+  expect(src).toMatch(/\[SETTINGS_KEYS\.layoutDefaults\]: "\/api\/layouts\/defaults"/);
+});
+
+test("a family import does not restore layout_defaults: the layouts it names are not exported", () => {
+  const src = readFileSync(join(ROOT, "import/route.ts"), "utf8");
+  expect(src).toMatch(/dropSettingKeys: \[SETTINGS_KEYS\.layoutDefaults\]/);
+  expect(src).toContain("tableSpec.dropSettingKeys?.includes(row.key)");
+});

@@ -14,7 +14,10 @@ export const dynamic = "force-dynamic";
  *
  * Which layout a screen without one of its own uses, per orientation. Each id
  * must be a layout of the family drawn in that orientation; otherwise 400
- * bad_default. Stored as the family's `layout_defaults` setting.
+ * bad_default. An id with no layout behind it (deleted meanwhile, or a stale
+ * value a client still holds) counts as null, so a dangling slot can always
+ * be cleared by sending the other one. Stored as the family's
+ * `layout_defaults` setting, and the stored value is returned.
  */
 export async function PUT(request: NextRequest) {
   const auth = await requireSession(request);
@@ -45,7 +48,11 @@ export async function PUT(request: NextRequest) {
       .eq("family_id", familyId)
       .maybeSingle();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    if (!row || orientationOf(row.width, row.height) !== slot) return fail("bad_default");
+    if (!row) {
+      defaults[slot] = null;
+      continue;
+    }
+    if (orientationOf(row.width, row.height) !== slot) return fail("bad_default");
   }
 
   const { error } = await db
