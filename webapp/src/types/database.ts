@@ -102,6 +102,8 @@ export interface Database {
           person_id: string | null;
           /** The screen's size as it last reported it; written only by POST /api/screen. */
           screen: import("@/lib/device-screen").DeviceScreen | null;
+          /** The layout this screen shows (NULL: the built-in one); written only by the server. */
+          layout_id: string | null;
         };
         Insert: {
           id?: string;
@@ -126,6 +128,32 @@ export interface Database {
           created_at?: string;
           hardware_id?: string | null;
           fingerprint?: string | null;
+        };
+        Relationships: [];
+      };
+      layouts: {
+        Row: { [K in keyof import("@/lib/layouts/types").Layout]: import("@/lib/layouts/types").Layout[K] };
+        Insert: {
+          id?: string;
+          family_id: string;
+          name: string;
+          width: number;
+          height: number;
+          home?: import("@/lib/layouts/types").LayoutItem[];
+          screensaver?: import("@/lib/layouts/types").LayoutItem[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_id?: string;
+          name?: string;
+          width?: number;
+          height?: number;
+          home?: import("@/lib/layouts/types").LayoutItem[];
+          screensaver?: import("@/lib/layouts/types").LayoutItem[];
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };

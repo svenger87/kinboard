@@ -74,7 +74,8 @@ type TableName =
   | "pocket_money_accounts"
   | "pocket_money_transactions"
   | "pocket_money_goals"
-  | "pocket_money_withdrawal_requests";
+  | "pocket_money_withdrawal_requests"
+  | "layouts";
 
 const ALL_TABLES: TableName[] = [
   "people",
@@ -112,6 +113,7 @@ const ALL_TABLES: TableName[] = [
   "pocket_money_transactions",
   "pocket_money_goals",
   "pocket_money_withdrawal_requests",
+  "layouts",
 ];
 
 interface UseRealtimeOptions {
