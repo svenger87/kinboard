@@ -18,7 +18,8 @@ test("the defaults are what the screensaver showed before", () => {
 });
 
 test("the screensaver cuts both lists at the family's counts and can leave birthdays out", () => {
-  const saver = readFileSync("src/components/screensaver.tsx", "utf8");
+  // The lists are derived in the hook the screensaver reads.
+  const saver = readFileSync("src/hooks/use-screensaver-data.ts", "utf8");
   expect(saver).toContain("screensaverListCount(screensaverSettings.eventCount, 4)");
   expect(saver).toContain("screensaverListCount(screensaverSettings.birthdayCount, 3)");
   expect(saver).toContain(".slice(0, eventCount)");

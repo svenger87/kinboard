@@ -199,7 +199,7 @@ test("the Events widget, the week overview and the screensaver use the hook with
   for (const file of [
     "src/components/widgets/upcoming-events.tsx",
     "src/components/widgets/week-overview-widget.tsx",
-    "src/components/screensaver.tsx",
+    "src/hooks/use-screensaver-data.ts",
   ]) {
     expect(read(file), file).toMatch(/useHolidayEntries\([^;]*, events, \{ eventList: true \}\);/);
   }
