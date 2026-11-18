@@ -38,6 +38,10 @@ export interface ScreensaverSettings {
   // A strip of the next forecast slots under the weather chip (#282): the
   // time, an icon, the temperature and the chance of rain.
   showForecast?: boolean;
+  // Each child's lessons and what to bring, in the stack with the events
+  // (#282); in the evening the next school day, from the schedule widget's
+  // "next school day from" time.
+  showLessons?: boolean;
   // Home's weather effects (snow, rain, frost...) over the photos too, with
   // the thresholds from Settings -> Weather; separate from Home's own switch.
   weatherEffects?: boolean;
@@ -68,6 +72,7 @@ export const DEFAULT_SCREENSAVER_SETTINGS: ScreensaverSettings = {
   showNextEvent: true,
   night: false,
   showForecast: false,
+  showLessons: false,
   weatherEffects: false,
 };
 

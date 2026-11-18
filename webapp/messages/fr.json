@@ -165,6 +165,10 @@
       "birthdayDays": "{count, plural, one {# jour} other {# jours}}",
       "photoCreditUnsplash": "Photo : {photographer} / Unsplash",
       "forecastNow": "Maintenant",
+      "lessonsToday": "À l’école aujourd’hui",
+      "lessonsTomorrow": "À l’école demain",
+      "lessonsOn": "À l’école {day}",
+      "lessonsBring": "À emporter : {items}",
       "holidayUntil": "jusqu'au {date}"
     },
     "pwa": {
@@ -1423,6 +1427,8 @@
       "showBirthdaysDescription": "Afficher les anniversaires des 30 prochains jours, et combien",
       "showForecastLabel": "Prévisions météo",
       "showForecastDescription": "À côté de la température, les prochaines heures par pas de 3 heures : météo, température et risque de pluie",
+      "showLessonsLabel": "Cours des enfants",
+      "showLessonsDescription": "Les matières du jour de chaque enfant et ce qu’il faut emporter, comme les affaires de sport ; le soir, le prochain jour d’école, à partir de l’heure réglée pour le widget emploi du temps",
       "weatherEffectsLabel": "Effets météo",
       "weatherEffectsDescription": "Neige, pluie, givre et plus sur les photos, comme sur l'accueil. Les effets et leurs seuils se règlent dans <link>Météo</link>.",
       "birthdayCountLabel": "Nombre d’anniversaires",
@@ -3232,6 +3238,7 @@
       "theme_animations": "animations, mouvement, effets, réduire les animations, performances, lent, saccades, raspberry pi",
       "screensaver_lists": "événements, anniversaires, combien, nombre, lignes, liste, masquer les anniversaires",
       "screensaver_forecast": "prévisions, prévisions météo, horaire, heures, risque de pluie, pluie, température, vêtements, maternelle",
+      "screensaver_lessons": "emploi du temps, école, matières, sport, affaires de sport, emporter, enfants, cours",
       "screensaver_weather-effects": "effets météo, neige, pluie, givre, brouillard, orage, animation, météo",
       "screensaver_night": "nuit, sombre, atténué, coucher, horloge seule, marquage",
       "screensaver_timeout": "délai, inactivité, minutes, quand, démarrer",

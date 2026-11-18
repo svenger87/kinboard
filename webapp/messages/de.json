@@ -165,6 +165,10 @@
       "birthdayDays": "{count, plural, one {# Tag} other {# Tage}}",
       "photoCreditUnsplash": "Foto: {photographer} / Unsplash",
       "forecastNow": "Jetzt",
+      "lessonsToday": "Heute in der Schule",
+      "lessonsTomorrow": "Morgen in der Schule",
+      "lessonsOn": "{day} in der Schule",
+      "lessonsBring": "Mitnehmen: {items}",
       "holidayUntil": "bis {date}"
     },
     "pwa": {
@@ -1423,6 +1427,8 @@
       "showBirthdaysDescription": "Geburtstage der nächsten 30 Tage anzeigen, und wie viele",
       "showForecastLabel": "Wettervorhersage",
       "showForecastDescription": "Neben der Temperatur die nächsten Stunden in 3-Stunden-Schritten: Wetter, Temperatur und Regenwahrscheinlichkeit",
+      "showLessonsLabel": "Stundenplan der Kinder",
+      "showLessonsDescription": "Die heutigen Fächer jedes Kindes und was mitmuss, z. B. Sportsachen; abends der nächste Schultag, ab der Uhrzeit aus dem Stundenplan-Widget",
       "weatherEffectsLabel": "Wettereffekte",
       "weatherEffectsDescription": "Schnee, Regen, Frost und mehr über den Fotos, wie auf dem Startbildschirm. Welche Effekte und ab wann, steht unter <link>Wetter</link>.",
       "birthdayCountLabel": "Anzahl der Geburtstage",
@@ -3232,6 +3238,7 @@
       "theme_animations": "animationen, bewegung, effekte, bewegung reduzieren, leistung, langsam, ruckeln, raspberry pi",
       "screensaver_lists": "Termine, Geburtstage, wie viele, Anzahl, Zeilen, Liste, Geburtstage ausblenden",
       "screensaver_forecast": "Vorhersage, Wettervorhersage, stündlich, Stunden, Regenwahrscheinlichkeit, Regen, Temperatur, Kleidung, Kindergarten",
+      "screensaver_lessons": "Stundenplan, Schule, Fächer, Sport, Sportsachen, mitnehmen, einpacken, Kinder, Unterricht",
       "screensaver_weather-effects": "Wettereffekte, Schnee, Regen, Frost, Nebel, Gewitter, Animation, Wetter",
       "screensaver_night": "Nacht, Nachtmodus, dunkel, gedimmt, Schlafenszeit, nur Uhr, Einbrennen",
       "screensaver_timeout": "Wartezeit, Inaktivität, Leerlauf, Minuten, wann, starten",
