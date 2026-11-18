@@ -22,7 +22,6 @@ import { hasBirthYear } from "@/lib/birthday";
 import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib/holiday-entries";
 import { toLocalDateKey } from "@/lib/local-date";
 import { useTimeFormat } from "@/hooks/use-time-format";
-import { useFitToWidth, useMediaQuery } from "@/hooks/use-fit-to-width";
 import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
 import { WeatherEffects } from "@/components/weather-effects";
 import { ScreensaverWeather } from "@/components/screensaver-weather";
@@ -128,13 +127,6 @@ function formatEventTime(
   return `${format(start, "EEE", { locale: dateLocale })}, ${formatTime(start)}`;
 }
 
-/**
- * Trims a line box to the letters: from the top of the capitals to the
- * baseline, so a gap measures from the ink, as in #282's mockup. Browsers
- * without `text-box` keep the plain line box (a few px more space).
- */
-const TRIM = "[text-box:trim-both_cap_alphabetic]";
-
 // No default photos — screensaver shows clock-only mode when Immich is not connected
 const DEFAULT_PHOTOS: string[] = [];
 
@@ -210,21 +202,6 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // clock), so the spacing is even: it was 16px between the lists and 24px
   // above the clock (#282). Wider with the large details, as the text is.
   const sectionGap = largeDetails ? "gap-10" : "gap-6";
-  // The large details on a portrait screen: one column, after a family's
-  // mockup in #282. The clock and the date are as wide as the cards, and
-  // everything sits 60px apart and 60px from the edges, measured to the
-  // letters themselves. Landscape keeps the layout it had: a large screen
-  // puts the clock and the lists in opposite corners, and on a short one a
-  // clock this size pushed the events off the top.
-  const portrait = useMediaQuery("(orientation: portrait)");
-  const column = largeDetails && portrait;
-  // In the column the digits take their size from the fitted row (and trim
-  // to the letters); elsewhere the two sizes as before.
-  const clockSize = column
-    ? TRIM
-    : largeDetails
-      ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]"
-      : "text-7xl landscape:lg:text-[8rem]";
   const eventCount = screensaverListCount(screensaverSettings.eventCount, 4);
   const birthdayCount = screensaverListCount(screensaverSettings.birthdayCount, 3);
   const showBirthdays = screensaverSettings.showBirthdays ?? true;
@@ -715,17 +692,6 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // line under the clock. Measured, since the blocks below change height.
   const newsListRef = useRef<HTMLDivElement>(null);
   const clockBlockRef = useRef<HTMLDivElement>(null);
-  const clockDigitsRef = useRef<HTMLDivElement>(null);
-  const clockDateRef = useRef<HTMLParagraphElement>(null);
-  // In the column: the time as wide as the cards, and the date too, capped
-  // at a ninth of the column (a short date would grow huge).
-  const fitted = useFitToWidth(
-    clockBlockRef,
-    // The time never taller than 18% of the screen, for a short portrait one.
-    [{ ref: clockDigitsRef, max: () => window.innerHeight * 0.18 }, { ref: clockDateRef, max: (w) => w / 9 }],
-    column,
-    [hours, minutes, formattedDate],
-  );
   const eventsBlockRef = useRef<HTMLDivElement>(null);
   const [newsRoom, setNewsRoom] = useState<number | null>(null);
   const [newsClipped, setNewsClipped] = useState(false);
@@ -1136,39 +1102,26 @@ export function Screensaver({ photos }: ScreensaverProps) {
       */}
       <div
         className={`absolute inset-x-4 bottom-[calc(3rem+var(--idle-creature-floor,0px))] flex flex-col-reverse ${sectionGap} safe-area-inset landscape:lg:contents`}
-        // 60px to the edges and between the blocks. Sideways that is 28px
-        // here plus the 16px side padding of this wrapper and of each block
-        // (safe-area-inset); vertically they have none, so it is 60 itself.
-        style={column ? { left: 28, right: 28, bottom: "calc(60px + var(--idle-creature-floor, 0px))", rowGap: 60 } : undefined}
       >
       {/* Clock overlay - bottom left (compact for mobile & portrait). A festival's fireworks go up over it (RFC-020). */}
       <div
         ref={clockBlockRef}
         data-festival-anchor="screensaver-clock"
         className="landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:left-12 safe-area-inset screensaver-slide-up"
-        style={{ animationDelay: "0.5s", ...(column ? { width: "100%", maxWidth: "36rem" } : {}), ...burnInStyle }}
+        style={{ animationDelay: "0.5s", ...burnInStyle }}
       >
-        <div
-          ref={clockDigitsRef}
-          className={`flex w-fit items-baseline ${column ? "whitespace-nowrap" : ""}`}
-          style={column ? { fontSize: fitted?.[0] ?? 128 } : undefined}
-          data-testid="screensaver-clock-digits"
-        >
-          <span className={`font-display font-light ${clockSize} text-white clock-display tracking-tighter leading-none`}>
+        <div className="flex items-baseline">
+          <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white clock-display tracking-tighter leading-none`}>
             {hours}
           </span>
-          <span className={`font-display font-light ${clockSize} text-white/30 ${column ? "mx-[0.03em]" : "mx-1 landscape:lg:mx-2"} leading-none`}>
+          <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white/30 mx-1 landscape:lg:mx-2 leading-none`}>
             :
           </span>
-          <span className={`font-display font-light ${clockSize} text-white clock-display tracking-tighter leading-none`}>
+          <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white clock-display tracking-tighter leading-none`}>
             {minutes}
           </span>
         </div>
-        <p
-          ref={clockDateRef}
-          className={column ? `w-fit whitespace-nowrap font-light text-white/60 tracking-wide leading-none ${TRIM}` : `${largeDetails ? "text-2xl landscape:lg:text-4xl" : "text-xl landscape:lg:text-2xl"} font-light text-white/60 mt-2 tracking-wide`}
-          style={column ? { fontSize: fitted?.[1] ?? 36, marginTop: fitted ? Math.round(fitted[0] * 0.14) : 16 } : undefined}
-        >
+        <p className={`${largeDetails ? "text-2xl landscape:lg:text-4xl" : "text-xl landscape:lg:text-2xl"} font-light text-white/60 mt-2 tracking-wide`}>
           {formattedDate}
         </p>
         {soon && (
@@ -1186,7 +1139,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       <div
         ref={eventsBlockRef}
         className={`max-w-sm landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:right-12 flex flex-col ${sectionGap} safe-area-inset screensaver-slide-right`}
-        style={{ animationDelay: "0.7s", maxWidth: largeDetails ? "36rem" : undefined, ...(column ? { width: "100%", rowGap: 60 } : {}), ...burnInStyle }}
+        style={{ animationDelay: "0.7s", maxWidth: largeDetails ? "36rem" : undefined, ...burnInStyle }}
       >
         {/* Upcoming Events */}
         {upcomingEvents.length > 0 && (
