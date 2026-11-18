@@ -202,7 +202,25 @@
       "permissionDenied": "Benachrichtigungen wurden nicht erlaubt. Erlaube sie für diese Seite in deinen Browser-Einstellungen.",
       "vapidMissing": "Der Push-Server ist nicht konfiguriert. Bitte VAPID-Schlüssel in .env setzen."
     },
-    "backTo": "Zurück zu {target}"
+    "backTo": "Zurück zu {target}",
+    "layouts": {
+      "more": "+{count} weitere",
+      "holidaysLabel": "Ferien & Feiertage",
+      "empty": {
+        "events": "Keine Termine in den nächsten 7 Tagen",
+        "birthdays": "Keine Geburtstage in den nächsten 30 Tagen",
+        "holidays": "Keine Ferien oder Feiertage in den nächsten 7 Tagen",
+        "news": "Keine Nachrichten",
+        "lessons": "Heute keine Schulstunden"
+      },
+      "notSetUp": {
+        "weatherNow": "Wetter: Ort unter Einstellungen → Wetter festlegen",
+        "forecast": "Wettervorhersage: Ort unter Einstellungen → Wetter festlegen",
+        "energy": "Energie: unter Einstellungen → Energie die Anzeige im Bildschirmschoner einschalten",
+        "vehicles": "Tesla: unter Einstellungen → Tesla „Auf Bildschirmschoner anzeigen“ einschalten",
+        "photoCount": "Fotos: eine Fotoquelle unter Einstellungen → Fotos wählen"
+      }
+    }
   },
   "localeSwitcher": {
     "label": "Sprache"

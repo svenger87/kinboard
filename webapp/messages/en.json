@@ -202,7 +202,25 @@
       "permissionDenied": "Notifications weren't allowed. Enable them for this site in your browser settings.",
       "vapidMissing": "The push server isn't configured. Set the VAPID keys in .env."
     },
-    "backTo": "Back to {target}"
+    "backTo": "Back to {target}",
+    "layouts": {
+      "more": "+{count} more",
+      "holidaysLabel": "Holidays",
+      "empty": {
+        "events": "No events in the next 7 days",
+        "birthdays": "No birthdays in the next 30 days",
+        "holidays": "No holidays in the next 7 days",
+        "news": "No news",
+        "lessons": "No lessons today"
+      },
+      "notSetUp": {
+        "weatherNow": "Weather: set a location under Settings → Weather",
+        "forecast": "Forecast: set a location under Settings → Weather",
+        "energy": "Energy: turn on the screensaver display under Settings → Energy",
+        "vehicles": "Tesla: turn on “Show on screensaver” under Settings → Tesla",
+        "photoCount": "Photos: choose a photo source under Settings → Photos"
+      }
+    }
   },
   "localeSwitcher": {
     "label": "Language"

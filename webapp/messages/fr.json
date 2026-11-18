@@ -202,7 +202,25 @@
       "permissionDenied": "Les notifications ont été refusées. Autorisez-les pour ce site dans les réglages de votre navigateur.",
       "vapidMissing": "Le serveur push n'est pas configuré. Renseignez les clés VAPID dans .env."
     },
-    "backTo": "Retour à {target}"
+    "backTo": "Retour à {target}",
+    "layouts": {
+      "more": "+{count} de plus",
+      "holidaysLabel": "Vacances et jours fériés",
+      "empty": {
+        "events": "Aucun événement dans les 7 prochains jours",
+        "birthdays": "Aucun anniversaire dans les 30 prochains jours",
+        "holidays": "Ni vacances ni jours fériés dans les 7 prochains jours",
+        "news": "Aucune actualité",
+        "lessons": "Pas de cours aujourd'hui"
+      },
+      "notSetUp": {
+        "weatherNow": "Météo : définir un lieu dans Paramètres → Météo",
+        "forecast": "Prévisions : définir un lieu dans Paramètres → Météo",
+        "energy": "Énergie : activer l'affichage sur l'économiseur d'écran dans Paramètres → Énergie",
+        "vehicles": "Tesla : activer « Afficher sur l'économiseur d'écran » dans Paramètres → Tesla",
+        "photoCount": "Photos : choisir une source de photos dans Paramètres → Photos"
+      }
+    }
   },
   "localeSwitcher": {
     "label": "Langue"
