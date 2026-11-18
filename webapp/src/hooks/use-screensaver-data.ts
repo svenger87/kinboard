@@ -433,9 +433,10 @@ export function useScreensaverData({ photos }: { photos?: string[] } = {}) {
     month: "long",
   });
 
-  // Process upcoming birthdays (next 30 days)
-  const upcomingBirthdays = useMemo(() => {
-    if (!birthdays || !showBirthdays) return [];
+  // Birthdays in the next 30 days, all of them: a layout's birthday list
+  // shows as many as fit its box. The built-in shows the first few, below.
+  const birthdaysAhead = useMemo(() => {
+    if (!birthdays) return [];
     return birthdays
       .map((birthday) => {
         const person = people?.find((p) => p.id === birthday.person_id);
@@ -448,14 +449,19 @@ export function useScreensaverData({ photos }: { photos?: string[] } = {}) {
         };
       })
       .filter((b) => b.daysUntil <= 30)
-      .sort((a, b) => a.daysUntil - b.daysUntil)
-      .slice(0, birthdayCount);
-  }, [birthdays, people, today, showBirthdays, birthdayCount]);
+      .sort((a, b) => a.daysUntil - b.daysUntil);
+  }, [birthdays, people, today]);
+
+  // Process upcoming birthdays (next 30 days)
+  const upcomingBirthdays = useMemo(
+    () => (showBirthdays ? birthdaysAhead.slice(0, birthdayCount) : []),
+    [birthdaysAhead, showBirthdays, birthdayCount],
+  );
 
   // Process upcoming events. Holidays are all-day items among them, counted
   // against the same rows (four unless the family chose 1 to 5); a break already under way is filed under
   // today, with the day it ends.
-  const upcomingEvents = useMemo(() => {
+  const eventsAhead = useMemo(() => {
     const holidayItems = holidays.map((h) => ({
       id: h.id,
       title: h.emoji ? `${h.emoji} ${h.title}` : h.title,
@@ -489,9 +495,10 @@ export function useScreensaverData({ photos }: { photos?: string[] } = {}) {
       });
     // Holidays first, so on a tie the sort (stable) keeps them ahead.
     return [...holidayItems, ...eventItems]
-      .sort((a, b) => a.start.getTime() - b.start.getTime())
-      .slice(0, eventCount);
-  }, [events, people, holidays, todayKey, locale, dateLocale, eventCount]);
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+  }, [events, people, holidays, todayKey, locale, dateLocale]);
+  // The built-in lists the first few; a layout's list as many as fit its box.
+  const upcomingEvents = useMemo(() => eventsAhead.slice(0, eventCount), [eventsAhead, eventCount]);
 
   // In the hour before an event that starts at a time, one line under the
   // date (RFC-021 §3.2). `date` is the clock's, so it moves on the minute.
@@ -519,6 +526,8 @@ export function useScreensaverData({ photos }: { photos?: string[] } = {}) {
     weather,
     upcomingEvents,
     upcomingBirthdays,
+    eventsAhead,
+    birthdaysAhead,
     news,
     showEnergyWidget,
     showTeslaWidget,

@@ -51,16 +51,7 @@ export function ScreensaverWeather({
   const slots = showForecast ? upcomingSlots(forecast?.hourly, now).slice(0, SLOTS) : [];
   const NowIcon = screensaverWeatherIcon(weather.conditionMain ?? weather.condition, weather.conditionIcon);
 
-  if (slots.length === 0) {
-    return (
-      <div className="flex items-center gap-3 bg-black/40 rounded-xl px-4 py-2.5" data-testid="screensaver-weather">
-        <NowIcon className="size-7 text-white" strokeWidth={1.75} />
-        <span className="font-display font-light text-3xl text-white tabular-nums leading-none">
-          {Math.round(weather.temp)}°
-        </span>
-      </div>
-    );
-  }
+  if (slots.length === 0) return <WeatherNowChip weather={weather} />;
 
   const icon = large ? "size-9" : "size-7";
   const temp = large ? "text-3xl" : "text-2xl";
@@ -100,6 +91,29 @@ export function ScreensaverWeather({
           </Column>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * The weather now: an icon and the temperature on a dark chip. `scaled` draws
+ * it in em of the font size around it, for a layout box that fits it.
+ */
+export function WeatherNowChip({ weather, scaled = false }: { weather: WeatherData; scaled?: boolean }) {
+  const NowIcon = screensaverWeatherIcon(weather.conditionMain ?? weather.condition, weather.conditionIcon);
+  return (
+    <div
+      className={
+        scaled
+          ? "flex items-center gap-[0.75em] bg-black/40 rounded-[0.75em] px-[1em] py-[0.625em]"
+          : "flex items-center gap-3 bg-black/40 rounded-xl px-4 py-2.5"
+      }
+      data-testid={scaled ? undefined : "screensaver-weather"}
+    >
+      <NowIcon className={`${scaled ? "size-[1.75em]" : "size-7"} text-white`} strokeWidth={1.75} />
+      <span className={`font-display font-light ${scaled ? "text-[1.875em]" : "text-3xl"} text-white tabular-nums leading-none`}>
+        {Math.round(weather.temp)}°
+      </span>
     </div>
   );
 }

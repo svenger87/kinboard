@@ -1,18 +1,15 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useTranslations, useLocale } from "next-intl";
-import { useScreensaverData, formatEventTime, calculateUpcomingAge } from "@/hooks/use-screensaver-data";
+import { useTranslations } from "next-intl";
+import { useScreensaverData } from "@/hooks/use-screensaver-data";
+import { ScreensaverDataProvider, useScreensaverDataValue } from "@/components/layouts/screensaver-data-context";
+import { BirthdayRow, EnergyRows, EventRow, NewsCard, SectionLabel, TeslaRows, useEventWhen, useNewsTime } from "@/components/screensaver-rows";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
-import { PersonAvatar } from "@/components/person-avatar";
-import { Cake, Calendar, GraduationCap, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Battery, Zap, Car } from "lucide-react";
-import { format } from "date-fns";
-import { getDateFnsLocale } from "@/lib/date-fns-locale";
-import { hasBirthYear } from "@/lib/birthday";
-import { useTimeFormat } from "@/hooks/use-time-format";
+import { Cake, Calendar, Newspaper, X, ExternalLink, BookOpen, Clock } from "lucide-react";
 import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
 import { WeatherEffects } from "@/components/weather-effects";
 import { ScreensaverWeather } from "@/components/screensaver-weather";
@@ -99,14 +96,9 @@ function ScreensaverPhotoLayer({
 }
 
 export function Screensaver({ photos }: ScreensaverProps) {
-  const { formatTime } = useTimeFormat();
   const t = useTranslations("components.screensaver");
-  const locale = useLocale();
-  const dateLocale = getDateFnsLocale(locale);
-  const eventLabels = useMemo(
-    () => ({ today: t("eventToday"), tomorrow: t("eventTomorrow") }),
-    [t]
-  );
+  const eventWhen = useEventWhen();
+  const formatNewsTime = useNewsTime();
 
   const { settings: screensaverSettings } = useScreensaverSettings();
   const largeDetails = screensaverSettings.largeDetails ?? false;
@@ -114,8 +106,12 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // clock), so the spacing is even: it was 16px between the lists and 24px
   // above the clock (#282). Wider with the large details, as the text is.
   const sectionGap = largeDetails ? "gap-10" : "gap-6";
+  const rowScale = largeDetails ? "large" : "normal";
 
-  // The data comes from one hook, which the widgets read as well.
+  // The data comes from one hook, called once here (it also runs the photo
+  // rotation), and handed to the layout widgets through the context below.
+  const data = useScreensaverData({ photos });
+  const screensaverData = useScreensaverDataValue(data);
   const {
     hours, minutes, nightNow, formattedDate, soon, weather,
     upcomingEvents, upcomingBirthdays, news,
@@ -123,7 +119,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
     teslaBattery, teslaRange, teslaChargingRate,
     photoUrls, photoIndex: currentPhotoIndex, previousPhotoIndex,
     currentBlobUrl, previousBlobUrl, aspectAt, currentPhotoMetadata,
-  } = useScreensaverData({ photos });
+  } = data;
   // The screen's own shape, which decides whether a photo is cropped or
   // letterboxed. Kinboard runs on portrait wall panels as well as landscape
   // ones, and a tablet gets rotated, so this is measured rather than assumed.
@@ -201,26 +197,6 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // Track modal interaction
   const handleModalInteraction = () => {
     setModalLastInteraction(Date.now());
-  };
-
-  // Format relative time for news
-  const formatNewsTime = (pubDate: string) => {
-    try {
-      const date = new Date(pubDate);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMins / 60);
-
-      if (diffMins < 1) return t("newsJustNow");
-      if (diffMins < 60) return t("newsMinutes", { minutes: diffMins });
-      if (diffHours < 24) return t("newsHours", { hours: diffHours });
-      // `P` is date-fns' localised short date, so French reads as French
-      // instead of falling into the English branch of a de/else ternary.
-      return format(date, "P", { locale: dateLocale });
-    } catch {
-      return "";
-    }
   };
 
   // The news list stops above whatever sits below it on the screen (the
@@ -311,6 +287,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // screen as always (the screensaver gate listens on the document).
   if (nightNow) {
     return (
+      <ScreensaverDataProvider value={screensaverData}>
       <div className="fixed inset-0 z-[100] bg-black screensaver-fade-in" data-testid="screensaver-night">
         <div className="absolute inset-0 flex items-center justify-center" style={burnInStyle}>
           <span className="font-display font-light text-white/35 clock-display tracking-tighter leading-none text-[clamp(5rem,18vw,12rem)]">
@@ -322,10 +299,12 @@ export function Screensaver({ photos }: ScreensaverProps) {
         {/* Asleep along the bottom, faint (RFC-021 §3.4). */}
         <CreaturesOnIdle dim />
       </div>
+      </ScreensaverDataProvider>
     );
   }
 
   return (
+    <ScreensaverDataProvider value={screensaverData}>
     <div
       className={`fixed inset-0 z-[100] screensaver-fade-in ${
         currentBlobUrl ? "bg-black" : "screensaver-canvas-empty"
@@ -380,10 +359,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
           data-no-wake
           data-saver-block="news"
         >
-          <div className="flex items-center gap-2 text-white/60 mb-3">
-            <Newspaper className="size-4" />
-            <span className="text-xs landscape:lg:text-sm font-medium uppercase tracking-wider">{t("newsLabel")}</span>
-          </div>
+          <SectionLabel icon={Newspaper} label={t("newsLabel")} scale="normal" className="mb-3" />
           <div
             ref={newsListRef}
             className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto scrollbar-hide"
@@ -393,46 +369,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
             }}
           >
             {news.slice(0, 6).map((item) => (
-              <button
-                key={item.link}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedNews(item);
-                }}
-                className="w-full flex gap-3 bg-black/50 rounded-lg p-2 hover:bg-black/60 transition-colors text-left group gpu-blur"
-              >
-                {item.image && (
-                  <div className="size-16 rounded-md overflow-hidden shrink-0 bg-white/10">
-                    <img
-                      src={item.image}
-                      alt=""
-                      className="size-full object-cover"
-                      onError={(e) => {
-                        // Hiding just the <img> left its 64px wrapper behind as
-                        // a bare grey rectangle (audit KB-20). Collapse the
-                        // container so the headline takes the full width.
-                        const wrapper = (e.currentTarget as HTMLImageElement).parentElement;
-                        if (wrapper) wrapper.style.display = "none";
-                      }}
-                    />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium leading-snug line-clamp-2 group-hover:text-white/90">
-                    {item.title}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {item.category && (
-                      <span className="text-xs text-info/80 font-medium">
-                        {item.category}
-                      </span>
-                    )}
-                    <span className="text-xs text-white/40">
-                      {formatNewsTime(item.pubDate)}
-                    </span>
-                  </div>
-                </div>
-              </button>
+              <NewsCard key={item.link} item={item} time={formatNewsTime(item.pubDate)} scale="normal" onSelect={setSelectedNews} />
             ))}
           </div>
         </div>
@@ -463,51 +400,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
           style={{ animationDelay: "0.9s" }}
         >
           <div className="bg-black/50 rounded-xl p-4 flex flex-col gap-3 gpu-blur">
-            {/* Solar Power */}
-            {showEnergyWidget && solarPower !== null && (
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-energy-solar/20">
-                  <Sun className="size-5 text-energy-solar" />
-                </div>
-                <div>
-                  <p className="text-white/60 text-xs">Solar</p>
-                  <p className="text-white font-medium">
-                    {solarPower >= 1000
-                      ? `${(solarPower / 1000).toFixed(1)} kW`
-                      : `${Math.round(solarPower)} W`}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Battery SOC */}
-            {showEnergyWidget && batterySoc !== null && (
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-energy-battery/20">
-                  <Battery className="size-5 text-energy-battery" />
-                </div>
-                <div>
-                  <p className="text-white/60 text-xs">Batterie</p>
-                  <p className="text-white font-medium">{Math.round(batterySoc)}%</p>
-                </div>
-              </div>
-            )}
-
-            {/* Grid Power */}
-            {showEnergyWidget && gridPower !== null && (
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${gridPower > 0 ? 'bg-destructive/20' : 'bg-success/20'}`}>
-                  <Zap className={`size-5 ${gridPower > 0 ? 'text-destructive' : 'text-success'}`} />
-                </div>
-                <div>
-                  <p className="text-white/60 text-xs">{gridPower > 0 ? 'Bezug' : 'Einspeisung'}</p>
-                  <p className="text-white font-medium">
-                    {Math.abs(gridPower) >= 1000
-                      ? `${(Math.abs(gridPower) / 1000).toFixed(1)} kW`
-                      : `${Math.round(Math.abs(gridPower))} W`}
-                  </p>
-                </div>
-              </div>
+            {showEnergyWidget && (
+              <EnergyRows solarPower={solarPower} batterySoc={batterySoc} gridPower={gridPower} scale="normal" />
             )}
 
             {/* Divider between energy and Tesla */}
@@ -515,33 +409,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
               <div className="border-t border-white/10" />
             )}
 
-            {/* Tesla Battery */}
-            {showTeslaWidget && teslaBattery !== null && (
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/20">
-                  <Car className="size-5 text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-white/60 text-xs">Tesla</p>
-                  <p className="text-white font-medium">
-                    {Math.round(teslaBattery)}%
-                    {teslaRange !== null && <span className="text-white/50 text-xs ml-1.5">· {Math.round(teslaRange)} km</span>}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Tesla Charging */}
-            {showTeslaWidget && teslaChargingRate !== null && teslaChargingRate > 0 && (
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-energy-grid/20">
-                  <Zap className="size-5 text-energy-grid" />
-                </div>
-                <div>
-                  <p className="text-white/60 text-xs">Laden</p>
-                  <p className="text-white font-medium">{teslaChargingRate.toFixed(1)} kW</p>
-                </div>
-              </div>
+            {showTeslaWidget && (
+              <TeslaRows teslaBattery={teslaBattery} teslaRange={teslaRange} teslaChargingRate={teslaChargingRate} scale="normal" />
             )}
           </div>
         </div>
@@ -738,66 +607,10 @@ export function Screensaver({ photos }: ScreensaverProps) {
         {/* Upcoming Events */}
         {upcomingEvents.length > 0 && (
           <div className="flex flex-col gap-2 landscape:lg:gap-3">
-            <div className="flex items-center gap-2 text-white/60">
-              <Calendar className="size-4" />
-              <span className={`${largeDetails ? "text-lg" : "text-xs landscape:lg:text-sm"} font-medium uppercase tracking-wider`}>{t("eventsLabel")}</span>
-            </div>
+            <SectionLabel icon={Calendar} label={t("eventsLabel")} scale={rowScale} />
             <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
               {upcomingEvents.map((event) => (
-                <div
-                  key={event.id}
-                  data-holiday={event.holiday ?? undefined}
-                  className="flex items-center gap-2 landscape:lg:gap-3 bg-black/40 rounded-lg px-3 py-1.5 landscape:lg:px-4 landscape:lg:py-2 gpu-blur"
-                >
-                  {event.holiday ? (
-                    // The calendar's holiday amber, with the holiday's emoji
-                    // or, for a school break, a cap.
-                    <div
-                      className="size-8 rounded-full flex items-center justify-center shrink-0 bg-amber-400/25"
-                      aria-hidden="true"
-                    >
-                      {event.holiday === "school" ? (
-                        <GraduationCap className="size-4 text-amber-300" />
-                      ) : (
-                        <Calendar className="size-4 text-amber-300" />
-                      )}
-                    </div>
-                  ) : event.personName ? (
-                    <PersonAvatar
-                      name={event.personName}
-                      color={event.personColor ?? event.color}
-                      avatarUrl={event.personAvatar}
-                      size={32}
-                      className="shrink-0"
-                    />
-                  ) : (
-                    <div
-                      className="w-1 h-8 rounded-full shrink-0"
-                      style={{ backgroundColor: event.color }}
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    {/* A holiday's name wraps, two lines at most, rather
-                        than being cut: it is the whole of the row. */}
-                    <p
-                      className={`text-white font-medium ${event.holiday ? "line-clamp-2 break-words" : "truncate"} ${largeDetails ? "text-xl" : "text-sm"}`}
-                    >
-                      {event.title}
-                    </p>
-                    <div className={`flex items-center gap-2 text-white/50 ${largeDetails ? "text-base" : "text-xs"}`}>
-                      <span>
-                        {formatEventTime(event.start, event.allDay, eventLabels, dateLocale, formatTime)}
-                        {event.until && ` · ${t("holidayUntil", { date: event.until })}`}
-                      </span>
-                      {event.location && (
-                        <span className="flex items-center gap-1 truncate">
-                          <MapPin className="size-3 shrink-0" />
-                          <span className="truncate">{event.location}</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <EventRow key={event.id} event={event} when={eventWhen(event)} scale={rowScale} />
               ))}
             </div>
           </div>
@@ -806,60 +619,10 @@ export function Screensaver({ photos }: ScreensaverProps) {
         {/* Upcoming Birthdays */}
         {upcomingBirthdays.length > 0 && (
           <div className="flex flex-col gap-2 landscape:lg:gap-3">
-            <div className="flex items-center gap-2 text-white/60">
-              <Cake className="size-4" />
-              <span className={`${largeDetails ? "text-lg" : "text-xs landscape:lg:text-sm"} font-medium uppercase tracking-wider`}>{t("birthdaysLabel")}</span>
-            </div>
+            <SectionLabel icon={Cake} label={t("birthdaysLabel")} scale={rowScale} />
             <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
               {upcomingBirthdays.map((birthday) => (
-                <div
-                  key={birthday.id}
-                  className="flex items-center gap-2 landscape:lg:gap-3 bg-black/40 rounded-lg px-3 py-1.5 landscape:lg:px-4 landscape:lg:py-2 gpu-blur"
-                >
-                  <div
-                    className="size-8 rounded-full flex items-center justify-center shrink-0"
-                    style={{
-                      backgroundColor: birthday.daysUntil === 0
-                        ? "#ec4899"
-                        : birthday.personColor
-                          ? `${birthday.personColor}30`
-                          : "rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    <Cake
-                      className="size-4"
-                      style={{
-                        color: birthday.daysUntil === 0
-                          ? "white"
-                          : birthday.personColor || "rgba(255,255,255,0.7)"
-                      }}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-white font-medium truncate ${largeDetails ? "text-xl" : "text-sm"}`}>
-                      {/* No birth year stored means no age to announce - see hasBirthYear. */}
-                      {hasBirthYear(birthday.date)
-                        ? t("birthdayTurns", { name: birthday.name, age: calculateUpcomingAge(birthday.date) })
-                        : birthday.name}
-                    </p>
-                    <p className={`text-white/50 ${largeDetails ? "text-base" : "text-xs"}`}>
-                      {format(birthday.date, locale === "de" ? "d. MMMM" : "MMMM d", { locale: dateLocale })}
-                    </p>
-                  </div>
-                  <div
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      birthday.daysUntil === 0
-                        ? "bg-pink-500 text-white"
-                        : birthday.daysUntil <= 7
-                        ? "bg-warning/20 text-warning"
-                        : "bg-white/10 text-white/70"
-                    }`}
-                  >
-                    {birthday.daysUntil === 0
-                      ? t("birthdayToday")
-                      : t("birthdayDays", { count: birthday.daysUntil })}
-                  </div>
-                </div>
+                <BirthdayRow key={birthday.id} birthday={birthday} scale={rowScale} />
               ))}
             </div>
           </div>
@@ -927,5 +690,6 @@ export function Screensaver({ photos }: ScreensaverProps) {
       </p>
       )}
     </div>
+    </ScreensaverDataProvider>
   );
 }

@@ -24,7 +24,9 @@ test("the screensaver cuts both lists at the family's counts and can leave birth
   expect(saver).toContain("screensaverListCount(screensaverSettings.birthdayCount, 3)");
   expect(saver).toContain(".slice(0, eventCount)");
   expect(saver).toContain(".slice(0, birthdayCount)");
-  expect(saver).toMatch(/if \(!birthdays \|\| !showBirthdays\) return \[\];/);
+  // The full lists (eventsAhead, birthdaysAhead) are for the layout widgets;
+  // the built-in's are cut from them, and birthdays left out when off.
+  expect(saver).toMatch(/showBirthdays \? birthdaysAhead\.slice\(0, birthdayCount\) : \[\]/);
   // No fixed list length left behind.
   expect(saver).not.toMatch(/\.slice\(0, [34]\);\n\s+\}, \[(events|birthdays)/);
 });
