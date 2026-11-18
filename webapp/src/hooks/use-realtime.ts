@@ -150,6 +150,10 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
 
       // Invalidate the appropriate query based on the table
       switch (table) {
+        case "layouts":
+          // By prefix: covers the layout list and each device's assignment.
+          batch.invalidateQueries({ queryKey: ["layouts", family.id] });
+          break;
         case "people":
           batch.invalidateQueries({
             queryKey: queryKeys.people(family.id),

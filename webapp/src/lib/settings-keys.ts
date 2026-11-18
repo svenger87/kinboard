@@ -61,4 +61,6 @@ export const SETTINGS_KEYS = {
   // Per family, JSON boolean. Off (absent) by default: while no family has
   // switched it on, the OAuth and MCP routes answer 404 (RFC-010, lib/oauth/enabled.ts).
   assistantsEnabled: "assistants_enabled",
+  // Per family, JSON { portrait, landscape }: the layout id a kiosk shows by default per orientation.
+  layoutDefaults: "layout_defaults",
 } as const;
