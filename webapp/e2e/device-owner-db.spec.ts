@@ -91,7 +91,7 @@ test("the migration runs again on the next boot and changes nothing", () => {
 });
 
 // Written only by the server, like person_id: screen (085_device_screen.sql,
-// POST /api/devices/screen), so one screen cannot set another's size.
+// POST /api/screen), so one screen cannot set another's size.
 const SERVER_ONLY = new Set(["person_id", "screen"]);
 
 test("grants: the browser roles may write every column of a device but person_id and screen", () => {

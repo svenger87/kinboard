@@ -40,7 +40,7 @@ test("only a changed size is sent again; the time it was sent does not count", (
 });
 
 test("the route writes the session's own device, never one named in the request", () => {
-  const src = readFileSync("src/app/api/devices/screen/route.ts", "utf8");
+  const src = readFileSync("src/app/api/screen/route.ts", "utf8");
   expect(src).toContain("const { familyId, deviceId } = auth.session;");
   expect(src).toMatch(/\.eq\("id", deviceId\)\s*\.eq\("family_id", familyId\)/);
 });

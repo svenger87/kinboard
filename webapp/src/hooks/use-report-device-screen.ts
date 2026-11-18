@@ -9,7 +9,7 @@ const CHECK_EVERY = 60_000;
 const SETTLE = 2_000;
 
 /**
- * Reports this screen's size to Kinboard (POST /api/devices/screen) once it
+ * Reports this screen's size to Kinboard (POST /api/screen) once it
  * runs as a device, and again whenever the size changes: a window resized,
  * a tablet turned, the Windows scaling changed. Settings -> Devices shows it,
  * and the layout designer draws for it.
@@ -30,7 +30,7 @@ export function useReportDeviceScreen(deviceId: string | null | undefined) {
       if (sameDeviceScreen(now, sent)) return;
       busy = true;
       try {
-        const r = await fetch("/api/devices/screen", {
+        const r = await fetch("/api/screen", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(now),

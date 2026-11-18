@@ -6,7 +6,7 @@ import { parseDeviceScreen } from "@/lib/device-screen";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/devices/screen  body: DeviceScreen (lib/device-screen.ts)
+ * POST /api/screen  body: DeviceScreen (lib/device-screen.ts)
  *
  * A screen reports its own size on its check-in, when it has changed. It
  * writes the session's own device and nothing else: the device is taken from
@@ -15,7 +15,9 @@ export const dynamic = "force-dynamic";
  * (migrations/085_device_screen.sql), so this route is the only way in.
  *
  * No settings PIN: a screen's size is a fact about the screen, not a choice
- * a parent makes. A session with no device (a fresh join still settling)
+ * a parent makes, and the report runs unattended. That is also why it is not
+ * under api/devices, where every mutating route asks for the PIN
+ * (e2e/creatures-surfaces.spec.ts). A session with no device (a fresh join still settling)
  * gets 204 and nothing is written.
  */
 export async function POST(request: NextRequest) {

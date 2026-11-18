@@ -10,7 +10,7 @@
 -- Settings -> Devices shows it, and the layout designer will draw a layout
 -- for the size a screen actually has instead of a guess.
 --
--- WHO MAY WRITE IT. Only the server: POST /api/devices/screen, which writes
+-- WHO MAY WRITE IT. Only the server: POST /api/screen, which writes
 -- the session's own device and nothing else. No grant to the browser roles,
 -- so one screen cannot write another's size directly: 077_device_owner.sql
 -- narrowed their INSERT and UPDATE on devices to named columns, and this one
@@ -23,5 +23,5 @@ ALTER TABLE public.devices
 
 COMMENT ON COLUMN public.devices.screen IS
   'The screen''s size as it last reported it (viewport and display pixels, pixel ratio). '
-  'Written only by the server (POST /api/devices/screen); the browser roles have no '
+  'Written only by the server (POST /api/screen); the browser roles have no '
   'INSERT or UPDATE privilege on this column.';

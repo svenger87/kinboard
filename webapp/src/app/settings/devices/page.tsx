@@ -303,7 +303,7 @@ export default function DevicesSettingsPage() {
                               {deviceIsOnline ? t("onlineLabel") : formatLastSeen(device.last_seen)}
                             </span>
                           </div>
-                          {/* The size it last reported (POST /api/devices/screen). */}
+                          {/* The size it last reported (POST /api/screen). */}
                           {device.screen && (
                             <p className="mt-0.5 text-xs text-muted-foreground tabular-nums" data-testid="device-screen">
                               {t("screenSize", {
