@@ -162,8 +162,9 @@ test.describe("creatures on Home", () => {
       });
       expect(free?.inFloor).toBe(false);
 
-      // A tap: it hops.
+      // A tap: it hops. Not mid-jump onto or off a card: in the air a tap only sends a heart.
       const first = page.locator(`[data-testid="home-creature"][data-person="${kids[0]}"]`);
+      await expect.poll(() => first.getAttribute("data-state"), { intervals: [30], timeout: 5_000 }).not.toBe("jump");
       await first.getByRole("button").click({ force: true });
       await expect.poll(() => first.getAttribute("data-state"), { intervals: [30], timeout: 2_000 }).toBe("hop");
 
@@ -191,6 +192,8 @@ test.describe("creatures on Home", () => {
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.reload({ waitUntil: "domcontentloaded" });
       await expect(creatures(page)).toHaveCount(3, { timeout: 30_000 });
+      // Once they are drawn where they stand (the first frame sets each one's place).
+      await expect.poll(async () => Math.min(...Object.values(await positions(page))), { timeout: 5_000 }).toBeGreaterThan(0);
       const still1 = await positions(page);
       await page.waitForTimeout(5_000);
       expect(await positions(page)).toEqual(still1);

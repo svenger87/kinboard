@@ -1,6 +1,6 @@
 {
   "name": "kinboard",
-  "version": "1.15.0",
+  "version": "1.16.0-rc.4",
   "private": true,
   "license": "PolyForm-Noncommercial-1.0.0",
   "packageManager": "npm@11.19.0",
@@ -66,7 +66,7 @@
     "leaflet": "^1.9.4",
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^0.468.0",
-    "next": "^16.4.3",
+    "next": "^16.4.6",
     "next-intl": "^4.11.0",
     "next-themes": "^0.4.6",
     "node-ical": "^0.26.1",

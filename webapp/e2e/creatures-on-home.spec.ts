@@ -6,12 +6,15 @@ import {
   HOP_MS,
   PLAY_GAP,
   PLAY_MS,
+  across,
   bedSpots,
   bounds,
+  platformBounds,
   placeRoamers,
   poke,
   pose,
   stepRoamers,
+  type Platform,
   type Roamer,
   type World,
 } from "../src/lib/creatures/roam";
@@ -238,19 +241,134 @@ test("a tap: an awake creature hops with hearts and leaves its game; one asleep 
   expect(playing.find((r) => r.id === "a")!.state).toBe("play");
 });
 
+/** Two cards side by side in a row, and one higher up on its own. */
+const cards: Platform[] = [
+  { id: "c1", left: 40, right: 400, top: 300 },
+  { id: "c2", left: 424, right: 784, top: 300 },
+  { id: "c3", left: 820, right: 1160, top: 620 },
+];
+const withCards = { ...floor, platforms: cards };
+
+test("cards: now and then one jumps up, walks along the top edge inside it, and comes back down", () => {
+  const { frames } = run(two(), withCards, 10 * 60_000, 11);
+  let ups = 0;
+  let downs = 0;
+  for (let i = 1; i < frames.length; i++) {
+    for (const r of frames[i]) {
+      const before = frames[i - 1].find((o) => o.id === r.id)!;
+      if (!before.on && r.on) ups++;
+      if (before.state === "jump" && r.state !== "jump" && !r.on) downs++;
+      if (r.on) {
+        const card = cards.find((c) => c.id === r.on)!;
+        const [lo, hi] = platformBounds(card, floor.size);
+        expect(r.y).toBe(card.top);
+        expect(r.x).toBeGreaterThanOrEqual(lo);
+        expect(r.x).toBeLessThanOrEqual(hi);
+        // Never playing up there: games are on the floor.
+        expect(r.partner).toBeNull();
+      } else if (r.state !== "jump") {
+        expect(r.y ?? 0).toBe(0);
+      }
+    }
+  }
+  // Occasional: some visits in ten minutes, not a life on the cards.
+  expect(ups).toBeGreaterThan(2);
+  expect(downs).toBeGreaterThan(1);
+  const upFrames = frames.reduce((n, f) => n + f.filter((r) => r.on).length, 0);
+  expect(upFrames / (frames.length * 2)).toBeLessThan(0.5);
+});
+
+test("cards: across to a neighbour about level, never to one far up", () => {
+  expect(across(cards[0], cards, floor.size).map((c) => c.id)).toEqual(["c2"]);
+  expect(across(cards[2], cards, floor.size)).toEqual([]);
+  const { frames } = run(two(), withCards, 20 * 60_000, 5);
+  let hopsAcross = 0;
+  for (let i = 1; i < frames.length; i++) {
+    for (const r of frames[i]) {
+      const before = frames[i - 1].find((o) => o.id === r.id)!;
+      if (before.on && r.state === "jump" && r.jump?.to) {
+        hopsAcross++;
+        expect(r.jump.to).not.toBe(before.on);
+        expect([before.on, r.jump.to].sort()).toEqual(["c1", "c2"]);
+      }
+    }
+  }
+  expect(hopsAcross).toBeGreaterThan(0);
+});
+
+test("cards: none at all, and they behave as before (the same steps from the same seed)", () => {
+  const a = run(two(), floor, 60_000, 3).roamers;
+  const b = run(two(), { ...floor, platforms: [] }, 60_000, 3).roamers;
+  expect(b).toEqual(a);
+});
+
+test("cards: one that goes (scrolled away, switched off) drops its creature to the floor; at bedtime they come down to bed", () => {
+  const up = (): Roamer[] =>
+    two().map((r, i) => (i === 0 ? { ...r, on: "c1", y: 300, x: 200, state: "idle", until: 1e9 } : r));
+  // The card is gone: down, landing on the floor inside its ends.
+  let out = run(up(), floor, 3000, 1);
+  const a = out.roamers.find((r) => r.id === "a")!;
+  expect(a.on ?? null).toBeNull();
+  expect(a.y).toBe(0);
+  const [lo, hi] = bounds(floor);
+  expect(a.x).toBeGreaterThanOrEqual(lo);
+  expect(a.x).toBeLessThanOrEqual(hi);
+  // Bedtime: down first, then to bed and asleep on the floor.
+  out = run(up(), { ...withCards, sleeping: new Set(["a", "b"]) }, 120_000, 1);
+  for (const r of out.roamers) {
+    expect(r.state).toBe("asleep");
+    expect(r.on ?? null).toBeNull();
+    expect(r.y ?? 0).toBe(0);
+  }
+});
+
+test("cards: a jump arcs from one surface to the other, and a tap mid-air only sends a heart", () => {
+  let roamers = two();
+  // Run until one is in the air.
+  const rng = (() => {
+    let a = 9;
+    return () => ((a = (a * 16807) % 2147483647) / 2147483647);
+  })();
+  let now = 0;
+  while (!roamers.some((r) => r.state === "jump") && now < 30 * 60_000) {
+    roamers = stepRoamers(roamers, { ...withCards, now }, 33, rng).roamers;
+    now += 33;
+  }
+  const r = roamers.find((o) => o.state === "jump")!;
+  expect(r).toBeTruthy();
+  const j = r.jump!;
+  expect(pose({ ...r }, j.start, floor.size).lift).toBe(0);
+  expect(pose({ ...r }, j.start + j.ms / 2, floor.size).lift).toBeGreaterThan(floor.size * 0.3);
+  expect(pose({ ...r }, j.start + j.ms, floor.size).lift).toBeCloseTo(0, 6);
+  const tapped = poke(roamers, r.id, now);
+  expect(tapped.roamers.find((o) => o.id === r.id)!.state).toBe("jump");
+  expect(tapped.events).toEqual([{ kind: "hearts", x: r.x, count: 1 }]);
+});
+
+test("Home measures its cards for the creatures; the idle screen has none", () => {
+  const home = codeOnly(read("src/components/creatures-on-home.tsx"));
+  expect(home).toContain('const PLATFORM_SELECTOR = ".festival-grid > :not(button)";');
+  expect(home).toContain('if (placement !== "home" || still || width === 0) return;');
+  expect(home).toContain("{ width, size, now, sleeping: sleepingRef.current, platforms: platforms.current }");
+  expect(home).toContain("el.outer.style.transform = `translate3d(${left}px, ${snap(-(up + p.lift))}px, 0)`;");
+  // The cards it measures are the ones Home renders.
+  expect(read("src/app/page.tsx")).toContain('<section className="festival-grid ');
+});
+
 test("Home: off unless switched on, gone with animations off, still with reduced; cheap to draw, and only a creature takes a tap", () => {
   expect(codeOnly(read("src/app/page.tsx"))).toMatch(/<WeatherEffects \/>\s*<CreaturesOnHome \/>/);
   const home = codeOnly(read("src/components/creatures-on-home.tsx"));
   expect(home).toContain('if (on !== true || motion === "off" || kids.length === 0) return null;');
-  expect(home).toContain('return <CreatureFloor kids={kids} still={motion !== "full"} />;');
+  expect(home).toContain('return <CreatureFloor kids={kids} still={motion !== "full"} placement="home" />;');
   expect(home).toContain("const FRAME_MS = 1000 / 30;");
   // No steps while the page is hidden or the screensaver covers Home.
-  expect(home).toContain('const covered = () => document.hidden || document.documentElement.hasAttribute("data-screensaver");');
+  expect(home).toContain('document.hidden || (placement === "home" && document.documentElement.hasAttribute("data-screensaver"));');
   expect(home).toContain('screensaver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-screensaver"] });');
-  expect(home).toContain('className="creature-floor pointer-events-none fixed inset-x-0 z-[15]"');
-  expect(home).toContain('style={{ bottom: "var(--nav-spacing, 0px)", height: floorHeight }}');
+  expect(home).toContain('className={`creature-floor pointer-events-none inset-x-0 ${placement === "home" ? "fixed z-[15]" : "absolute"}');
+  expect(home).toContain('style={{ bottom: placement === "home" ? "var(--nav-spacing, 0px)" : 0, height: floorHeight }}');
   // Home keeps the floor's height free at its bottom, so the creatures walk below the widgets.
-  expect(home).toContain('root.style.setProperty("--home-creature-floor", `${floorHeight}px`);');
+  expect(home).toContain('const name = placement === "home" ? "--home-creature-floor" : "--idle-creature-floor";');
+  expect(home).toContain("root.style.setProperty(name, `${floorHeight}px`);");
   expect(read("src/app/page.tsx")).toContain('className="has-fab home-column ');
   expect(read("src/app/globals.css")).toMatch(/html\[data-home-creatures\] \.home-column \{\s*padding-bottom: var\(--home-creature-floor\);/);
   expect(home).toContain('className="pointer-events-auto flex size-full items-end justify-center rounded-full');
@@ -274,7 +392,10 @@ test("Home: off unless switched on, gone with animations off, still with reduced
   expect(css).toMatch(/\.home-creature\[data-art="picture"\]\[data-lying="true"\] \.home-creature-body,\s*\.home-creature\[data-egg="true"\]\[data-lying="true"\] \.home-creature-body \{\s*filter: brightness\(0\.8\)/);
   // One shadow each, flat on the floor; the drawing's own is hidden here, or it would turn with a creature lying down.
   expect(css).toMatch(/\.home-creature \.creature-ground \{\s*display: none;/);
-  expect(home).toContain("el.shadow.style.transform = `translate3d(${left}px, 0, 0) scaleX(${stretch.toFixed(3)})`;");
+  expect(home).toContain("el.shadow.style.transform = `translate3d(${left}px, ${snap(-up)}px, 0) scaleX(${stretch.toFixed(3)})`;");
+  // Whole device pixels while walking: a sub-pixel offset makes the edge shimmer on a GPU.
+  expect(home).toContain("const snap = (v: number) => (Math.round(v * dpr) / dpr).toFixed(2);");
+  expect(home).toContain("const left = snap(r.x - size / 2);");
 });
 
 test("the mood hook and settings: one family bedtime, re-read every minute; the switch and times on Settings -> Creatures", () => {
@@ -306,4 +427,27 @@ test("every string is there in every language", () => {
     expect(m.creaturesOnHome.tapAria, lang).toContain("{name}");
     expect(m.settingsSearch.keywords.creatures_home, lang).toBeTruthy();
   }
+});
+
+test("the idle screen: the same floor, its own switch, off unless switched on; a tap there doesn't wake the screen", () => {
+  const home = codeOnly(read("src/components/creatures-on-home.tsx"));
+  expect(read("src/lib/settings-keys.ts")).toContain('creaturesOnIdle: "creatures_on_idle"');
+  expect(home).toContain("useSetting<unknown>(SETTINGS_KEYS.creaturesOnIdle, false, { refetchInterval: 60_000 })");
+  expect(home).toContain('return <CreatureFloor kids={kids} still={motion !== "full"} placement="idle" dim={dim} />;');
+  // The idle floor runs while the screensaver is up; Home's stops then.
+  expect(home).toContain('(placement === "home" && document.documentElement.hasAttribute("data-screensaver"))');
+  expect(home).toContain('data-no-wake={placement === "idle" ? "" : undefined}');
+  const saver = codeOnly(read("src/components/screensaver.tsx"));
+  expect(saver).toContain("<CreaturesOnIdle />");
+  expect(saver).toContain("<CreaturesOnIdle dim />");
+  // Under everything that reads: after the photo and the visitor, before the news.
+  const floor = saver.indexOf("<CreaturesOnIdle />");
+  expect(floor).toBeGreaterThan(saver.indexOf('<WeatherEffects placement="screensaver" enabled={weatherEffects} />'));
+  expect(floor).toBeLessThan(saver.indexOf('ref={newsListRef}'));
+  // The clock and the events stand on the floor, not behind it.
+  expect(saver.match(/bottom-\[calc\(3rem\+var\(--idle-creature-floor,0px\)\)\]/g)?.length).toBe(3);
+  expect(read("src/components/settings/creatures-home-settings.tsx")).toContain("onCheckedChange={(next) => void save(SETTINGS_KEYS.creaturesOnIdle, next)}");
+  // Measured: the drawings' own CSS animations more than doubled the main
+  // thread's load on a throttled CPU, so the floor draws them still.
+  expect(home).toContain("animated={false}");
 });

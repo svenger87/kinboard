@@ -47,6 +47,9 @@ interface RecognizedDevice {
   };
 }
 
+/** A restore the server refused, carrying its reason for the person restoring. */
+class RestoreError extends Error {}
+
 export default function JoinPage() {
   const t = useTranslations("join");
   const locale = useLocale();
@@ -188,7 +191,13 @@ export default function JoinPage() {
         body: JSON.stringify(parsed),
       });
       if (!res.ok) {
-        throw new Error(`Import failed with status ${res.status}`);
+        // The server says what was wrong (an old format, a table that
+        // wouldn't insert, the size, too many attempts); without it the only
+        // message was "is this a Kinboard backup file?" for every failure,
+        // which left a family that had just lost its data guessing (#458).
+        const body = (await res.json().catch(() => null)) as { error?: string; table?: string } | null;
+        const reason = [body?.error, body?.table && `(${body.table})`].filter(Boolean).join(" ");
+        throw new RestoreError(reason || `HTTP ${res.status}`);
       }
       const result: {
         family_id: string;
@@ -210,7 +219,10 @@ export default function JoinPage() {
       router.push(safeNextPath(searchParams.get("next")));
     } catch (err) {
       console.error("join: restore from backup failed:", err);
-      toast.error(t("restoreFailed"));
+      toast.error(t("restoreFailed"), {
+        description: err instanceof Error && err.message ? err.message : undefined,
+        duration: 20_000,
+      });
     } finally {
       setRestoring(false);
       // Reset so the same file can be re-selected after a failed attempt

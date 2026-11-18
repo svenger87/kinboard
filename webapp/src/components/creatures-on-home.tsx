@@ -18,7 +18,7 @@ import { MINUTE_MS } from "@/lib/minute-clock";
 import { classicIsDrawn, effectiveStyle } from "@/lib/pocket-money/creatures";
 import { readLook } from "@/lib/pocket-money/creatures/look";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { placeRoamers, poke, pose, stepRoamers, type RoamEvent, type Roamer } from "@/lib/creatures/roam";
+import { placeRoamers, poke, pose, stepRoamers, type Platform, type RoamEvent, type Roamer } from "@/lib/creatures/roam";
 import type { Creature, PocketMoneyAccount, Person } from "@/types/database";
 
 /**
@@ -49,10 +49,32 @@ export function CreaturesOnHome() {
   const { data: creatures } = useCreatures();
   const kids = useMemo(() => creatureChildren(people, creatures), [people, creatures]);
   if (on !== true || motion === "off" || kids.length === 0) return null;
-  return <CreatureFloor kids={kids} still={motion !== "full"} />;
+  return <CreatureFloor kids={kids} still={motion !== "full"} placement="home" />;
+}
+
+/**
+ * The same creatures on the idle screen (RFC-021 §3.1; Settings -> Creatures
+ * -> On the screensaver, off unless switched on): the floor along the
+ * screen's bottom edge, under the clock and the events, which the screensaver
+ * lifts by the floor's height. Home's floor stops while the screensaver is
+ * up, so only one of the two ever runs. `dim` is the screensaver's night:
+ * they sleep there, faint, under the dim clock.
+ */
+export function CreaturesOnIdle({ dim = false }: { dim?: boolean }) {
+  const { data: on } = useSetting<unknown>(SETTINGS_KEYS.creaturesOnIdle, false, { refetchInterval: 60_000 });
+  const motion = useMotion();
+  const { data: people } = usePeople();
+  const { data: creatures } = useCreatures();
+  const kids = useMemo(() => creatureChildren(people, creatures), [people, creatures]);
+  if (on !== true || motion === "off" || kids.length === 0) return null;
+  return <CreatureFloor kids={kids} still={motion !== "full"} placement="idle" dim={dim} />;
 }
 
 const FRAME_MS = 1000 / 30;
+/** Home's widget cards, whose top edges the creatures jump up onto (the festival dressing's cards, and the full-bleed ones). */
+const PLATFORM_SELECTOR = ".festival-grid > :not(button)";
+/** How often the cards are measured again: they move when the page scrolls, a widget loads or one is switched off. */
+const PLATFORM_MS = 1000;
 /**
  * A classic picture fills about 94% of its frame and a drawing about three
  * quarters, so at the same size the pictures look bigger (the galaxy most of
@@ -63,9 +85,13 @@ const PICTURE_SCALE = 0.8;
 interface FloorProps {
   kids: Array<{ person: Person; creature: Creature }>;
   still: boolean;
+  /** Home (above the navigation) or the idle screen (its bottom edge). */
+  placement: "home" | "idle";
+  /** The idle screen's night: faint. */
+  dim?: boolean;
 }
 
-function CreatureFloor({ kids, still }: FloorProps) {
+function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
   const t = useTranslations("creaturesOnHome");
   const floorRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -99,17 +125,20 @@ function CreatureFloor({ kids, still }: FloorProps) {
   sleepingRef.current = bedtimeNow ? new Set(cast.map((c) => c.person.id)) : new Set();
 
   // Home keeps the floor's height free at its bottom (page.tsx), so the
-  // creatures walk below the widgets instead of over the lowest of them.
+  // creatures walk below the widgets instead of over the lowest of them; the
+  // screensaver lifts its clock and events by it the same way.
   const floorHeight = Math.round(size * 1.6);
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--home-creature-floor", `${floorHeight}px`);
-    root.setAttribute("data-home-creatures", "");
+    const name = placement === "home" ? "--home-creature-floor" : "--idle-creature-floor";
+    const flag = placement === "home" ? "data-home-creatures" : "data-idle-creatures";
+    root.style.setProperty(name, `${floorHeight}px`);
+    root.setAttribute(flag, "");
     return () => {
-      root.style.removeProperty("--home-creature-floor");
-      root.removeAttribute("data-home-creatures");
+      root.style.removeProperty(name);
+      root.removeAttribute(flag);
     };
-  }, [floorHeight]);
+  }, [floorHeight, placement]);
 
   useEffect(() => {
     const el = floorRef.current;
@@ -120,6 +149,43 @@ function CreatureFloor({ kids, still }: FloorProps) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // The cards' top edges, on Home only: where a creature may jump up and walk.
+  // Measured once a second and on a scroll, not every frame; a creature on a
+  // card rides it as it moves, and jumps down when it goes.
+  const platforms = useRef<Platform[]>([]);
+  useEffect(() => {
+    platforms.current = [];
+    if (placement !== "home" || still || width === 0) return;
+    const ids = new WeakMap<Element, string>();
+    let n = 0;
+    const measure = () => {
+      const floor = floorRef.current;
+      if (!floor || document.hidden || document.documentElement.hasAttribute("data-screensaver")) return;
+      const f = floor.getBoundingClientRect();
+      const found: Platform[] = [];
+      for (const el of document.querySelectorAll(PLATFORM_SELECTOR)) {
+        const r = el.getBoundingClientRect();
+        if (r.width < size * 2.5 || r.height < size * 0.5) continue;
+        // Room for a creature's head above the card, and the card's top above the floor's strip.
+        if (r.top < size * 1.4 || r.top > f.top - size * 0.5) continue;
+        let id = ids.get(el);
+        if (!id) ids.set(el, (id = `card-${n++}`));
+        found.push({ id, left: r.left - f.left, right: r.right - f.left, top: Math.round(f.bottom - r.top) });
+      }
+      platforms.current = found;
+    };
+    measure();
+    const timer = window.setInterval(measure, PLATFORM_MS);
+    window.addEventListener("scroll", measure, { passive: true, capture: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("scroll", measure, { capture: true });
+      window.removeEventListener("resize", measure);
+      platforms.current = [];
+    };
+  }, [placement, still, width, size]);
 
   // Who is on the floor: placed again when a child is added or removed, or an egg hatches.
   useEffect(() => {
@@ -145,18 +211,26 @@ function CreatureFloor({ kids, still }: FloorProps) {
 
   const draw = useCallback(
     (now: number) => {
+      // Whole device pixels: at a fraction the compositor resamples the
+      // creature's layer at a new sub-pixel offset every frame, and its edge
+      // shimmers while it walks (seen on a desktop GPU on the idle screen's
+      // dark background; software rendering in tests does not show it).
+      const dpr = window.devicePixelRatio || 1;
+      const snap = (v: number) => (Math.round(v * dpr) / dpr).toFixed(2);
       const nextLying = new Set<string>();
       for (const r of roamers.current) {
         const el = elements.current.get(r.id);
         if (!el) continue;
         const p = still ? { lift: 0, tilt: 0, lying: r.state === "asleep" } : pose(r, now, size);
+        // Up on a card, or on the way: its feet that far above the floor.
+        const up = r.y ?? 0;
         // Lying down and getting up take 0.7 s.
         const k = r.state === "asleep" ? Math.min(1, (now - r.since) / 700) : r.state === "waking" ? Math.max(0, 1 - (now - r.since) / 700) : 0;
         const ready = still ? (p.lying ? 1 : 0) : k;
         if (ready > 0.5) nextLying.add(r.id);
-        const left = (r.x - size / 2).toFixed(1);
+        const left = snap(r.x - size / 2);
         const picture = el.outer.dataset.art === "picture";
-        el.outer.style.transform = `translate3d(${left}px, ${(-p.lift).toFixed(1)}px, 0)`;
+        el.outer.style.transform = `translate3d(${left}px, ${snap(-(up + p.lift))}px, 0)`;
         el.inner.style.transform = r.egg
           ? // An egg sleeps where it stands: it just stops wobbling (and dims, in CSS).
             `scaleX(${r.dir}) rotate(${p.tilt.toFixed(1)}deg)`
@@ -169,7 +243,7 @@ function CreatureFloor({ kids, still }: FloorProps) {
         // The shadow stays on the floor: smaller and fainter in the air, longer lying down.
         const air = Math.min(1, p.lift / (size * 0.4));
         const stretch = (picture ? PICTURE_SCALE : 1) * (1 - 0.45 * air) + (picture || r.egg ? 0 : 0.35 * ready);
-        el.shadow.style.transform = `translate3d(${left}px, 0, 0) scaleX(${stretch.toFixed(3)})`;
+        el.shadow.style.transform = `translate3d(${left}px, ${snap(-up)}px, 0) scaleX(${stretch.toFixed(3)})`;
         el.shadow.style.opacity = (1 - 0.6 * air).toFixed(2);
         if (el.outer.dataset.state !== r.state) el.outer.dataset.state = r.state;
         const dir = String(r.dir);
@@ -200,7 +274,7 @@ function CreatureFloor({ kids, still }: FloorProps) {
       if (!still) {
         const { roamers: next, events } = stepRoamers(
           roamers.current,
-          { width, size, now, sleeping: sleepingRef.current },
+          { width, size, now, sleeping: sleepingRef.current, platforms: platforms.current },
           dt,
           random,
         );
@@ -217,7 +291,9 @@ function CreatureFloor({ kids, still }: FloorProps) {
       }
       draw(now);
     };
-    const covered = () => document.hidden || document.documentElement.hasAttribute("data-screensaver");
+    // Home's floor is covered by the screensaver; the idle screen's is the screensaver.
+    const covered = () =>
+      document.hidden || (placement === "home" && document.documentElement.hasAttribute("data-screensaver"));
     const start = () => {
       if (!raf && !covered()) {
         last = performance.now();
@@ -239,7 +315,7 @@ function CreatureFloor({ kids, still }: FloorProps) {
       document.removeEventListener("visibilitychange", onCover);
       screensaver.disconnect();
     };
-  }, [width, size, still, draw, show]);
+  }, [width, size, still, draw, show, placement]);
 
   const tap = useCallback((id: string) => {
     const { roamers: next, events } = poke(roamers.current, id, performance.now());
@@ -250,9 +326,11 @@ function CreatureFloor({ kids, still }: FloorProps) {
   return (
     <div
       ref={floorRef}
-      className="creature-floor pointer-events-none fixed inset-x-0 z-[15]"
-      style={{ bottom: "var(--nav-spacing, 0px)", height: floorHeight }}
-      data-testid="home-creatures"
+      className={`creature-floor pointer-events-none inset-x-0 ${placement === "home" ? "fixed z-[15]" : "absolute"} ${dim ? "opacity-40" : ""}`}
+      style={{ bottom: placement === "home" ? "var(--nav-spacing, 0px)" : 0, height: floorHeight }}
+      data-testid={placement === "home" ? "home-creatures" : "idle-creatures"}
+      // On the idle screen a tap on a creature is for the creature, not a wake-up.
+      data-no-wake={placement === "idle" ? "" : undefined}
       data-count={cast.length}
       aria-label={t("aria")}
       role="group"
@@ -363,7 +441,13 @@ function FloorCreature({
               look={look}
               mood={shownMood}
               size={picture ? Math.round(size * PICTURE_SCALE) : size}
-              animated={!still && !lying}
+              // Still drawings: the walk, the hops and the games are the motion.
+              // The drawing's own breathing and tail sway are CSS animations on
+              // SVG parts, repainted every frame: with two creatures, at a 6x
+              // throttled CPU, they took the screensaver's main thread from 15%
+              // to 37% busy (3.7% with no creatures); halving the frame rate
+              // saved two points (2026-11-10, RFC-021 §7).
+              animated={false}
               label=""
             />
           </button>

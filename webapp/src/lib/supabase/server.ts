@@ -2,8 +2,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/database";
-import { serverSupabaseUrl } from "@/lib/supabase/api-base";
-import { postgrestFetch } from "@/lib/rest-proxy";
+import { serverSupabaseFetch, serverSupabaseUrl } from "@/lib/supabase/api-base";
 
 interface CookieToSet {
   name: string;
@@ -20,7 +19,7 @@ export async function createClient() {
     url,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      global: { fetch: postgrestFetch(url) },
+      global: { fetch: serverSupabaseFetch() },
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -61,7 +60,7 @@ export function createAdminClient(options?: { actor?: "integration" }) {
       persistSession: false,
     },
     global: {
-      fetch: postgrestFetch(supabaseUrl),
+      fetch: serverSupabaseFetch(),
       ...(options?.actor ? { headers: { "x-kinboard-actor": options.actor } } : {}),
     },
   });

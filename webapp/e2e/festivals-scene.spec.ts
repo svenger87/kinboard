@@ -40,8 +40,8 @@ test("one scene: the weather's clock, frame cap and pause drive the visitor too"
   expect(code).toMatch(/weather\?\.draw\(t, dt\);\s*drawVisitor\(t, dt\);/);
   // With no weather showing, the loop runs only for a pass, and nothing at all while hidden.
   expect(code).toContain("if (!weather && !pass) stop();");
-  expect(code).toContain("if (!frame && !document.hidden && (weather || pass)) frame = window.requestAnimationFrame(tick);");
-  expect(code).toContain("const onVisibility = () => (document.hidden ? stop() : start());");
+  expect(code).toContain("if (!frame && !document.hidden && !covered() && (weather || pass)) frame = window.requestAnimationFrame(tick);");
+  expect(code).toContain("const onVisibility = () => (document.hidden || covered() ? stop() : start());");
   // One wind: the visitor gets the weather's gust.
   expect(code).toContain("const wind = gust * (0.8 + 0.2 * Math.sin(t / 2300));");
   // The visitor's canvas has pixels only during a pass, and clears only what it drew over.
@@ -55,9 +55,9 @@ test("with no festival on, nothing of it is there: no canvas, no timer, no butto
   const code = scene();
   // Home: the weather alone returns exactly what it did; the visitor is only ever added.
   expect(code).toContain("const visitor = forced ? null : festival?.visitor ? festival.id : null;");
-  expect(code).toContain("if (effects.length === 0 && visitor) return <FestivalVisitor />;");
+  expect(code).toContain("if (effects.length === 0 && visitor) return <FestivalVisitor placement={placement} />;");
   expect(code).toContain('if (effects.length === 0 || motion === "off") return null;');
-  expect(code).toContain("{flying && <VisitorTap ref={tapRef} placement=\"home\" />}");
+  expect(code).toContain("{flying && <VisitorTap ref={tapRef} placement={placement} />}");
   // The scene: the visitor's canvas, its passes and its tap only with a visitor.
   expect(code).toContain("const flies = Boolean(visitor && spec && front && fctx);");
   expect(code).toContain("if (flies) passTimer = window.setTimeout(beginPass, first);");
@@ -65,7 +65,7 @@ test("with no festival on, nothing of it is there: no canvas, no timer, no butto
   expect(code).toContain("const first = preview ? 600 : visitorAt !== null ? Math.max(0, visitorAt - Date.now()) : FIRST_PASS_MS;");
   expect(code).toMatch(/\{visitor && \(\s*<canvas\s*ref=\{frontRef\}/);
   // The weather's canvas is the one it always was.
-  expect(code).toMatch(/\{effects\.length > 0 && \(\s*<canvas\s*ref=\{ref\}\s*data-testid="weather-effects-motion"\s*className="pointer-events-none fixed inset-0 z-\[5\] h-full w-full"/);
+  expect(code).toMatch(/\{effects\.length > 0 && \(\s*<canvas\s*ref=\{ref\}\s*data-testid="weather-effects-motion"\s*className=\{`pointer-events-none \$\{layer\} inset-0 \$\{placement === "home" \? "z-\[5\]" : ""\} h-full w-full`\}/);
 });
 
 test("the Animations switch, exactly as §4 says", () => {
@@ -124,7 +124,7 @@ test("every two minutes, about ten seconds a pass, on Home and the screensaver",
   expect(code).toContain('if (placement === "home" && document.documentElement.hasAttribute("data-screensaver")) return;');
   // The screensaver: above the photo, below the clock and everything after it.
   const saver = codeOnly(read("src/components/screensaver.tsx"));
-  const visitorAt = saver.indexOf('<FestivalVisitor placement="screensaver" />');
+  const visitorAt = saver.indexOf('<WeatherEffects placement="screensaver" enabled={weatherEffects} />');
   expect(visitorAt).toBeGreaterThan(saver.indexOf("screensaver-photo-in"));
   expect(visitorAt).toBeLessThan(saver.indexOf("{(screensaverSettings.showNews ?? true)"));
   expect(code).toContain("const PREVIEW_EVERY_MS = 20_000;");

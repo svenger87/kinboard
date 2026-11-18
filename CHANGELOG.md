@@ -8,9 +8,29 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The weather ahead on the screensaver.** Settings → Screensaver → *Weather forecast*, off unless switched on: next to the temperature the screensaver shows the coming hours, each with its time, an icon, the temperature and the chance of rain, which stands out in blue from 50%. So a child can see from across the room whether today is a raincoat day. The steps are three hours apart, the finest the weather service's free forecast offers, five of them where there is room and three on a narrow screen. A clear night shows a moon. It uses the Weather widget's forecast, so it costs no extra calls to the weather service. With it on, the "touch to unlock" hint is left out, since it ran into the forecast on portrait screens (#282).
+
+- **Weather effects on the screensaver.** Settings → Screensaver → *Weather effects*, off unless switched on and separate from Home's switch: snow, rain, frost, fog, wind, heat and storms over the photos, as on Home, with the effects and thresholds from Settings → Weather. They sit above the photo and below the clock and the events, and follow the device's Animations setting as on Home. Home's own effects now stop drawing while the screensaver covers them (#282).
+
+- **Creatures climb onto the widgets.** With Creatures on Home switched on, now and then a creature walks to the foot of a widget card, jumps up onto its top edge, strolls along it, sometimes hops across to the card next to it, and jumps back down. They come down at bedtime, and when a card scrolls away or is switched off. A tap mid-jump sends a heart and lets it land first. Home only; the screensaver's creatures stay on the floor, and with Animations on Reduced they stand still as before.
+
+- **The children's creatures on the screensaver.** Settings → Creatures → *Creatures on the screensaver*, off unless switched on and separate from Home's switch: the same creatures walk along the bottom of the screensaver, under the clock and the events, which move up to make room. Tapping one makes it hop without waking the screen; at bedtime they sleep there, and with the screensaver's Night on they lie faint under the dim clock. On Home and here the drawings now stand still while the creatures walk (no breathing or tail sway): on a CPU throttled six times, two creatures with those animations kept the screensaver's main thread 37% busy, without them 15% (3.7% with none) (RFC-021).
+
+- **Night on the screensaver.** Settings → Screensaver → *Night*, off unless switched on: during the family's bedtime (the times under Settings → Creatures, 20:00 to 06:30 unless changed) the screensaver shows a dim clock on black and nothing else, no photo, no news, no events, and stops loading photos. The clock drifts a few pixels now and then against burn-in, and a touch wakes the screen as always. One bedtime for the whole household: the screen's night is the children's (RFC-021).
+
+- **The screensaver says when the next event is about to start.** In the hour before an event that starts at a time, a line under the clock counts down to it, on the minute, and goes at the start. A child's event speaks to the child ("Fußball – noch 35 Minuten!"); anyone else's, and an event that belongs to no one, stays short ("Zahnarzt in 35 Min."). All-day events never count. It's on unless switched off under Settings → Screensaver → *Next event under the clock*. The news list on the screensaver now stops above the clock and the events instead of running over them on a short screen, and fades out where it is cut short (RFC-021).
+
 ### Changed
 
+- **The large clock on a portrait screen fills the column.** With *Large clock and events* on a portrait screen, the screensaver now lays out like a family's mockup: one column, the time and the date as wide as the event cards, and 60px between the events, the birthdays and the clock, and to the left and bottom edges, measured to the letters rather than their line boxes. On 1080×1920 the time grows from 128px to 222px. On a short portrait screen the time stays within 18% of the screen's height. Landscape screens keep their layout (#282).
+
+- **Even spacing on the screensaver.** The clock, the events and the birthdays at the bottom of the screensaver now sit at one even distance from each other: 24px, or 40px with the large clock and events. Before, the lists were 16px apart and the clock 24px below them. With the large clock and on landscape screens, the clock's row was also half again as tall as its digits, which left a wide gap above and below the time. The photo counter ("12 / 99") moved from under the birthdays to the bottom right corner, where it no longer pushes the clock down (#282).
+
 ### Fixed
+
+- **Kinboard found no family after updating to 1.15 without `git pull`.** An install that pulled the 1.15 image but still started it with its old compose file (Kong, auth and storage still running) sent every server-side database query to an address Kong has no route for. The family count came back empty, the join page offered to create a new family, and joining with the code failed. The server now keeps Kong's `/rest/v1` path on such installs. Updating the checkout as UPGRADING.md describes is still the way to finish the move to 1.15.
+- **A backup that won't restore says why.** "Restore from backup" on the join screen showed "is this a Kinboard backup file?" for every failure, while the server knew the reason: an unknown format, a table that wouldn't insert, the size, too many attempts. The message now shows that reason underneath, and stays up long enough to read or photograph (#458).
+- **Walking creatures no longer flicker at their edges.** On a desktop browser the creatures' outlines shimmered while they walked on the screensaver: each frame put them at a fraction of a pixel, and the graphics card smoothed the edge differently every time. They now move in whole screen pixels.
 
 ### Security
 

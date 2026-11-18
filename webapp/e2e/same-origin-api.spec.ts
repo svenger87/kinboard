@@ -4,7 +4,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import vm from "node:vm";
-import { publicApiEnv, serverSupabaseUrl } from "../src/lib/supabase/api-base";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { publicApiEnv, serverSupabaseFetch, serverSupabaseUrl } from "../src/lib/supabase/api-base";
 import { absoluteStorageUrl, publicStorageUrl } from "../src/lib/supabase/public-url";
 import { postgrestFetch } from "../src/lib/rest-proxy";
 
@@ -68,9 +71,44 @@ test.describe("server-side code goes straight to PostgREST", () => {
     ]);
   });
 
-  test("both server clients use it", () => {
+  test("both server clients use it, through the one helper", () => {
     const server = readFileSync("src/lib/supabase/server.ts", "utf8");
-    expect(server.match(/postgrestFetch\(/g)?.length).toBe(2);
+    expect(server.match(/serverSupabaseFetch\(\)/g)?.length).toBe(2);
+    expect(server).not.toContain("postgrestFetch(");
+  });
+
+  // Discussion #458: a 1.15 image started from a pre-1.15 checkout (no git
+  // pull) has SUPABASE_URL=http://kong:8000 and no POSTGREST_URL. Kong only
+  // routes /rest/v1/…; with the prefix stripped, the family count came back
+  // empty and the join page offered to create a new family.
+  test("a pre-1.15 compose file: the server reaches PostgREST through Kong's /rest/v1", async () => {
+    const seen: string[] = [];
+    const kong = createServer((req, res) => {
+      seen.push(`${req.method} ${req.url}`);
+      if (!req.url?.startsWith("/rest/v1/")) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(req.method === "HEAD" ? undefined : '{"message":"no Route matched with those values"}');
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json", "content-range": "0-2/3" });
+      res.end(req.method === "HEAD" ? undefined : '[{"id":"a"},{"id":"b"},{"id":"c"}]');
+    });
+    await new Promise<void>((done) => kong.listen(0, "127.0.0.1", done));
+    const env = { SUPABASE_URL: `http://127.0.0.1:${(kong.address() as AddressInfo).port}` };
+    try {
+      const db = createSupabaseClient(serverSupabaseUrl(env), "service-key", {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { fetch: serverSupabaseFetch(env) },
+      });
+      const { count, error } = await db.from("families").select("id", { count: "exact", head: true });
+      expect(error).toBeNull();
+      expect(count).toBe(3);
+      const rows = await db.from("families").select("id");
+      expect(rows.data).toHaveLength(3);
+    } finally {
+      kong.close();
+    }
+    expect(seen.every((line) => line.includes(" /rest/v1/families"))).toBe(true);
   });
 });
 

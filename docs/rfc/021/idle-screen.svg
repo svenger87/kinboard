@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1980 410" width="1980" height="410" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+  <title>RFC-021: the idle screen at four moments of a day (schematic)</title>
+  <defs>
+    <linearGradient id="photo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b7a8c"/>
+      <stop offset="0.55" stop-color="#8a9a6b"/>
+      <stop offset="1" stop-color="#3d4a36"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.45" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.65"/>
+    </linearGradient>
+    <g id="frame">
+      <rect width="460" height="259" rx="6" fill="url(#photo)"/>
+      <rect width="460" height="259" rx="6" fill="url(#shade)"/>
+      <!-- weather chip, top right -->
+      <rect x="388" y="12" width="60" height="20" rx="6" fill="#000" fill-opacity="0.4"/>
+      <text x="418" y="26" font-size="10" fill="#fff" text-anchor="middle">☀ 12°</text>
+    </g>
+    <g id="creature">
+      <ellipse cx="0" cy="0" rx="13" ry="11" fill="#f2b84b"/>
+      <circle cx="-4" cy="-3" r="1.8" fill="#222"/>
+      <circle cx="4" cy="-3" r="1.8" fill="#222"/>
+      <ellipse cx="0" cy="12" rx="12" ry="2.5" fill="#000" fill-opacity="0.25"/>
+    </g>
+    <g id="creature2">
+      <ellipse cx="0" cy="0" rx="11" ry="10" fill="#7cc4a8"/>
+      <circle cx="-3.5" cy="-2" r="1.6" fill="#222"/>
+      <circle cx="3.5" cy="-2" r="1.6" fill="#222"/>
+      <ellipse cx="0" cy="11" rx="10" ry="2.2" fill="#000" fill-opacity="0.25"/>
+    </g>
+  </defs>
+
+  <rect width="1980" height="410" fill="#f6f4ef"/>
+
+  <!-- 1. An ordinary afternoon -->
+  <g transform="translate(20,60)">
+    <text x="0" y="-30" font-size="17" font-weight="600" fill="#222">15:20 — an ordinary afternoon</text>
+    <text x="0" y="-12" font-size="12" fill="#555">Today: the photo, the clock and the creatures, nothing more</text>
+    <use href="#frame"/>
+    <text x="16" y="212" font-size="44" font-weight="300" fill="#fff">15:20</text>
+    <text x="18" y="232" font-size="11" fill="#fff" fill-opacity="0.65">Thursday, 5 November</text>
+    <rect x="300" y="186" width="148" height="54" rx="6" fill="#000" fill-opacity="0.45"/>
+    <text x="308" y="203" font-size="10" fill="#fff">17:30  Football</text>
+    <text x="308" y="218" font-size="10" fill="#fff" fill-opacity="0.8">Fri  Parents' evening</text>
+    <text x="308" y="233" font-size="10" fill="#fff" fill-opacity="0.8">Sat  Grandma comes</text>
+    <use href="#creature" x="190" y="240"/>
+    <use href="#creature2" x="240" y="242"/>
+    <text x="0" y="285" font-size="12" fill="#333">① The children's creatures walk the bottom edge, sit,</text>
+    <text x="0" y="301" font-size="12" fill="#333">nap. Happy once a child's tasks are done (no text).</text>
+  </g>
+
+  <!-- 2. The hour before -->
+  <g transform="translate(510,60)">
+    <text x="0" y="-30" font-size="17" font-weight="600" fill="#222">16:55 — the hour before</text>
+    <text x="0" y="-12" font-size="12" fill="#555">One line under the clock, only now</text>
+    <use href="#frame"/>
+    <text x="16" y="196" font-size="44" font-weight="300" fill="#fff">16:55</text>
+    <text x="18" y="216" font-size="11" fill="#fff" fill-opacity="0.65">Thursday, 5 November</text>
+    <rect x="16" y="224" width="190" height="22" rx="6" fill="#fff" fill-opacity="0.16"/>
+    <text x="24" y="239" font-size="12" font-weight="600" fill="#fff">Football in 35 minutes!</text>
+    <use href="#creature" x="232" y="240"/>
+    <use href="#creature2" x="270" y="242"/>
+    <rect x="300" y="186" width="148" height="54" rx="6" fill="#000" fill-opacity="0.45"/>
+    <text x="308" y="203" font-size="10" fill="#fff">17:30  Football</text>
+    <text x="308" y="218" font-size="10" fill="#fff" fill-opacity="0.8">Fri  Parents' evening</text>
+    <text x="308" y="233" font-size="10" fill="#fff" fill-opacity="0.8">Sat  Grandma comes</text>
+
+    <text x="0" y="285" font-size="12" fill="#333">② A child's event speaks to the child; a grown-up's</text>
+    <text x="0" y="301" font-size="12" fill="#333">stays short: "Dentist in 35 min."</text>
+  </g>
+
+  <!-- 3. A birthday -->
+  <g transform="translate(1000,60)">
+    <text x="0" y="-30" font-size="17" font-weight="600" fill="#222">A birthday</text>
+    <text x="0" y="-12" font-size="12" fill="#555">The festival engine, for one person</text>
+    <use href="#frame"/>
+    <g fill-opacity="0.9">
+      <rect x="40" y="30" width="6" height="10" fill="#f25f7a" transform="rotate(20 43 35)"/>
+      <rect x="120" y="60" width="6" height="10" fill="#ffd166" transform="rotate(-30 123 65)"/>
+      <rect x="230" y="25" width="6" height="10" fill="#7cc4ff" transform="rotate(45 233 30)"/>
+      <rect x="330" y="70" width="6" height="10" fill="#9be38b" transform="rotate(-15 333 75)"/>
+      <rect x="410" y="45" width="6" height="10" fill="#f25f7a" transform="rotate(60 413 50)"/>
+      <rect x="180" y="100" width="6" height="10" fill="#c79bff" transform="rotate(-50 183 105)"/>
+    </g>
+    <text x="16" y="196" font-size="44" font-weight="300" fill="#fff">08:10</text>
+    <text x="18" y="216" font-size="11" fill="#fff" fill-opacity="0.65">Saturday, 14 November</text>
+    <text x="18" y="240" font-size="15" font-weight="600" fill="#fff">Mira is 7 today! 🎉</text>
+    <use href="#creature" x="250" y="240"/>
+    <path d="M240 230 L250 210 L260 230 Z" fill="#f25f7a"/>
+    <rect x="300" y="186" width="148" height="54" rx="6" fill="#000" fill-opacity="0.45"/>
+    <text x="308" y="203" font-size="10" fill="#fff">10:00  Swimming</text>
+    <text x="308" y="218" font-size="10" fill="#fff" fill-opacity="0.8">15:00  Party at home</text>
+    <text x="308" y="233" font-size="10" fill="#fff" fill-opacity="0.8">Mon  Dentist</text>
+
+    <text x="0" y="285" font-size="12" fill="#333">③ Name, confetti, a party hat on that child's creature.</text>
+    <text x="0" y="301" font-size="12" fill="#333">A grown-up's: "Dad's birthday today", no confetti storm.</text>
+  </g>
+
+  <!-- 4. Night -->
+  <g transform="translate(1490,60)">
+    <text x="0" y="-30" font-size="17" font-weight="600" fill="#222">22:40 — night</text>
+    <text x="0" y="-12" font-size="12" fill="#555">Less, not more</text>
+    <rect width="460" height="259" rx="6" fill="#050505"/>
+    <text x="230" y="140" font-size="40" font-weight="300" fill="#fff" fill-opacity="0.35" text-anchor="middle">22:40</text>
+    <text x="0" y="285" font-size="12" fill="#333">④ From a time the family sets: no photos, a dim clock</text>
+    <text x="0" y="301" font-size="12" fill="#333">that drifts against burn-in. A touch wakes it as now.</text>
+  </g>
+
+  <text x="20" y="395" font-size="12" fill="#666">Schematic, not a screenshot. ⑤ "This day, 3 years ago" changes only which photo comes up, plus a small year on its caption: nothing on the layout.</text>
+</svg>

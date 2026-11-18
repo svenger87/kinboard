@@ -73,6 +73,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The upgrade rig checks out the release it upgrades *from* by its
+          # tag. A default checkout is one commit with no tags, so from
+          # 2026-10-19 until this the rig failed with "no tag v1.13.0 to check
+          # out" before testing anything, and 1.13 -> 1.15 went out unrigged.
+          fetch-depth: 0
+          fetch-tags: true
 
       # A hosted runner ships with several gigabytes of Android SDK, .NET and
       # Haskell toolchains that nothing here uses. Booting the Supabase stack

@@ -7,6 +7,11 @@
  *
  * Positions are the centre of each creature, in pixels from the floor's left
  * end; `dir` is the way it faces (1 right, -1 left).
+ *
+ * Platforms: on Home, now and then a creature jumps up onto the top edge of a
+ * widget card, walks along it, perhaps hops across to the next card, and
+ * jumps back down. `y` is how high its feet are above the floor (the card's
+ * top while it is up there); the arc of a jump is the drawing's (pose()).
  */
 
 export type RoamState =
@@ -20,7 +25,34 @@ export type RoamState =
   | "chase"
   | "toBed" // walking to its bed spot
   | "asleep" // lying down
-  | "waking"; // getting up, a moment before walking again
+  | "waking" // getting up, a moment before walking again
+  | "jump"; // through the air, onto a card or back down (`jump`)
+
+/** A widget card's top edge, in the floor's pixels: `top` is its height above the floor. */
+export interface Platform {
+  id: string;
+  left: number;
+  right: number;
+  top: number;
+}
+
+/** A jump under way: from where, to where (a platform's id, or null for the floor), and when. */
+export interface Jump {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  to: string | null;
+  start: number;
+  ms: number;
+}
+
+/** Where a walk ends in a jump: the landing spot, on a platform or the floor. */
+export interface JumpPlan {
+  x: number;
+  top: number;
+  to: string | null;
+}
 
 export interface Roamer {
   id: string;
@@ -34,6 +66,13 @@ export interface Roamer {
   target: number;
   partner: string | null;
   egg: boolean;
+  /** Feet above the floor, px: 0 on the floor, a card's top on one. */
+  y?: number;
+  /** The platform it stands on, or null on the floor. */
+  on?: string | null;
+  /** A walk that ends in a jump. */
+  plan?: JumpPlan | null;
+  jump?: Jump | null;
 }
 
 export interface World {
@@ -44,6 +83,8 @@ export interface World {
   now: number;
   /** Ids whose creature should be asleep now (the family's bedtime). */
   sleeping: ReadonlySet<string>;
+  /** The cards it may jump onto (Home); none on the idle screen. */
+  platforms?: readonly Platform[];
 }
 
 /** Something the drawing shows once: hearts over a creature, a heart between two playing. */
@@ -66,8 +107,51 @@ export const PLAY_CHANCE = 0.3;
 export const HOP_CHANCE = 0.15;
 /** How far apart two play, in creature widths. */
 export const PLAY_GAP = 0.75;
+/** Of the walks a creature on the floor sets off on, how many go up onto a card (with one in reach). */
+export const VISIT_CHANCE = 0.2;
+/** How likely, on finishing a rest up on a card, it leaves (down, or across to the next card). */
+export const LEAVE_CHANCE = 0.4;
+/** Of those, how many hop across to a neighbouring card instead of down. */
+export const ACROSS_CHANCE = 0.5;
+/** A jump's time: a base, more the further it goes, and a cap. */
+export const JUMP_MS = 520;
+export const JUMP_MS_PER_PX = 0.9;
+export const JUMP_MAX_MS = 1300;
 
-const free = (r: Roamer) => r.state === "idle" || r.state === "walk";
+const free = (r: Roamer) => (r.state === "idle" || r.state === "walk") && !r.on && !r.plan;
+
+/** Where a creature's feet may stand on a platform: clear of the card's rounded corners. */
+export function platformBounds(p: Platform, size: number): [number, number] {
+  return [p.left + size * 0.6, p.right - size * 0.6];
+}
+
+/** Whether a card can take a creature at all. */
+const roomy = (p: Platform, size: number) => {
+  const [lo, hi] = platformBounds(p, size);
+  return hi > lo;
+};
+
+/** A neighbour a creature can hop across to: about level, and a short gap away. */
+export function across(from: Platform, platforms: readonly Platform[], size: number): Platform[] {
+  return platforms.filter(
+    (p) =>
+      p.id !== from.id &&
+      roomy(p, size) &&
+      Math.abs(p.top - from.top) <= size * 2.5 &&
+      Math.max(p.left - from.right, from.left - p.right) <= size * 3,
+  );
+}
+
+function startJump(r: Roamer, toX: number, toY: number, to: string | null, now: number) {
+  const fromY = r.y ?? 0;
+  const dist = Math.hypot(toX - r.x, toY - fromY);
+  const ms = Math.min(JUMP_MAX_MS, JUMP_MS + dist * JUMP_MS_PER_PX);
+  r.jump = { fromX: r.x, fromY, toX, toY, to, start: now, ms };
+  r.on = null;
+  r.plan = null;
+  if (toX !== r.x) r.dir = toX > r.x ? 1 : -1;
+  set(r, "jump", now, now + ms);
+}
 
 /** Where each creature sleeps: spread evenly along the floor, in the order given. */
 export function bedSpots(count: number, width: number): number[] {
@@ -141,6 +225,8 @@ export function stepRoamers(
     }
   };
 
+  const platforms = world.platforms ?? [];
+
   roamers.forEach((r, i) => {
     r.x = Math.min(hi, Math.max(lo, r.x));
     const bed = Math.min(hi, Math.max(lo, beds[i]));
@@ -153,8 +239,53 @@ export function stepRoamers(
       return;
     }
 
+    // In the air: along the jump, onto a card that is still there (and where it is now).
+    if (r.state === "jump" && r.jump) {
+      const j = r.jump;
+      if (j.to) {
+        const p = platforms.find((q) => q.id === j.to);
+        if (p) j.toY = p.top;
+        else {
+          j.to = null;
+          j.toY = 0;
+          j.toX = Math.min(hi, Math.max(lo, j.toX));
+        }
+      }
+      const k = Math.min(1, (now - j.start) / j.ms);
+      r.x = j.fromX + (j.toX - j.fromX) * k;
+      r.y = j.fromY + (j.toY - j.fromY) * k;
+      if (k >= 1) {
+        r.x = j.toX;
+        r.y = j.toY;
+        r.on = j.to;
+        r.jump = null;
+        set(r, "idle", now, now + 600 + rng() * 1400);
+      }
+      return;
+    }
+    // Up on a card: riding it as the page moves; when it goes (scrolled away,
+    // a widget switched off), down to the floor.
+    let stand: Platform | undefined;
+    if (r.on) {
+      stand = platforms.find((q) => q.id === r.on);
+      if (!stand || !roomy(stand, world.size)) {
+        if (r.partner) release(r);
+        startJump(r, Math.min(hi, Math.max(lo, r.x)), 0, null, now);
+        return;
+      }
+      r.y = stand.top;
+      const [plo, phi] = platformBounds(stand, world.size);
+      r.x = Math.min(phi, Math.max(plo, r.x));
+    }
+
     // Bedtime wins over everything: go to bed, lie down; in the morning, get up.
     if (world.sleeping.has(r.id)) {
+      if (stand) {
+        // Down from the card first.
+        startJump(r, Math.min(hi, Math.max(lo, r.x + r.dir * world.size * 0.8)), 0, null, now);
+        return;
+      }
+      if (r.plan) r.plan = null;
       if (r.state === "asleep") return;
       if (r.partner) release(r);
       if (r.state !== "toBed") set(r, "toBed", now);
@@ -169,7 +300,14 @@ export function stepRoamers(
 
     switch (r.state) {
       case "walk":
-        if (move(r, r.target, WALK_PX_PER_S, dt)) set(r, "idle", now, now + 2000 + rng() * 4000);
+        if (move(r, r.target, WALK_PX_PER_S, dt)) {
+          // A walk to the take-off spot ends in the jump, if the card is still there.
+          const plan = r.plan;
+          r.plan = null;
+          const landing = plan?.to ? platforms.find((q) => q.id === plan.to) : undefined;
+          if (plan && (plan.to === null || landing)) startJump(r, plan.x, landing ? landing.top : 0, plan.to, now);
+          else set(r, "idle", now, now + 2000 + rng() * 4000);
+        }
         break;
       case "hop":
       case "waking":
@@ -238,6 +376,35 @@ export function stepRoamers(
       default: {
         if (r.state !== "idle") set(r, "idle", now, now + 1500);
         if (now < r.until) break;
+        if (stand) {
+          // Up on a card: look around, walk along it, hop, and after a while leave.
+          const [plo, phi] = platformBounds(stand, world.size);
+          const roll = rng();
+          if (roll < LEAVE_CHANCE) {
+            const next = across(stand, platforms, world.size);
+            if (next.length > 0 && rng() < ACROSS_CHANCE) {
+              const q = next[Math.floor(rng() * next.length)];
+              const [qlo, qhi] = platformBounds(q, world.size);
+              // From the end nearer the other card, to its near end.
+              const right = q.left > stand.left;
+              r.target = right ? phi : plo;
+              r.plan = { x: right ? qlo : qhi, top: q.top, to: q.id };
+            } else {
+              // Off the nearer end, down to the floor beside it.
+              const right = r.x - plo > phi - r.x;
+              r.target = right ? phi : plo;
+              const land = r.target + (right ? 1 : -1) * world.size * 0.9;
+              r.plan = { x: Math.min(hi, Math.max(lo, land)), top: 0, to: null };
+            }
+            set(r, "walk", now);
+          } else if (roll < LEAVE_CHANCE + HOP_CHANCE) {
+            set(r, "hop", now, now + HOP_MS);
+          } else {
+            r.target = plo + rng() * (phi - plo);
+            set(r, "walk", now);
+          }
+          break;
+        }
         const friends = roamers.filter((o) => o !== r && !o.egg && !o.partner && free(o) && !world.sleeping.has(o.id));
         const roll = rng();
         if (friends.length > 0 && roll < PLAY_CHANCE) {
@@ -251,6 +418,17 @@ export function stepRoamers(
         } else {
           r.target = lo + rng() * (hi - lo);
           set(r, "walk", now);
+          // Now and then the walk is to the foot of a card, and up onto it.
+          const cards = platforms.filter((q) => roomy(q, world.size));
+          if (cards.length > 0 && rng() < VISIT_CHANCE) {
+            const q = cards[Math.floor(rng() * cards.length)];
+            const [qlo, qhi] = platformBounds(q, world.size);
+            const land = qlo + rng() * (qhi - qlo);
+            // Take off a little to the side it comes from.
+            const off = land + (r.x < land ? -1 : 1) * world.size * 0.9;
+            r.target = Math.min(hi, Math.max(lo, off));
+            r.plan = { x: land, top: q.top, to: q.id };
+          }
         }
       }
     }
@@ -264,6 +442,10 @@ export function poke(input: readonly Roamer[], id: string, now: number): { roame
   const r = roamers.find((x) => x.id === id);
   if (!r) return { roamers, events: [] };
   if (r.state === "asleep" || r.state === "toBed" || r.egg) return { roamers, events: [{ kind: "hearts", x: r.x, count: 1 }] };
+  // In the air: it lands first; a heart on the way.
+  if (r.state === "jump") return { roamers, events: [{ kind: "hearts", x: r.x, count: 1 }] };
+  // A tap cancels a walk to a card: the hop is right here.
+  r.plan = null;
   if (r.partner) {
     const p = roamers.find((x) => x.id === r.partner);
     if (p && p.partner === r.id) {
@@ -303,6 +485,15 @@ export function pose(r: Roamer, now: number, size: number): { lift: number; tilt
       // A wobble every few seconds.
       const k = t % 5000;
       return { lift: 0, tilt: k < 700 ? Math.sin((k / 700) * Math.PI * 4) * 8 : 0, lying: false };
+    }
+    case "jump": {
+      // The arc over the line between the two surfaces: higher going up, a
+      // little lean into it.
+      const j = r.jump;
+      if (!j) return { lift: 0, tilt: 0, lying: false };
+      const k = Math.min(1, Math.max(0, (now - j.start) / j.ms));
+      const height = size * 0.4 + Math.max(0, j.toY - j.fromY) * 0.15;
+      return { lift: 4 * k * (1 - k) * height, tilt: (k - 0.5) * 14, lying: false };
     }
     case "asleep":
       return { lift: 0, tilt: 0, lying: true };

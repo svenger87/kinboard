@@ -8,10 +8,13 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useBirthdays, useEvents, useHolidayEntries, usePeople, usePhotoSource, useNews, useEnergyConfig, useTeslaConfig, useHomeAssistantEntityStates, useToday, useWeather, type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import { screensaverListCount } from "@/types/screensaver";
+import { nextEventLine } from "@/lib/next-event-line";
+import { isScreensaverNight } from "@/lib/screensaver-night";
+import { useCreatureBedtime, useFamilyTimeZone } from "@/hooks/use-creature-mood";
 import { useFamilyStore } from "@/stores/family-store";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
 import { PersonAvatar } from "@/components/person-avatar";
-import { Cake, Calendar, GraduationCap, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Battery, Zap, Car } from "lucide-react";
+import { Cake, Calendar, GraduationCap, MapPin, Newspaper, X, ExternalLink, BookOpen, Clock, Sun, Battery, Zap, Car } from "lucide-react";
 import { format, differenceInDays, setYear, isPast, addYears, isToday, isTomorrow, addDays, startOfDay, endOfDay, parseISO } from "date-fns";
 import { type Locale } from "date-fns/locale";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
@@ -19,8 +22,11 @@ import { hasBirthYear } from "@/lib/birthday";
 import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib/holiday-entries";
 import { toLocalDateKey } from "@/lib/local-date";
 import { useTimeFormat } from "@/hooks/use-time-format";
+import { useFitToWidth, useMediaQuery } from "@/hooks/use-fit-to-width";
 import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
-import { FestivalVisitor } from "@/components/weather-effects";
+import { WeatherEffects } from "@/components/weather-effects";
+import { ScreensaverWeather } from "@/components/screensaver-weather";
+import { CreaturesOnIdle } from "@/components/creatures-on-home";
 
 // Parse date string safely without timezone shift
 // "1990-01-28" should be January 28th local, not UTC midnight
@@ -122,17 +128,15 @@ function formatEventTime(
   return `${format(start, "EEE", { locale: dateLocale })}, ${formatTime(start)}`;
 }
 
+/**
+ * Trims a line box to the letters: from the top of the capitals to the
+ * baseline, so a gap measures from the ink, as in #282's mockup. Browsers
+ * without `text-box` keep the plain line box (a few px more space).
+ */
+const TRIM = "[text-box:trim-both_cap_alphabetic]";
+
 // No default photos — screensaver shows clock-only mode when Immich is not connected
 const DEFAULT_PHOTOS: string[] = [];
-
-function screensaverWeatherIcon(condition: string) {
-  const c = condition.toLowerCase();
-  if (c.includes("thunder") || c.includes("gewitter")) return CloudLightning;
-  if (c.includes("snow") || c.includes("schnee")) return CloudSnow;
-  if (c.includes("rain") || c.includes("regen") || c.includes("drizzle") || c.includes("niesel")) return CloudRain;
-  if (c.includes("clear") || c.includes("klar") || c.includes("sun") || c.includes("sonn")) return Sun;
-  return Cloud;
-}
 
 
 /**
@@ -202,15 +206,39 @@ export function Screensaver({ photos }: ScreensaverProps) {
   // Configurable photo rotation interval from settings
   const { photoRotationInterval, settings: screensaverSettings } = useScreensaverSettings();
   const largeDetails = screensaverSettings.largeDetails ?? false;
+  // One gap between the sections of the bottom stack (events, birthdays, the
+  // clock), so the spacing is even: it was 16px between the lists and 24px
+  // above the clock (#282). Wider with the large details, as the text is.
+  const sectionGap = largeDetails ? "gap-10" : "gap-6";
+  // The large details on a portrait screen: one column, after a family's
+  // mockup in #282. The clock and the date are as wide as the cards, and
+  // everything sits 60px apart and 60px from the edges, measured to the
+  // letters themselves. Landscape keeps the layout it had: a large screen
+  // puts the clock and the lists in opposite corners, and on a short one a
+  // clock this size pushed the events off the top.
+  const portrait = useMediaQuery("(orientation: portrait)");
+  const column = largeDetails && portrait;
+  // In the column the digits take their size from the fitted row (and trim
+  // to the letters); elsewhere the two sizes as before.
+  const clockSize = column
+    ? TRIM
+    : largeDetails
+      ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]"
+      : "text-7xl landscape:lg:text-[8rem]";
   const eventCount = screensaverListCount(screensaverSettings.eventCount, 4);
   const birthdayCount = screensaverListCount(screensaverSettings.birthdayCount, 3);
   const showBirthdays = screensaverSettings.showBirthdays ?? true;
+  const showNextEvent = screensaverSettings.showNextEvent ?? true;
   const photoRotationMs = photoRotationInterval * 1000;
 
   // Update clock every 60 seconds - screensaver only shows hours:minutes, not seconds
   // Without the second argument this defaulted to 24-hour, so the screensaver
   // ignored the household's setting entirely (issue #198).
   const { hours, minutes, date } = useClock(60000, use24Hour);
+  // Night (RFC-021 §3.4): during the family's bedtime, a dim clock alone.
+  const familyTimeZone = useFamilyTimeZone();
+  const bedtime = useCreatureBedtime();
+  const nightNow = isScreensaverNight(screensaverSettings.night, date, familyTimeZone, bedtime);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(-1); // -1 means not initialized
   // The screen's own shape, which decides whether a photo is cropped or
   // letterboxed. Kinboard runs on portrait wall panels as well as landscape
@@ -269,7 +297,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
 
   // Weather chip (renders nothing when unconfigured)
   const { data: weather } = useWeather();
-  const WeatherIcon = weather ? screensaverWeatherIcon(weather.conditionMain ?? weather.condition) : null;
+  const showForecast = screensaverSettings.showForecast ?? false;
+  const weatherEffects = screensaverSettings.weatherEffects ?? false;
 
 
   // Fetch energy config and entity states for screensaver solar widget
@@ -450,7 +479,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
 
   // Rotate photos at configured interval — preload fully before switching
   useEffect(() => {
-    if (photoUrls.length <= 1 || currentPhotoIndex === -1) return;
+    // No photos at night: nothing to show them, nothing to download.
+    if (nightNow || photoUrls.length <= 1 || currentPhotoIndex === -1) return;
 
     const timer = setInterval(async () => {
       // A new set of photos arrived (the hourly refetch), or the bag ran
@@ -489,7 +519,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
     }, photoRotationMs);
 
     return () => clearInterval(timer);
-  }, [photoUrls, currentPhotoIndex, currentBlobUrl, photoRotationMs, loadImageAsBlob, cleanupOldBlobs]);
+  }, [photoUrls, currentPhotoIndex, currentBlobUrl, photoRotationMs, loadImageAsBlob, cleanupOldBlobs, nightNow]);
 
   // Proactively preload the next image mid-interval so it's ready when the timer fires
   useEffect(() => {
@@ -663,6 +693,88 @@ export function Screensaver({ photos }: ScreensaverProps) {
       .slice(0, eventCount);
   }, [events, people, holidays, todayKey, locale, dateLocale, eventCount]);
 
+  // In the hour before an event that starts at a time, one line under the
+  // date (RFC-021 §3.2). `date` is the clock's, so it moves on the minute.
+  const soon = useMemo(() => {
+    if (!showNextEvent) return null;
+    return nextEventLine(
+      (events ?? []).map((e) => ({
+        title: e.title,
+        start: new Date(e.start_at),
+        allDay: e.all_day,
+        personId: e.person_id || e.calendar?.person_id || null,
+      })),
+      date,
+      people ?? [],
+    );
+  }, [showNextEvent, events, date, people]);
+
+  // The news list stops above whatever sits below it on the screen (the
+  // clock, and the events where they share its column): it used to run down
+  // to 60vh and over a large clock on a short landscape panel, worse with the
+  // line under the clock. Measured, since the blocks below change height.
+  const newsListRef = useRef<HTMLDivElement>(null);
+  const clockBlockRef = useRef<HTMLDivElement>(null);
+  const clockDigitsRef = useRef<HTMLDivElement>(null);
+  const clockDateRef = useRef<HTMLParagraphElement>(null);
+  // In the column: the time as wide as the cards, and the date too, capped
+  // at a ninth of the column (a short date would grow huge).
+  const fitted = useFitToWidth(
+    clockBlockRef,
+    // The time never taller than 18% of the screen, for a short portrait one.
+    [{ ref: clockDigitsRef, max: () => window.innerHeight * 0.18 }, { ref: clockDateRef, max: (w) => w / 9 }],
+    column,
+    [hours, minutes, formattedDate],
+  );
+  const eventsBlockRef = useRef<HTMLDivElement>(null);
+  const [newsRoom, setNewsRoom] = useState<number | null>(null);
+  const [newsClipped, setNewsClipped] = useState(false);
+  useEffect(() => {
+    const list = newsListRef.current;
+    if (!list) return;
+    const measure = () => {
+      const box = list.getBoundingClientRect();
+      let floor = window.innerHeight;
+      for (const el of [clockBlockRef.current, eventsBlockRef.current]) {
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (r.height === 0 || r.right <= box.left || r.left >= box.right) continue;
+        floor = Math.min(floor, r.top);
+      }
+      const room = Math.max(0, Math.floor(floor - 24 - box.top));
+      setNewsRoom(room);
+      // Cut short: fade the last card out rather than slicing it.
+      setNewsClipped(list.scrollHeight > Math.min(room, window.innerHeight * 0.6) + 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    for (const el of [list, clockBlockRef.current, eventsBlockRef.current]) if (el) ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [news, screensaverSettings.showNews, soon, largeDetails, selectedNews]);
+
+  // Night: no photo, no news, no events, the clock alone and dim, drifting
+  // with the burn-in offsets like everything else here. A touch wakes the
+  // screen as always (the screensaver gate listens on the document).
+  if (nightNow) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-black screensaver-fade-in" data-testid="screensaver-night">
+        <div className="absolute inset-0 flex items-center justify-center" style={burnInStyle}>
+          <span className="font-display font-light text-white/35 clock-display tracking-tighter leading-none text-[clamp(5rem,18vw,12rem)]">
+            {hours}
+            <span className="mx-1 text-white/20 landscape:lg:mx-2">:</span>
+            {minutes}
+          </span>
+        </div>
+        {/* Asleep along the bottom, faint (RFC-021 §3.4). */}
+        <CreaturesOnIdle dim />
+      </div>
+    );
+  }
+
   return (
     <div
       className={`fixed inset-0 z-[100] screensaver-fade-in ${
@@ -698,10 +810,17 @@ export function Screensaver({ photos }: ScreensaverProps) {
         )}
       </div>
 
-      {/* A festival's visitor (RFC-020): above the photo, below the clock and
-          everything else here, every two minutes. Its passes move pixels
-          against burn-in alongside BURN_IN_OFFSETS. */}
-      <FestivalVisitor placement="screensaver" />
+      {/* The weather effects, when switched on for the screensaver (#282),
+          and a festival's visitor (RFC-020): above the photo, below the clock
+          and everything else here. The visitor's passes move pixels against
+          burn-in alongside BURN_IN_OFFSETS. With the effects off this is the
+          visitor alone, as before. */}
+      <WeatherEffects placement="screensaver" enabled={weatherEffects} />
+
+      {/* The children's creatures along the bottom edge (RFC-021 §3.1), above
+          the photo and under everything that reads. The clock and the events
+          are lifted by the floor's height (--idle-creature-floor). */}
+      <CreaturesOnIdle />
 
       {/* News list - top left (always rendered for data-no-wake) */}
       {(screensaverSettings.showNews ?? true) && news && news.length > 0 && (
@@ -714,7 +833,14 @@ export function Screensaver({ photos }: ScreensaverProps) {
             <Newspaper className="size-4" />
             <span className="text-xs landscape:lg:text-sm font-medium uppercase tracking-wider">{t("newsLabel")}</span>
           </div>
-          <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto scrollbar-hide">
+          <div
+            ref={newsListRef}
+            className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto scrollbar-hide"
+            style={{
+              ...(newsRoom !== null ? { maxHeight: `min(60vh, ${newsRoom}px)` } : {}),
+              ...(newsClipped ? { maskImage: "linear-gradient(to bottom, black calc(100% - 3rem), transparent)", WebkitMaskImage: "linear-gradient(to bottom, black calc(100% - 3rem), transparent)" } : {}),
+            }}
+          >
             {news.slice(0, 6).map((item) => (
               <button
                 key={item.link}
@@ -761,26 +887,27 @@ export function Screensaver({ photos }: ScreensaverProps) {
         </div>
       )}
 
-      {/* Weather chip - top right (renders nothing when weather unconfigured) */}
-      {weather && WeatherIcon && (
-        <div
-          className="absolute top-4 right-4 landscape:lg:top-12 landscape:lg:right-12 safe-area-inset screensaver-slide-down"
-          style={{ animationDelay: "0.85s", ...burnInStyle }}
-        >
-          <div className="flex items-center gap-3 bg-black/40 rounded-xl px-4 py-2.5">
-            <WeatherIcon className="size-7 text-white" strokeWidth={1.75} />
-            <span className="font-display font-light text-3xl text-white tabular-nums leading-none">
-              {Math.round(weather.temp)}°
-            </span>
-          </div>
+      {/*
+        Top right, one column: the weather (with the forecast strip when it is
+        on, #282) and under it the energy and Tesla widget. They used to sit at
+        fixed offsets from the top, which a taller weather block would run into.
+      */}
+      <div
+        className="absolute top-4 right-4 landscape:lg:top-12 landscape:lg:right-12 flex flex-col items-end gap-3 safe-area-inset"
+        style={burnInStyle}
+      >
+      {/* Weather - renders nothing when weather is unconfigured */}
+      {weather && (
+        <div className="screensaver-slide-down" style={{ animationDelay: "0.85s" }}>
+          <ScreensaverWeather weather={weather} showForecast={showForecast} large={largeDetails} />
         </div>
       )}
 
-      {/* Energy + Tesla widget - top right (if either enabled) */}
+      {/* Energy + Tesla widget (if either enabled) */}
       {(showEnergyWidget || showTeslaWidget) && (
         <div
-          className="absolute top-20 right-4 landscape:lg:top-28 landscape:lg:right-12 pt-12 landscape:lg:pt-0 safe-area-inset screensaver-slide-down"
-          style={{ animationDelay: "0.9s", ...burnInStyle }}
+          className="screensaver-slide-down"
+          style={{ animationDelay: "0.9s" }}
         >
           <div className="bg-black/50 rounded-xl p-4 flex flex-col gap-3 gpu-blur">
             {/* Solar Power */}
@@ -866,6 +993,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
           </div>
         </div>
       )}
+      </div>
+      {/* end top right */}
 
       {/* News detail modal */}
       <AnimatePresence>
@@ -1006,34 +1135,58 @@ export function Screensaver({ photos }: ScreensaverProps) {
         source — DOM order is what the landscape layout reads.
       */}
       <div
-        className="absolute inset-x-4 bottom-12 flex flex-col-reverse gap-6 safe-area-inset landscape:lg:contents"
+        className={`absolute inset-x-4 bottom-[calc(3rem+var(--idle-creature-floor,0px))] flex flex-col-reverse ${sectionGap} safe-area-inset landscape:lg:contents`}
+        // 60px to the edges and between the blocks. Sideways that is 28px
+        // here plus the 16px side padding of this wrapper and of each block
+        // (safe-area-inset); vertically they have none, so it is 60 itself.
+        style={column ? { left: 28, right: 28, bottom: "calc(60px + var(--idle-creature-floor, 0px))", rowGap: 60 } : undefined}
       >
       {/* Clock overlay - bottom left (compact for mobile & portrait). A festival's fireworks go up over it (RFC-020). */}
       <div
+        ref={clockBlockRef}
         data-festival-anchor="screensaver-clock"
-        className="landscape:lg:absolute landscape:lg:bottom-12 landscape:lg:left-12 safe-area-inset screensaver-slide-up"
-        style={{ animationDelay: "0.5s", ...burnInStyle }}
+        className="landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:left-12 safe-area-inset screensaver-slide-up"
+        style={{ animationDelay: "0.5s", ...(column ? { width: "100%", maxWidth: "36rem" } : {}), ...burnInStyle }}
       >
-        <div className="flex items-baseline">
-          <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white clock-display tracking-tighter leading-none`}>
+        <div
+          ref={clockDigitsRef}
+          className={`flex w-fit items-baseline ${column ? "whitespace-nowrap" : ""}`}
+          style={column ? { fontSize: fitted?.[0] ?? 128 } : undefined}
+          data-testid="screensaver-clock-digits"
+        >
+          <span className={`font-display font-light ${clockSize} text-white clock-display tracking-tighter leading-none`}>
             {hours}
           </span>
-          <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white/30 mx-1 landscape:lg:mx-2`}>
+          <span className={`font-display font-light ${clockSize} text-white/30 ${column ? "mx-[0.03em]" : "mx-1 landscape:lg:mx-2"} leading-none`}>
             :
           </span>
-          <span className={`font-display font-light ${largeDetails ? "text-[clamp(4.5rem,16vw,8rem)] landscape:lg:text-[11rem]" : "text-7xl landscape:lg:text-[8rem]"} text-white clock-display tracking-tighter leading-none`}>
+          <span className={`font-display font-light ${clockSize} text-white clock-display tracking-tighter leading-none`}>
             {minutes}
           </span>
         </div>
-        <p className={`${largeDetails ? "text-2xl landscape:lg:text-4xl" : "text-xl landscape:lg:text-2xl"} font-light text-white/60 mt-2 tracking-wide`}>
+        <p
+          ref={clockDateRef}
+          className={column ? `w-fit whitespace-nowrap font-light text-white/60 tracking-wide leading-none ${TRIM}` : `${largeDetails ? "text-2xl landscape:lg:text-4xl" : "text-xl landscape:lg:text-2xl"} font-light text-white/60 mt-2 tracking-wide`}
+          style={column ? { fontSize: fitted?.[1] ?? 36, marginTop: fitted ? Math.round(fitted[0] * 0.14) : 16 } : undefined}
+        >
           {formattedDate}
         </p>
+        {soon && (
+          <p
+            className={`mt-3 inline-block max-w-full truncate rounded-lg bg-white/15 px-3 py-1 font-semibold text-white ${largeDetails ? "text-2xl landscape:lg:text-3xl" : "text-lg landscape:lg:text-xl"}`}
+            data-testid="screensaver-next-event"
+            data-child={soon.child ? "true" : "false"}
+          >
+            {t(soon.child ? "nextEventChild" : "nextEventAdult", { title: soon.title, minutes: soon.minutes })}
+          </p>
+        )}
       </div>
 
       {/* Right side - Events and Birthdays (above clock for portrait/mobile, right side for landscape desktop) */}
       <div
-        className="max-w-sm landscape:lg:absolute landscape:lg:bottom-12 landscape:lg:right-12 flex flex-col gap-4 landscape:lg:gap-6 safe-area-inset screensaver-slide-right"
-        style={{ animationDelay: "0.7s", maxWidth: largeDetails ? "36rem" : undefined, ...burnInStyle }}
+        ref={eventsBlockRef}
+        className={`max-w-sm landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:right-12 flex flex-col ${sectionGap} safe-area-inset screensaver-slide-right`}
+        style={{ animationDelay: "0.7s", maxWidth: largeDetails ? "36rem" : undefined, ...(column ? { width: "100%", rowGap: 60 } : {}), ...burnInStyle }}
       >
         {/* Upcoming Events */}
         {upcomingEvents.length > 0 && (
@@ -1165,17 +1318,22 @@ export function Screensaver({ photos }: ScreensaverProps) {
           </div>
         )}
 
-        {/* Photo indicator - simple counter instead of dots to reduce DOM elements */}
-        {photoUrls.length > 1 && (
-          <div className="flex justify-end pt-2">
-            <span className="text-white/40 text-xs">
-              {currentPhotoIndex + 1} / {photoUrls.length}
-            </span>
-          </div>
-        )}
       </div>
       </div>
       {/* end bottom cluster */}
+
+      {/* Photo indicator - simple counter instead of dots to reduce DOM elements.
+          In the bottom corner rather than under the birthdays, where it added
+          a line to the stack and made the gap above the clock uneven (#282). */}
+      {photoUrls.length > 1 && (
+        <span
+          className="absolute bottom-4 right-4 text-white/40 text-xs safe-area-inset screensaver-fade-in"
+          style={{ animationDelay: "1s", ...burnInStyle }}
+          data-testid="screensaver-photo-count"
+        >
+          {currentPhotoIndex + 1} / {photoUrls.length}
+        </span>
+      )}
 
       {/* Photo metadata / attribution */}
       {currentPhotoMetadata?.photographer && (
@@ -1208,13 +1366,16 @@ export function Screensaver({ photos }: ScreensaverProps) {
         </div>
       )}
 
-      {/* Touch hint */}
+      {/* Touch hint. Not with the forecast on: centred at the top, it ran into
+          the forecast strip on portrait panels and on 1024px landscape ones. */}
+      {!(showForecast && weather) && (
       <p
         className="absolute top-8 left-1/2 -translate-x-1/2 text-white/40 text-sm safe-area-inset screensaver-fade-in"
         style={{ animationDelay: "2s", paddingTop: 'env(safe-area-inset-top, 0)', ...burnInStyle }}
       >
         {t("touchHint")}
       </p>
+      )}
     </div>
   );
 }

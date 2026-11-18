@@ -32,8 +32,16 @@ import { readFileSync } from "node:fs";
 
 const source = readFileSync("src/components/screensaver.tsx", "utf8");
 
-/** Every `className="..."` literal in the component. */
-const classLiterals = [...source.matchAll(/className="([^"]*)"/g)].map((m) => m[1]);
+/**
+ * Every `className="..."` literal in the component, and every template one
+ * (className={`...`}) with `${sectionGap}`, the stack's one gap (#282),
+ * written out as the classes it stands for.
+ */
+const sectionGap = source.match(/const sectionGap = largeDetails \? "(gap-\d+)" : "(gap-\d+)";/);
+const classLiterals = [
+  ...[...source.matchAll(/className="([^"]*)"/g)].map((m) => m[1]),
+  ...[...source.matchAll(/className=\{`([^`]*)`\}/g)].map((m) => m[1].replace("${sectionGap}", sectionGap ? `${sectionGap[1]} ${sectionGap[2]}` : "")),
+];
 
 const find = (needle: string) => {
   const hits = classLiterals.filter((c) => c.includes(needle));
@@ -45,7 +53,7 @@ test("the bottom cluster is one flow container, not two guessed offsets", () => 
   const wrapper = find("landscape:lg:contents");
 
   // Bottom-anchored, and a column so the two blocks stack with a real gap.
-  expect(wrapper, "wrapper should anchor to the bottom edge").toMatch(/\bbottom-\d+\b/);
+  expect(wrapper, "wrapper should anchor to the bottom edge").toMatch(/\bbottom-(\d+\b|\[calc\(\d+rem\+var\(--idle-creature-floor,0px\)\)\])/);
   expect(wrapper, "wrapper should stack its children as a column").toMatch(/flex-col(-reverse)?\b/);
   expect(wrapper, "wrapper should separate the blocks with a gap utility").toMatch(/\bgap-\d+\b/);
 });

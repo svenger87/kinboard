@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Moon, PawPrint } from "lucide-react";
+import { Monitor, Moon, PawPrint } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,7 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 export function CreaturesHomeSettings() {
   const t = useTranslations("settings.creatures");
   const { data: on } = useSetting<unknown>(SETTINGS_KEYS.creaturesOnHome, false);
+  const { data: onIdle } = useSetting<unknown>(SETTINGS_KEYS.creaturesOnIdle, false);
   const { data: storedBedtime } = useSetting<unknown>(SETTINGS_KEYS.creatureBedtime, null);
   const update = useUpdateSetting();
   const bedtime = readBedtime(storedBedtime);
@@ -68,6 +69,24 @@ export function CreaturesHomeSettings() {
           checked={on === true}
           disabled={update.isPending}
           onCheckedChange={(next) => void save(SETTINGS_KEYS.creaturesOnHome, next)}
+        />
+      </div>
+
+      {/* Its own switch (RFC-021 §8.3): a family may want them on the wall
+          all day and not on the tablet's Home, or the other way round. */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <Label htmlFor="creatures-on-idle" className="mb-1 flex items-center gap-2">
+            <Monitor className="size-4 text-month-primary" aria-hidden="true" />
+            {t("idleLabel")}
+          </Label>
+          <p className="text-xs text-muted-foreground">{t("idleHint")}</p>
+        </div>
+        <Switch
+          id="creatures-on-idle"
+          checked={onIdle === true}
+          disabled={update.isPending}
+          onCheckedChange={(next) => void save(SETTINGS_KEYS.creaturesOnIdle, next)}
         />
       </div>
 

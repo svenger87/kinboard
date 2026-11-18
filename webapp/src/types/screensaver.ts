@@ -31,6 +31,16 @@ export interface ScreensaverSettings {
   // Whether it lists birthdays at all, and how many, 1 to 5.
   showBirthdays?: boolean;
   birthdayCount?: number;
+  // The line under the clock in the hour before an event (RFC-021 §3.2).
+  showNextEvent?: boolean;
+  // A dim clock and nothing else during the family's bedtime (RFC-021 §3.4).
+  night?: boolean;
+  // A strip of the next forecast slots under the weather chip (#282): the
+  // time, an icon, the temperature and the chance of rain.
+  showForecast?: boolean;
+  // Home's weather effects (snow, rain, frost...) over the photos too, with
+  // the thresholds from Settings -> Weather; separate from Home's own switch.
+  weatherEffects?: boolean;
 }
 
 /** The choices for both lists. */
@@ -55,6 +65,10 @@ export const DEFAULT_SCREENSAVER_SETTINGS: ScreensaverSettings = {
   eventCount: 4,
   showBirthdays: true,
   birthdayCount: 3,
+  showNextEvent: true,
+  night: false,
+  showForecast: false,
+  weatherEffects: false,
 };
 
 export interface PresenceState {
