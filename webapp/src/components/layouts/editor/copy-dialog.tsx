@@ -14,13 +14,27 @@ import type { Layout, LayoutItem } from "@/lib/layouts/types";
 
 const droppedKey = (id: string) => `kinboard_layout_dropped:${id}`;
 
-/** The widgets a copy left behind, handed to the new layout's editor; cleared with clearCopyDropped once shown. */
+/**
+ * Lists already taken out of storage in this page's lifetime, by layout id.
+ * The new layout's editor can mount twice while the layout list catches up
+ * (seen as two mounts after a copy in about half the runs on a dev server):
+ * the first mount cleared the storage, and the second showed no notice. A
+ * reload forgets them, as does opening another layout's editor.
+ */
+const taken = new Map<string, string[]>();
+
+/** The widgets a copy left behind, handed to the new layout's editor; cleared from storage with clearCopyDropped once shown. */
 export function readCopyDropped(id: string): string[] {
   if (typeof window === "undefined") return [];
+  for (const other of [...taken.keys()]) if (other !== id) taken.delete(other);
+  const kept = taken.get(id);
+  if (kept) return kept;
   try {
     const raw = sessionStorage.getItem(droppedKey(id));
     const v = raw ? (JSON.parse(raw) as unknown) : [];
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+    const list = Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+    if (list.length > 0) taken.set(id, list);
+    return list;
   } catch {
     return [];
   }
