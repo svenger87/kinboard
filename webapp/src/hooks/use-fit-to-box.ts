@@ -12,10 +12,19 @@ import { useLayoutEffect, useState, type RefObject } from "react";
  * never from a probe, and in layout pixels, so a scaled-down canvas fits the
  * same. The target must measure as its content (inline-block or w-fit), not
  * as the box it sits in. It is observed too, so a web font
- * swapping in measures again, and a change of one pixel to a size already
- * fitted is ignored so the size cannot flip between two values at a boundary.
- * Measured again whenever `deps` change.
+ * swapping in measures again. Measured again whenever `deps` change.
  */
+/**
+ * The size to render next, given the one rendered and the one that fits now.
+ * Growing by a single pixel is ignored, so the size cannot flip between two
+ * values at a boundary (n fits, n + 1 measures one pixel too big, back to n).
+ * Shrinking always happens: keeping a size one pixel too large let the date
+ * run 8px out of its box on a 1920px screen, cut off by the box.
+ */
+export function nextFitSize(prev: number | null, fit: number): number {
+  return prev !== null && fit === prev + 1 ? prev : fit;
+}
+
 export function useFitToBox(
   target: RefObject<HTMLElement | null>,
   box: { width: number; height: number },
@@ -43,7 +52,7 @@ export function useFitToBox(
       if (!(current > 0) || nowW <= 0 || nowH <= 0) return;
       const fit = Math.floor(Math.min((current * width) / nowW, (current * height) / nowH));
       if (fit < 1) return;
-      setSize((prev) => (prev !== null && Math.abs(prev - fit) <= 1 ? prev : fit));
+      setSize((prev) => nextFitSize(prev, fit));
     };
     measure();
     const ro = new ResizeObserver(measure);
