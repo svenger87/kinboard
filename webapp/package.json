@@ -13,6 +13,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "screens": "node scripts/screen-matrix.mjs",
     "holidays:data": "node scripts/generate-holidays-data.mjs",
     "db:generate": "supabase gen types typescript --local > src/lib/database.types.ts",
     "visual-audit": "npx playwright test e2e/visual-audit.spec.ts",
