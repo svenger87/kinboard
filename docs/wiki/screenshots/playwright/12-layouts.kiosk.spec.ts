@@ -1,5 +1,8 @@
 import { test, expect, request as pwRequest, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join as joinPath } from "node:path";
 import { getDemoJoinCode, killAnimations, setTheme, snap, waitForReady, SCREENSHOT_THEME } from "./helpers";
 
 /**
@@ -20,9 +23,10 @@ import { getDemoJoinCode, killAnimations, setTheme, snap, waitForReady, SCREENSH
  *     npm run capture -- 12-layouts --project=kiosk-portrait
  *     SCREENSHOT_THEME=light npm run capture -- 12-layouts --project=kiosk-portrait-light
  *
- *   any local stack with a demo family, e.g. the dev stack's DEMO01 (no real data):
- *     BASE_URL=http://localhost:3000 KINBOARD_JOIN_CODE=DEMO01 KINBOARD_DB_CONTAINER=kbfresh-db \
- *       KINBOARD_DB_USER=supabase_admin npm run capture -- 12-layouts --project=kiosk-portrait
+ *   any local stack with a demo family (no real data), e.g. one seeded with DEMO01:
+ *     BASE_URL=http://localhost:3000 KINBOARD_JOIN_CODE=DEMO01 \
+ *       KINBOARD_DB_CONTAINER=<your local database container> KINBOARD_DB_USER=<its superuser> \
+ *       npm run capture -- 12-layouts --project=kiosk-portrait
  *
  * Environment:
  *   BASE_URL                the app (playwright.config.ts; default http://localhost:3201)
@@ -34,6 +38,13 @@ import { getDemoJoinCode, killAnimations, setTheme, snap, waitForReady, SCREENSH
  * The database is used only for what a parent does by hand on the screen
  * itself (marking it a kiosk), the screensaver's timeout for the shot, and the
  * events; everything about layouts goes through the API like the app.
+ *
+ * What it creates (layout and event ids) and what it changes (the defaults,
+ * the screensaver setting, dismissed timers, each as it was before) is kept
+ * in a state file in the system's temp directory while it runs, so a run that
+ * died is cleaned up by the next one; only those ids are removed, never a
+ * family's own layout of the same name. The designed screensaver is shot once:
+ * it is dark in either theme.
  */
 
 // A dev server compiles each route on its first visit; the editor alone can take a minute.
@@ -66,13 +77,20 @@ let familyId = "";
 let laptop: Joined;
 let kitchen: Joined;
 let hall: Joined;
-const layoutIds: string[] = [];
 let kitchenLayout = "";
-let savedSaver = "";
-/** null until read; "" when the family had no defaults. */
-let savedDefaults: string | null = null;
-let ringing = "";
-const eventIds: string[] = [];
+
+/** What this run created and what it found before changing it. A saved value of "" means the row did not exist; null, not read yet. */
+interface State {
+  familyId: string;
+  layoutIds: string[];
+  eventIds: string[];
+  savedDefaults: string | null;
+  savedSaver: string | null;
+  ringing: string;
+}
+let state: State;
+const stateFile = (fam: string) => joinPath(tmpdir(), `kinboard-wiki-12-layouts-${fam}.json`);
+const saveState = () => writeFileSync(stateFile(state.familyId), JSON.stringify(state));
 
 async function join(name: string): Promise<Joined> {
   // A session of its own, not the bootstrap's storageState.json (which the
@@ -88,28 +106,32 @@ async function join(name: string): Promise<Joined> {
   return { api, family: body.family, device: body.device };
 }
 
-/** Removes what this spec adds; safe to run when nothing is there. Every step runs, and the first failure is thrown last. */
-function cleanUp() {
-  if (!familyId) return;
+/** Removes what a run created and puts back what it changed; every step runs, and the first failure is thrown last. */
+function cleanUp(st: State) {
+  const fam = q(st.familyId);
   const errors: unknown[] = [];
   const step = (sql: string) => {
     try { psql(sql); } catch (e) { errors.push(e); }
   };
   step(`BEGIN; SET LOCAL session_replication_role = replica;
-    DELETE FROM devices WHERE hardware_id LIKE '${HW}%' AND family_id = ${q(familyId)};
+    DELETE FROM devices WHERE hardware_id LIKE '${HW}%' AND family_id = ${fam};
     COMMIT;`);
-  if (eventIds.length) {
+  if (st.eventIds.length) {
     step(`BEGIN; SET LOCAL session_replication_role = replica;
-      DELETE FROM events WHERE id IN (${eventIds.map(q).join(",")});
+      DELETE FROM events WHERE id IN (${st.eventIds.map(q).join(",")});
       COMMIT;`);
   }
-  step(`DELETE FROM layouts WHERE family_id = ${q(familyId)} AND name IN ('Küche hochkant', 'Flur quer', 'Küche quer')`);
-  // The defaults as they were before this spec set them (none: no row).
-  if (savedDefaults !== null) {
-    step(savedDefaults
-      ? `UPDATE settings SET value = ${q(savedDefaults)}::jsonb WHERE family_id = ${q(familyId)} AND key = 'layout_defaults'`
-      : `DELETE FROM settings WHERE family_id = ${q(familyId)} AND key = 'layout_defaults'`);
-  }
+  if (st.layoutIds.length) step(`DELETE FROM layouts WHERE family_id = ${fam} AND id IN (${st.layoutIds.map(q).join(",")})`);
+  const restore = (key: string, saved: string | null) => {
+    if (saved === null) return;
+    step(saved
+      ? `INSERT INTO settings (family_id, key, value) VALUES (${fam}, ${q(key)}, ${q(saved)}::jsonb)
+           ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value`
+      : `DELETE FROM settings WHERE family_id = ${fam} AND key = ${q(key)}`);
+  };
+  restore("layout_defaults", st.savedDefaults);
+  restore("screensaver", st.savedSaver);
+  if (st.ringing) step(`UPDATE timers SET dismissed_at = NULL WHERE family_id = ${fam} AND id IN (${st.ringing.split(",").map(q).join(",")})`);
   if (errors.length) throw errors[0];
 }
 
@@ -185,8 +207,31 @@ test.beforeAll(async () => {
   test.setTimeout(120_000);
   familyId = psql(`SELECT id FROM families WHERE join_code = ${q(CODE)}`);
   expect(familyId, `no family with join code ${CODE}`).not.toBe("");
-  cleanUp();
-  savedDefaults = psql(`SELECT value::text FROM settings WHERE family_id = ${q(familyId)} AND key = 'layout_defaults'`);
+  // A run that died left its state behind: undo it first, so what is read
+  // below is the family's own state, not that run's.
+  let stale: string[] = [];
+  if (existsSync(stateFile(familyId))) {
+    const old = JSON.parse(readFileSync(stateFile(familyId), "utf8")) as State;
+    stale = old.layoutIds;
+    cleanUp(old);
+    unlinkSync(stateFile(familyId));
+  }
+  // Read before anything is created. Defaults that still point at a layout of
+  // an earlier run were not the family's.
+  let savedDefaults = psql(`SELECT value::text FROM settings WHERE family_id = ${q(familyId)} AND key = 'layout_defaults'`);
+  if (savedDefaults && stale.some((id) => savedDefaults.includes(id))) savedDefaults = "";
+  state = {
+    familyId,
+    layoutIds: [],
+    eventIds: [],
+    savedDefaults,
+    savedSaver: psql(`SELECT value::text FROM settings WHERE family_id = ${q(familyId)} AND key = 'screensaver'`),
+    // A timer that has run out keeps the screensaver away; those are
+    // dismissed for the shot and put back afterwards.
+    ringing: psql(`SELECT string_agg(id::text, ',') FROM timers WHERE family_id = ${q(familyId)} AND dismissed_at IS NULL AND paused_at IS NULL
+      AND started_at + (duration_seconds + COALESCE(paused_seconds, 0)) * interval '1 second' < now() + interval '1 hour'`),
+  };
+  saveState();
 
   laptop = await join("Laptop");
   kitchen = await join("Küche");
@@ -202,7 +247,8 @@ test.beforeAll(async () => {
     const res = await laptop.api.post("/api/layouts", { data: { name, width, height, from: "builtin" } });
     expect(res.status(), await res.text()).toBe(201);
     const id = (await res.json()).layout.id as string;
-    layoutIds.push(id);
+    state.layoutIds.push(id);
+    saveState();
     return id;
   };
   kitchenLayout = await create("Küche hochkant", 1080, 1920);
@@ -232,20 +278,17 @@ test.beforeAll(async () => {
       (${q(calendar)}, 'Elternabend Klasse 3b', date_trunc('day', now()) + interval '3 days 19 hours', date_trunc('day', now()) + interval '3 days 21 hours'),
       (${q(calendar)}, 'Schwimmkurs', date_trunc('day', now()) + interval '5 days 15 hours', date_trunc('day', now()) + interval '5 days 16 hours')
       RETURNING id`);
-    eventIds.push(...out.split("\n").filter((l) => /^[0-9a-f-]{36}$/.test(l)));
+    state.eventIds.push(...out.split("\n").filter((l) => /^[0-9a-f-]{36}$/.test(l)));
+    saveState();
   }
-
-  // The screensaver within two seconds; a timer that has run out keeps it
-  // away, so those are dismissed for the shot and put back afterwards.
-  savedSaver = psql(`SELECT value::text FROM settings WHERE family_id = ${q(familyId)} AND key = 'screensaver'`);
-  ringing = psql(`SELECT string_agg(id::text, ',') FROM timers WHERE family_id = ${q(familyId)} AND dismissed_at IS NULL AND paused_at IS NULL
-    AND started_at + (duration_seconds + COALESCE(paused_seconds, 0)) * interval '1 second' < now() + interval '1 hour'`);
 });
 
 test.afterAll(async () => {
-  for (const id of layoutIds) await laptop?.api.delete(`/api/layouts/${id}`).catch(() => {});
-  if (ringing) psql(`UPDATE timers SET dismissed_at = NULL WHERE id IN (${ringing.split(",").map(q).join(",")})`);
-  cleanUp();
+  if (!state) return;
+  // Through the API first, as a parent would: that also empties a default slot.
+  for (const id of state.layoutIds) await laptop?.api.delete(`/api/layouts/${id}`).catch(() => {});
+  cleanUp(state);
+  unlinkSync(stateFile(state.familyId));
   for (const who of [laptop, kitchen, hall]) await who?.api.dispose();
 });
 
@@ -285,20 +328,18 @@ test("Settings → Devices → settings-devices-layout.png", async ({ browser })
 });
 
 test("designed screensaver → screensaver-designed.png", async ({ browser }) => {
-  psql(`INSERT INTO settings (family_id, key, value) VALUES (${q(familyId)}, 'screensaver', ${q(JSON.stringify({ ...(savedSaver ? JSON.parse(savedSaver) : {}), screensaverTimeout: 2, showNews: true, showForecast: true, weatherEffects: false }))}::jsonb)
+  test.skip(SCREENSHOT_THEME === "light", "the screensaver is dark in either theme: one image");
+  const saver = state.savedSaver ? JSON.parse(state.savedSaver) : {};
+  psql(`INSERT INTO settings (family_id, key, value) VALUES (${q(familyId)}, 'screensaver', ${q(JSON.stringify({ ...saver, screensaverTimeout: 2, showNews: true, showForecast: true, weatherEffects: false }))}::jsonb)
     ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value`);
-  if (ringing) psql(`UPDATE timers SET dismissed_at = now() WHERE id IN (${ringing.split(",").map(q).join(",")})`);
-  try {
-    const page = await open(browser, kitchen, "/", PORTRAIT, true);
-    await page.waitForSelector("[data-layout-item=clock]", { timeout: 60_000 });
-    await page.evaluate(() => document.fonts.ready);
-    await page.waitForTimeout(3000);
-    await snap(page, "screensaver-designed");
-    await page.context().close();
-  } finally {
-    if (savedSaver) psql(`UPDATE settings SET value = ${q(savedSaver)}::jsonb WHERE family_id = ${q(familyId)} AND key = 'screensaver'`);
-    else psql(`DELETE FROM settings WHERE family_id = ${q(familyId)} AND key = 'screensaver'`);
-  }
+  if (state.ringing) psql(`UPDATE timers SET dismissed_at = now() WHERE id IN (${state.ringing.split(",").map(q).join(",")})`);
+  // Both put back by cleanUp (also by the next run, should this one die).
+  const page = await open(browser, kitchen, "/", PORTRAIT, true);
+  await page.waitForSelector("[data-layout-item=clock]", { timeout: 60_000 });
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(3000);
+  await snap(page, "screensaver-designed");
+  await page.context().close();
 });
 
 test("a copy for 1920×1080 → layouts-copy-landscape.png", async ({ browser }) => {
@@ -311,7 +352,8 @@ test("a copy for 1920×1080 → layouts-copy-landscape.png", async ({ browser })
   await page.getByTestId("copy-name").fill("Küche quer");
   await page.getByTestId("copy-create").click();
   await page.waitForURL((u) => /\/settings\/layouts\/[0-9a-f-]{36}$/.test(u.pathname) && !u.pathname.endsWith(kitchenLayout), { timeout: 30_000 });
-  layoutIds.push(page.url().split("/").pop()!);
+  state.layoutIds.push(page.url().split("/").pop()!);
+  saveState();
   await expect(page.getByTestId("editor-canvas")).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId("editor-canvas")).toHaveAttribute("data-width", "1920");
   // The copy names what it left out (the birthdays, for the built-in portrait).
