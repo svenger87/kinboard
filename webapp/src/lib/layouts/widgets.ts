@@ -34,3 +34,13 @@ export const SAVER_WIDGETS: Record<SaverWidgetKey, WidgetSpec> = {
   vehicles: spec("fixed", 3, 2),
   photoCount: spec("value", 1, 1),
 };
+
+/**
+ * The items whose widget this build knows. A layout saved by a newer version
+ * (a widget added later, then a rollback) must not crash a kiosk or the
+ * editor: the unknown ones are left out, the rest draw as saved.
+ */
+export function knownWidgetItems<T extends { widget: string }>(items: readonly T[] | null | undefined): T[] {
+  if (!Array.isArray(items)) return [];
+  return items.filter((i) => !!i && typeof i.widget === "string" && Object.hasOwn(SAVER_WIDGETS, i.widget));
+}

@@ -4,6 +4,7 @@ import { fitItems, rescaleItems } from "../src/lib/layouts/rescale";
 import { resolveLayout } from "../src/lib/layouts/resolve";
 import { builtInScreensaver } from "../src/lib/layouts/built-in";
 import { gridFor } from "../src/lib/layouts/grid";
+import { knownWidgetItems } from "../src/lib/layouts/widgets";
 import type { Layout, LayoutItem } from "../src/lib/layouts/types";
 
 /**
@@ -202,4 +203,17 @@ test.describe("resolveLayout", () => {
     expect(resolveLayout({ device: kiosk(null), layouts: [portrait], defaults: { portrait: "p", landscape: null }, viewport: { width: 390, height: 844 } })).toBeNull());
   test("an assigned id that no longer exists falls through to the default", () =>
     expect(resolveLayout({ device: kiosk("gone"), layouts: [portrait], defaults: { portrait: "p", landscape: null }, viewport: { width: 1080, height: 1920 } })?.id).toBe("p"));
+});
+
+test.describe("knownWidgetItems", () => {
+  test("leaves out items whose widget this build does not know, keeps the rest in order", () => {
+    const items = [
+      item({ id: "a", widget: "clock" }),
+      { ...item({ id: "b" }), widget: "aquarium" as never },
+      item({ id: "c", widget: "date" }),
+    ];
+    expect(knownWidgetItems(items).map((i) => i.id)).toEqual(["a", "c"]);
+    expect(knownWidgetItems(null)).toEqual([]);
+    expect(knownWidgetItems(undefined)).toEqual([]);
+  });
 });

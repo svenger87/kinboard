@@ -25,7 +25,8 @@ import { gridFor } from "@/lib/layouts/grid";
 import { nudge } from "@/lib/layouts/place";
 import { rescaleItems } from "@/lib/layouts/rescale";
 import { validateItems, type LayoutError } from "@/lib/layouts/validate";
-import { SAVER_WIDGETS } from "@/lib/layouts/widgets";
+import { SAVER_WIDGETS, knownWidgetItems } from "@/lib/layouts/widgets";
+import { useNameList } from "@/hooks/use-name-list";
 import type { Layout, LayoutItem, SaverWidgetKey, TextSize } from "@/lib/layouts/types";
 import { EditorCanvas } from "./canvas";
 import { EditorPalette } from "./palette";
@@ -89,7 +90,9 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
     [tw],
   );
 
-  const [baseline, setBaseline] = useState<LayoutItem[]>(layout.screensaver);
+  // Only widgets this build knows: a key from a newer version is left out rather than crash the editor.
+  const [baseline, setBaseline] = useState<LayoutItem[]>(() => knownWidgetItems(layout.screensaver));
+  const listNames = useNameList();
   const [stamp, setStamp] = useState(layout.updated_at);
   const history = useLayoutHistory(baseline);
   const { items, set, undo, redo, canUndo, canRedo, dirty } = history;
@@ -139,7 +142,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   // returns to the saved copy); one made on an older copy is dropped.
   useEffect(() => {
     if (!draft) return;
-    if (draft.restorable) set(draft.items);
+    if (draft.restorable) set(knownWidgetItems(draft.items));
     else writeDraft(layout.id, null);
   }, [draft, layout.id, set]);
 
@@ -309,7 +312,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
 
       {copyDropped.length > 0 && (
         <div role="status" data-testid="editor-copy-dropped" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
-          {t("copy.dropped", { names: copyDropped.map((w) => (w in names ? names[w as SaverWidgetKey] : w)).join(", ") })}
+          {t("copy.dropped", { names: listNames(copyDropped.map((w) => (w in names ? names[w as SaverWidgetKey] : w))) })}
         </div>
       )}
       {notice && (
@@ -341,7 +344,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
           </span>
           {shown.dropped.length > 0 && (
             <span data-testid="preview-dropped" className="text-amber-700 dark:text-amber-400">
-              {t("preview.dropped", { names: shown.dropped.map((id) => nameOf(id)).join(", ") })}
+              {t("preview.dropped", { names: listNames(shown.dropped.map((id) => nameOf(id))) })}
             </span>
           )}
         </div>

@@ -5,6 +5,7 @@ import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { UUID } from "@/lib/home/action-requests";
 import { builtInScreensaver } from "@/lib/layouts/built-in";
 import { fitItems } from "@/lib/layouts/rescale";
+import { validateItems } from "@/lib/layouts/validate";
 import { fail, notFound, parseName, readJson, sizeOk } from "@/lib/layouts/server";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +53,15 @@ export async function POST(request: NextRequest) {
   let screensaver: unknown[] = [];
   let dropped: string[] = [];
   if (from === "builtin") {
-    screensaver = builtInScreensaver(w, h);
+    // Checked like any saved layout before it is stored; the built-in
+    // arrangement always passes (layouts-rules covers every preset), so a
+    // failure here is a bug, answered as one rather than stored.
+    const built = validateItems(builtInScreensaver(w, h), w, h);
+    if (!built.ok) {
+      console.error("layouts: the built-in arrangement is not valid at", w, h, built.error, built.itemId);
+      return NextResponse.json({ error: "builtin_invalid" }, { status: 500 });
+    }
+    screensaver = built.items;
   } else if (typeof from === "string") {
     if (!UUID.test(from)) return notFound();
     const { data: src, error: srcErr } = await db
