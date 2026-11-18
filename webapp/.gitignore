@@ -9,6 +9,7 @@
 /e2e/screenshots/**/*.png
 /e2e/results/
 /e2e/.auth-state.json
+/e2e/screen-matrix/
 
 # Next.js
 /.next/

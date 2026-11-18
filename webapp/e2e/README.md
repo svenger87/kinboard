@@ -51,6 +51,17 @@ A failed smoke test on `/meals` with a 400-shaped error in the console almost ce
 
 Phase B (not yet wired): a workflow that boots the full Docker stack, waits for the webapp and postgrest to be healthy, runs `npm run test:e2e:smoke`, and tears down. Tracked as a separate task. Until then, smoke runs on the maintainer's machine before each release cut.
 
+## Screen matrix
+
+Home and the screensaver on every screen Kinboard is hung on (portrait and landscape wall panels at 100% and 150%, tablets, phone, 2560x1440), in de/en/fr, screenshotted and measured for edge distance, overlap, overflow, clipped text and the portrait clock width. Not a Playwright spec: it needs a running stack, a dev server and a family join code, and it temporarily seeds `matrix-` events and birthdays and pauses the family's ringing timers (all put back afterwards).
+
+```bash
+npm run screens -- --base http://localhost:3157 --code DEMO01
+npm run screens -- --code DEMO01 --only portrait-1080 --locales de --views saver-large
+```
+
+Output goes to `e2e/screen-matrix/` (PNGs, `report.json`, `index.html` contact sheet). A full run is 72 shots and takes about 25 minutes. See the header of `scripts/screen-matrix.mjs` for all options, including `--strict`.
+
 ## Producing wiki screenshots
 
 That's the visual-audit script, not this one:

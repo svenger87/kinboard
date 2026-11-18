@@ -842,6 +842,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
           className={`absolute top-12 left-12 w-[min(25rem,55vw)] screensaver-slide-down ${selectedNews ? 'opacity-0 pointer-events-none' : ''}`}
           style={{ animationDelay: "0.8s", backgroundColor: "rgba(0,0,0,0.001)", ...newsStyle, ...burnInStyle }}
           data-no-wake
+          data-saver-block="news"
         >
           <div className="flex items-center gap-2 text-white/60 mb-3">
             <Newspaper className="size-4" />
@@ -910,6 +911,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
         ref={weatherColumnRef}
         className="absolute top-12 right-12 flex flex-col items-end gap-3"
         style={burnInStyle}
+        data-saver-block="weather"
       >
       {/* Weather - renders nothing when weather is unconfigured */}
       {weather && (
@@ -1156,6 +1158,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       <div
         ref={clockBlockRef}
         data-festival-anchor="screensaver-clock"
+        data-saver-block="clock"
         className="landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:left-12 screensaver-slide-up"
         style={{ animationDelay: "0.5s", ...burnInStyle }}
       >
@@ -1192,6 +1195,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
       {/* Right side - Events and Birthdays (above clock for portrait/mobile, right side for landscape desktop) */}
       <div
         ref={eventsBlockRef}
+        data-saver-block="events"
         className={`max-w-sm landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:right-12 flex flex-col ${sectionGap} screensaver-slide-right`}
         style={{ animationDelay: "0.7s", maxWidth: largeDetails ? "36rem" : undefined, ...burnInStyle }}
       >
