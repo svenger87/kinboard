@@ -90,7 +90,11 @@ test("the migration runs again on the next boot and changes nothing", () => {
   expect(after).toBe(before);
 });
 
-test("grants: the browser roles may write every column of a device but person_id", () => {
+// Written only by the server, like person_id: screen (085_device_screen.sql,
+// POST /api/devices/screen), so one screen cannot set another's size.
+const SERVER_ONLY = new Set(["person_id", "screen"]);
+
+test("grants: the browser roles may write every column of a device but person_id and screen", () => {
   for (const role of ["anon", "authenticated"]) {
     const cols = psql(`SELECT column_name FROM information_schema.columns
       WHERE table_schema = 'public' AND table_name = 'devices' ORDER BY ordinal_position`).split("\n");
@@ -99,7 +103,7 @@ test("grants: the browser roles may write every column of a device but person_id
       const can = psql(`SELECT has_column_privilege('${role}', 'public.devices', '${col}', 'UPDATE')
         || '|' || has_column_privilege('${role}', 'public.devices', '${col}', 'INSERT')
         || '|' || has_column_privilege('${role}', 'public.devices', '${col}', 'SELECT')`);
-      expect(can, `${role} ${col}`).toBe(col === "person_id" ? "false|false|true" : "true|true|true");
+      expect(can, `${role} ${col}`).toBe(SERVER_ONLY.has(col) ? "false|false|true" : "true|true|true");
     }
     // Not through a table-level grant either.
     expect(psql(`SELECT has_table_privilege('${role}', 'public.devices', 'UPDATE')

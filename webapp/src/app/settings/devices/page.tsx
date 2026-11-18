@@ -303,6 +303,23 @@ export default function DevicesSettingsPage() {
                               {deviceIsOnline ? t("onlineLabel") : formatLastSeen(device.last_seen)}
                             </span>
                           </div>
+                          {/* The size it last reported (POST /api/devices/screen). */}
+                          {device.screen && (
+                            <p className="mt-0.5 text-xs text-muted-foreground tabular-nums" data-testid="device-screen">
+                              {t("screenSize", {
+                                screenWidth: device.screen.screenWidth,
+                                screenHeight: device.screen.screenHeight,
+                                orientation: t(
+                                  device.screen.viewportHeight > device.screen.viewportWidth
+                                    ? "screenPortrait"
+                                    : "screenLandscape",
+                                ),
+                                scale: Math.round(device.screen.pixelRatio * 100),
+                                viewportWidth: device.screen.viewportWidth,
+                                viewportHeight: device.screen.viewportHeight,
+                              })}
+                            </p>
+                          )}
                           {/* Device ID (shown when presence sensor is enabled) */}
                           {device.has_presence_sensor && (
                             <div className="flex items-center gap-1.5 mt-1">
