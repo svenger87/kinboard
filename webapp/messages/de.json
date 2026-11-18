@@ -3200,6 +3200,93 @@
       "bedtimeSleep": "Schlafen ab",
       "bedtimeWake": "Wach um",
       "bedtimeReset": "Zurück auf {sleep}–{wake}"
+    },
+    "layouts": {
+      "editor": {
+        "title": "Layout",
+        "subtitle": "Bildschirmschoner · gestaltet für {width}×{height}",
+        "notFound": "Dieses Layout gibt es nicht (mehr).",
+        "loadFailed": "Die Layouts konnten nicht geladen werden.",
+        "tooSmall": "Der Bildschirm dieses Layouts ({width}×{height}) ist zu klein für das Raster.",
+        "undo": "Rückgängig",
+        "undoHint": "Rückgängig (Strg+Z)",
+        "redo": "Wiederholen",
+        "redoHint": "Wiederholen (Strg+Umschalt+Z)",
+        "reset": "Zurücksetzen",
+        "resetTitle": "Auf die Standardanordnung zurücksetzen?",
+        "resetDescription": "Der Bildschirm bekommt die heutige Standardanordnung des Bildschirmschoners für sein Format. Bis du die Seite verlässt, kannst du das rückgängig machen.",
+        "resetConfirm": "Zurücksetzen",
+        "resetCancel": "Abbrechen",
+        "save": "Speichern",
+        "saving": "Speichert…",
+        "saved": "Layout gespeichert",
+        "stale": "Jemand hat dieses Layout inzwischen geändert – lade neu, um die Änderung zu sehen.",
+        "reload": "Neu laden",
+        "errors": {
+          "unknown_widget": "{name}: Dieses Widget ist unbekannt.",
+          "out_of_bounds": "{name} passt nicht auf den Bildschirm.",
+          "below_minimum": "{name} ist kleiner als seine Mindestgröße.",
+          "overlap": "{name} überlappt ein anderes Widget.",
+          "duplicate": "{name} ist doppelt auf dem Bildschirm.",
+          "bad_text_size": "{name} hat eine unbekannte Textgröße.",
+          "pinRequired": "Die Einstellungen sind wieder gesperrt – gib die PIN ein und speichere noch einmal.",
+          "generic": "Das Layout konnte nicht gespeichert werden. Bitte versuche es noch einmal."
+        },
+        "preview": {
+          "readOnly": "Vorschau: Dieser Bildschirm hat {rows} Zeilen, das Layout {layoutRows}, deshalb wird die Anordnung angepasst. Zum Bearbeiten zurück zur Größe des Layouts wechseln.",
+          "dropped": "Auf diesem Bildschirm kein Platz für: {names}"
+        },
+        "screen": {
+          "label": "Bildschirm",
+          "own": "Größe des Layouts – {width}×{height}",
+          "device": "{name} — {width}×{height}",
+          "devices": "Eure Bildschirme",
+          "presetsLabel": "Übliche Größen",
+          "presets": {
+            "portrait1080": "Full HD hochkant – {width}×{height}",
+            "portrait1080at150": "Full HD hochkant bei 150 % – {width}×{height}",
+            "landscape1080": "Full HD quer – {width}×{height}",
+            "landscape1080at150": "Full HD quer bei 150 % – {width}×{height}",
+            "tabletLandscape": "Tablet quer – {width}×{height}",
+            "tabletPortrait": "Tablet hochkant – {width}×{height}"
+          }
+        },
+        "palette": {
+          "title": "Widgets",
+          "add": "{name} hinzufügen",
+          "allPlaced": "Alle Widgets sind auf dem Bildschirm.",
+          "noRoom": "Kein freier Platz – erst Platz schaffen"
+        },
+        "inspector": {
+          "empty": "Wähle ein Widget auf dem Bildschirm aus, um es zu ändern.",
+          "size": "{w}×{h} Felder",
+          "min": "mindestens {w}×{h}",
+          "textSize": "Textgröße",
+          "textSizes": {
+            "S": "Klein",
+            "M": "Mittel",
+            "L": "Groß",
+            "XL": "Sehr groß"
+          },
+          "remove": "Entfernen",
+          "keys": "Pfeiltasten verschieben das ausgewählte Widget, Entf entfernt es, Strg+Z macht rückgängig."
+        },
+        "widgets": {
+          "clock": "Uhr",
+          "date": "Datum",
+          "nextEvent": "Nächster Termin",
+          "weatherNow": "Wetter jetzt",
+          "forecast": "Vorhersage",
+          "events": "Termine",
+          "birthdays": "Geburtstage",
+          "holidays": "Ferien & Feiertage",
+          "news": "Nachrichten",
+          "lessons": "Stundenplan",
+          "energy": "Energie",
+          "vehicles": "Tesla",
+          "photoCount": "Fotoanzahl"
+        }
+      }
     }
   },
   "settingsSearch": {

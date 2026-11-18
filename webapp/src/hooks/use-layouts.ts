@@ -8,11 +8,15 @@ import { useSetting } from "./use-supabase-queries";
 
 const NO_DEFAULTS: LayoutDefaults = { portrait: null, landscape: null };
 
-/** A layout route's refusal: the server's error code ("stale", "pin_required", ...) and the HTTP status. */
+/**
+ * A layout route's refusal: the server's error code ("stale", "pin_required", ...),
+ * the HTTP status and, for a rejected arrangement, the item it is about.
+ */
 export class LayoutRequestError extends Error {
   constructor(
     public code: string,
     public status: number,
+    public itemId?: string,
   ) {
     super(code);
     this.name = "LayoutRequestError";
@@ -30,8 +34,8 @@ async function request<T>(url: string, method: string, body?: unknown): Promise<
     throw new LayoutRequestError("pin_required", r.status);
   }
   if (!r.ok) {
-    const j = (await r.json().catch(() => ({}))) as { error?: string };
-    throw new LayoutRequestError(j.error ?? "request_failed", r.status);
+    const j = (await r.json().catch(() => ({}))) as { error?: string; itemId?: string };
+    throw new LayoutRequestError(j.error ?? "request_failed", r.status, j.itemId);
   }
   return r.status === 204 ? (undefined as T) : ((await r.json()) as T);
 }

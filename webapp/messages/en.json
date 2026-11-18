@@ -3200,6 +3200,93 @@
       "bedtimeSleep": "Asleep from",
       "bedtimeWake": "Awake at",
       "bedtimeReset": "Back to {sleep}–{wake}"
+    },
+    "layouts": {
+      "editor": {
+        "title": "Layout",
+        "subtitle": "Screensaver · drawn for {width}×{height}",
+        "notFound": "This layout does not exist (any more).",
+        "loadFailed": "The layouts could not be loaded.",
+        "tooSmall": "This layout's screen ({width}×{height}) is too small for the grid.",
+        "undo": "Undo",
+        "undoHint": "Undo (Ctrl+Z)",
+        "redo": "Redo",
+        "redoHint": "Redo (Ctrl+Shift+Z)",
+        "reset": "Reset",
+        "resetTitle": "Reset to the built-in arrangement?",
+        "resetDescription": "The screen gets today's standard screensaver arrangement for its shape. You can undo this until you leave the page.",
+        "resetConfirm": "Reset",
+        "resetCancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving…",
+        "saved": "Layout saved",
+        "stale": "Someone changed this layout meanwhile — reload to see it.",
+        "reload": "Reload",
+        "errors": {
+          "unknown_widget": "{name}: this widget is not known.",
+          "out_of_bounds": "{name} does not fit on the screen.",
+          "below_minimum": "{name} is smaller than its minimum size.",
+          "overlap": "{name} overlaps another widget.",
+          "duplicate": "{name} is on the screen twice.",
+          "bad_text_size": "{name} has an unknown text size.",
+          "pinRequired": "Settings are locked again — enter the PIN and save once more.",
+          "generic": "The layout could not be saved. Please try again."
+        },
+        "preview": {
+          "readOnly": "Preview: this screen has {rows} rows, the layout {layoutRows}, so the arrangement is adapted. Switch back to the layout's own size to edit it.",
+          "dropped": "No room on this screen for: {names}"
+        },
+        "screen": {
+          "label": "Screen",
+          "own": "Layout size — {width}×{height}",
+          "device": "{name} — {width}×{height}",
+          "devices": "Your screens",
+          "presetsLabel": "Common sizes",
+          "presets": {
+            "portrait1080": "Full HD portrait — {width}×{height}",
+            "portrait1080at150": "Full HD portrait at 150% — {width}×{height}",
+            "landscape1080": "Full HD landscape — {width}×{height}",
+            "landscape1080at150": "Full HD landscape at 150% — {width}×{height}",
+            "tabletLandscape": "Tablet landscape — {width}×{height}",
+            "tabletPortrait": "Tablet portrait — {width}×{height}"
+          }
+        },
+        "palette": {
+          "title": "Widgets",
+          "add": "Add {name}",
+          "allPlaced": "Every widget is on the screen.",
+          "noRoom": "No free space — make room first"
+        },
+        "inspector": {
+          "empty": "Select a widget on the screen to change it.",
+          "size": "{w}×{h} cells",
+          "min": "at least {w}×{h}",
+          "textSize": "Text size",
+          "textSizes": {
+            "S": "Small",
+            "M": "Medium",
+            "L": "Large",
+            "XL": "Extra large"
+          },
+          "remove": "Remove",
+          "keys": "Arrow keys move the selected widget, Delete removes it, Ctrl+Z undoes."
+        },
+        "widgets": {
+          "clock": "Clock",
+          "date": "Date",
+          "nextEvent": "Next event",
+          "weatherNow": "Weather now",
+          "forecast": "Forecast",
+          "events": "Events",
+          "birthdays": "Birthdays",
+          "holidays": "Holidays",
+          "news": "News",
+          "lessons": "Lessons",
+          "energy": "Energy",
+          "vehicles": "Tesla",
+          "photoCount": "Photo count"
+        }
+      }
     }
   },
   "settingsSearch": {
