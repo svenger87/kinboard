@@ -18,6 +18,8 @@ Top → bottom:
 
 Tapping anywhere dismisses the screensaver and returns to the dashboard.
 
+**Your own arrangement.** The list above is the built-in screensaver. Under **Settings → Layouts** a family can arrange it themselves: place and size each widget on a grid, pick its text size, and assign the layout to a wall screen or make it the default for portrait or landscape screens. See [Layouts](Layouts).
+
 **At night**, if *Night* is switched on under Settings → Screensaver, all of the above gives way to a dim clock on black during the family's bedtime (set under Settings → Creatures; 20:00 to 06:30 unless changed). No photos are loaded meanwhile. A touch wakes the screen as usual.
 
 ## Photo sources
@@ -118,6 +120,7 @@ Tapping the screensaver doesn't dismiss it when a news modal is open — only th
 | Presence delay | Settings → Screensaver |
 | Photo rotation interval | Settings → Screensaver |
 | News on the screensaver, large clock and events | Settings → Screensaver |
+| Your own arrangement of the widgets, per screen | Settings → Layouts ([Layouts](Layouts)) |
 | How many events (1–5) | Settings → Screensaver → Events |
 | The countdown line under the clock | Settings → Screensaver → Next event under the clock |
 | Night: a dim clock only, during the family's bedtime | Settings → Screensaver → Night (times under Settings → Creatures) |
@@ -136,10 +139,11 @@ Tapping the screensaver doesn't dismiss it when a news modal is open — only th
 - **Multiple photo sources mixed.** Pick one — Immich or Unsplash, not both.
 - **Audio/music on the screensaver.** Photos only.
 - **Per-room or per-time-of-day photo sets.** One source per family.
-- **Custom widgets on the screensaver.** Solar, Tesla, news, clock are the only overlays. Adding your own would be a code change.
+- **Custom widgets on the screensaver.** The widgets are the ones listed above; [Layouts](Layouts) arrange them, but adding a new kind of widget is a code change.
 
 ## Related
 
+- [Layouts](Layouts) — arranging the screensaver's widgets yourself, per screen
 - [Immich](Immich) — Immich photo source setup
 - [Presence-Sensor](Presence-Sensor) — LD2410 hardware + script
 - [Themes](Themes) — locale-aware date formatting on the screensaver
