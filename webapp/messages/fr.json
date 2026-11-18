@@ -3249,6 +3249,17 @@
             "landscape1080at150": "Full HD paysage à 150 % — {width}×{height}",
             "tabletLandscape": "Tablette paysage — {width}×{height}",
             "tabletPortrait": "Tablette portrait — {width}×{height}"
+          },
+          "custom": "Personnalisée — {width}×{height}",
+          "customOpen": "Taille personnalisée…",
+          "customForm": {
+            "title": "Taille personnalisée",
+            "description": "La taille de l’écran en pixels CSS, telle que le navigateur de cet écran la signale.",
+            "width": "Largeur (px)",
+            "height": "Hauteur (px)",
+            "tooSmall": "Au moins 600 px de large et la place pour 6 rangées",
+            "apply": "Utiliser cette taille",
+            "cancel": "Annuler"
           }
         },
         "palette": {
@@ -3289,6 +3300,21 @@
         "draft": {
           "restored": "Modifications non enregistrées restaurées.",
           "lost": "Cette disposition a été modifiée entre-temps ; vos modifications non enregistrées n’ont pas pu être restaurées."
+        },
+        "copy": {
+          "button": "Créer une copie pour cette taille",
+          "title": "Copie pour {width}×{height}",
+          "description": "Une nouvelle disposition pour cette taille, créée à partir de la disposition enregistrée. Les widgets qui ne tiennent pas sont laissés de côté.",
+          "name": "Nom",
+          "defaultName": "{name} {width}×{height}",
+          "unsaved": "Cette disposition a des modifications non enregistrées. Les enregistrer avant de copier, ou copier la version enregistrée ?",
+          "create": "Créer la copie",
+          "saveAndCopy": "Enregistrer et copier",
+          "discardAndCopy": "Abandonner et copier",
+          "cancel": "Annuler",
+          "failed": "La copie n’a pas pu être créée. Veuillez réessayer.",
+          "pinRequired": "Les réglages ont été verrouillés — saisissez le code PIN et réessayez.",
+          "dropped": "Pas sur cette taille : {names}"
         }
       }
     }

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { validateItems } from "../src/lib/layouts/validate";
-import { rescaleItems } from "../src/lib/layouts/rescale";
+import { fitItems, rescaleItems } from "../src/lib/layouts/rescale";
 import { resolveLayout } from "../src/lib/layouts/resolve";
 import { builtInScreensaver } from "../src/lib/layouts/built-in";
 import { gridFor } from "../src/lib/layouts/grid";
@@ -104,6 +104,41 @@ test.describe("rescaleItems", () => {
     const r = rescaleItems(stack, from, to);
     expect(r.dropped).toEqual(["n5", "n6"]);
     expect(r.items.map((i) => i.id)).toEqual(["n0", "n1", "n2", "n3", "n4"]);
+  });
+});
+
+test.describe("fitItems", () => {
+  const PORTRAIT = { width: 1080, height: 1920 };
+  const LANDSCAPE = { width: 1920, height: 1080 };
+  test("the built-in portrait copied to landscape keeps what fits, drops the rest, and is valid", () => {
+    const src = builtInScreensaver(1080, 1920);
+    const { items, dropped } = fitItems(src, PORTRAIT, LANDSCAPE);
+    expect(validateItems(items, 1920, 1080).ok).toBe(true);
+    expect(items.length).toBeGreaterThan(0);
+    expect(dropped.length).toBeGreaterThan(0);
+    expect([...items.map((i) => i.id), ...dropped].sort()).toEqual(src.map((i) => i.id).sort());
+  });
+  test("the same row count keeps everything", () => {
+    const src = builtInScreensaver(1080, 1920);
+    expect(fitItems(src, PORTRAIT, { width: 720, height: 1280 })).toEqual({ items: src, dropped: [] });
+  });
+  test("an item the server would refuse is dropped and the rest kept, one at a time", () => {
+    const src = [
+      item({ id: "a", widget: "clock", x: 0, y: 0, w: 6, h: 3 }),
+      item({ id: "b", widget: "clock", x: 6, y: 0, w: 6, h: 3 }), // a second clock: duplicate
+      item({ id: "c", widget: "date", x: 0, y: 3, w: 3, h: 1 }),
+    ];
+    const r = fitItems(src, PORTRAIT, PORTRAIT);
+    expect(r.dropped).toEqual(["b"]);
+    expect(r.items.map((i) => i.id)).toEqual(["a", "c"]);
+  });
+  test("malformed items are dropped, well-formed ones survive", () => {
+    const r = fitItems([{ id: "x", widget: "nope" }, item({ id: "n" })], PORTRAIT, PORTRAIT);
+    expect(r).toEqual({ items: [item({ id: "n" })], dropped: ["x"] });
+  });
+  test("not an array, or a size with no grid: nothing kept", () => {
+    expect(fitItems(null, PORTRAIT, LANDSCAPE)).toEqual({ items: [], dropped: [] });
+    expect(fitItems([item({ id: "n" })], PORTRAIT, { width: 500, height: 500 })).toEqual({ items: [], dropped: ["n"] });
   });
 });
 

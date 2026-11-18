@@ -15,7 +15,7 @@ import { useLayouts } from "@/hooks/use-layouts";
 export default function LayoutEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const t = useTranslations("settings.layouts.editor");
-  const { data: layouts, isLoading, error, refetch } = useLayouts();
+  const { data: layouts, isLoading, isFetching, error, refetch } = useLayouts();
   const layout = layouts?.find((l) => l.id === id);
   // A reload after someone else's save starts the editor over from the server's copy.
   const [generation, setGeneration] = useState(0);
@@ -29,7 +29,8 @@ export default function LayoutEditorPage({ params }: { params: Promise<{ id: str
           subtitle={layout ? t("subtitle", { width: layout.width, height: layout.height }) : undefined}
           className="mb-6"
         />
-        {isLoading || (!layouts && !error) ? (
+        {/* A copy just made may not be in the list yet: wait for the refetch rather than say "not found". */}
+        {isLoading || (!layouts && !error) || (!layout && isFetching) ? (
           <Skeleton className="h-[60vh] w-full rounded-xl" />
         ) : !layout ? (
           <p className="text-sm text-muted-foreground" data-testid="editor-not-found">

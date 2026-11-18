@@ -4,9 +4,7 @@ import { requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { UUID } from "@/lib/home/action-requests";
 import { builtInScreensaver } from "@/lib/layouts/built-in";
-import { gridFor } from "@/lib/layouts/grid";
-import { rescaleItems } from "@/lib/layouts/rescale";
-import { validateItems } from "@/lib/layouts/validate";
+import { fitItems } from "@/lib/layouts/rescale";
 import { fail, notFound, parseName, readJson, sizeOk } from "@/lib/layouts/server";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +28,8 @@ export async function GET(request: NextRequest) {
  *
  * A new layout of the family: empty, with the built-in screensaver, or a copy
  * of another of the family's layouts redrawn for the new size. A parent's
- * setting, behind the settings PIN.
+ * setting, behind the settings PIN. 201 { layout, dropped }: `dropped` lists
+ * the ids of the copied items that did not fit the new size (empty otherwise).
  */
 export async function POST(request: NextRequest) {
   const auth = await requireSession(request);
@@ -51,6 +50,7 @@ export async function POST(request: NextRequest) {
   const familyId = auth.session.familyId;
   const db = createAdminClient() as any;
   let screensaver: unknown[] = [];
+  let dropped: string[] = [];
   if (from === "builtin") {
     screensaver = builtInScreensaver(w, h);
   } else if (typeof from === "string") {
@@ -63,13 +63,9 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (srcErr) return NextResponse.json({ error: srcErr.message }, { status: 500 });
     if (!src) return notFound();
-    const a = gridFor(src.width, src.height);
-    const b = gridFor(w, h);
-    if (a && b) {
-      const items = rescaleItems(src.screensaver, a, b).items;
-      const checked = validateItems(items, w, h);
-      if (checked.ok) screensaver = checked.items;
-    }
+    const fitted = fitItems(src.screensaver, { width: src.width, height: src.height }, { width: w, height: h });
+    screensaver = fitted.items;
+    dropped = fitted.dropped;
   }
 
   const { data, error } = await db
@@ -78,5 +74,5 @@ export async function POST(request: NextRequest) {
     .select("*")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ layout: data }, { status: 201 });
+  return NextResponse.json({ layout: data, dropped }, { status: 201 });
 }

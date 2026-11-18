@@ -3,6 +3,8 @@ import { randomBytes } from "node:crypto";
 import { postJoin } from "./session";
 import { psql, psqlRow, sqlText } from "./helpers/assistant-connect";
 import { builtInScreensaver } from "../src/lib/layouts/built-in";
+import { validateItems } from "../src/lib/layouts/validate";
+import type { LayoutItem } from "../src/lib/layouts/types";
 
 /**
  * The layout routes against a running stack: create, edit with the stale
@@ -111,6 +113,23 @@ test("create from builtin: 201 with the built-in screensaver", async () => {
   const flat = await api.post("/api/layouts", { data: { name: "ok", width: 1920, height: 600, from: "builtin" } });
   expect(flat.status()).toBe(400);
   expect((await flat.json()).error).toBe("bad_size");
+});
+
+test("create from a layout at a smaller size: 201 with what fits, the rest listed as dropped", async () => {
+  await unlock();
+  const src = await api.post("/api/layouts", { data: { name: `${P}portrait`, width: 1080, height: 1920, from: "builtin" } });
+  expect(src.status(), await src.text()).toBe(201);
+  const srcId = (await src.json()).layout.id as string;
+  const res = await api.post("/api/layouts", { data: { name: `${P}landscape`, width: 1280, height: 720, from: srcId } });
+  expect(res.status(), await res.text()).toBe(201);
+  const { layout, dropped } = (await res.json()) as { layout: { screensaver: LayoutItem[] }; dropped: string[] };
+  expect(dropped.length).toBeGreaterThan(0);
+  expect(layout.screensaver.length).toBeGreaterThan(0);
+  expect(validateItems(layout.screensaver, 1280, 720).ok).toBe(true);
+  expect([...layout.screensaver.map((i) => i.id), ...dropped].sort()).toEqual(builtInScreensaver(1080, 1920).map((i) => i.id).sort());
+  // Created from builtin or empty: nothing dropped, the field is still there.
+  const empty = await api.post("/api/layouts", { data: { name: `${P}empty`, width: 1080, height: 1920 } });
+  expect((await empty.json()).dropped).toEqual([]);
 });
 
 test("PATCH: a valid change, a stale stamp, an overlap, unknown keys", async () => {

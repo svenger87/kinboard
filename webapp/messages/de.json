@@ -3249,6 +3249,17 @@
             "landscape1080at150": "Full HD quer bei 150 % – {width}×{height}",
             "tabletLandscape": "Tablet quer – {width}×{height}",
             "tabletPortrait": "Tablet hochkant – {width}×{height}"
+          },
+          "custom": "Eigene – {width}×{height}",
+          "customOpen": "Eigene Größe…",
+          "customForm": {
+            "title": "Eigene Größe",
+            "description": "Die Größe des Bildschirms in CSS-Pixeln, wie der Browser darauf sie meldet.",
+            "width": "Breite (px)",
+            "height": "Höhe (px)",
+            "tooSmall": "Mindestens 600 px breit und Platz für 6 Zeilen",
+            "apply": "Diese Größe verwenden",
+            "cancel": "Abbrechen"
           }
         },
         "palette": {
@@ -3289,6 +3300,21 @@
         "draft": {
           "restored": "Nicht gespeicherte Änderungen wiederhergestellt.",
           "lost": "Dieses Layout wurde inzwischen geändert; deine nicht gespeicherten Änderungen konnten nicht wiederhergestellt werden."
+        },
+        "copy": {
+          "button": "Kopie für diese Größe anlegen",
+          "title": "Kopie für {width}×{height}",
+          "description": "Ein neues Layout für diese Größe, angelegt aus dem gespeicherten Layout. Widgets, die nicht passen, bleiben weg.",
+          "name": "Name",
+          "defaultName": "{name} {width}×{height}",
+          "unsaved": "Dieses Layout hat nicht gespeicherte Änderungen. Vor dem Kopieren speichern oder die gespeicherte Fassung kopieren?",
+          "create": "Kopie anlegen",
+          "saveAndCopy": "Speichern und kopieren",
+          "discardAndCopy": "Verwerfen und kopieren",
+          "cancel": "Abbrechen",
+          "failed": "Die Kopie konnte nicht angelegt werden. Bitte versuche es noch einmal.",
+          "pinRequired": "Die Einstellungen wurden gesperrt – gib die PIN ein und versuche es noch einmal.",
+          "dropped": "Nicht auf dieser Größe: {names}"
         }
       }
     }

@@ -3249,6 +3249,17 @@
             "landscape1080at150": "Full HD landscape at 150% — {width}×{height}",
             "tabletLandscape": "Tablet landscape — {width}×{height}",
             "tabletPortrait": "Tablet portrait — {width}×{height}"
+          },
+          "custom": "Custom — {width}×{height}",
+          "customOpen": "Custom size…",
+          "customForm": {
+            "title": "Custom size",
+            "description": "The screen's size in CSS pixels, as the browser on it reports it.",
+            "width": "Width (px)",
+            "height": "Height (px)",
+            "tooSmall": "At least 600 px wide and room for 6 rows",
+            "apply": "Use this size",
+            "cancel": "Cancel"
           }
         },
         "palette": {
@@ -3289,6 +3300,21 @@
         "draft": {
           "restored": "Unsaved changes restored.",
           "lost": "This layout changed meanwhile; your unsaved changes could not be restored."
+        },
+        "copy": {
+          "button": "Make a copy for this size",
+          "title": "Copy for {width}×{height}",
+          "description": "A new layout for this size, made from the saved layout. Widgets that do not fit are left out.",
+          "name": "Name",
+          "defaultName": "{name} {width}×{height}",
+          "unsaved": "This layout has unsaved changes. Save them before copying, or copy the saved version?",
+          "create": "Create copy",
+          "saveAndCopy": "Save and copy",
+          "discardAndCopy": "Discard and copy",
+          "cancel": "Cancel",
+          "failed": "The copy could not be created. Please try again.",
+          "pinRequired": "Settings were locked — enter the PIN and try again.",
+          "dropped": "Not on this size: {names}"
         }
       }
     }

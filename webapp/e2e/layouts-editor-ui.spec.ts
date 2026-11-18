@@ -1,5 +1,7 @@
 import { test, expect, request as pwRequest, type APIRequestContext, type Browser, type Locator, type Page } from "@playwright/test";
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { postJoin } from "./session";
 import { psql, psqlRow, sqlText } from "./helpers/assistant-connect";
 import { gridFor } from "../src/lib/layouts/grid";
@@ -24,6 +26,8 @@ const P = "claude-layouteditor-";
 const SIZE = { width: 1080, height: 1920 };
 const GRID = gridFor(SIZE.width, SIZE.height)!;
 const PIN = "4711";
+/** The widget names the (English) editor shows. */
+const EN_NAMES: Record<string, string> = JSON.parse(readFileSync(join(__dirname, "..", "messages", "en.json"), "utf8")).settings.layouts.editor.widgets;
 const EVENT_TITLES = [`${P}Elternabend`, `${P}Schwimmkurs`];
 
 let famId = "";
@@ -290,6 +294,63 @@ test("a landscape preview adapts the layout without changing it", async ({ brows
   await expect(page.getByTestId("preview-readonly")).toBeVisible();
   await expect(page.getByTestId("editor-canvas")).toHaveAttribute("data-width", "1920");
   expect(psql(`SELECT width || 'x' || height FROM layouts WHERE id = '${layoutId}'`)).toBe("1080x1920");
+  await page.context().close();
+});
+
+test("a custom size previews like a preset; one the grid cannot hold says why", async ({ browser }) => {
+  const page = await openEditor(browser);
+  await page.getByTestId("screen-picker").click();
+  await page.getByTestId("screen-picker-custom").click();
+  const form = page.getByTestId("custom-size-form");
+  await expect(form).toBeVisible();
+  await form.getByTestId("custom-width").fill("500");
+  await form.getByTestId("custom-height").fill("500");
+  await expect(form.getByTestId("custom-size-error")).toBeVisible();
+  await expect(form.getByTestId("custom-apply")).toBeDisabled();
+  await form.getByTestId("custom-width").fill("1366");
+  await form.getByTestId("custom-height").fill("768");
+  await expect(form.getByTestId("custom-size-error")).toHaveCount(0);
+  await form.getByTestId("custom-apply").click();
+  await expect(form).toHaveCount(0);
+  await expect(page.getByTestId("editor-canvas")).toHaveAttribute("data-width", "1366");
+  await expect(page.getByTestId("editor-canvas")).toHaveAttribute("data-height", "768");
+  await expect(page.getByTestId("screen-picker")).toContainText("1366×768");
+  // Remembered in this browser: offered again after a reload.
+  await page.reload();
+  await expect(page.getByTestId("editor-canvas")).toBeVisible({ timeout: 60_000 });
+  await page.getByTestId("screen-picker").click();
+  await expect(page.getByRole("option", { name: /1366×768/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.context().close();
+});
+
+test("a copy for a 1920x1080 preview is a new valid layout, opened with what it left out", async ({ browser }) => {
+  const page = await openEditor(browser);
+  await page.getByTestId("screen-picker").click();
+  await page.getByRole("option", { name: /1920×1080/ }).first().click();
+  await page.getByTestId("editor-copy").click();
+  const dialog = page.getByTestId("copy-dialog");
+  await expect(dialog.getByTestId("copy-name")).toHaveValue(`${P}Küche 1920×1080`);
+  await dialog.getByTestId("copy-name").fill(`${P}Wohnzimmer`);
+  await dialog.getByTestId("copy-create").click();
+  await page.waitForURL((url) => url.pathname.startsWith("/settings/layouts/") && !url.pathname.endsWith(layoutId), { timeout: 30_000 });
+  const copyId = page.url().split("/").pop()!;
+  await expect(page.getByTestId("editor-canvas")).toHaveAttribute("data-width", "1920", { timeout: 30_000 });
+  await expect(page.getByTestId("editor-canvas")).toHaveAttribute("data-height", "1080");
+  const row = JSON.parse(psql(`SELECT json_build_object('name', name, 'width', width, 'height', height, 'screensaver', screensaver)::text FROM layouts WHERE id = '${copyId}'`));
+  expect(row).toMatchObject({ name: `${P}Wohnzimmer`, width: 1920, height: 1080 });
+  expect(validateItems(row.screensaver, 1920, 1080).ok).toBe(true);
+  const kept = new Set((row.screensaver as LayoutItem[]).map((i) => i.widget));
+  const lost = saved().filter((i) => !kept.has(i.widget));
+  if (lost.length > 0) {
+    const notice = page.getByTestId("editor-copy-dropped");
+    await expect(notice).toBeVisible();
+    for (const i of lost) await expect(notice).toContainText(EN_NAMES[i.widget]);
+  }
+  // Shown once: gone after a reload.
+  await page.reload();
+  await expect(page.getByTestId("editor-canvas")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId("editor-copy-dropped")).toHaveCount(0);
   await page.context().close();
 });
 

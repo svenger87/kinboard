@@ -30,7 +30,8 @@ import type { Layout, LayoutItem, SaverWidgetKey, TextSize } from "@/lib/layouts
 import { EditorCanvas } from "./canvas";
 import { EditorPalette } from "./palette";
 import { EditorInspector } from "./inspector";
-import { ScreenPicker, type PreviewScreen } from "./screen-picker";
+import { ScreenPicker, type ScreenChoice } from "./screen-picker";
+import { CopyForSize, clearCopyDropped, readCopyDropped } from "./copy-dialog";
 
 const LAYOUT_ERRORS: readonly string[] = ["unknown_widget", "out_of_bounds", "below_minimum", "overlap", "duplicate", "bad_text_size"];
 const WIDGET_KEYS = Object.keys(SAVER_WIDGETS) as SaverWidgetKey[];
@@ -93,7 +94,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const history = useLayoutHistory(baseline);
   const { items, set, undo, redo, canUndo, canRedo, dirty } = history;
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [preview, setPreview] = useState<PreviewScreen>({ key: "own", width: layout.width, height: layout.height });
+  const [preview, setPreview] = useState<ScreenChoice>({ key: "own", width: layout.width, height: layout.height });
   const [stale, setStale] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloading, setReloading] = useState(false);
@@ -103,6 +104,10 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
     if (!d) return null;
     return { items: d.items, restorable: d.stamp === layout.updated_at };
   });
+  // What a copy for this size left behind, shown once when the copy opens.
+  const [copyDropped] = useState(() => readCopyDropped(layout.id));
+  useEffect(() => clearCopyDropped(layout.id), [layout.id]);
+  const ownSize = useMemo(() => ({ width: layout.width, height: layout.height }), [layout.width, layout.height]);
   const [notice, setNotice] = useState<"restored" | "lost" | null>(draft ? (draft.restorable ? "restored" : "lost") : null);
   const saveLayout = useSaveLayout();
 
@@ -204,13 +209,14 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
     return () => window.removeEventListener("keydown", onKey);
   }, [editable, selectedId, items, ownGrid, undo, redo, remove, commit]);
 
-  const save = async () => {
+  /** Saves the items; true when they were saved. */
+  const save = async (): Promise<boolean> => {
     setError(null);
     const sent = items;
     const checked = validateItems(sent, layout.width, layout.height);
     if (!checked.ok) {
       setError(t(`errors.${checked.error}`, { name: nameOf(checked.itemId) }));
-      return;
+      return false;
     }
     try {
       const saved = await saveLayout.mutateAsync({ id: layout.id, screensaver: sent, updated_at: stamp });
@@ -218,14 +224,14 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       setBaseline(sent);
       setNotice(null);
       toast.success(t("saved"));
+      return true;
     } catch (err) {
-      if (err instanceof LayoutRequestError) {
-        if (err.code === "stale") return setStale(true);
-        // The PIN screen comes back by itself (relockSettings).
-        if (err.code === "pin_required") return void toast.error(t("errors.pinRequired"));
-        if (LAYOUT_ERRORS.includes(err.code)) return setError(t(`errors.${err.code as LayoutError}`, { name: nameOf(err.itemId) }));
-      }
-      toast.error(t("errors.generic"));
+      if (err instanceof LayoutRequestError && err.code === "stale") setStale(true);
+      // The PIN screen comes back by itself (relockSettings).
+      else if (err instanceof LayoutRequestError && err.code === "pin_required") toast.error(t("errors.pinRequired"));
+      else if (err instanceof LayoutRequestError && LAYOUT_ERRORS.includes(err.code)) setError(t(`errors.${err.code as LayoutError}`, { name: nameOf(err.itemId) }));
+      else toast.error(t("errors.generic"));
+      return false;
     }
   };
 
@@ -246,7 +252,19 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   return (
     <div className="flex flex-col gap-4" data-testid="layout-editor" data-dirty={dirty}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <ScreenPicker own={{ width: layout.width, height: layout.height }} value={preview.key} onChange={setPreview} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ScreenPicker own={ownSize} value={preview} onChange={setPreview} />
+          {(preview.width !== layout.width || preview.height !== layout.height) && (
+            <CopyForSize
+              layout={layout}
+              size={preview}
+              dirty={dirty}
+              items={items}
+              onSave={save}
+              onDiscard={() => writeDraft(layout.id, null)}
+            />
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" className="gap-2" onClick={undo} disabled={!canUndo} data-testid="editor-undo" title={t("undoHint")}>
             <Undo2 className="size-4" aria-hidden="true" />
@@ -282,13 +300,18 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <Button size="sm" className="gap-2" onClick={save} disabled={!dirty || saveLayout.isPending || stale} data-testid="editor-save">
+          <Button size="sm" className="gap-2" onClick={() => void save()} disabled={!dirty || saveLayout.isPending || stale} data-testid="editor-save">
             {saveLayout.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
             {saveLayout.isPending ? t("saving") : t("save")}
           </Button>
         </div>
       </div>
 
+      {copyDropped.length > 0 && (
+        <div role="status" data-testid="editor-copy-dropped" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+          {t("copy.dropped", { names: copyDropped.map((w) => (w in names ? names[w as SaverWidgetKey] : w)).join(", ") })}
+        </div>
+      )}
       {notice && (
         <div role="status" data-testid="editor-draft-notice" className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm">
           {t(`draft.${notice}`)}

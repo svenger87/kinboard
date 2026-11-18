@@ -111,11 +111,16 @@ export function useSaveLayout() {
   });
 }
 
+/** A layout just created, with the ids of the copied items that did not fit its size (`from: <id>`; otherwise empty). */
+export type CreatedLayout = Layout & { dropped: string[] };
+
 export function useCreateLayout() {
   const onSuccess = useAfterWrite();
   return useMutation({
     mutationFn: (body: { name: string; width: number; height: number; from?: string }) =>
-      request<{ layout: Layout }>("/api/layouts", "POST", body).then((r) => r.layout),
+      request<{ layout: Layout; dropped?: string[] }>("/api/layouts", "POST", body).then(
+        (r): CreatedLayout => ({ ...r.layout, dropped: r.dropped ?? [] }),
+      ),
     onSuccess,
   });
 }
