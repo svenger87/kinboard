@@ -58,6 +58,11 @@ export function useFitToWidth(
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    // The targets too: the web font swapping in changes their width without
+    // touching the box, and document.fonts.ready can settle before a font
+    // that is only requested on first use. A fitted target measures to the
+    // same size again, so this cannot loop.
+    for (const { ref } of targets) if (ref.current) ro.observe(ref.current);
     // A cap may read the viewport's height, which can change with the width unchanged.
     window.addEventListener("resize", measure);
     let live = true;
