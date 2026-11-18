@@ -165,6 +165,10 @@
       "birthdayDays": "{count, plural, one {# day} other {# days}}",
       "photoCreditUnsplash": "Photo: {photographer} / Unsplash",
       "forecastNow": "Now",
+      "lessonsToday": "At school today",
+      "lessonsTomorrow": "At school tomorrow",
+      "lessonsOn": "At school on {day}",
+      "lessonsBring": "Bring: {items}",
       "holidayUntil": "until {date}"
     },
     "pwa": {
@@ -1423,6 +1427,8 @@
       "showBirthdaysDescription": "List birthdays in the next 30 days, and how many",
       "showForecastLabel": "Weather forecast",
       "showForecastDescription": "Next to the temperature, the coming hours in 3-hour steps: weather, temperature and chance of rain",
+      "showLessonsLabel": "Children's lessons",
+      "showLessonsDescription": "Each child's subjects today and what to bring, such as the sports kit; in the evening the next school day, from the time set for the schedule widget",
       "weatherEffectsLabel": "Weather effects",
       "weatherEffectsDescription": "Snow, rain, frost and more over the photos, as on Home. Which effects and when are set under <link>Weather</link>.",
       "birthdayCountLabel": "Number of birthdays",
@@ -3232,6 +3238,7 @@
       "theme_animations": "animations, motion, effects, reduce motion, performance, slow, stutter, raspberry pi",
       "screensaver_lists": "events, birthdays, how many, number, rows, list, hide birthdays",
       "screensaver_forecast": "forecast, weather forecast, hourly, hours, chance of rain, rain, temperature, clothes, kindergarten",
+      "screensaver_lessons": "lessons, timetable, schedule, school, subjects, PE, sports kit, bring, pack, children",
       "screensaver_weather-effects": "weather effects, snow, rain, frost, fog, storm, animation, weather",
       "screensaver_night": "night, dark, dim, bedtime, sleep, clock only, burn-in",
       "screensaver_timeout": "timeout, idle, inactivity, minutes, when, start",
