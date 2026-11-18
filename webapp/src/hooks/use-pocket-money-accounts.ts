@@ -52,14 +52,21 @@ export function usePocketMoneyAccount(id: string | undefined) {
   });
 }
 
-export function usePocketMoneyAccountTransactions(accountId: string | undefined) {
+/**
+ * An account's transactions, newest first. `limit` asks the server for only
+ * that many (the dashboard widget's recent list); without it the server's
+ * default of 50 applies. Keyed under the unlimited query, so invalidating an
+ * account's transactions refreshes both.
+ */
+export function usePocketMoneyAccountTransactions(accountId: string | undefined, limit?: number) {
   const { family } = useFamilyStore();
   return useQuery({
-    queryKey: [KEY, "transactions", accountId],
+    queryKey: limit === undefined ? [KEY, "transactions", accountId] : [KEY, "transactions", accountId, limit],
     enabled: Boolean(accountId),
     queryFn: async (): Promise<PocketMoneyTransaction[]> => {
       const r = await fetch(
-        `/api/pocket-money/accounts/${accountId}/transactions?family_id=${family?.id ?? ""}`,
+        `/api/pocket-money/accounts/${accountId}/transactions?family_id=${family?.id ?? ""}` +
+          (limit === undefined ? "" : `&limit=${limit}`),
       );
       if (!r.ok) throw new Error(`txns: ${r.status}`);
       return ((await r.json()) as { transactions: PocketMoneyTransaction[] }).transactions;

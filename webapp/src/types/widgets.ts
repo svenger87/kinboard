@@ -114,19 +114,21 @@ export const DEFAULT_SCHEDULE_WIDGET_SETTINGS: ScheduleWidgetSettings = {
 };
 
 /**
- * Local patch: dashboard pocket-money widget layout. Deliberately its own
- * settings row (like ScheduleWidgetSettings), not a key in
- * `widget_visibility`.
+ * The dashboard pocket-money widget's layout: its own settings row, like
+ * ScheduleWidgetSettings, not a key in `widget_visibility`. The defaults are
+ * the widget as it always was -- one child at a time, no list.
  */
 export interface PocketMoneyWidgetSettings {
-  /** "toggle" = stock one-child switcher; "all" = every child stacked in
-   *  one card; "perChild" = one card per child (dashboard-rendered). */
+  /** "toggle" = one child at a time behind a switcher; "all" = every child
+   *  stacked in one card; "perChild" = one card per child (the dashboard
+   *  renders them). */
   displayMode: "toggle" | "all" | "perChild";
-  /** How many recent transactions to list under each child (0 = off). */
+  /** How many recent entries to list under each child (0 = off): money
+   *  transactions, or point activity for a child on points. */
   recentTransactions: number;
 }
 
 export const DEFAULT_POCKET_MONEY_WIDGET_SETTINGS: PocketMoneyWidgetSettings = {
-  displayMode: "all",
-  recentTransactions: 3,
+  displayMode: "toggle",
+  recentTransactions: 0,
 };

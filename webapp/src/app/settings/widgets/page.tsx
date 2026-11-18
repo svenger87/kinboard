@@ -101,7 +101,7 @@ export default function WidgetSettingsPage() {
   const updateScheduleWidget = useUpdateSetting<ScheduleWidgetSettings>();
   const perChild = scheduleWidget?.perChild ?? DEFAULT_SCHEDULE_WIDGET_SETTINGS.perChild;
 
-  // Local patch: pocket-money widget display mode + recent transactions.
+  // The pocket-money widget's layout and its recent-activity list.
   const { data: pocketMoneyWidget } = useSetting<PocketMoneyWidgetSettings>(
     SETTINGS_KEYS.pocketMoneyWidget,
     DEFAULT_POCKET_MONEY_WIDGET_SETTINGS,

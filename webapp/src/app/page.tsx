@@ -14,7 +14,7 @@ import { HolidayWidget } from "@/components/widgets/holiday-widget";
 import { VehiclesWidget } from "@/components/widgets/vehicles-widget";
 import { StonksWidget } from "@/components/widgets/stonks-widget";
 import { PhotosWidget } from "@/components/widgets/photos-widget";
-import { PocketMoneyWidget } from "@/components/widgets/pocket-money-widget";
+import { PocketMoneyWidget, usePocketMoneyChildren } from "@/components/widgets/pocket-money-widget";
 import { CreaturesWidget } from "@/components/widgets/creatures-widget";
 import { TimerWidget } from "@/components/widgets/timer-widget";
 import { CountdownWidget } from "@/components/widgets/countdown-widget";
@@ -40,7 +40,6 @@ import {
   useSetting,
   usePeople,
   useSchedules,
-  usePocketMoneyAccounts,
 } from "@/hooks";
 import { timetabledChildren } from "@/lib/timetabled-children";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
@@ -108,22 +107,21 @@ export default function DashboardPage() {
   const perChildCards =
     w.schedule && perChild ? timetabledChildren(people, schedules) : [];
 
-  // Local patch: one pocket-money card per child when the widget's
-  // displayMode setting is "perChild" (Settings -> Widgets -> Pocket
-  // Money), mirroring the schedule widget's perChild above.
+  // One pocket-money card per child when the widget's layout is "perChild"
+  // (Settings -> Widgets -> Pocket Money), like the schedule's above; with
+  // one child there is nothing to split and the widget renders as usual.
   const { data: pocketMoneyWidgetSettings } = useSetting<PocketMoneyWidgetSettings>(
     SETTINGS_KEYS.pocketMoneyWidget,
     DEFAULT_POCKET_MONEY_WIDGET_SETTINGS,
   );
-  const { data: pmAccounts } = usePocketMoneyAccounts();
+  const pocketMoneyChildren = usePocketMoneyChildren();
   const pmPluginEnabled = useIsPluginEnabled("pocket-money");
-  const pmPerChildAccounts =
+  const pmPerChild =
     w.pocketMoney &&
     pmPluginEnabled &&
-    (pocketMoneyWidgetSettings?.displayMode ??
-      DEFAULT_POCKET_MONEY_WIDGET_SETTINGS.displayMode) === "perChild" &&
-    (pmAccounts?.length ?? 0) > 1
-      ? pmAccounts ?? []
+    (pocketMoneyWidgetSettings?.displayMode ?? DEFAULT_POCKET_MONEY_WIDGET_SETTINGS.displayMode) === "perChild" &&
+    pocketMoneyChildren.length > 1
+      ? pocketMoneyChildren
       : [];
   const widgetCards: Record<WidgetKey, React.ReactNode> = {
     weather: <Weather />,
@@ -142,10 +140,8 @@ export default function DashboardPage() {
     notes: <NotesWidget maxItems={3} />,
     vehicles: <VehiclesWidget />,
     stonks: <StonksWidget />,
-    pocketMoney: pmPerChildAccounts.length > 0
-      ? pmPerChildAccounts.map((a) => (
-          <PocketMoneyWidget key={a.person_id} personId={a.person_id} />
-        ))
+    pocketMoney: pmPerChild.length > 0
+      ? pmPerChild.map((c) => <PocketMoneyWidget key={c.personId} personId={c.personId} />)
       : <PocketMoneyWidget />,
     creatures: <CreaturesWidget />,
     photos: <PhotosWidget />,
