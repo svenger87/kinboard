@@ -23,6 +23,28 @@
  * and events overlap 12px on the normal screensaver and 152px with large
  * details, events 36px from the top edge; tablet landscape 1280x800 with large
  * details: weather and events overlap 84px. Fix pending in a follow-up PR.
+ * Layout shots: at a widget's minimum box, portrait lists show fewer than two
+ * entries ("list" findings; minimums are in cells, and portrait cells are
+ * small next to the text: 60px at 1080 wide, 30px at 720, for 20px and 13px
+ * text), and the clock's content is 2-5px taller than its box (the display
+ * font's line box; the digits are not cut).
+ *
+ * The saver-layout view (opt-in) shows designed screensavers instead: it
+ * creates fixture layouts through the API (behind the settings PIN when the
+ * family has one, --pin), assigns them to the matrix device and removes them
+ * afterwards. On every screen the built-in arrangement redrawn as a layout for
+ * the screen's orientation ("saver-layout"); on portrait screens also one
+ * layout with every screensaver widget at its minimum size
+ * ("saver-layout-min"). It checks, beyond the list above:
+ *
+ *   edges     no box closer than EDGE px to a screen edge; the outermost boxes
+ *             sit at the grid's offsets (48px, or more where rows leave room)
+ *   offgrid   a box not on the screen's grid
+ *   overflow  a widget's content larger than its box
+ *   list      a list whose last entry is cut off, or entries missing without
+ *             a "+n" line
+ *   layout    a screen at least 600px wide (with 6 rows) that shows the
+ *             built-in screensaver, or a narrower one that shows the layout
  *
  * Output: one PNG per shot, report.json, and index.html, a contact sheet
  * with every shot and its findings side by side.
@@ -35,12 +57,14 @@
  * settings are put back as they were.
  *
  * Point it only at a demo or test family: the family's real screens see these
- * changes while it runs. The saved state goes to <out>/restore-state.json; on
+ * changes while it runs (its layout defaults are cleared for the run, so the
+ * built-in shots are built-in). The saved state goes to <out>/restore-state.json; on
  * Ctrl-C or kill the script restores it before exiting, and if a run died
  * harder the next run restores from that file first.
  *
  *   node scripts/screen-matrix.mjs --base http://localhost:3157 --code DEMO01
  *   node scripts/screen-matrix.mjs --only portrait-1080 --locales de --views saver-large
+ *   node scripts/screen-matrix.mjs --code DEMO01 --views saver,saver-large,saver-layout
  *
  * Options:
  *   --base URL        the app (default http://localhost:3157)
@@ -48,11 +72,12 @@
  *   --out DIR         output (default e2e/screen-matrix)
  *   --only a,b        screen ids to run (default all)
  *   --locales a,b     de,en,fr by default
- *   --views a,b       home,saver,saver-large by default
+ *   --views a,b       home,saver,saver-large by default; saver-layout on request
+ *   --pin PIN         the family's settings PIN, if it has one (or $KINBOARD_SETTINGS_PIN)
  *   --db CONTAINER    database container (default $KINBOARD_DB_CONTAINER or kbfresh-db)
  *   --strict          exit 1 when any shot has a finding
  */
-import { chromium } from "playwright";
+import { chromium, request as pwRequest } from "playwright";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -71,6 +96,7 @@ const CODE = opt("code", null);
 const OUT = resolve(opt("out", "e2e/screen-matrix"));
 const DB = opt("db", process.env.KINBOARD_DB_CONTAINER || "kbfresh-db");
 const STRICT = args.includes("--strict");
+const PIN = opt("pin", process.env.KINBOARD_SETTINGS_PIN || null);
 if (!CODE) {
   console.error("--code <family join code> is required");
   process.exit(2);
@@ -95,11 +121,18 @@ const SCREENS = [
   { id: "desktop-1440", label: "Desktop 2560×1440", width: 2560, height: 1440, scale: 1 },
 ];
 const VIEWS = ["home", "saver", "saver-large"];
+const ALL_VIEWS = [...VIEWS, "saver-layout"];
 const LOCALES = ["de", "en", "fr"];
 
 const screens = SCREENS.filter((s) => list("only", null)?.includes(s.id) ?? true);
 const locales = list("locales", LOCALES);
 const views = list("views", VIEWS);
+for (const v of views) {
+  if (!ALL_VIEWS.includes(v)) {
+    console.error(`unknown view ${v}; one of ${ALL_VIEWS.join(", ")}`);
+    process.exit(2);
+  }
+}
 
 // ---------------------------------------------------------------- database
 
@@ -124,8 +157,14 @@ function putSaver(value, fam = family) {
 mkdirSync(OUT, { recursive: true });
 const STATE_FILE = join(OUT, "restore-state.json");
 
+function putSetting(fam, key, text) {
+  if (text) psql(`INSERT INTO settings (family_id, key, value) VALUES (${q(fam)}, ${q(key)}, ${q(text)}::jsonb)
+        ON CONFLICT (family_id, key) DO UPDATE SET value = EXCLUDED.value`);
+  else psql(`DELETE FROM settings WHERE family_id = ${q(fam)} AND key = ${q(key)}`);
+}
+
 /** Puts one saved state back. Each step is independent; failures are returned. */
-function restore({ family: fam, savedSaver, ringing: ids }) {
+function restore({ family: fam, savedSaver, savedDefaults, ringing: ids }) {
   const failures = [];
   const step = (name, fn) => {
     try { fn(); } catch (e) { failures.push(`${name}: ${String(e.message).split("\n")[0]}`); }
@@ -141,6 +180,10 @@ function restore({ family: fam, savedSaver, ringing: ids }) {
   step("devices", () => psql(`BEGIN; SET LOCAL session_replication_role = replica;
     DELETE FROM devices WHERE hardware_id LIKE 'matrix-%' AND family_id = ${q(fam)};
     COMMIT;`));
+  // The fixture layouts of saver-layout, after the devices they were assigned to.
+  step("layouts", () => psql(`DELETE FROM layouts WHERE name LIKE 'matrix-%' AND family_id = ${q(fam)}`));
+  // Undefined in a state file written before the layouts existed: leave it.
+  if (savedDefaults !== undefined) step("layout defaults", () => putSetting(fam, "layout_defaults", savedDefaults));
   if (ids) step("timers", () => psql(`UPDATE timers SET dismissed_at = NULL WHERE family_id = ${q(fam)} AND id IN (${ids.split(",").map(q).join(",")})`));
   step("screensaver setting", () => {
     if (savedSaver) putSaver(JSON.parse(savedSaver), fam);
@@ -171,6 +214,8 @@ if (existsSync(STATE_FILE)) {
 const saved = {
   family,
   savedSaver: psql(`SELECT value::text FROM settings WHERE family_id = ${q(family)} AND key = 'screensaver'`),
+  // A family default would put a designed layout on the matrix's kiosks.
+  savedDefaults: psql(`SELECT value::text FROM settings WHERE family_id = ${q(family)} AND key = 'layout_defaults'`),
   ringing: psql(`SELECT string_agg(id::text, ',') FROM timers
     WHERE family_id = ${q(family)} AND dismissed_at IS NULL AND paused_at IS NULL
       AND started_at + (duration_seconds + COALESCE(paused_seconds, 0)) * interval '1 second' < now() + interval '3 hours'`),
@@ -178,6 +223,7 @@ const saved = {
 
 /** Events and birthdays every shot shows, relative to now so they are always upcoming. */
 function seed() {
+  if (saved.savedDefaults) putSetting(family, "layout_defaults", null);
   if (saved.ringing) psql(`UPDATE timers SET dismissed_at = now() WHERE id IN (${saved.ringing.split(",").map(q).join(",")})`);
   const calendar = psql(`SELECT id FROM calendars WHERE family_id = ${q(family)} ORDER BY created_at LIMIT 1`);
   if (calendar) {
@@ -276,6 +322,60 @@ async function stub(page) {
   await page.route(/\/api\/homeassistant\//, (r) => r.fulfill({ json: { entities: [] } }));
 }
 
+// ---------------------------------------------------------------- layouts
+
+/**
+ * Every screensaver widget at its minimum box (lib/layouts/widgets.ts), drawn
+ * for 1080x1920: packed at the top, the one-row values on the last row so the
+ * bottom edge is measured too.
+ */
+const MIN_ITEMS = [
+  ["clock", 0, 0, 4, 2], ["forecast", 4, 0, 4, 2], ["birthdays", 8, 0, 4, 2],
+  ["events", 0, 2, 4, 3], ["news", 4, 2, 4, 3], ["holidays", 8, 2, 4, 2],
+  ["weatherNow", 8, 4, 2, 1], ["photoCount", 10, 4, 1, 1],
+  ["lessons", 0, 5, 4, 2], ["energy", 4, 5, 3, 2], ["vehicles", 7, 5, 3, 2],
+  ["date", 0, 21, 3, 1], ["nextEvent", 4, 21, 4, 1],
+].map(([widget, x, y, w, h]) => ({ id: widget, widget, x, y, w, h, text: "M" }));
+
+/**
+ * The fixture layouts, created through the API as a parent would: a session of
+ * its own, unlocked with the settings PIN when the family has one. Named
+ * "matrix-…" so restore() finds them; it deletes them by name.
+ */
+async function createFixtures() {
+  const api = await pwRequest.newContext({ baseURL: BASE });
+  try {
+    const hw = "matrix-fixtures";
+    const joined = await api.post("/api/session/join", { data: { joinCode: CODE, deviceName: hw, hardwareId: hw } });
+    if (!joined.ok()) throw new Error(`fixtures: join failed: ${joined.status()} ${await joined.text()}`);
+    const familyId = (await joined.json()).family?.id;
+    if (PIN) {
+      const unlock = await api.post("/api/pin", { data: { family_id: familyId, action: "verify", pin: PIN } });
+      if (!unlock.ok()) throw new Error(`fixtures: the PIN was not accepted: ${unlock.status()} ${await unlock.text()}`);
+    }
+    const create = async (name, width, height, from) => {
+      const res = await api.post("/api/layouts", { data: { name, width, height, ...(from ? { from } : {}) } });
+      if (res.status() === 403) throw new Error("fixtures: the family has a settings PIN; pass it with --pin");
+      if (res.status() !== 201) throw new Error(`fixtures: creating ${name} failed: ${res.status()} ${await res.text()}`);
+      return (await res.json()).layout;
+    };
+    const portrait = await create("matrix-Hochkant", 1080, 1920, "builtin");
+    const landscape = await create("matrix-Quer", 1920, 1080, "builtin");
+    const min = await create("matrix-Alle Widgets", 1080, 1920);
+    const patched = await api.patch(`/api/layouts/${min.id}`, { data: { screensaver: MIN_ITEMS, updated_at: min.updated_at } });
+    if (patched.status() !== 200) throw new Error(`fixtures: saving the minimum layout failed: ${patched.status()} ${await patched.text()}`);
+    return { portrait: portrait.id, landscape: landscape.id, min: min.id };
+  } finally {
+    await api.dispose();
+  }
+}
+
+/** The layout shots of a screen: [file view name, layout id]. */
+const layoutShots = (screen, fx) =>
+  screen.height > screen.width
+    ? [["saver-layout", fx.portrait], ["saver-layout-min", fx.min]]
+    : [["saver-layout", fx.landscape]];
+
 // ---------------------------------------------------------------- measuring
 
 /** Runs in the page: boxes and findings for the current view. */
@@ -296,8 +396,14 @@ function measure({ view, edge, tolerance }) {
   const doc = document.documentElement;
   if (doc.scrollWidth > W + 1) findings.push({ kind: "overflow", text: `page ${doc.scrollWidth - W}px wider than the screen` });
 
+  // A designed screensaver, when the view asked for one and the screen draws it.
+  const layoutRoot = view.startsWith("saver-layout") ? document.querySelector("[data-testid=designed-screensaver]") : null;
   let blocks = [];
-  if (view === "home") {
+  if (layoutRoot) {
+    blocks = [...layoutRoot.querySelectorAll("[data-layout-item]")].filter(visible).map((el) => ({ name: el.dataset.layoutItem, el }));
+    const saver = layoutRoot.closest(".fixed");
+    if (saver && saver.scrollHeight > H + 1) findings.push({ kind: "overflow", text: `screensaver ${saver.scrollHeight - H}px taller than the screen` });
+  } else if (view === "home") {
     const grid = document.querySelector(".festival-grid");
     blocks = grid ? [...grid.children].filter((el) => visible(el) && getComputedStyle(el).position !== "fixed").map((el, i) => ({ name: el.querySelector("h2,h3,[data-widget]")?.textContent?.trim()?.slice(0, 24) || `widget ${i + 1}`, el })) : [];
     const hero = document.querySelector(".hero-block");
@@ -325,7 +431,63 @@ function measure({ view, edge, tolerance }) {
 
   // The edges a screensaver block sits against: the nearer side on each axis.
   const edges = {};
-  if (view !== "home") {
+  const lists = {};
+  if (layoutRoot) {
+    // The screen's grid, as lib/layouts/grid.ts computes it: 12 columns, 24px gaps.
+    const GAP = 24, COLS = 12;
+    const cell = Math.floor((W - 2 * edge - (COLS - 1) * GAP) / COLS);
+    const rows = Math.floor((H - 2 * edge + GAP) / (cell + GAP));
+    const ox = edge + (W - 2 * edge - (COLS * cell + (COLS - 1) * GAP)) / 2;
+    const oy = edge + (H - 2 * edge - (rows * cell + (rows - 1) * GAP)) / 2;
+    const step = cell + GAP;
+    const onGrid = (v) => Math.abs(v - Math.round(v)) * step <= tolerance;
+    for (const b of boxes) {
+      const cx = (b.x - ox) / step, cy = (b.y - oy) / step, cw = (b.w + GAP) / step, ch = (b.h + GAP) / step;
+      if (![cx, cy, cw, ch].every(onGrid)) findings.push({ kind: "offgrid", text: `${b.name} is not on the grid (${Math.round(b.x)},${Math.round(b.y)} ${Math.round(b.w)}×${Math.round(b.h)}; cell ${cell}, offsets ${ox},${oy})` });
+    }
+    if (boxes.length) {
+      const outer = {
+        left: Math.min(...boxes.map((b) => b.x)),
+        top: Math.min(...boxes.map((b) => b.y)),
+        right: W - Math.max(...boxes.map((b) => b.right)),
+        bottom: H - Math.max(...boxes.map((b) => b.bottom)),
+      };
+      edges.outer = Object.fromEntries(Object.entries(outer).map(([k, v]) => [k, Math.round(v)]));
+      edges.grid = { cell, rows, x: Math.round(ox), y: Math.round(oy) };
+      for (const [side, d] of Object.entries(outer)) {
+        if (d < edge - tolerance) findings.push({ kind: "edges", text: `a box is ${Math.round(d)}px from the ${side} edge, under ${edge}` });
+      }
+    }
+    for (const b of blocks) {
+      const el = b.el;
+      const r = el.getBoundingClientRect();
+      // Content larger than the box: the box clips it, so nothing shows, but
+      // something is missing.
+      const dw = el.scrollWidth - el.clientWidth, dh = el.scrollHeight - el.clientHeight;
+      if (dw > 1 || dh > 1) findings.push({ kind: "overflow", text: `${b.name}: content ${Math.max(dw, 0)}×${Math.max(dh, 0)}px larger than its box` });
+      for (const d of el.querySelectorAll("*")) {
+        if (!visible(d)) continue;
+        const dr = d.getBoundingClientRect();
+        const out = Math.max(r.left - dr.left, r.top - dr.top, dr.right - r.right, dr.bottom - r.bottom);
+        if (out > 1) {
+          findings.push({ kind: "overflow", text: `${b.name}: ${d.tagName.toLowerCase()} "${(d.textContent ?? "").trim().slice(0, 24)}" reaches ${Math.round(out)}px past its box` });
+          break;
+        }
+      }
+      // Lists end with a whole entry, or with "+n" for the rest.
+      for (const l of el.querySelectorAll("[data-list-shown]")) {
+        const shown = Number(l.dataset.listShown), more = Number(l.dataset.listMore);
+        lists[b.name] = { shown, more };
+        const lr = l.getBoundingClientRect();
+        const v = l.querySelector("[data-list-visible]");
+        const cut = v ? v.getBoundingClientRect().bottom - lr.bottom : 0;
+        if (cut > 1) findings.push({ kind: "list", text: `${b.name}: the last line is cut off by ${Math.round(cut)}px` });
+        const plus = l.querySelector("[data-testid=list-more]");
+        if (more > 0 && !(plus && visible(plus))) findings.push({ kind: "list", text: `${b.name}: ${more} entries left out without a "+n"` });
+        if (more > 0 && shown < 2) findings.push({ kind: "list", text: `${b.name}: ${shown} entr${shown === 1 ? "y" : "ies"} shown of ${shown + more}` });
+      }
+    }
+  } else if (view !== "home") {
     for (const b of boxes) {
       const d = { left: b.x, right: W - b.right, top: b.y, bottom: H - b.bottom };
       // Only the sides it sits against: within a quarter of the screen, with
@@ -357,7 +519,7 @@ function measure({ view, edge, tolerance }) {
 
   // Text cut off without an ellipsis.
   let ellipsis = 0;
-  const scope = view === "home" ? document.querySelector("main") ?? document.body : document.querySelector("[data-saver-block]")?.closest(".fixed") ?? document.body;
+  const scope = view === "home" ? document.querySelector("main") ?? document.body : layoutRoot ?? document.querySelector("[data-saver-block]")?.closest(".fixed") ?? document.body;
   for (const el of scope.querySelectorAll("p, span, h1, h2, h3, h4, a, button, li, div")) {
     if (el.children.length > 0 || !el.textContent?.trim() || !visible(el)) continue;
     // Screen-reader-only text is 1px wide on purpose.
@@ -373,7 +535,7 @@ function measure({ view, edge, tolerance }) {
     findings.push({ kind: "clipped", text: `"${el.textContent.trim().slice(0, 40)}" is cut off` });
   }
 
-  return { boxes: boxes.map((b) => ({ ...b, x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h) })), edges, findings, ellipsis, viewport: { width: W, height: H } };
+  return { boxes: boxes.map((b) => ({ ...b, x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h) })), edges, ...(layoutRoot ? { lists } : {}), findings, ellipsis, viewport: { width: W, height: H } };
 }
 
 // ---------------------------------------------------------------- run
@@ -395,6 +557,7 @@ try {
   browser = await chromium.launch();
   writeFileSync(STATE_FILE, JSON.stringify(saved));
   seed();
+  const fixtures = views.includes("saver-layout") ? await createFixtures() : null;
   for (const screen of screens) {
     for (const locale of locales) {
       const ctx = await browser.newContext({
@@ -432,22 +595,43 @@ try {
         { name: "NEXT_LOCALE", value: locale, url: BASE },
       ]);
 
-      for (const view of views) {
+      // A layout on a screen at least 600px wide with room for 6 rows
+      // (lib/layouts/grid.ts); a smaller one keeps the built-in screensaver.
+      const cell = Math.floor((screen.width - 2 * EDGE - 11 * 24) / 12);
+      const holdsLayout = screen.width >= 600 && Math.floor((screen.height - 2 * EDGE + 24) / (cell + 24)) >= 6;
+      let unlocked = false;
+      let assigned = null;
+      const assign = async (layoutId) => {
+        if (assigned === layoutId) return;
+        if (PIN && !unlocked) {
+          const res = await page.request.post(`${BASE}/api/pin`, { data: { family_id: family, action: "verify", pin: PIN } });
+          if (!res.ok()) throw new Error(`the PIN was not accepted: ${res.status()}`);
+          unlocked = true;
+        }
+        const res = await page.request.put(`${BASE}/api/devices/${joined.device.id}/layout`, { data: { layout_id: layoutId } });
+        if (!res.ok()) throw new Error(`assigning a layout failed: ${res.status()} ${await res.text()}`);
+        assigned = layoutId;
+      };
+
+      const shots = views.flatMap((view) => (view === "saver-layout" ? layoutShots(screen, fixtures) : [[view, null]]));
+      for (const [view, layoutId] of shots) {
         const saver = view !== "home";
+        const wantLayout = !!layoutId && holdsLayout;
         psql(`UPDATE devices SET is_kiosk = ${saver} WHERE hardware_id = ${q(hw)}`);
         await session(saver);
+        await assign(layoutId);
         putSaver({ ...saverBase, screensaverTimeout: saver ? 2 : 0, largeDetails: view === "saver-large" });
         failed = [];
         await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
         const file = `${screen.id}__${locale}__${view}.png`;
         try {
-          await page.waitForSelector(saver ? "[data-saver-block=clock]" : ".festival-grid", { timeout: 60_000 });
+          await page.waitForSelector(!saver ? ".festival-grid" : wantLayout ? "[data-layout-item=clock]" : "[data-saver-block=clock]", { timeout: 60_000 });
         } catch {
           // Recorded, not fatal: the rest of the matrix still runs.
           await page.screenshot({ path: join(OUT, file) });
           results.push({ screen: screen.id, label: screen.label, locale, view, file, boxes: [], edges: {}, ellipsis: 0,
-            findings: [{ kind: "missing", text: saver ? "the screensaver did not appear" : "Home did not render" }] });
-          console.log(`${screen.id.padEnd(20)} ${locale} ${view.padEnd(12)} MISSING`);
+            findings: [{ kind: "missing", text: !saver ? "Home did not render" : wantLayout ? "the designed screensaver did not appear" : "the screensaver did not appear" }] });
+          console.log(`${screen.id.padEnd(20)} ${locale} ${view.padEnd(16)} MISSING`);
           continue;
         }
         // Data, web fonts and the slide-in animations (reduced motion skips most).
@@ -455,12 +639,20 @@ try {
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(2500);
         const m = await page.evaluate(measure, { view, edge: EDGE, tolerance: TOLERANCE });
+        if (layoutId) {
+          const shown = await page.evaluate(() => ({
+            layout: document.querySelectorAll("[data-layout-item]").length,
+            builtIn: document.querySelectorAll("[data-saver-block]").length,
+          }));
+          if (wantLayout && (shown.builtIn > 0 || shown.layout === 0)) m.findings.push({ kind: "layout", text: `expected the layout, found ${shown.layout} layout boxes and ${shown.builtIn} built-in blocks` });
+          if (!wantLayout && shown.layout > 0) m.findings.push({ kind: "layout", text: `a screen under 600px wide or 6 rows shows the layout (${shown.layout} boxes)` });
+        }
         for (const f of [...new Set(failed)]) m.findings.push({ kind: "request", text: f });
         // What the screen shows: the viewport, never a stitched full page.
         await page.screenshot({ path: join(OUT, file) });
         results.push({ screen: screen.id, label: screen.label, locale, view, file, ...m });
         const tag = m.findings.length ? `${m.findings.length} finding(s)` : "ok";
-        console.log(`${screen.id.padEnd(20)} ${locale} ${view.padEnd(12)} ${tag}`);
+        console.log(`${screen.id.padEnd(20)} ${locale} ${view.padEnd(16)} ${tag}`);
         for (const f of m.findings) console.log(`    ${f.kind}: ${f.text}`);
       }
       await ctx.close();
