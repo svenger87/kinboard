@@ -341,6 +341,10 @@ test("a copy for a 1920x1080 preview is a new valid layout, opened with what it 
   expect(row).toMatchObject({ name: `${P}Wohnzimmer`, width: 1920, height: 1080 });
   expect(validateItems(row.screensaver, 1920, 1080).ok).toBe(true);
   const kept = new Set((row.screensaver as LayoutItem[]).map((i) => i.widget));
+  // Free cells are used before anything is dropped: the clock and the date stay.
+  expect(kept.has("clock") && kept.has("date"), [...kept].join(",")).toBe(true);
+  await expect(page.locator("[data-editor-item=clock]")).toBeVisible();
+  await expect(page.locator("[data-editor-item=date]")).toBeVisible();
   const lost = saved().filter((i) => !kept.has(i.widget));
   if (lost.length > 0) {
     const notice = page.getByTestId("editor-copy-dropped");

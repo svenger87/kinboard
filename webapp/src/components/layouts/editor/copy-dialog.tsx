@@ -75,8 +75,9 @@ export function CopyForSize({
     setBusy(true);
     try {
       if (first === "save" && !(await onSave())) return;
-      if (first === "discard") onDiscard();
       const created = await create.mutateAsync({ name: trimmed, width: size.width, height: size.height, from: layout.id });
+      // Only once the copy exists: a failed copy leaves the changes kept.
+      if (first === "discard") onDiscard();
       // Item ids name their widget in layouts the editor made; fall back to the id.
       const widgetOf = new Map([...layout.screensaver, ...items].map((i) => [i.id, i.widget]));
       handOverDropped(created.id, created.dropped.map((id) => widgetOf.get(id) ?? id));

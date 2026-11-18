@@ -83,14 +83,14 @@ export function ScreenPicker({
 
   const options = useMemo(() => {
     const ownOption = own ? { key: "own", width: own.width, height: own.height, label: t("own", { width: own.width, height: own.height }) } : null;
-    const deviceOptions = (devices ?? [])
-      .filter((d) => d.screen && sizeFits(d.screen.viewportWidth, d.screen.viewportHeight))
-      .map((d) => ({
-        key: `device:${d.id}`,
-        width: d.screen!.viewportWidth,
-        height: d.screen!.viewportHeight,
-        label: t("device", { name: d.name, width: d.screen!.viewportWidth, height: d.screen!.viewportHeight }),
-      }));
+    // A screen's reported size can carry a fraction (a zoomed browser); layouts are whole pixels.
+    const deviceOptions = (devices ?? []).flatMap((d) => {
+      if (!d.screen) return [];
+      const width = Math.round(d.screen.viewportWidth);
+      const height = Math.round(d.screen.viewportHeight);
+      if (!sizeFits(width, height)) return [];
+      return [{ key: `device:${d.id}`, width, height, label: t("device", { name: d.name, width, height }) }];
+    });
     const presetOptions = PRESETS.map((p) => ({
       key: `preset:${p.key}`,
       width: p.width,

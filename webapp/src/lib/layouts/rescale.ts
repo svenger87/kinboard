@@ -8,7 +8,8 @@
 import { gridFor, type Grid } from "./grid";
 import { SAVER_WIDGETS } from "./widgets";
 import { collides, validateItems } from "./validate";
-import type { LayoutItem } from "./types";
+import { firstFreeSpot, growToward } from "./place";
+import type { LayoutItem, SaverWidgetKey } from "./types";
 
 export function rescaleItems(
   items: LayoutItem[],
@@ -46,6 +47,7 @@ export function rescaleItems(
  * rescaleItems cannot place is dropped, then whatever the server's check
  * still refuses (an item that was never valid, a size the new screen's
  * columns cannot hold) is dropped one at a time until the rest is valid.
+ * The dropped widgets then get whatever cells are still free (placeDropped).
  * Used when a layout is copied to a new size, so the copy keeps everything
  * that fits instead of starting empty. `dropped` holds item ids.
  */
@@ -74,10 +76,62 @@ export function fitItems(
   let kept = rescaled.items;
   for (;;) {
     const checked = validateItems(kept, to.width, to.height);
-    if (checked.ok) return { items: checked.items, dropped };
+    if (checked.ok) {
+      kept = checked.items;
+      break;
+    }
     const bad = checked.itemId;
-    if (!bad || !kept.some((i) => i.id === bad)) return { items: [], dropped: [...dropped, ...kept.map((i) => i.id)] };
+    if (!bad || !kept.some((i) => i.id === bad)) {
+      dropped.push(...kept.map((i) => i.id));
+      kept = [];
+      break;
+    }
     dropped.push(bad);
     kept = kept.filter((i) => i.id !== bad);
   }
+  return placeDropped(kept, wellFormed.filter((i) => dropped.includes(i.id)), dropped, b.rows, to);
+}
+
+/** The order dropped widgets get the free cells in: the clock first, the least missed last. */
+const REPLACE_ORDER: SaverWidgetKey[] = [
+  "clock", "date", "events", "weatherNow", "news", "birthdays", "forecast",
+  "nextEvent", "lessons", "holidays", "energy", "vehicles", "photoCount",
+];
+
+/**
+ * Gives dropped widgets the free cells that are left: in REPLACE_ORDER, each
+ * at its minimum box in the first free spot (rows top to bottom, columns left
+ * to right), then, in the same order, each grown toward its default box. Only
+ * a widget with no free spot even at its minimum stays dropped. The ids and
+ * text sizes are the original items'.
+ */
+function placeDropped(
+  kept: LayoutItem[],
+  candidates: LayoutItem[],
+  dropped: string[],
+  rows: number,
+  to: { width: number; height: number },
+): { items: LayoutItem[]; dropped: string[] } {
+  const rank = (i: LayoutItem) => REPLACE_ORDER.indexOf(i.widget);
+  const usedWidgets = new Set(kept.map((i) => i.widget));
+  const ordered = [...candidates].sort((a, b) => rank(a) - rank(b));
+  const placed: LayoutItem[] = [];
+  for (const item of ordered) {
+    // A second copy of a widget already on the screen stays dropped.
+    if (usedWidgets.has(item.widget)) continue;
+    const spot = firstFreeSpot([...kept, ...placed], SAVER_WIDGETS[item.widget].min, rows);
+    if (!spot) continue;
+    placed.push({ ...item, ...spot });
+    usedWidgets.add(item.widget);
+  }
+  for (let n = 0; n < placed.length; n++) {
+    const others = [...kept, ...placed.filter((_, m) => m !== n)];
+    placed[n] = { ...placed[n], ...growToward(placed[n], SAVER_WIDGETS[placed[n].widget].box, others, rows) };
+  }
+  const items = [...kept, ...placed];
+  const checked = validateItems(items, to.width, to.height);
+  // Cannot fail (each box was placed on free cells at or above its minimum); kept as the last word.
+  if (!checked.ok) return { items: kept, dropped };
+  const back = new Set(placed.map((i) => i.id));
+  return { items: checked.items, dropped: dropped.filter((id) => !back.has(id)) };
 }

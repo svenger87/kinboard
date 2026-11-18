@@ -24,15 +24,34 @@ export function firstFreeBox(items: LayoutItem[], widget: SaverWidgetKey, rows: 
   }
   // Largest first; of two the same size, the wider (the default's shape is usually wide).
   sizes.sort((a, b) => b.w * b.h - a.w * a.h || b.w - a.w);
-  for (const { w, h } of sizes) {
-    for (let y = 0; y + h <= rows; y++) {
-      for (let x = 0; x + w <= GRID.COLUMNS; x++) {
-        const candidate = { x, y, w, h };
-        if (!items.some((i) => collides(i, candidate))) return candidate;
-      }
+  for (const size of sizes) {
+    const spot = firstFreeSpot(items, size, rows);
+    if (spot) return spot;
+  }
+  return null;
+}
+
+/** The first spot a box of this size fits, rows top to bottom, columns left to right; null when none. */
+export function firstFreeSpot(items: Box[], size: { w: number; h: number }, rows: number): Box | null {
+  for (let y = 0; y + size.h <= rows; y++) {
+    for (let x = 0; x + size.w <= GRID.COLUMNS; x++) {
+      const candidate = { x, y, ...size };
+      if (!items.some((i) => collides(i, candidate))) return candidate;
     }
   }
   return null;
+}
+
+/**
+ * A placed box grown toward a size, one column at a time while it stays on
+ * the grid and off the others, then one row at a time the same way.
+ */
+export function growToward(box: Box, target: { w: number; h: number }, others: Box[], rows: number): Box {
+  const fits = (b: Box) => b.x + b.w <= GRID.COLUMNS && b.y + b.h <= rows && !others.some((o) => collides(o, b));
+  let out = { ...box };
+  while (out.w < target.w && fits({ ...out, w: out.w + 1 })) out = { ...out, w: out.w + 1 };
+  while (out.h < target.h && fits({ ...out, h: out.h + 1 })) out = { ...out, h: out.h + 1 };
+  return out;
 }
 
 /** The items with one moved by (dx, dy) cells, or null when that leaves the grid or lands on another. */

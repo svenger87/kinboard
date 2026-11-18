@@ -110,14 +110,44 @@ test.describe("rescaleItems", () => {
 test.describe("fitItems", () => {
   const PORTRAIT = { width: 1080, height: 1920 };
   const LANDSCAPE = { width: 1920, height: 1080 };
-  test("the built-in portrait copied to landscape keeps what fits, drops the rest, and is valid", () => {
+  test("the built-in portrait copied to 1920x1080 keeps the clock and date, drops only the birthdays, and is valid", () => {
     const src = builtInScreensaver(1080, 1920);
     const { items, dropped } = fitItems(src, PORTRAIT, LANDSCAPE);
     expect(validateItems(items, 1920, 1080).ok).toBe(true);
-    expect(items.length).toBeGreaterThan(0);
-    expect(dropped.length).toBeGreaterThan(0);
+    expect(dropped).toEqual(["birthdays"]);
+    const widgets = items.map((i) => i.widget);
+    expect(widgets).toContain("clock");
+    expect(widgets).toContain("date");
     expect([...items.map((i) => i.id), ...dropped].sort()).toEqual(src.map((i) => i.id).sort());
+    // Re-placed items keep their id and text size.
+    const clock = items.find((i) => i.widget === "clock")!;
+    expect(clock).toMatchObject({ id: "clock", text: "M" });
   });
+  test("the same input gives the same output", () => {
+    const src = builtInScreensaver(1080, 1920);
+    expect(fitItems(src, PORTRAIT, LANDSCAPE)).toEqual(fitItems(structuredClone(src), PORTRAIT, LANDSCAPE));
+  });
+  test("a dropped widget with no free spot at its minimum stays dropped", () => {
+    // At 1280x720 (6 rows) the news takes 10 columns of the top 5 rows: no 4x3 is left for the events.
+    const src = [item({ id: "news", widget: "news", x: 0, y: 0, w: 10, h: 18 }), item({ id: "events", widget: "events", x: 0, y: 18, w: 4, h: 4 })];
+    const r = fitItems(src, PORTRAIT, { width: 1280, height: 720 });
+    expect(validateItems(r.items, 1280, 720).ok).toBe(true);
+    expect(r.items.map((i) => i.id)).toEqual(["news"]);
+    expect(r.dropped).toEqual(["events"]);
+  });
+  for (const [label, from, sizes] of [
+    ["portrait built-in to every landscape preset", PORTRAIT, [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }, { width: 1280, height: 800 }]],
+    ["landscape built-in to every portrait preset", LANDSCAPE, [{ width: 1080, height: 1920 }, { width: 720, height: 1280 }, { width: 800, height: 1280 }]],
+  ] as const) {
+    test(`${label}: always valid, every item kept or dropped`, () => {
+      const src = builtInScreensaver(from.width, from.height);
+      for (const to of sizes) {
+        const r = fitItems(src, from, to);
+        expect(validateItems(r.items, to.width, to.height).ok, `${to.width}x${to.height}`).toBe(true);
+        expect([...r.items.map((i) => i.id), ...r.dropped].sort(), `${to.width}x${to.height}`).toEqual(src.map((i) => i.id).sort());
+      }
+    });
+  }
   test("the same row count keeps everything", () => {
     const src = builtInScreensaver(1080, 1920);
     expect(fitItems(src, PORTRAIT, { width: 720, height: 1280 })).toEqual({ items: src, dropped: [] });
