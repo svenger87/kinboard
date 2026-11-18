@@ -699,6 +699,7 @@ export function Screensaver({ photos }: ScreensaverProps) {
             the forecast strip on portrait panels and on 1024px landscape ones. */}
         {!(showForecast && weather) && !designed && (
         <p
+          data-testid="screensaver-touch-hint"
           className="absolute top-8 left-1/2 -translate-x-1/2 text-white/40 text-sm safe-area-inset screensaver-fade-in"
           style={{ animationDelay: "2s", paddingTop: 'env(safe-area-inset-top, 0)', ...burnInStyle }}
         >

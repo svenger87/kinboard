@@ -67,6 +67,21 @@ test.describe("validateItems", () => {
   }
 });
 
+test.describe("built-in screensaver across sizes", () => {
+  const sizes: [number, number][] = [];
+  for (const w of [600, 720, 800, 1080]) for (let h = w + 1; h <= 2 * w; h += 37) sizes.push([w, h]);
+  for (const w of [1280, 1600, 1920, 2560]) for (let h = 600; h < w; h += 41) sizes.push([w, h]);
+  test("is valid on every portrait and landscape size", () => {
+    let checked = 0;
+    for (const [w, h] of sizes) {
+      if (!gridFor(w, h)) continue;
+      checked++;
+      expect(validateItems(builtInScreensaver(w, h), w, h), `${w}x${h}`).toMatchObject({ ok: true });
+    }
+    expect(checked).toBeGreaterThan(50);
+  });
+});
+
 test.describe("rescaleItems", () => {
   const from = gridFor(1080, 1920)!;
   const to = gridFor(1080, 1500)!;

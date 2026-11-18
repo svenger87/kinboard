@@ -19,15 +19,43 @@ export function builtInScreensaver(width: number, height: number): LayoutItem[] 
   });
 
   if (orientationOf(width, height) === "portrait") {
-    return [
-      box("news", 0, 0, 5, Math.min(6, rows - 11)),
-      box("weatherNow", 7, 0, 5, 1),
-      box("forecast", 7, 1, 5, 3),
-      box("events", 0, rows - 11, 6, 4),
-      box("birthdays", 0, rows - 7, 6, 3),
-      box("clock", 0, rows - 4, 6, 3),
-      box("date", 0, rows - 1, 6, 1),
-    ];
+    // The left column is stacked from the bottom: date, clock, birthdays,
+    // events, news. With rows to spare it is today's arrangement; when they
+    // are scarce events and birthdays shrink toward their minimums first,
+    // then birthdays go, then news, so nothing is ever below its minimum.
+    const clockH = rows < 7 ? 2 : 3;
+    const avail = rows - 1 - clockH; // rows above the clock for news, events, birthdays
+    let news = 0;
+    let events = 0;
+    let birthdays = 0;
+    if (avail >= 10) {
+      // 7 = events 4 + birthdays 3 at full size; news takes the rest, up to 6.
+      events = 4;
+      birthdays = 3;
+      news = Math.min(6, avail - 7);
+    } else if (avail >= 8) {
+      // Everything at least at its minimum; spare rows go to events first.
+      birthdays = 2;
+      events = Math.min(4, avail - 5);
+      news = avail - events - birthdays;
+    } else if (avail >= 6) {
+      events = Math.min(4, avail - 3); // birthdays dropped
+      news = avail - events;
+    } else {
+      events = Math.min(4, avail); // news dropped too
+    }
+    const items: LayoutItem[] = [];
+    if (news) items.push(box("news", 0, 0, 5, news));
+    items.push(box("weatherNow", 7, 0, 5, 1), box("forecast", 7, 1, 5, 3));
+    let y = rows - 1 - clockH;
+    items.push(box("clock", 0, y, 6, clockH), box("date", 0, rows - 1, 6, 1));
+    if (birthdays) {
+      y -= birthdays;
+      items.push(box("birthdays", 0, y, 6, birthdays));
+    }
+    y -= events;
+    items.push(box("events", 0, y, 6, events));
+    return items;
   }
   return [
     box("news", 0, 0, 4, rows - 3),

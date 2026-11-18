@@ -122,7 +122,7 @@ test("an assigned layout is drawn at its boxes, then unassigning restores the bu
   const page = await open(ctx);
   await page.waitForSelector("[data-layout-item=clock]", { timeout: 45_000 });
   await expect(page.locator("[data-saver-block]")).toHaveCount(0);
-  await expect(page.getByText("Touch to unlock")).toHaveCount(0);
+  await expect(page.getByTestId("screensaver-touch-hint")).toHaveCount(0);
 
   const grid = gridFor(SIZE.width, SIZE.height)!;
   for (const item of ITEMS) {
@@ -143,7 +143,7 @@ test("an assigned layout is drawn at its boxes, then unassigning restores the bu
   expect(un.status(), await un.text()).toBe(200);
   await page.waitForSelector("[data-saver-block=clock]", { timeout: 15_000 });
   await expect(page.locator("[data-layout-item]")).toHaveCount(0);
-  await expect(page.getByText("Touch to unlock")).toHaveCount(1);
+  await expect(page.getByTestId("screensaver-touch-hint")).toHaveCount(1);
   await ctx.close();
 });
 
