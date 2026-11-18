@@ -1098,6 +1098,8 @@
     "itemThemeDescription": "Colors and clock display",
     "itemScreensaverLabel": "Screensaver",
     "itemScreensaverDescription": "Timeout and presence sensor",
+    "itemLayoutsLabel": "Layouts",
+    "itemLayoutsDescription": "Design the screensaver per screen",
     "itemWeatherLabel": "Weather",
     "itemWeatherDescription": "Location for weather data",
     "itemNotificationsLabel": "Notifications",
@@ -1494,7 +1496,12 @@
       "seconds30": "30 seconds",
       "seconds60": "1 minute",
       "seconds120": "2 minutes",
-      "seconds300": "5 minutes"
+      "seconds300": "5 minutes",
+      "layoutNote": {
+        "assigned": "{names} {count, plural, one {uses} other {use}} the designed layout “{layout}”.",
+        "default": "“{layout}” is the {orientation, select, portrait {portrait} other {landscape}} default for wall screens without a layout of their own.",
+        "change": "Change it under <link>Settings → Layouts</link>. The settings below apply to screens without a layout."
+      }
     },
     "weather": {
       "title": "Weather",
@@ -1721,7 +1728,15 @@
       "belongsToNobody": "The family",
       "belongsToHint": "A child's own device opens on their creature and rewards. Kiosks always open on the dashboard.",
       "belongsToKioskNote": "Kiosk: opens on the dashboard",
-      "belongsToFailed": "Could not save who the device belongs to"
+      "belongsToFailed": "Could not save who the device belongs to",
+      "layoutLabel": "Layout",
+      "layoutAria": "Layout for {name}",
+      "layoutBuiltIn": "Built-in",
+      "layoutAspect": "Made for {layoutWidth}×{layoutHeight} — this screen is {width}×{height}",
+      "layoutDropped": "Not shown on this screen: {names}",
+      "layoutUsesDefault": "Uses the default layout “{name}”",
+      "layoutNoDefaults": "Not a wall screen: the default layouts do not apply to it.",
+      "layoutFailed": "The layout could not be changed."
     },
     "cameras": {
       "title": "Cameras",
@@ -3202,6 +3217,62 @@
       "bedtimeReset": "Back to {sleep}–{wake}"
     },
     "layouts": {
+      "title": "Layouts",
+      "subtitle": "Design the screensaver of your wall screens",
+      "loadFailed": "The layouts could not be loaded.",
+      "retry": "Try again",
+      "empty": "No layouts yet. Create one to arrange a wall screen's screensaver yourself.",
+      "shape": "{width}×{height} · {orientation, select, portrait {portrait} other {landscape}}",
+      "usedByNone": "Not used by any screen",
+      "usedBy": "Used by {names}",
+      "badgePortrait": "Portrait default",
+      "badgeLandscape": "Landscape default",
+      "edit": "Edit",
+      "editAria": "Edit {name}",
+      "duplicateAria": "Duplicate {name}",
+      "deleteAria": "Delete {name}",
+      "new": {
+        "button": "New layout",
+        "title": "New layout",
+        "description": "It starts from the built-in screensaver arrangement for the size you choose; you rearrange it in the editor.",
+        "name": "Name",
+        "namePlaceholder": "e.g. Kitchen portrait",
+        "screenHint": "The size the layout is drawn for. Screens of other sizes get it rescaled.",
+        "create": "Create and edit",
+        "cancel": "Cancel",
+        "failed": "The layout could not be created. Please try again."
+      },
+      "duplicate": {
+        "button": "Duplicate",
+        "title": "Duplicate “{name}”",
+        "description": "The copy keeps the arrangement and the screen size. It is not assigned to any screen.",
+        "name": "Name",
+        "defaultName": "{name} (copy)",
+        "create": "Duplicate",
+        "cancel": "Cancel",
+        "done": "“{name}” created",
+        "failed": "The layout could not be duplicated. Please try again."
+      },
+      "delete": {
+        "button": "Delete",
+        "title": "Delete “{name}”?",
+        "description": "The layout is deleted for good.",
+        "devicesBuiltIn": "{names} will show the built-in screensaver again.",
+        "devicesDefault": "{names} will use the default “{layout}” instead.",
+        "default": "It is the {orientation, select, portrait {portrait} other {landscape}} default; wall screens without a layout of their own will show the built-in screensaver again.",
+        "confirm": "Delete",
+        "cancel": "Cancel",
+        "done": "“{name}” deleted",
+        "failed": "The layout could not be deleted. Please try again."
+      },
+      "defaults": {
+        "title": "Default layouts",
+        "description": "Wall screens (kiosk devices) without a layout of their own use these, depending on how they are turned. Other screens keep the built-in screensaver.",
+        "portrait": "Portrait default",
+        "landscape": "Landscape default",
+        "builtIn": "Built-in",
+        "failed": "The default could not be saved. Please try again."
+      },
       "editor": {
         "title": "Layout",
         "subtitle": "Screensaver · drawn for {width}×{height}",
@@ -3338,6 +3409,8 @@
       "navigation": "navigation, menu, tabs, bottom bar, order, reorder, hide",
       "theme": "design, theme, colours, colors, dark mode, light mode, clock, appearance, look",
       "screensaver": "screensaver, idle, timeout, sleep, presence, motion sensor, slideshow",
+      "layouts": "layout, designer, arrangement, widgets, screensaver, wall screen, kiosk, portrait, landscape",
+      "layouts_defaults": "default, fallback, portrait, landscape, kiosk, wall screen",
       "weather": "weather, forecast, location, city, temperature",
       "notifications": "notifications, push, alerts, reminders, quiet hours",
       "language": "language, English, German, French, translation, region",

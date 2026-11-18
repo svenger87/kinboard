@@ -18,6 +18,7 @@ import {
   KeyRound,
   Languages,
   LayoutGrid,
+  LayoutTemplate,
   Lightbulb,
   LineChart,
   ListOrdered,
@@ -127,6 +128,7 @@ const hints = page({ id: "hints", href: "/settings/hints", section: "sectionDisp
 const navigation = page({ id: "navigation", href: "/settings/navigation", section: "sectionDisplay", labelKey: "settings.itemNavigationLabel", descriptionKey: "settings.itemNavigationDescription", icon: ListOrdered, menu: true });
 const theme = page({ id: "theme", href: "/settings/theme", section: "sectionDisplay", labelKey: "settings.itemThemeLabel", descriptionKey: "settings.itemThemeDescription", icon: Palette, menu: true });
 const screensaver = page({ id: "screensaver", href: "/settings/screensaver", section: "sectionDisplay", labelKey: "settings.itemScreensaverLabel", descriptionKey: "settings.itemScreensaverDescription", icon: Monitor, menu: true });
+const layouts = page({ id: "layouts", href: "/settings/layouts", section: "sectionDisplay", labelKey: "settings.itemLayoutsLabel", descriptionKey: "settings.itemLayoutsDescription", icon: LayoutTemplate, menu: true });
 const weather = page({ id: "weather", href: "/settings/weather", section: "sectionDisplay", labelKey: "settings.itemWeatherLabel", descriptionKey: "settings.itemWeatherDescription", icon: Cloud, menu: true });
 const notifications = page({ id: "notifications", href: "/settings/notifications", section: "sectionDisplay", labelKey: "settings.itemNotificationsLabel", descriptionKey: "settings.itemNotificationsDescription", icon: Bell, menu: true });
 const language = page({ id: "language", href: "/settings/language", section: "sectionDisplay", labelKey: "settings.itemLanguageLabel", descriptionKey: "settings.itemLanguageDescription", icon: Languages, menu: true });
@@ -172,6 +174,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   navigation,
   theme,
   screensaver,
+  layouts,
   weather,
   notifications,
   language,
@@ -238,6 +241,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     { anchor: "animations", labelKey: "settings.theme.motionLabel", descriptionKey: "settings.theme.motionHint" },
     { anchor: "festivals", labelKey: "settings.theme.festivalsLabel", descriptionKey: "settings.theme.festivalsHint" },
   ]),
+  ...sectionsOf(layouts, [{ anchor: "defaults", labelKey: "settings.layouts.defaults.title", descriptionKey: "settings.layouts.defaults.description" }]),
   ...sectionsOf(screensaver, [
     { anchor: "lists", labelKey: "settings.screensaver.eventCountLabel", descriptionKey: "settings.screensaver.eventCountDescription" },
     { anchor: "forecast", labelKey: "settings.screensaver.showForecastLabel", descriptionKey: "settings.screensaver.showForecastDescription" },

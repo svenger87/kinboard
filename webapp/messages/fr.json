@@ -1098,6 +1098,8 @@
     "itemThemeDescription": "Couleurs et affichage de l'horloge",
     "itemScreensaverLabel": "Économiseur d'écran",
     "itemScreensaverDescription": "Délai d'inactivité et capteur de présence",
+    "itemLayoutsLabel": "Dispositions",
+    "itemLayoutsDescription": "Concevoir l’économiseur pour chaque écran",
     "itemWeatherLabel": "Météo",
     "itemWeatherDescription": "Emplacement pour les données météo",
     "itemNotificationsLabel": "Notifications",
@@ -1494,7 +1496,12 @@
       "seconds30": "30 secondes",
       "seconds60": "1 minute",
       "seconds120": "2 minutes",
-      "seconds300": "5 minutes"
+      "seconds300": "5 minutes",
+      "layoutNote": {
+        "assigned": "{names} {count, plural, one {utilise} other {utilisent}} la disposition conçue « {layout} ».",
+        "default": "« {layout} » est la disposition par défaut en {orientation, select, portrait {portrait} other {paysage}} des écrans muraux sans disposition propre.",
+        "change": "Modifiez-la sous <link>Paramètres → Dispositions</link>. Les réglages ci-dessous s’appliquent aux écrans sans disposition."
+      }
     },
     "weather": {
       "title": "Météo",
@@ -1721,7 +1728,15 @@
       "belongsToNobody": "La famille",
       "belongsToHint": "L'appareil d'un enfant s'ouvre sur sa créature et ses récompenses. Un kiosque s'ouvre toujours sur le tableau de bord.",
       "belongsToKioskNote": "Kiosque : s'ouvre sur le tableau de bord",
-      "belongsToFailed": "Impossible d'enregistrer à qui appartient l'appareil"
+      "belongsToFailed": "Impossible d'enregistrer à qui appartient l'appareil",
+      "layoutLabel": "Disposition",
+      "layoutAria": "Disposition de {name}",
+      "layoutBuiltIn": "Intégrée",
+      "layoutAspect": "Conçue pour {layoutWidth}×{layoutHeight} — cet écran fait {width}×{height}",
+      "layoutDropped": "Non affiché sur cet écran : {names}",
+      "layoutUsesDefault": "Utilise la disposition par défaut « {name} »",
+      "layoutNoDefaults": "Pas un écran mural : les dispositions par défaut ne s’y appliquent pas.",
+      "layoutFailed": "La disposition n’a pas pu être modifiée."
     },
     "cameras": {
       "title": "Caméras",
@@ -3202,6 +3217,62 @@
       "bedtimeReset": "Revenir à {sleep}–{wake}"
     },
     "layouts": {
+      "title": "Dispositions",
+      "subtitle": "Concevez l’économiseur d’écran de vos écrans muraux",
+      "loadFailed": "Les dispositions n’ont pas pu être chargées.",
+      "retry": "Réessayer",
+      "empty": "Aucune disposition pour l’instant. Créez-en une pour agencer vous-même l’économiseur d’un écran mural.",
+      "shape": "{width}×{height} · {orientation, select, portrait {portrait} other {paysage}}",
+      "usedByNone": "Utilisée par aucun écran",
+      "usedBy": "Utilisée par {names}",
+      "badgePortrait": "Par défaut en portrait",
+      "badgeLandscape": "Par défaut en paysage",
+      "edit": "Modifier",
+      "editAria": "Modifier {name}",
+      "duplicateAria": "Dupliquer {name}",
+      "deleteAria": "Supprimer {name}",
+      "new": {
+        "button": "Nouvelle disposition",
+        "title": "Nouvelle disposition",
+        "description": "Elle part de l’agencement intégré de l’économiseur pour la taille choisie ; vous la réorganisez ensuite dans l’éditeur.",
+        "name": "Nom",
+        "namePlaceholder": "p. ex. Cuisine portrait",
+        "screenHint": "La taille pour laquelle la disposition est conçue. Les écrans d’une autre taille la reçoivent mise à l’échelle.",
+        "create": "Créer et modifier",
+        "cancel": "Annuler",
+        "failed": "La disposition n’a pas pu être créée. Veuillez réessayer."
+      },
+      "duplicate": {
+        "button": "Dupliquer",
+        "title": "Dupliquer « {name} »",
+        "description": "La copie garde l’agencement et la taille d’écran. Elle n’est attribuée à aucun écran.",
+        "name": "Nom",
+        "defaultName": "{name} (copie)",
+        "create": "Dupliquer",
+        "cancel": "Annuler",
+        "done": "« {name} » créée",
+        "failed": "La disposition n’a pas pu être dupliquée. Veuillez réessayer."
+      },
+      "delete": {
+        "button": "Supprimer",
+        "title": "Supprimer « {name} » ?",
+        "description": "La disposition est supprimée définitivement.",
+        "devicesBuiltIn": "{names} {count, plural, one {affichera} other {afficheront}} de nouveau l’économiseur intégré.",
+        "devicesDefault": "{names} {count, plural, one {utilisera} other {utiliseront}} la disposition par défaut « {layout} ».",
+        "default": "C’est la disposition par défaut en {orientation, select, portrait {portrait} other {paysage}} ; les écrans muraux sans disposition propre afficheront de nouveau l’économiseur intégré.",
+        "confirm": "Supprimer",
+        "cancel": "Annuler",
+        "done": "« {name} » supprimée",
+        "failed": "La disposition n’a pas pu être supprimée. Veuillez réessayer."
+      },
+      "defaults": {
+        "title": "Dispositions par défaut",
+        "description": "Les écrans muraux (appareils en mode kiosque) sans disposition propre utilisent celles-ci, selon leur orientation. Les autres écrans gardent l’économiseur intégré.",
+        "portrait": "Par défaut en portrait",
+        "landscape": "Par défaut en paysage",
+        "builtIn": "Intégrée",
+        "failed": "La disposition par défaut n’a pas pu être enregistrée. Veuillez réessayer."
+      },
       "editor": {
         "title": "Disposition",
         "subtitle": "Économiseur d’écran · conçu pour {width}×{height}",
@@ -3338,6 +3409,8 @@
       "navigation": "navigation, menu, onglets, barre, ordre, réorganiser, masquer",
       "theme": "design, thème, couleurs, mode sombre, mode clair, horloge, apparence",
       "screensaver": "économiseur d'écran, veille, délai, présence, capteur de mouvement, diaporama",
+      "layouts": "disposition, mise en page, agencement, conception, widgets, économiseur d’écran, écran mural, kiosque, portrait, paysage, layout",
+      "layouts_defaults": "par défaut, repli, portrait, paysage, kiosque, écran mural",
       "weather": "météo, prévisions, emplacement, ville, température",
       "notifications": "notifications, push, alertes, rappels, heures calmes",
       "language": "langue, anglais, allemand, français, traduction, région",

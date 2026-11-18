@@ -65,3 +65,14 @@ export function textPx(size: TextSize, width: number, height: number): number {
 export function orientationOf(width: number, height: number): "portrait" | "landscape" {
   return height > width ? "portrait" : "landscape";
 }
+
+/**
+ * Whether a screen's shape is far from a layout's: their aspect ratios differ
+ * by more than 10% (the larger over the smaller). A screen drawing such a
+ * layout gets it rescaled, and the settings say so.
+ */
+export function aspectDiffers(a: { width: number; height: number }, b: { width: number; height: number }): boolean {
+  const ra = a.width / a.height;
+  const rb = b.width / b.height;
+  return Math.max(ra, rb) / Math.min(ra, rb) > 1.1;
+}

@@ -158,6 +158,8 @@ test.describe("the settings menu comes from the registry", () => {
         "/settings/navigation",
         "/settings/theme",
         "/settings/screensaver",
+        // The layout designer: next to the screensaver it designs.
+        "/settings/layouts",
         "/settings/weather",
         "/settings/notifications",
         "/settings/language",

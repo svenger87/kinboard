@@ -4,7 +4,7 @@ import { useFamilyStore } from "@/stores/family-store";
 import { isPinRequired, relockSettings } from "@/lib/pin-session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import type { Layout, LayoutDefaults, LayoutItem } from "@/lib/layouts/types";
-import { useSetting } from "./use-supabase-queries";
+import { queryKeys, useSetting } from "./use-supabase-queries";
 
 const NO_DEFAULTS: LayoutDefaults = { portrait: null, landscape: null };
 
@@ -98,6 +98,7 @@ function useAfterWrite(also: string[] = []) {
   return () => {
     qc.invalidateQueries({ queryKey: ["layouts", familyId] });
     if (also.includes("settings")) qc.invalidateQueries({ queryKey: ["settings", familyId] });
+    if (also.includes("devices")) qc.invalidateQueries({ queryKey: queryKeys.devices(familyId) });
   };
 }
 
@@ -126,8 +127,8 @@ export function useCreateLayout() {
 }
 
 export function useDeleteLayout() {
-  // A deleted layout may have been a default, which the route clears.
-  const onSuccess = useAfterWrite(["settings"]);
+  // A deleted layout may have been a default, which the route clears, and its screens go back to built-in.
+  const onSuccess = useAfterWrite(["settings", "devices"]);
   return useMutation({
     mutationFn: (id: string) => request<void>(`/api/layouts/${id}`, "DELETE"),
     onSuccess,
@@ -145,7 +146,7 @@ export function useDuplicateLayout() {
 
 /** Give a device a layout, or null to clear it. */
 export function useAssignLayout() {
-  const onSuccess = useAfterWrite();
+  const onSuccess = useAfterWrite(["devices"]);
   return useMutation({
     mutationFn: ({ deviceId, layoutId }: { deviceId: string; layoutId: string | null }) =>
       request<unknown>(`/api/devices/${deviceId}/layout`, "PUT", { layout_id: layoutId }),

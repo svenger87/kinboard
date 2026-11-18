@@ -1098,6 +1098,8 @@
     "itemThemeDescription": "Farben und Uhr-Anzeige",
     "itemScreensaverLabel": "Bildschirmschoner",
     "itemScreensaverDescription": "Timeout und Präsenzsensor",
+    "itemLayoutsLabel": "Layouts",
+    "itemLayoutsDescription": "Bildschirmschoner je Bildschirm gestalten",
     "itemWeatherLabel": "Wetter",
     "itemWeatherDescription": "Standort für Wetterdaten",
     "itemNotificationsLabel": "Benachrichtigungen",
@@ -1494,7 +1496,12 @@
       "seconds30": "30 Sekunden",
       "seconds60": "1 Minute",
       "seconds120": "2 Minuten",
-      "seconds300": "5 Minuten"
+      "seconds300": "5 Minuten",
+      "layoutNote": {
+        "assigned": "{count, plural, one {{names} nutzt} other {{names} nutzen}} das gestaltete Layout „{layout}“.",
+        "default": "„{layout}“ ist das Standard-Layout für Wandbildschirme ohne eigenes Layout ({orientation, select, portrait {hochkant} other {quer}}).",
+        "change": "Ändern kannst du das unter <link>Einstellungen → Layouts</link>. Die Einstellungen hier gelten für Bildschirme ohne Layout."
+      }
     },
     "weather": {
       "title": "Wetter",
@@ -1721,7 +1728,15 @@
       "belongsToNobody": "Der Familie",
       "belongsToHint": "Das eigene Gerät eines Kindes öffnet sich bei seiner Kreatur und seinen Belohnungen. Kiosk-Geräte öffnen immer das Dashboard.",
       "belongsToKioskNote": "Kiosk: öffnet das Dashboard",
-      "belongsToFailed": "Konnte nicht speichern, wem das Gerät gehört"
+      "belongsToFailed": "Konnte nicht speichern, wem das Gerät gehört",
+      "layoutLabel": "Layout",
+      "layoutAria": "Layout für {name}",
+      "layoutBuiltIn": "Eingebaut",
+      "layoutAspect": "Gestaltet für {layoutWidth}×{layoutHeight} – dieser Bildschirm hat {width}×{height}",
+      "layoutDropped": "Auf diesem Bildschirm nicht zu sehen: {names}",
+      "layoutUsesDefault": "Nutzt das Standard-Layout „{name}“",
+      "layoutNoDefaults": "Kein Wandbildschirm: Die Standard-Layouts gelten hier nicht.",
+      "layoutFailed": "Das Layout konnte nicht geändert werden."
     },
     "cameras": {
       "title": "Kameras",
@@ -3202,6 +3217,62 @@
       "bedtimeReset": "Zurück auf {sleep}–{wake}"
     },
     "layouts": {
+      "title": "Layouts",
+      "subtitle": "Gestalte den Bildschirmschoner deiner Wandbildschirme",
+      "loadFailed": "Die Layouts konnten nicht geladen werden.",
+      "retry": "Erneut versuchen",
+      "empty": "Noch keine Layouts. Lege eines an, um den Bildschirmschoner eines Wandbildschirms selbst anzuordnen.",
+      "shape": "{width}×{height} · {orientation, select, portrait {hochkant} other {quer}}",
+      "usedByNone": "Auf keinem Bildschirm in Gebrauch",
+      "usedBy": "Genutzt von {names}",
+      "badgePortrait": "Standard hochkant",
+      "badgeLandscape": "Standard quer",
+      "edit": "Bearbeiten",
+      "editAria": "{name} bearbeiten",
+      "duplicateAria": "{name} duplizieren",
+      "deleteAria": "{name} löschen",
+      "new": {
+        "button": "Neues Layout",
+        "title": "Neues Layout",
+        "description": "Es beginnt mit der eingebauten Anordnung des Bildschirmschoners für die gewählte Größe; im Editor ordnest du es dann um.",
+        "name": "Name",
+        "namePlaceholder": "z. B. Küche hochkant",
+        "screenHint": "Die Größe, für die das Layout gestaltet wird. Bildschirme anderer Größe bekommen es skaliert.",
+        "create": "Anlegen und bearbeiten",
+        "cancel": "Abbrechen",
+        "failed": "Das Layout konnte nicht angelegt werden. Bitte versuche es noch einmal."
+      },
+      "duplicate": {
+        "button": "Duplizieren",
+        "title": "„{name}“ duplizieren",
+        "description": "Die Kopie behält Anordnung und Bildschirmgröße. Sie ist noch keinem Bildschirm zugewiesen.",
+        "name": "Name",
+        "defaultName": "{name} (Kopie)",
+        "create": "Duplizieren",
+        "cancel": "Abbrechen",
+        "done": "„{name}“ angelegt",
+        "failed": "Das Layout konnte nicht dupliziert werden. Bitte versuche es noch einmal."
+      },
+      "delete": {
+        "button": "Löschen",
+        "title": "„{name}“ löschen?",
+        "description": "Das Layout wird endgültig gelöscht.",
+        "devicesBuiltIn": "{count, plural, one {{names} zeigt} other {{names} zeigen}} dann wieder den eingebauten Bildschirmschoner.",
+        "devicesDefault": "{count, plural, one {{names} nutzt} other {{names} nutzen}} dann das Standard-Layout „{layout}“.",
+        "default": "Es ist das Standard-Layout für {orientation, select, portrait {hochkant} other {quer}}; Wandbildschirme ohne eigenes Layout zeigen dann wieder den eingebauten Bildschirmschoner.",
+        "confirm": "Löschen",
+        "cancel": "Abbrechen",
+        "done": "„{name}“ gelöscht",
+        "failed": "Das Layout konnte nicht gelöscht werden. Bitte versuche es noch einmal."
+      },
+      "defaults": {
+        "title": "Standard-Layouts",
+        "description": "Wandbildschirme (Kiosk-Geräte) ohne eigenes Layout nutzen diese – je nachdem, wie sie gedreht sind. Andere Bildschirme behalten den eingebauten Bildschirmschoner.",
+        "portrait": "Standard hochkant",
+        "landscape": "Standard quer",
+        "builtIn": "Eingebaut",
+        "failed": "Das Standard-Layout konnte nicht gespeichert werden. Bitte versuche es noch einmal."
+      },
       "editor": {
         "title": "Layout",
         "subtitle": "Bildschirmschoner · gestaltet für {width}×{height}",
@@ -3338,6 +3409,8 @@
       "navigation": "Navigation, Menü, Leiste, Reihenfolge, sortieren, ausblenden",
       "theme": "Design, Farben, Thema, Dunkelmodus, Hell, Dunkel, Uhr, Aussehen",
       "screensaver": "Bildschirmschoner, Ruhezustand, Timeout, Präsenz, Bewegungsmelder, Diashow, Standby",
+      "layouts": "Layout, Gestaltung, Anordnung, Designer, Widgets, Bildschirmschoner, Wandbildschirm, Kiosk, hochkant, quer",
+      "layouts_defaults": "Standard, Vorgabe, hochkant, quer, Kiosk, Wandbildschirm",
       "weather": "Wetter, Vorhersage, Standort, Ort, Stadt, Temperatur",
       "notifications": "Benachrichtigungen, Mitteilungen, Push, Erinnerungen, Ruhezeiten",
       "language": "Sprache, Englisch, Deutsch, Französisch, Übersetzung, Region",
