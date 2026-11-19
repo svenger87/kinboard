@@ -32,7 +32,7 @@ The editor shows the screen at its true proportions, scaled to fit, with the rea
 - **Move** a widget by dragging it; it snaps to the grid (and to other boxes, see Tools). A widget cannot be dropped on top of another.
 - **Resize** it by dragging its corner. Each widget has a minimum size (the inspector shows it); it will not go smaller.
 - **Palette** (left) — the widgets not yet on the screen: clock, date, next event, weather now, forecast, events, birthdays, holidays, news, lessons, energy, Tesla and the photo count. Click one to add it in the first free space; each widget appears once.
-- **Inspector** (right) — the selected widget's size, its **text size** (Small, Medium, Large, Extra large) and **Remove**.
+- **Inspector** (right) — the selected widget's position and size (X, Y, W, H, in steps; the minimum size is shown), its **text size** (Small, Medium, Large, Extra large) and **Remove**.
 - **Undo / Redo** — every change in this session, also with Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y).
 - **Keyboard** — see the table under Tools; Delete removes the selection, Escape deselects.
 - **Reset** puts the built-in arrangement back (undoable until you leave the page); **Save** writes the layout, and the screens using it update within a second or two.
@@ -57,7 +57,7 @@ Unsaved changes survive the settings PIN locking in the middle of an edit. If so
 | Escape | Deselect |
 | Ctrl+Z / Ctrl+Shift+Z | Undo / redo |
 
-If the editor was open before an update, Save says "Kinboard was updated" and asks you to reload the page, since the old editor can't write into the new grid.
+After an update to Kinboard, reload screens and editors that were open: an editor still running the old version can't save (it shows an error) and changes not saved before the update are lost. If Kinboard itself detects that the page is out of date, it says so ("Kinboard was updated…") and offers to reload.
 
 ### How widgets fill their box
 

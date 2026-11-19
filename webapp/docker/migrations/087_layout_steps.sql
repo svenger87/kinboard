@@ -18,6 +18,10 @@
 -- grid_changed, because its bundle sends no grid). The UPDATE still fires the
 -- kinboard_change_feed trigger (086_layouts.sql), so screens refetch.
 --
+-- After the upgrade, reload pages still running the previous build (kiosks,
+-- open editors): the change feed makes them refetch the converted rows at
+-- once, and the old client draws those 4x too large.
+--
 -- Idempotent: ADD COLUMN IF NOT EXISTS, the conversion only touches
 -- grid = 12, and setting the default again is a no-op.
 
@@ -37,9 +41,10 @@ COMMENT ON COLUMN public.layouts.grid IS
 
 NOTIFY pgrst, 'reload schema';
 
--- Going back (manual, not run by the app): an image from before this change
--- reads 48-step items as out of bounds and shows the built-in screensaver, so
--- it is safe without this, but the layouts come back only after:
+-- Going back (manual, not run by the app): run this down-SQL first. Without
+-- it an image from before this change draws the converted layouts wrongly
+-- (4x too large or misplaced): only the server's validation on save rejects
+-- 48-step items, the old client does not.
 --
 --   UPDATE public.layouts SET
 --     screensaver = (SELECT coalesce(jsonb_agg(i || jsonb_build_object('x',round((i->>'x')::numeric/4)::int,'y',round((i->>'y')::numeric/4)::int,'w',greatest(1,round((i->>'w')::numeric/4)::int),'h',greatest(1,round((i->>'h')::numeric/4)::int))), '[]'::jsonb) FROM jsonb_array_elements(screensaver) i),
