@@ -109,8 +109,9 @@ test("create from builtin: 201 with the built-in screensaver", async () => {
   expect((await bad.json()).error).toBe("bad_name");
   const size = await api.post("/api/layouts", { data: { name: "ok", width: 10, height: 1920 } });
   expect((await size.json()).error).toBe("bad_size");
-  // In range, but fewer than 6 grid rows: no screensaver could ever fit.
-  const flat = await api.post("/api/layouts", { data: { name: "ok", width: 1920, height: 600, from: "builtin" } });
+  // In range, but too flat for six rows of the smallest cell (20px): no screensaver could ever fit.
+  // (1920x600 is fine since wide screens shrink their cells: six rows of 64px.)
+  const flat = await api.post("/api/layouts", { data: { name: "ok", width: 1920, height: 300, from: "builtin" } });
   expect(flat.status()).toBe(400);
   expect((await flat.json()).error).toBe("bad_size");
 });
