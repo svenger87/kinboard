@@ -3369,7 +3369,8 @@
             "XL": "Sehr groß"
           },
           "remove": "Entfernen",
-          "keys": "Pfeiltasten verschieben das ausgewählte Widget, Entf entfernt es, Strg+Z macht rückgängig."
+          "keys": "Pfeiltasten verschieben das ausgewählte Widget, Entf entfernt es, Strg+Z macht rückgängig.",
+          "fillsBox": "Füllt sein Feld: S macht es kleiner, für größer das Feld größer ziehen."
         },
         "widgets": {
           "clock": "Uhr",

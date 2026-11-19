@@ -3369,7 +3369,8 @@
             "XL": "Très grande"
           },
           "remove": "Retirer",
-          "keys": "Les flèches déplacent le widget sélectionné, Suppr le retire, Ctrl+Z annule."
+          "keys": "Les flèches déplacent le widget sélectionné, Suppr le retire, Ctrl+Z annule.",
+          "fillsBox": "Remplit sa case : S l’affiche plus petit ; pour plus grand, agrandissez la case."
         },
         "widgets": {
           "clock": "Horloge",

@@ -242,6 +242,28 @@ test("undo puts a moved widget back, redo moves it again; arrows move by a cell"
   await page.context().close();
 });
 
+test("a value widget's text size: S draws the clock smaller in its box, L and XL are off since M already fills it", async ({ browser }) => {
+  const page = await openEditor(browser);
+  const clock = page.locator("[data-editor-item=clock]");
+  const digits = clock.locator(".clock-display").first();
+  const px = () => digits.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  await clock.click();
+  await expect(page.getByTestId("inspector-fills-box")).toBeVisible();
+  await expect(page.getByTestId("text-size-L")).toBeDisabled();
+  await expect(page.getByTestId("text-size-XL")).toBeDisabled();
+  await expect.poll(px).toBeGreaterThan(0);
+  const full = await px();
+  await page.getByTestId("text-size-S").click();
+  await expect(clock).toHaveAttribute("data-text", "S");
+  await expect.poll(async () => (await px()) / full).toBeLessThan(0.85);
+  expect((await px()) / full).toBeGreaterThan(0.7);
+  // A list widget keeps all four.
+  await page.locator("[data-editor-item=news]").click();
+  await expect(page.getByTestId("text-size-XL")).toBeEnabled();
+  await expect(page.getByTestId("inspector-fills-box")).toHaveCount(0);
+  await page.context().close();
+});
+
 test("removing a widget returns it to the palette, adding places it on free cells", async ({ browser }) => {
   const page = await openEditor(browser);
   await page.locator("[data-editor-item=news]").click();

@@ -3369,7 +3369,8 @@
             "XL": "Extra large"
           },
           "remove": "Remove",
-          "keys": "Arrow keys move the selected widget, Delete removes it, Ctrl+Z undoes."
+          "keys": "Arrow keys move the selected widget, Delete removes it, Ctrl+Z undoes.",
+          "fillsBox": "Fills its box: S draws it smaller; for larger, make the box bigger."
         },
         "widgets": {
           "clock": "Clock",
