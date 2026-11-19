@@ -3370,8 +3370,23 @@
         },
         "inspector": {
           "empty": "Select a widget on the screen to change it.",
-          "size": "{w}×{h} cells",
-          "min": "at least {w}×{h}",
+          "box": {
+            "title": "Position and size in steps",
+            "x": "X",
+            "y": "Y",
+            "w": "W",
+            "h": "H",
+            "xName": "Distance from the left edge, in steps",
+            "yName": "Distance from the top edge, in steps",
+            "wName": "Width in steps",
+            "hName": "Height in steps",
+            "refused": {
+              "out_of_bounds": "Not applied: the widget would leave the screen, or the value is not a whole number.",
+              "below_minimum": "Not applied: the widget would be smaller than its minimum.",
+              "overlap": "Not applied: the widget would overlap another."
+            }
+          },
+          "min": "At least {w}×{h} steps; a step is a quarter of a cell.",
           "textSize": "Text size",
           "textSizes": {
             "S": "Small",

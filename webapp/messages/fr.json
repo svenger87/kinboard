@@ -3370,8 +3370,23 @@
         },
         "inspector": {
           "empty": "Sélectionnez un widget sur l’écran pour le modifier.",
-          "size": "{w}×{h} cases",
-          "min": "au moins {w}×{h}",
+          "box": {
+            "title": "Position et taille en pas",
+            "x": "X",
+            "y": "Y",
+            "w": "L",
+            "h": "H",
+            "xName": "Distance depuis le bord gauche, en pas",
+            "yName": "Distance depuis le bord supérieur, en pas",
+            "wName": "Largeur en pas",
+            "hName": "Hauteur en pas",
+            "refused": {
+              "out_of_bounds": "Non appliqué : le widget sortirait de l’écran, ou la valeur n’est pas un nombre entier.",
+              "below_minimum": "Non appliqué : le widget serait plus petit que son minimum.",
+              "overlap": "Non appliqué : le widget en chevaucherait un autre."
+            }
+          },
+          "min": "Au moins {w}×{h} pas ; un pas vaut un quart de cellule.",
           "textSize": "Taille du texte",
           "textSizes": {
             "S": "Petite",

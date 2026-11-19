@@ -3370,8 +3370,23 @@
         },
         "inspector": {
           "empty": "Wähle ein Widget auf dem Bildschirm aus, um es zu ändern.",
-          "size": "{w}×{h} Felder",
-          "min": "mindestens {w}×{h}",
+          "box": {
+            "title": "Position und Größe in Schritten",
+            "x": "X",
+            "y": "Y",
+            "w": "B",
+            "h": "H",
+            "xName": "Abstand vom linken Rand, in Schritten",
+            "yName": "Abstand vom oberen Rand, in Schritten",
+            "wName": "Breite in Schritten",
+            "hName": "Höhe in Schritten",
+            "refused": {
+              "out_of_bounds": "Nicht übernommen: Das Widget würde über den Bildschirm hinausragen, oder der Wert ist keine ganze Zahl.",
+              "below_minimum": "Nicht übernommen: Das Widget wäre kleiner als seine Mindestgröße.",
+              "overlap": "Nicht übernommen: Das Widget würde ein anderes überdecken."
+            }
+          },
+          "min": "Mindestens {w}×{h} Schritte; ein Schritt ist eine Viertelzelle.",
           "textSize": "Textgröße",
           "textSizes": {
             "S": "Klein",

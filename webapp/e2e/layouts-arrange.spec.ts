@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { alignItems, checkItems, distribute, matchSize, moveBy, resizeBy } from "../src/lib/layouts/arrange";
+import { alignItems, checkItems, distribute, matchSize, moveBy, resizeBy, setBox } from "../src/lib/layouts/arrange";
 import type { LayoutItem } from "../src/lib/layouts/types";
 
 /**
@@ -153,4 +153,31 @@ test("matchSize below a box's minimum is refused", () => {
   // The clock's minimum width is 16 steps; the weather box is 8 wide.
   const items = [wx("w", 0, 0), box("clock", 20, 0, 16, 8)];
   expect(matchSize(items, ["w", "clock"], "w", ROWS)).toEqual({ ok: false, reason: "below_minimum" });
+});
+
+test("setBox puts one box at the position and size typed into the inspector", () => {
+  const items = [box("clock", 0, 0, 16, 8), box("date", 0, 8, 12, 4)];
+  const r = setBox(items, "clock", { x: 20, y: 2, w: 20, h: 10 }, ROWS);
+  expect(r.ok).toBe(true);
+  expect(at(r, "clock")).toMatchObject({ x: 20, y: 2, w: 20, h: 10, text: "M" });
+  expect(at(r, "date")).toEqual(items[1]);
+  // The input is left as it was.
+  expect(items[0]).toMatchObject({ x: 0, y: 0, w: 16, h: 8 });
+});
+
+test("setBox onto another box is an overlap, below the minimum is below_minimum, past an edge out_of_bounds", () => {
+  const items = [box("clock", 0, 0, 16, 8), box("date", 0, 8, 12, 4)];
+  expect(setBox(items, "clock", { x: 0, y: 4, w: 16, h: 8 }, ROWS)).toEqual({ ok: false, reason: "overlap" });
+  // The clock's minimum width is 16 steps.
+  expect(setBox(items, "clock", { x: 0, y: 0, w: 15, h: 8 }, ROWS)).toEqual({ ok: false, reason: "below_minimum" });
+  expect(setBox(items, "clock", { x: 40, y: 0, w: 16, h: 8 }, ROWS)).toEqual({ ok: false, reason: "out_of_bounds" });
+  expect(setBox(items, "clock", { x: 0, y: 20, w: 16, h: 8 }, ROWS)).toEqual({ ok: false, reason: "out_of_bounds" });
+});
+
+test("setBox refuses a value that is not a whole number of steps as out_of_bounds", () => {
+  const items = [box("clock", 0, 0, 16, 8)];
+  expect(setBox(items, "clock", { x: 1.5, y: 0, w: 16, h: 8 }, ROWS)).toEqual({ ok: false, reason: "out_of_bounds" });
+  expect(setBox(items, "clock", { x: 0, y: 0, w: 16.25, h: 8 }, ROWS)).toEqual({ ok: false, reason: "out_of_bounds" });
+  expect(setBox(items, "clock", { x: Number.NaN, y: 0, w: 16, h: 8 }, ROWS)).toEqual({ ok: false, reason: "out_of_bounds" });
+  expect(setBox(items, "clock", { x: 0, y: Number.POSITIVE_INFINITY, w: 16, h: 8 }, ROWS)).toEqual({ ok: false, reason: "out_of_bounds" });
 });

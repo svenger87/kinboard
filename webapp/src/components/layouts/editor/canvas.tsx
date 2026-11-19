@@ -14,8 +14,21 @@ import { GridOverlay, type GridDisplay } from "./grid-overlay";
 const COMPACTOR = getCompactor(null, false, true);
 /** A frame smaller than this many screen pixels is a click on the empty canvas. */
 const FRAME_MIN_PX = 4;
-/** The resize corner's size on screen, whatever the canvas scale. */
+/**
+ * The resize corner's size on screen, whatever the canvas scale: at most
+ * HANDLE_PX, else a third of the box's shorter side as drawn, so a small box
+ * keeps a middle to grab and move it by; not under HANDLE_MIN_PX, to stay
+ * something a pointer can hit, but never over 40% of that side, which would
+ * reach the middle (a 4x4 box draws 16px on a laptop-sized canvas).
+ */
 const HANDLE_PX = 22;
+const HANDLE_MIN_PX = 6;
+
+/** The resize corner of a box drawn `width` x `height` screen pixels, in screen pixels. */
+function handlePx(width: number, height: number): number {
+  const side = Math.min(width, height);
+  return Math.min(HANDLE_PX, Math.max(HANDLE_MIN_PX, side / 3), side * 0.4);
+}
 /** Room kept under the canvas, above the navigation bar, so it fits the window without scrolling. */
 const BOTTOM_ROOM = 16;
 /**
@@ -205,7 +218,8 @@ export function EditorCanvas({
     window.addEventListener("blur", stop);
   };
 
-  const handleSize = HANDLE_PX / (scale || 1);
+  // Each item sets --kb-handle (its corner's size, in the screen's own pixels); the corner reads it.
+  const zoom = scale || 1;
   const fontSize = (i: LayoutItem) => textPx(i.text, grid.width, grid.height);
 
   return (
@@ -264,11 +278,11 @@ export function EditorCanvas({
                   <span
                     ref={handleRef as Ref<HTMLSpanElement>}
                     className={`react-resizable-handle react-resizable-handle-${axis} pointer-events-auto absolute cursor-se-resize`}
-                    style={{ width: handleSize, height: handleSize, right: INSET, bottom: INSET }}
+                    style={{ width: "var(--kb-handle)", height: "var(--kb-handle)", right: INSET, bottom: INSET }}
                   >
                     <span
                       className="absolute rounded-br-md border-b-white border-r-white"
-                      style={{ right: handleSize * 0.2, bottom: handleSize * 0.2, width: handleSize * 0.5, height: handleSize * 0.5, borderRightWidth: 3 / (scale || 1), borderBottomWidth: 3 / (scale || 1), borderStyle: "solid", borderLeftWidth: 0, borderTopWidth: 0 }}
+                      style={{ right: "20%", bottom: "20%", width: "50%", height: "50%", borderRightWidth: "var(--kb-handle-line)", borderBottomWidth: "var(--kb-handle-line)", borderStyle: "solid", borderLeftWidth: 0, borderTopWidth: 0 }}
                     />
                   </span>
                 ),
@@ -281,6 +295,7 @@ export function EditorCanvas({
                 const rect = boxRect(item, grid);
                 const box = { width: Math.round(rect.width), height: Math.round(rect.height) };
                 const selected = selectedIds.includes(item.id);
+                const handle = handlePx(rect.width * zoom, rect.height * zoom);
                 return (
                   <div
                     key={item.id}
@@ -296,7 +311,12 @@ export function EditorCanvas({
                       if (editable && !pointerFocus.current && !selectedIds.includes(item.id)) onSelect([item.id]);
                     }}
                     className="pointer-events-none outline-none"
-                    style={{ fontSize: fontSize(item) }}
+                    style={{
+                      fontSize: fontSize(item),
+                      ["--kb-handle" as string]: `${handle / zoom}px`,
+                      // The corner's mark: 3px on screen, thinner on a small corner.
+                      ["--kb-handle-line" as string]: `${Math.min(3, handle / 7) / zoom}px`,
+                    }}
                   >
                     {/* The box as drawn: the item less half a gap all round. Only it takes the pointer, so the gap between two boxes grabs neither. */}
                     <div

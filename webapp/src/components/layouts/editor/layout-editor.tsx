@@ -23,7 +23,7 @@ import { useLayoutHistory } from "@/hooks/use-layout-history";
 import { LayoutRequestError, useSaveLayout } from "@/hooks/use-layouts";
 import { builtInScreensaver } from "@/lib/layouts/built-in";
 import { GRID, LAYOUT_GRID, gridFor } from "@/lib/layouts/grid";
-import { alignItems, distribute, matchSize, moveBy, resizeBy, type ArrangeReason, type ArrangeResult } from "@/lib/layouts/arrange";
+import { alignItems, distribute, matchSize, moveBy, resizeBy, setBox, type ArrangeReason, type ArrangeResult, type Box } from "@/lib/layouts/arrange";
 import { rescaleItems } from "@/lib/layouts/rescale";
 import { validateItems, type LayoutError } from "@/lib/layouts/validate";
 import { SAVER_WIDGETS, knownWidgetItems } from "@/lib/layouts/widgets";
@@ -225,6 +225,15 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
     if (command.kind === "align") apply(alignItems(items, selection, command.edge, rows));
     else if (command.kind === "distribute") apply(distribute(items, selection, command.axis, rows));
     else apply(matchSize(items, selection, command.dim, rows));
+  };
+
+  /** The selected box put at the numbers typed into the inspector: one change, or the reason it was not done (shown by the fields). */
+  const placeBox = (box: Box): ArrangeReason | null => {
+    if (!ownGrid || !selected) return null;
+    const result = setBox(items, selected.id, box, ownGrid.rows);
+    if (!result.ok) return result.reason;
+    commit(result.items);
+    return null;
   };
 
   const setText = (text: TextSize) => {
@@ -464,7 +473,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
             onCommit={commit}
           />
         </ScreensaverDataProvider>
-        <EditorInspector item={selected} count={selection.length} disabled={!editable} names={names} onText={setText} onAlign={setAlign} onRemove={remove} onArrange={arrange} />
+        <EditorInspector item={selected} count={selection.length} disabled={!editable} names={names} onText={setText} onAlign={setAlign} onRemove={remove} onArrange={arrange} onBox={placeBox} />
       </div>
     </div>
   );

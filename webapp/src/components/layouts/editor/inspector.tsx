@@ -1,5 +1,6 @@
 "use client";
 
+import { useId, useState, type KeyboardEvent } from "react";
 import { useTranslations } from "next-intl";
 import {
   AlignCenterHorizontal,
@@ -17,11 +18,12 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { SAVER_WIDGETS } from "@/lib/layouts/widgets";
 import { VALUE_FILL } from "@/lib/layouts/grid";
 import { autoAlign, storedAlign, type Align } from "@/lib/layouts/align";
-import type { AlignEdge } from "@/lib/layouts/arrange";
+import type { AlignEdge, ArrangeReason, Box } from "@/lib/layouts/arrange";
 import type { LayoutItem, SaverWidgetKey, TextSize } from "@/lib/layouts/types";
 
 const TEXT_SIZES: TextSize[] = ["S", "M", "L", "XL"];
@@ -46,9 +48,107 @@ const ARRANGE: { id: string; label: string; Icon: LucideIcon; command: ArrangeCo
   { id: "same-h", label: "sameH", Icon: MoveVertical, command: { kind: "size", dim: "h" } },
 ];
 
+const FIELDS = ["x", "y", "w", "h"] as const;
+type Field = (typeof FIELDS)[number];
+
 /**
- * The selected widget: its size, its text size, and removing it. With
- * several selected, how many (`item` is null then) and the commands that
+ * The selected box's position and size as numbers, in steps. A field is
+ * applied on Enter or on leaving it; one that cannot be (off the screen,
+ * under the minimum, onto another box, not a whole number) goes back to the
+ * box's value and the reason stays under the fields until the next value
+ * that fits or the box is moved some other way. Escape puts back what the
+ * box has. Mounted per box, so another selection starts clean.
+ */
+function BoxFields({
+  item,
+  disabled,
+  onBox,
+}: {
+  item: LayoutItem;
+  disabled: boolean;
+  onBox: (box: Box) => ArrangeReason | null;
+}) {
+  const t = useTranslations("settings.layouts.editor.inspector");
+  const id = useId();
+  // What is being typed into a field, until it is applied; otherwise the field shows the box.
+  const [typed, setTyped] = useState<Partial<Record<Field, string>>>({});
+  const [refused, setRefused] = useState<{ field: Field; reason: ArrangeReason; at: string } | null>(null);
+  const errorId = `${id}-error`;
+
+  const drop = (field: Field) =>
+    setTyped((d) => {
+      const rest = { ...d };
+      delete rest[field];
+      return rest;
+    });
+  // Where the box was when a value was refused: once it is moved some other way, the reason no longer applies.
+  const at = `${item.x},${item.y},${item.w},${item.h}`;
+  const refusal = refused?.at === at ? refused : null;
+
+  const applyField = (field: Field) => {
+    const text = typed[field];
+    drop(field);
+    if (text === undefined) return;
+    // Emptied: nothing to apply, the field shows the box again.
+    if (text.trim() === "") return;
+    const value = Number(text);
+    if (value === item[field]) return;
+    const reason = onBox({ x: item.x, y: item.y, w: item.w, h: item.h, [field]: value });
+    setRefused(reason ? { field, reason, at } : null);
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>, field: Field) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      applyField(field);
+    } else if (e.key === "Escape") {
+      drop(field);
+    }
+  };
+
+  return (
+    <fieldset className="flex flex-col gap-2" disabled={disabled} data-testid="inspector-box">
+      <legend className="mb-2 text-sm font-medium">{t("box.title")}</legend>
+      <div className="grid grid-cols-4 gap-2">
+        {FIELDS.map((field) => {
+          const invalid = refusal?.field === field;
+          return (
+            <label key={field} className="flex flex-col gap-1 text-xs text-muted-foreground" title={t(`box.${field}Name`)}>
+              <span aria-hidden="true">{t(`box.${field}`)}</span>
+              <Input
+                type="number"
+                inputMode="numeric"
+                step={1}
+                min={0}
+                className="h-8 px-2 tabular-nums"
+                data-testid={`inspector-${field}`}
+                aria-label={t(`box.${field}Name`)}
+                aria-invalid={invalid || undefined}
+                aria-describedby={invalid ? errorId : undefined}
+                value={typed[field] ?? String(item[field])}
+                onChange={(e) => setTyped((d) => ({ ...d, [field]: e.target.value }))}
+                onKeyDown={(e) => onKeyDown(e, field)}
+                onBlur={() => applyField(field)}
+              />
+            </label>
+          );
+        })}
+      </div>
+      {refusal && (
+        <p id={errorId} role="alert" className="text-xs text-destructive" data-testid="inspector-box-error" data-reason={refusal.reason}>
+          {t(`box.refused.${refusal.reason}`)}
+        </p>
+      )}
+      <p className="text-xs text-muted-foreground" data-testid="inspector-min">
+        {t("min", { w: SAVER_WIDGETS[item.widget].min.w, h: SAVER_WIDGETS[item.widget].min.h })}
+      </p>
+    </fieldset>
+  );
+}
+
+/**
+ * The selected widget: its position and size as numbers, its text size,
+ * and removing it. With several selected, how many (`item` is null then) and the commands that
  * line them up: align, distribute (three or more) and same size.
  */
 export function EditorInspector({
@@ -60,6 +160,7 @@ export function EditorInspector({
   onAlign,
   onRemove,
   onArrange,
+  onBox,
 }: {
   item: LayoutItem | null;
   count: number;
@@ -69,6 +170,8 @@ export function EditorInspector({
   onAlign: (align: Align | null) => void;
   onRemove: () => void;
   onArrange: (command: ArrangeCommand) => void;
+  /** The selected box put at these numbers: null when done, else why not. */
+  onBox: (box: Box) => ArrangeReason | null;
 }) {
   const t = useTranslations("settings.layouts.editor.inspector");
   const isValue = !!item && SAVER_WIDGETS[item.widget]?.kind === "value";
@@ -112,12 +215,8 @@ export function EditorInspector({
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
         <>
-          <div>
-            <h2 className="font-display text-base font-semibold">{names[item.widget]}</h2>
-            <p className="text-xs text-muted-foreground">
-              {t("size", { w: item.w, h: item.h })} · {t("min", { w: SAVER_WIDGETS[item.widget].min.w, h: SAVER_WIDGETS[item.widget].min.h })}
-            </p>
-          </div>
+          <h2 className="font-display text-base font-semibold">{names[item.widget]}</h2>
+          <BoxFields key={item.id} item={item} disabled={disabled} onBox={onBox} />
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium" id="inspector-text-size">
               {t("textSize")}

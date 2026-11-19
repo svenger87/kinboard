@@ -111,3 +111,24 @@ export function matchSize(items: LayoutItem[], ids: string[], dim: "w" | "h", ro
   if (!ref) return { ok: true, items };
   return applyTo(items, ids, (i) => ({ ...i, [dim]: ref[dim] }), rows);
 }
+
+/** The four numbers that place a box, in steps. */
+export interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * One box put at a position and size given as numbers (the inspector's
+ * fields): refused as out of bounds unless all four are whole steps, and
+ * like any other command when it would leave the screen, go under the
+ * widget's minimum or land on another box. An id not in the items changes nothing.
+ */
+export function setBox(items: LayoutItem[], id: string, box: Box, rows: number): ArrangeResult {
+  const { x, y, w, h } = box;
+  if (![x, y, w, h].every(Number.isInteger)) return refuse("out_of_bounds");
+  if (!items.some((i) => i.id === id)) return { ok: true, items };
+  return applyTo(items, [id], (i) => ({ ...i, x, y, w, h }), rows);
+}

@@ -534,6 +534,115 @@ test("a frame is dropped when the window loses focus; pressing the resize corner
   await page.context().close();
 });
 
+test("typing 12 into X and Enter moves the box; 47 for a box 8 wide is refused, said under the fields, and the old x stays", async ({ browser }) => {
+  const page = await openEditor(browser);
+  await resetToBuiltIn(page);
+  const clock = page.locator("[data-editor-item=clock]");
+  const weather = page.locator("[data-editor-item=weatherNow]");
+  const fx = page.getByTestId("inspector-x");
+  // Several selected: no fields.
+  await clock.locator("[data-editor-box]").click();
+  await weather.locator("[data-editor-box]").click({ modifiers: ["Shift"] });
+  await expect(page.getByTestId("inspector-selection")).toBeVisible();
+  await expect(fx).toHaveCount(0);
+
+  await clock.locator("[data-editor-box]").click();
+  await expect(fx).toHaveValue("0");
+  await expect(page.getByTestId("inspector-y")).toHaveValue("72");
+  await expect(page.getByTestId("inspector-w")).toHaveValue("24");
+  await expect(page.getByTestId("inspector-h")).toHaveValue("12");
+  // The minimum is still shown, in steps.
+  await expect(page.getByTestId("inspector-min")).toContainText("16×8");
+  await fx.fill("12");
+  await fx.press("Enter");
+  await expect.poll(async () => boxOf(clock)).toEqual({ x: 12, y: 72, w: 24, h: 12 });
+  await expect(fx).toHaveValue("12");
+  // The arrow keys in a field belong to the field: the box stays.
+  await fx.press("ArrowLeft");
+  await fx.press("ArrowRight");
+  await fx.press("Shift+ArrowLeft");
+  expect(await boxOf(clock)).toEqual({ x: 12, y: 72, w: 24, h: 12 });
+  // A drag shows up in the fields.
+  await dragBy(page, clock.locator("[data-editor-box]"), 2 * (await step(page)), 0);
+  await expect.poll(async () => (await boxOf(clock)).x).toBe(14);
+  await expect(fx).toHaveValue("14");
+
+  // The weather made 8 wide (applied on leaving the field), then x 47 would leave the screen.
+  await weather.locator("[data-editor-box]").click();
+  const fw = page.getByTestId("inspector-w");
+  await expect(fx).toHaveValue("28");
+  await fw.fill("8");
+  await fx.focus();
+  await expect.poll(async () => boxOf(weather)).toEqual({ x: 28, y: 0, w: 8, h: 4 });
+  await fx.fill("47");
+  await fx.press("Enter");
+  await expect(fx).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByTestId("inspector-box-error")).toHaveAttribute("data-reason", "out_of_bounds");
+  await expect(page.getByTestId("inspector-box-error")).not.toBeEmpty();
+  await expect(fx).toHaveValue("28");
+  expect(await boxOf(weather)).toEqual({ x: 28, y: 0, w: 8, h: 4 });
+  // Below the minimum, said for that field.
+  await fw.fill("4");
+  await fw.press("Enter");
+  await expect(fw).toHaveAttribute("aria-invalid", "true");
+  await expect(fx).not.toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByTestId("inspector-box-error")).toHaveAttribute("data-reason", "below_minimum");
+  await expect(fw).toHaveValue("8");
+  // A value that fits clears the message.
+  await fx.fill("40");
+  await fx.press("Enter");
+  await expect.poll(async () => boxOf(weather)).toEqual({ x: 40, y: 0, w: 8, h: 4 });
+  await expect(page.getByTestId("inspector-box-error")).toHaveCount(0);
+  await expect(fw).not.toHaveAttribute("aria-invalid", "true");
+  // Each applied field is one change.
+  await page.getByTestId("editor-undo").click();
+  await expect.poll(async () => boxOf(weather)).toEqual({ x: 28, y: 0, w: 8, h: 4 });
+  await expect(fx).toHaveValue("28");
+  await page.getByTestId("editor-undo").click();
+  await expect.poll(async () => boxOf(weather)).toEqual({ x: 28, y: 0, w: 20, h: 4 });
+  await page.context().close();
+});
+
+test("the resize corner leaves a small box room to be grabbed: a 4x4 and a 16x8 box move when dragged by their centre", async ({ browser }) => {
+  const restore = await seedLayout([
+    { id: "clock", widget: "clock", x: 0, y: 20, w: 16, h: 8, text: "M" },
+    { id: "photoCount", widget: "photoCount", x: 24, y: 40, w: 4, h: 4, text: "M" },
+  ]);
+  try {
+    const page = await openEditor(browser);
+    const s = await step(page);
+    for (const [id, start] of [
+      ["photoCount", { x: 24, y: 40, w: 4, h: 4 }],
+      ["clock", { x: 0, y: 20, w: 16, h: 8 }],
+    ] as const) {
+      const item = page.locator(`[data-editor-item=${id}]`);
+      const drawn = (await item.locator("[data-editor-box]").boundingBox())!;
+      await item.locator("[data-editor-box]").click();
+      const handle = (await item.locator(".react-resizable-handle").boundingBox())!;
+      // A third of the shorter side, at most 22px; at least 6px but never 40% of the side, which would reach the middle.
+      const side = Math.min(drawn.width, drawn.height);
+      expect(handle.width).toBeLessThanOrEqual(Math.min(22, Math.max(6, side / 3), side * 0.4) + 0.5);
+      expect(handle.width).toBeGreaterThanOrEqual(Math.min(6, side * 0.4) - 0.5);
+      // What is under the box's middle is the box, not its corner.
+      const under = await page.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest("[data-editor-box]") && !document.elementFromPoint(x, y)?.closest(".react-resizable-handle"), { x: drawn.x + drawn.width / 2, y: drawn.y + drawn.height / 2 });
+      expect(under).toBe(true);
+      await dragBy(page, item.locator("[data-editor-box]"), 2 * s, 0);
+      await expect.poll(async () => boxOf(item)).toEqual({ ...start, x: start.x + 2 });
+    }
+    // The small box's corner still resizes it.
+    const small = page.locator("[data-editor-item=photoCount]");
+    const h = (await small.locator(".react-resizable-handle").boundingBox())!;
+    await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(h.x + h.width / 2 + 2 * s, h.y + h.height / 2, { steps: 10 });
+    await page.mouse.up();
+    await expect.poll(async () => boxOf(small)).toEqual({ x: 26, y: 40, w: 6, h: 4 });
+    await page.context().close();
+  } finally {
+    await restore();
+  }
+});
+
 test("a value widget's text size: S draws the clock smaller in its box, L and XL are off since M already fills it", async ({ browser }) => {
   const page = await openEditor(browser);
   const clock = page.locator("[data-editor-item=clock]");
