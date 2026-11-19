@@ -3352,7 +3352,8 @@
             "tooSmall": "Au moins 600 px de large et la place pour 6 rangées",
             "apply": "Utiliser cette taille",
             "cancel": "Annuler"
-          }
+          },
+          "deviceTooSmall": "{name} — {width}×{height} : trop petit pour une disposition"
         },
         "palette": {
           "title": "Widgets",

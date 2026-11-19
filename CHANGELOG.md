@@ -40,6 +40,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Layouts for wide screens and desktop browsers.** A screen wider than about 1.85:1 (a browser window on a 2560×1440 monitor draws about 2552×1274, one on a 1920×1080 monitor about 1920×960) had no room for the six rows a layout needs, so it was left out of the editor's screens without a word and always showed the built-in screensaver. Its cells now shrink until six rows fit, with the columns centred; every other screen keeps the grid it had. A screen still too small (a phone) is listed in the editor, greyed out, saying so.
+
 - **An event's location search finds nearby places first even when typed straight away.** A search typed before the family's weather location had loaded went out without it and stayed so, so places near home did not come first. It is asked again once the location is known.
 
 - **The join page no longer stretches across a landscape screen.** On a 1280px-wide screen (a 1920×1080 screen at 150%, or a tablet), the welcome ran edge to edge with only 64px of margin, and the sign-up card's buttons were 420px-wide bars. The welcome is now at most 1024px wide and centred, the card at most 24rem wide, and short landscape screens get a smaller heading.
