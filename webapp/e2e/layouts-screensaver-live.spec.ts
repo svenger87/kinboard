@@ -21,7 +21,9 @@ const SIZE = { width: 1080, height: 1920 };
 const ITEMS: LayoutItem[] = [
   { id: "clock", widget: "clock", x: 0, y: 68, w: 24, h: 12, text: "M" },
   { id: "events", widget: "events", x: 0, y: 44, w: 24, h: 20, text: "M" },
+  { id: "news", widget: "news", x: 0, y: 0, w: 24, h: 24, text: "M" },
 ];
+const NEWS_TITLE = `${P}headline`;
 
 let famId = "";
 let code = "";
@@ -167,6 +169,32 @@ test("a kiosk with a layout never draws the built-in blocks on its way to the la
   const frames = await watchActivation(page);
   expect(frames.layout, "the layout came up").toBeGreaterThan(0);
   expect(frames.builtIn, "frames that showed the built-in screensaver").toBe(0);
+  await ctx.close();
+});
+
+test("tapping a news item on a designed screensaver opens it, without waking the screen", async ({ browser }) => {
+  test.setTimeout(90_000);
+  const ctx = await screenFor(browser, apiA, deviceA);
+  await ctx.route(/\/api\/news(\?|$)/, (route) =>
+    route.fulfill({
+      json: {
+        news: [{ title: NEWS_TITLE, link: "https://example.org/news/1", pubDate: new Date().toUTCString(), description: "A probe description.", category: "Lokal", source: "e2e", sourceName: "E2E" }],
+      },
+    }),
+  );
+  const page = await open(ctx);
+  const designed = page.getByTestId("designed-screensaver");
+  await expect(designed).toBeVisible({ timeout: 45_000 });
+  // ListBox draws its rows twice (one copy hidden, to measure): the visible one is the one to tap.
+  const card = page.locator("[data-layout-item=news] button").filter({ hasText: NEWS_TITLE }).filter({ visible: true });
+  await card.first().click();
+  const dialog = page.getByRole("dialog", { name: NEWS_TITLE });
+  await expect(dialog).toBeVisible();
+  await expect(designed).toBeVisible();
+  // A tap on the modal's backdrop closes it and leaves the screensaver up.
+  await dialog.click({ position: { x: 8, y: 8 } });
+  await expect(dialog).toHaveCount(0);
+  await expect(designed).toBeVisible();
   await ctx.close();
 });
 

@@ -156,6 +156,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
     };
   }, []);
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  // A designed layout's news widget opens the same modal as the built-in news column.
+  const designedActions = useMemo(() => ({ onSelectNews: setSelectedNews }), []);
   const [readerOpen, setReaderOpen] = useState(false);
   const [modalLastInteraction, setModalLastInteraction] = useState<number>(0);
 
@@ -676,7 +678,9 @@ export function Screensaver({ photos }: ScreensaverProps) {
           </>
         )}
 
-        {designed && <DesignedScreensaver items={designed.items} grid={designed.grid} style={burnInStyle} />}
+        {designed && (
+          <DesignedScreensaver items={designed.items} grid={designed.grid} style={burnInStyle} actions={designedActions} />
+        )}
 
         {/* Photo metadata / attribution */}
         {currentPhotoMetadata?.photographer && (
