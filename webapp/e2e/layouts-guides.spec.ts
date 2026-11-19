@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { guidesFor, snapBox, snapEdge } from "../src/lib/layouts/guides";
+import { guidesFor, snapBox, snapDrop, snapEdge } from "../src/lib/layouts/guides";
 
 /**
  * The editor's guides and snapping, which need no browser: the lines (other
@@ -89,4 +89,23 @@ test("snapEdge moves only the right or the bottom edge, onto the nearest line", 
   expect(snapEdge(b(0, 12, 22, 4), [other], COLS, ROWS, "right")).toEqual(b(0, 12, 22, 4));
   // A box already over another (as a resize reports it mid-way) stays as it is.
   expect(snapEdge(b(0, 12, 23, 4), [other, b(20, 14, 4, 4)], COLS, ROWS, "right")).toEqual(b(0, 12, 23, 4));
+});
+
+test("snapDrop on a resize brings only the edges that moved: a taller box keeps its width", () => {
+  const other = b(0, 0, 20, 10);
+  const old = b(0, 12, 19, 4);
+  // Only the height changed: the right edge (19, a step off the other's right) stays.
+  expect(snapDrop(old, b(0, 12, 19, 7), [other], COLS, ROWS, "resize")).toEqual(b(0, 12, 19, 7));
+  // Only the width changed: the bottom (16, nothing in reach) stays, the right snaps from 21 to 20.
+  expect(snapDrop(old, b(0, 12, 21, 4), [other], COLS, ROWS, "resize")).toEqual(b(0, 12, 20, 4));
+  // Both changed: both edges, each to its own line (bottom 11 onto the other's bottom 10 needs a box above it).
+  expect(snapDrop(b(22, 0, 8, 4), b(22, 0, 9, 11), [other], COLS, ROWS, "resize")).toEqual(b(22, 0, 9, 10));
+});
+
+test("snapDrop on a drag that ends where it began changes nothing", () => {
+  const other = b(4, 0, 8, 4);
+  // A step off the other's left, but not moved: no snap.
+  expect(snapDrop(b(5, 10, 8, 4), b(5, 10, 8, 4), [other], COLS, ROWS, "move")).toEqual(b(5, 10, 8, 4));
+  // Moved: snapped as snapBox does.
+  expect(snapDrop(b(7, 10, 8, 4), b(5, 10, 8, 4), [other], COLS, ROWS, "move")).toEqual(b(4, 10, 8, 4));
 });

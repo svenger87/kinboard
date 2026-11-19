@@ -7,7 +7,7 @@ import "react-grid-layout/css/styles.css";
 import { GRID, boxRect, textPx, type Grid } from "@/lib/layouts/grid";
 import { SAVER_WIDGETS } from "@/lib/layouts/widgets";
 import { checkItems, type Box } from "@/lib/layouts/arrange";
-import { guidesFor, snapBox, snapEdge, type Guides } from "@/lib/layouts/guides";
+import { guidesFor, snapDrop, type Guides } from "@/lib/layouts/guides";
 import type { LayoutItem, SaverWidgetKey } from "@/lib/layouts/types";
 import { SAVER_WIDGET_COMPONENTS } from "@/components/layouts/saver-widgets";
 import { GridOverlay, type GridDisplay } from "./grid-overlay";
@@ -108,7 +108,7 @@ const intersects = (a: Rect, b: Rect) =>
  * Guides: while a box is dragged or resized, a line shows wherever its edges
  * or centre line up with another box's or the screen's centre. Dropped
  * within a step of such a line, the box is moved onto it (a resize brings
- * only the moved edge), unless that would put it on another box or off the
+ * only the edges that moved; a drag back to where it began changes nothing), unless that would put it on another box or off the
  * screen; the snap is part of the one change the drop makes. With Alt
  * (Option) held at the drop, the box stays where it was let go.
  */
@@ -206,9 +206,10 @@ export function EditorCanvas({
     onCommit(toItems(next));
   };
 
-  const dragStop: EventCallback = (next, _old, item, _placeholder, event) => drop(next, item, event, (box, others) => snapBox(box, others, grid.columns, grid.rows));
-  const resizeStop: EventCallback = (next, _old, item, _placeholder, event) =>
-    drop(next, item, event, (box, others) => snapEdge(snapEdge(box, others, grid.columns, grid.rows, "right"), others, grid.columns, grid.rows, "bottom"));
+  const dragStop: EventCallback = (next, before, item, _placeholder, event) =>
+    drop(next, item, event, (box, others) => (before ? snapDrop(boxOf(before), box, others, grid.columns, grid.rows, "move") : box));
+  const resizeStop: EventCallback = (next, before, item, _placeholder, event) =>
+    drop(next, item, event, (box, others) => (before ? snapDrop(boxOf(before), box, others, grid.columns, grid.rows, "resize") : box));
 
   // A box pressed with Shift, or while part of a selection of several: the
   // selection stays for a drag, and on a click that did not move Shift adds

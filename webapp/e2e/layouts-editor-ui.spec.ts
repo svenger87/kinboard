@@ -715,6 +715,36 @@ test("with Alt held, a box dropped a step off a guide stays a step off it; the h
   }
 });
 
+test("a box dragged and let go on the cell it started on stays there, a step off a guide, and makes no change", async ({ browser }) => {
+  // The date's left at 5, a step off the clock's left at 4.
+  const restore = await seedLayout([
+    { id: "clock", widget: "clock", x: 4, y: 20, w: 16, h: 8, text: "M" },
+    { id: "date", widget: "date", x: 5, y: 40, w: 24, h: 4, text: "M" },
+  ]);
+  try {
+    const page = await openEditor(browser);
+    const s = await step(page);
+    const date = page.locator("[data-editor-item=date]");
+    await expect(page.getByTestId("editor-undo")).toBeDisabled();
+    const b = (await date.locator("[data-editor-box]").boundingBox())!;
+    const sx = b.x + b.width / 2;
+    const sy = b.y + b.height / 2;
+    // A real drag (well past the library's few pixels), back to where it began.
+    await page.mouse.move(sx, sy);
+    await page.mouse.down();
+    await page.mouse.move(sx + 3 * s, sy, { steps: 10 });
+    await page.mouse.move(sx, sy, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    expect(await boxOf(date)).toEqual({ x: 5, y: 40, w: 24, h: 4 });
+    await expect(page.getByTestId("editor-undo")).toBeDisabled();
+    await expect(page.getByTestId("layout-editor")).toHaveAttribute("data-dirty", "false");
+    await page.context().close();
+  } finally {
+    await restore();
+  }
+});
+
 test("a value widget's text size: S draws the clock smaller in its box, L and XL are off since M already fills it", async ({ browser }) => {
   const page = await openEditor(browser);
   const clock = page.locator("[data-editor-item=clock]");

@@ -82,3 +82,17 @@ export function snapEdge(box: Box, others: Box[], columns: number, rows: number,
   const next = a === "x" ? { ...box, w: box.w + d } : { ...box, h: box.h + d };
   return size(next, a) > 0 && fits(next, others, columns, rows) ? next : box;
 }
+
+/**
+ * A drop's snap, from the box before (`old`) and where it was let go
+ * (`box`): a move is snapped with snapBox unless it ended where it began; a
+ * resize brings only the edges that moved, the right when the width changed
+ * and the bottom when the height did. Whatever did not change stays put.
+ */
+export function snapDrop(old: Box, box: Box, others: Box[], columns: number, rows: number, kind: "move" | "resize", threshold = 1): Box {
+  if (kind === "move") return box.x === old.x && box.y === old.y ? box : snapBox(box, others, columns, rows, threshold);
+  let next = box;
+  if (box.w !== old.w) next = snapEdge(next, others, columns, rows, "right", threshold);
+  if (box.h !== old.h) next = snapEdge(next, others, columns, rows, "bottom", threshold);
+  return next;
+}
