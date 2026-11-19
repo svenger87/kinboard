@@ -60,3 +60,39 @@ for (const [id, w, h] of [["fit-wide", 400, 120], ["fit-tall", 120, 400]] as con
     expect(Math.min(w - t.width, h - t.height)).toBeLessThanOrEqual(3);
   });
 }
+
+/** The energy/Tesla card: inside its box at any size, side by side when flat, never above its text size. */
+async function cardFacts(page: import("@playwright/test").Page, testId: string) {
+  const box = page.getByTestId(testId);
+  const card = box.locator("[data-fills-box]");
+  const content = box.locator("[data-fitted-content]");
+  await expect(content).toHaveCSS("visibility", "visible");
+  const b = (await box.boundingBox())!;
+  const c = (await content.boundingBox())!;
+  const font = await content.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  return { b, c, font, wide: await card.getAttribute("data-wide") };
+}
+
+test("the energy card fits a flat box of one line, side by side", async ({ page }) => {
+  const { b, c, font, wide } = await cardFacts(page, "card-flat");
+  expect(wide).toBe("true");
+  expect(font).toBeLessThanOrEqual(16);
+  expect(font).toBeGreaterThan(4);
+  expect(c.x).toBeGreaterThanOrEqual(b.x - 0.5);
+  expect(c.y).toBeGreaterThanOrEqual(b.y - 0.5);
+  expect(c.x + c.width).toBeLessThanOrEqual(b.x + b.width + 0.5);
+  expect(c.y + c.height).toBeLessThanOrEqual(b.y + b.height + 0.5);
+});
+
+test("in a small square box the figures stack and shrink to fit", async ({ page }) => {
+  const { b, c, font, wide } = await cardFacts(page, "card-small");
+  expect(wide).toBe("false");
+  expect(font).toBeLessThan(16);
+  expect(c.y + c.height).toBeLessThanOrEqual(b.y + b.height + 0.5);
+  expect(c.x + c.width).toBeLessThanOrEqual(b.x + b.width + 0.5);
+});
+
+test("in a large box the figures keep the box's text size instead of growing", async ({ page }) => {
+  const { font } = await cardFacts(page, "card-large");
+  expect(font).toBe(16);
+});

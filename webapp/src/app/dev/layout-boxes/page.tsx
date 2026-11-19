@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { useRef } from "react";
 import { ListBox } from "@/components/layouts/list-box";
 import { useFitToBox } from "@/hooks/use-fit-to-box";
+import { FittedCard } from "@/components/layouts/saver-widgets/shared";
+import { EnergyRows } from "@/components/screensaver-rows";
 
 /** Fixtures for the box primitives, looked at by e2e/layouts-boxes-ui.spec.ts. Not served in production. */
 
@@ -17,6 +19,17 @@ function Fitted({ testId, width, height }: { testId: string; width: number; heig
       <span ref={ref} data-testid="fit-text" style={{ display: "block", width: "fit-content", whiteSpace: "nowrap", lineHeight: 1, fontSize: size ?? 20 }}>
         12.5 kWh
       </span>
+    </div>
+  );
+}
+
+/** The energy card's figures in a box of this size, at a 16px text size. */
+function Card({ testId, width, height }: { testId: string; width: number; height: number }) {
+  return (
+    <div data-testid={testId} style={{ width, height, fontSize: 16, color: "white" }}>
+      <FittedCard box={{ width, height }} deps={[]}>
+        <EnergyRows solarPower={4200} batterySoc={87} gridPower={-350} scale="box" />
+      </FittedCard>
     </div>
   );
 }
@@ -45,6 +58,9 @@ export default function LayoutBoxesPage() {
       </div>
       <Fitted testId="fit-wide" width={400} height={120} />
       <Fitted testId="fit-tall" width={120} height={400} />
+      <Card testId="card-flat" width={300} height={60} />
+      <Card testId="card-small" width={144} height={144} />
+      <Card testId="card-large" width={600} height={400} />
     </div>
   );
 }

@@ -100,3 +100,10 @@ test("value widgets: M fills the box, S fits into 80% of it, L and XL fill it (t
   expect(valueBox(box, "L")).toEqual(box);
   expect(valueBox(box, "XL")).toEqual(box);
 });
+
+test("energy and Tesla can be as small as half a cell high, and are dropped at their old size", () => {
+  for (const key of ["energy", "vehicles"] as const) {
+    expect(SAVER_WIDGETS[key].min).toEqual({ w: 8, h: 4 });
+    expect(SAVER_WIDGETS[key].box).toEqual({ w: 12, h: 8 });
+  }
+});

@@ -35,8 +35,9 @@ export const SAVER_WIDGETS: Record<SaverWidgetKey, WidgetSpec> = {
   holidays: spec("list", 4, 2),
   news: spec("list", 4, 3, { w: 5, h: 6 }),
   lessons: spec("list", 4, 2),
-  energy: spec("fixed", 3, 2),
-  vehicles: spec("fixed", 3, 2),
+  // As small as one line of figures (half a cell high); dropped on the grid at the old size.
+  energy: spec("fixed", 2, 1, { w: 3, h: 2 }),
+  vehicles: spec("fixed", 2, 1, { w: 3, h: 2 }),
   photoCount: spec("value", 1, 1),
 };
 
