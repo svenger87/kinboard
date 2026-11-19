@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { gridFor, boxRect, textPx } from "../src/lib/layouts/grid";
+import { gridFor, boxRect, textPx, valueBox } from "../src/lib/layouts/grid";
 import { SAVER_WIDGETS } from "../src/lib/layouts/widgets";
 
 /**
@@ -37,4 +37,12 @@ test("every screensaver widget has a minimum no larger than its default box", ()
     expect(s.min.w, k).toBeLessThanOrEqual(s.box.w);
     expect(s.min.h, k).toBeLessThanOrEqual(s.box.h);
   }
+});
+
+test("value widgets: M fills the box, S fits into 80% of it, L and XL fill it (the box is the limit)", () => {
+  const box = { width: 500, height: 200 };
+  expect(valueBox(box, "M")).toEqual(box);
+  expect(valueBox(box, "S")).toEqual({ width: 400, height: 160 });
+  expect(valueBox(box, "L")).toEqual(box);
+  expect(valueBox(box, "XL")).toEqual(box);
 });

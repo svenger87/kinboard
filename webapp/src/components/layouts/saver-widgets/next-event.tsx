@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useFitToBox } from "@/hooks/use-fit-to-box";
+import { valueBox } from "@/lib/layouts/grid";
 import { useScreensaverDataContext } from "@/components/layouts/screensaver-data-context";
 import { ValueFrame, type SaverWidgetProps } from "./shared";
 
@@ -11,12 +12,12 @@ import { ValueFrame, type SaverWidgetProps } from "./shared";
  * screensaver shows under the date ("Swimming in 20 minutes!"). Nothing
  * outside that hour, or with the line switched off in the screensaver settings.
  */
-export function NextEventWidget({ box }: SaverWidgetProps) {
+export function NextEventWidget({ item, box }: SaverWidgetProps) {
   const { soon } = useScreensaverDataContext();
   const t = useTranslations("components.screensaver");
   const ref = useRef<HTMLParagraphElement>(null);
   const text = soon ? t(soon.child ? "nextEventChild" : "nextEventAdult", { title: soon.title, minutes: soon.minutes }) : "";
-  const size = useFitToBox(ref, box, [text]);
+  const size = useFitToBox(ref, valueBox(box, item.text), [text]);
   if (!soon) return null;
   return (
     <ValueFrame fitted={size !== null}>

@@ -3256,7 +3256,9 @@
         "screenHint": "La taille pour laquelle la disposition est conçue. Les écrans d’une autre taille la reçoivent mise à l’échelle.",
         "create": "Créer et modifier",
         "cancel": "Annuler",
-        "failed": "La disposition n’a pas pu être créée. Veuillez réessayer."
+        "failed": "La disposition n’a pas pu être créée. Veuillez réessayer.",
+        "useOn": "L’afficher tout de suite sur « {name} »",
+        "assignFailed": "La disposition a été créée mais n’a pas pu être appliquée à « {name} »."
       },
       "duplicate": {
         "button": "Dupliquer",
@@ -3367,7 +3369,8 @@
             "XL": "Très grande"
           },
           "remove": "Retirer",
-          "keys": "Les flèches déplacent le widget sélectionné, Suppr le retire, Ctrl+Z annule."
+          "keys": "Les flèches déplacent le widget sélectionné, Suppr le retire, Ctrl+Z annule.",
+          "fillsBox": "Remplit sa case : S l’affiche plus petit ; pour plus grand, agrandissez la case."
         },
         "widgets": {
           "clock": "Horloge",
@@ -3402,6 +3405,14 @@
           "failed": "La copie n’a pas pu être créée. Veuillez réessayer.",
           "pinRequired": "Les réglages ont été verrouillés — saisissez le code PIN et réessayez.",
           "dropped": "Pas sur cette taille : {names}"
+        },
+        "unused": {
+          "text": "Aucun écran n’affiche encore cette disposition. L’enregistrer ne suffit pas à l’appliquer à un écran.",
+          "noScreen": "Aucun écran n’affiche encore cette disposition, et aucun n’est orienté comme elle. Attribuez-la dans Paramètres → Appareils ou définissez-la par défaut sous Dispositions.",
+          "pick": "Écran",
+          "assign": "Afficher sur « {name} »",
+          "done": "« {name} » affiche maintenant cette disposition.",
+          "failed": "La disposition n’a pas pu être attribuée. Veuillez réessayer."
         }
       }
     }

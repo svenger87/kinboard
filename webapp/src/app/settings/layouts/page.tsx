@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -36,6 +37,7 @@ import {
   useLayoutDefaults,
   useLayouts,
   useSetLayoutDefaults,
+  useAssignLayout,
 } from "@/hooks/use-layouts";
 import { orientationOf } from "@/lib/layouts/grid";
 import { fallbackAfterDelete, layoutUsage, type LayoutUse } from "@/lib/layouts/usage";
@@ -283,15 +285,23 @@ function NewLayoutDialog({ open, onOpenChange, devices }: { open: boolean; onOpe
   const t = useTranslations("settings.layouts.new");
   const router = useRouter();
   const create = useCreateLayout();
+  const assign = useAssignLayout();
   const [name, setName] = useState("");
   const [picked, setPicked] = useState<ScreenChoice | null>(null);
+  const [useOnDevice, setUseOnDevice] = useState(true);
   const screen = picked ?? initialScreen(devices);
   const trimmed = name.trim();
+  // Drawn for a screen's own size: offer to put it on that screen right away.
+  const forDevice = screen.key.startsWith("device:") ? devices.find((d) => `device:${d.id}` === screen.key) ?? null : null;
 
   const submit = async () => {
     if (!trimmed || create.isPending) return;
     try {
       const created = await create.mutateAsync({ name: trimmed, width: screen.width, height: screen.height, from: "builtin" });
+      if (forDevice && useOnDevice) {
+        // The layout exists either way; a failed assignment leaves the editor's notice to offer it again.
+        await assign.mutateAsync({ deviceId: forDevice.id, layoutId: created.id }).catch(() => toast.error(t("assignFailed", { name: forDevice.name })));
+      }
       onOpenChange(false);
       router.push(`/settings/layouts/${created.id}`);
     } catch (err) {
@@ -307,6 +317,7 @@ function NewLayoutDialog({ open, onOpenChange, devices }: { open: boolean; onOpe
         if (next) {
           setName("");
           setPicked(null);
+          setUseOnDevice(true);
         }
         onOpenChange(next);
       }}
@@ -339,12 +350,20 @@ function NewLayoutDialog({ open, onOpenChange, devices }: { open: boolean; onOpe
             <ScreenPicker value={screen} onChange={setPicked} />
             <p className="text-xs text-muted-foreground">{t("screenHint")}</p>
           </div>
+          {forDevice && (
+            <div className="flex items-center gap-2">
+              <Checkbox id="new-layout-use" data-testid="new-layout-use" checked={useOnDevice} onCheckedChange={(on) => setUseOnDevice(on === true)} />
+              <Label htmlFor="new-layout-use" className="font-normal">
+                {t("useOn", { name: forDevice.name })}
+              </Label>
+            </div>
+          )}
           <DialogFooter className="gap-2 sm:gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={create.isPending}>
               {t("cancel")}
             </Button>
-            <Button type="submit" disabled={!trimmed || create.isPending} className="gap-2" data-testid="new-layout-create">
-              {create.isPending && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+            <Button type="submit" disabled={!trimmed || create.isPending || assign.isPending} className="gap-2" data-testid="new-layout-create">
+              {(create.isPending || assign.isPending) && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
               {t("create")}
             </Button>
           </DialogFooter>

@@ -2,14 +2,15 @@
 
 import { useRef } from "react";
 import { useFitToBox } from "@/hooks/use-fit-to-box";
+import { valueBox } from "@/lib/layouts/grid";
 import { useScreensaverDataContext } from "@/components/layouts/screensaver-data-context";
 import { ValueFrame, type SaverWidgetProps } from "./shared";
 
 /** Today's date, written out ("Mittwoch, 18. November"), fitted to the box. */
-export function DateWidget({ box }: SaverWidgetProps) {
+export function DateWidget({ item, box }: SaverWidgetProps) {
   const { formattedDate } = useScreensaverDataContext();
   const ref = useRef<HTMLParagraphElement>(null);
-  const size = useFitToBox(ref, box, [formattedDate]);
+  const size = useFitToBox(ref, valueBox(box, item.text), [formattedDate]);
   return (
     <ValueFrame fitted={size !== null}>
       <p

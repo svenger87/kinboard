@@ -76,3 +76,17 @@ export function aspectDiffers(a: { width: number; height: number }, b: { width: 
   const rb = b.width / b.height;
   return Math.max(ra, rb) / Math.min(ra, rb) > 1.1;
 }
+
+/**
+ * How much of its box a value widget (clock, date, next event, weather now,
+ * photo count) fills at each text size. Those widgets size their text to the
+ * box, so M fills it as before and S draws it smaller; L and XL fill it too,
+ * since the box is the limit: a bigger value needs a bigger box.
+ */
+export const VALUE_FILL: Record<TextSize, number> = { S: 0.8, M: 1, L: 1, XL: 1 };
+
+/** The box a value widget fits its text into at `size`. */
+export function valueBox(box: { width: number; height: number }, size: TextSize): { width: number; height: number } {
+  const f = VALUE_FILL[size] ?? 1;
+  return { width: box.width * f, height: box.height * f };
+}

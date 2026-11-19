@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { SAVER_WIDGETS } from "@/lib/layouts/widgets";
+import { VALUE_FILL } from "@/lib/layouts/grid";
 import type { LayoutItem, SaverWidgetKey, TextSize } from "@/lib/layouts/types";
 
 const TEXT_SIZES: TextSize[] = ["S", "M", "L", "XL"];
@@ -25,6 +26,7 @@ export function EditorInspector({
   onRemove: () => void;
 }) {
   const t = useTranslations("settings.layouts.editor.inspector");
+  const isValue = !!item && SAVER_WIDGETS[item.widget]?.kind === "value";
 
   return (
     <Card className="flex flex-col gap-4 p-4" data-testid="inspector">
@@ -50,11 +52,24 @@ export function EditorInspector({
               disabled={disabled}
             >
               {TEXT_SIZES.map((s) => (
-                <SegmentedControlItem key={s} value={s} className="flex-1" data-testid={`text-size-${s}`} aria-label={t(`textSizes.${s}`)}>
+                <SegmentedControlItem
+                  key={s}
+                  value={s}
+                  className="flex-1"
+                  data-testid={`text-size-${s}`}
+                  aria-label={t(`textSizes.${s}`)}
+                  // A value widget already fills its box at M: larger needs a larger box.
+                  disabled={isValue && VALUE_FILL[s] === 1 && s !== "M"}
+                >
                   {s}
                 </SegmentedControlItem>
               ))}
             </SegmentedControl>
+            {isValue && (
+              <p className="text-xs text-muted-foreground" data-testid="inspector-fills-box">
+                {t("fillsBox")}
+              </p>
+            )}
           </div>
           <Button variant="outline" className="gap-2 text-destructive" onClick={onRemove} disabled={disabled} data-testid="inspector-remove">
             <Trash2 className="size-4" aria-hidden="true" />
