@@ -164,9 +164,14 @@ test.describe("creatures on Home", () => {
 
       // A tap: it hops. Not mid-jump onto or off a card: in the air a tap only sends a heart.
       const first = page.locator(`[data-testid="home-creature"][data-person="${kids[0]}"]`);
-      await expect.poll(() => first.getAttribute("data-state"), { intervals: [30], timeout: 5_000 }).not.toBe("jump");
-      await first.getByRole("button").click({ force: true });
-      await expect.poll(() => first.getAttribute("data-state"), { intervals: [30], timeout: 2_000 }).toBe("hop");
+      // It can take off between the check and the tap (a tap in the air only sends a heart), so tap again
+      // until a tap lands on the ground. The click is dispatched, not aimed: a walking creature has moved on
+      // from where a pointer would land.
+      await expect(async () => {
+        await expect.poll(() => first.getAttribute("data-state"), { intervals: [30], timeout: 5_000 }).not.toBe("jump");
+        await first.getByRole("button").dispatchEvent("click");
+        await expect.poll(() => first.getAttribute("data-state"), { intervals: [30], timeout: 1_500 }).toBe("hop");
+      }).toPass({ timeout: 20_000 });
 
       // Bedtime from a minute ago, on the family's clock: both lie down.
       const clock = await page.evaluate(async () => {

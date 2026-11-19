@@ -1,5 +1,7 @@
 import { test, expect, type Browser, type Page } from "@playwright/test";
+import { randomBytes } from "node:crypto";
 import { establishSession } from "./session";
+import { psql, psqlRow } from "./helpers/assistant-connect";
 
 /**
  * The rule the whole feature rests on, and the only one that needs two
@@ -10,7 +12,31 @@ import { establishSession } from "./session";
  * against a build that broadcast to everybody including the sender.
  */
 
-const FAMILY_CODE = process.env.FAMILY_CODE ?? "";
+/*
+  A family of its own, not the shared demo family. Other specs running at the
+  same time send messages there (same-origin-live does), and a message inside
+  its minute rightly outranks a deep link, so this spec's boards showed
+  somebody else's message and failed. FAMILY_CODE only says a stack is there;
+  the family is made here and removed afterwards (messages go with it).
+*/
+const STACK = Boolean(process.env.FAMILY_CODE);
+let FAMILY_CODE = "";
+let familyId = "";
+
+test.beforeAll(() => {
+  if (!STACK) return;
+  FAMILY_CODE = `MB${randomBytes(4).toString("hex").toUpperCase()}`;
+  familyId = psqlRow(
+    `INSERT INTO families (name, join_code, setup_completed) VALUES ('e2e-messages-${FAMILY_CODE}', '${FAMILY_CODE}', true) RETURNING id`,
+  );
+});
+
+test.afterAll(() => {
+  if (!familyId) return;
+  psql(`DELETE FROM devices WHERE family_id = '${familyId}'`);
+  psql(`DELETE FROM settings WHERE family_id = '${familyId}'`);
+  psql(`DELETE FROM families WHERE id = '${familyId}'`);
+});
 
 async function screenFor(browser: Browser, deviceName: string) {
   const context = await browser.newContext();
@@ -64,7 +90,7 @@ async function acknowledgeMessage(page: Page, id: string): Promise<void> {
 }
 
 test.describe("a message reaches the other screens", () => {
-  test.skip(!FAMILY_CODE, "needs FAMILY_CODE to reach the dashboard");
+  test.skip(!STACK, "needs FAMILY_CODE (a running stack) to reach the dashboard");
 
   test("goes everywhere but the sender, and clears everywhere at once", async ({
     browser,

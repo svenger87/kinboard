@@ -105,8 +105,8 @@ test("a family's weather location leads the search, in the app's language, and a
   const field = await openLocationField(page, "en");
 
   await field.fill("Main Street");
-  await expect.poll(() => asked.length, { timeout: 15_000 }).toBeGreaterThan(0);
-  expect(asked[0]).toMatchObject({ q: "Main Street", lang: "en", lat: "39.8", lon: "-89.65" });
+  // Typed before the weather location has loaded, the search is asked again once it has: the last ask counts.
+  await expect.poll(() => asked.at(-1), { timeout: 15_000 }).toMatchObject({ q: "Main Street", lang: "en", lat: "39.8", lon: "-89.65" });
 
   const option = page.getByRole("button", { name: /123 Main Street, Springfield, IL 62701/ });
   await expect(option).toBeVisible();
@@ -129,10 +129,9 @@ test("a place with a name of its own leads with it, and the app's German is aske
   const field = await openLocationField(page, "de");
 
   await field.fill("Kaufland");
-  await expect.poll(() => asked.length, { timeout: 15_000 }).toBeGreaterThan(0);
   // A weather location given as a town is sent as the town; the server locates it.
-  expect(asked[0]).toMatchObject({ lang: "de", near: "Papenburg" });
-  expect(asked[0]).not.toHaveProperty("lat");
+  await expect.poll(() => asked.at(-1), { timeout: 15_000 }).toMatchObject({ lang: "de", near: "Papenburg" });
+  expect(asked.at(-1)).not.toHaveProperty("lat");
   await expect(page.getByRole("button", { name: /Kaufland, Deverweg 39 - 45, 26871 Papenburg/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Hauptstraße 5, 20095 Hamburg/ })).toBeVisible();
 });

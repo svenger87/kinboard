@@ -94,10 +94,41 @@ jobs:
           # browsers were downloaded again.
           key: pw-${{ runner.os }}-${{ matrix.engine }}-${{ steps.pw-version.outputs.v }}
 
+      # The browser's system packages come from .deb files cached between runs,
+      # keyed by engine, Playwright version and ISO week (a fresh set weekly,
+      # for Ubuntu's updates). Restored and saved in steps of their own, so a
+      # run that fails later still keeps what it downloaded.
+      - name: Week for the package cache
+        id: week
+        run: echo "w=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore system packages
+        id: apt-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/apt-archives
+          key: apt-ubuntu-24.04-${{ matrix.engine }}-${{ steps.pw-version.outputs.v }}-${{ steps.week.outputs.w }}
+          restore-keys: apt-ubuntu-24.04-${{ matrix.engine }}-
+
+      - name: Install the browser's system packages
+        # They used to come with `playwright install --with-deps`, straight from
+        # Ubuntu's mirror on every run: ~100 packages for WebKit (libwoff1,
+        # libhyphen0, libmanette, gstreamer plugins...), fewer for Chromium. On
+        # 2026-11-19 the mirror took 10-30 s a package and the job spent all its
+        # 45 minutes there. A slow mirror now fails this step in 15 minutes
+        # instead, and a rerun starts from what was saved.
+        timeout-minutes: 15
+        run: bash scripts/ci-playwright-deps.sh ${{ matrix.engine }}
+
+      - name: Save system packages
+        if: always() && steps.apt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/apt-archives
+          key: apt-ubuntu-24.04-${{ matrix.engine }}-${{ steps.pw-version.outputs.v }}-${{ steps.week.outputs.w }}
+
       - name: Install Playwright browser
-        # --with-deps installs the system libs the browser needs at runtime —
-        # libnss3/libgbm for Chromium, and nine more (libwoff1, libhyphen0,
-        # libmanette, gstreamer plugins…) for WebKit. Only this job's engine.
+        # The browser itself; cached above, so usually nothing to download.
         #
         # WebKit is here because both Playwright viewports are Chromium, so a
         # rule Chromium honours and WebKit ignores passes everything. That is
@@ -105,7 +136,8 @@ jobs:
         # overlap in Chromium and did nothing in WebKit, so rc.20 shipped
         # "fixed" and was still broken on every Mac and iPad until a user
         # reported it from Safari.
-        run: npx playwright install --with-deps ${{ matrix.engine }}
+        timeout-minutes: 10
+        run: npx playwright install ${{ matrix.engine }}
 
       - name: Generate stack secrets non-interactively
         working-directory: ${{ github.workspace }}
@@ -186,6 +218,22 @@ jobs:
         working-directory: ${{ github.workspace }}/webapp/docker
         run: bash start.sh seed-demo
 
+      # The specs that run a migration again on the stack's database (and
+      # creatures-migration drops and rebuilds its tables) go first, one at a
+      # time. In the parallel suite another spec wrote to those tables
+      # mid-migration: a point redemption inserted between creatures-migration's
+      # backfill and its NOT NULL failed the run (2026-11-19).
+      - name: Run the migration specs, one at a time
+        if: matrix.engine == 'chromium'
+        env:
+          FAMILY_CODE: DEMO01
+          PLAYWRIGHT_BASE_URL: http://localhost:3001
+        run: |
+          SUPABASE_SERVICE_ROLE_KEY="$(grep -E '^SERVICE_ROLE_KEY=' docker/.env | head -n1 | cut -d= -f2- | tr -d '"\r')"
+          echo "::add-mask::$SUPABASE_SERVICE_ROLE_KEY"
+          export SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL="http://localhost:3001" POSTGREST_URL="http://localhost:3010"
+          npx playwright test e2e/image-url-migration-live.spec.ts e2e/catalogue-migration.spec.ts e2e/rooms-migration.spec.ts e2e/oauth-migration.spec.ts e2e/holiday-region-migration.spec.ts e2e/creatures-migration.spec.ts --project=desktop --workers=1
+
       # calendar-layout.spec.ts is pure logic (no browser, no stack) but
       # rides along here because Playwright is the only test runner in
       # the project — it costs a couple of seconds.
@@ -216,7 +264,7 @@ jobs:
           echo "::add-mask::$SUPABASE_SERVICE_ROLE_KEY"
           echo "::add-mask::$JWT_SECRET"
           export SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_SUPABASE_ANON_KEY JWT_SECRET SUPABASE_URL="http://localhost:3001" POSTGREST_URL="http://localhost:3010"
-          npx playwright test e2e/smoke.spec.ts e2e/same-origin-live.spec.ts e2e/image-url-migration-live.spec.ts e2e/calendar-layout.spec.ts  e2e/rls-coverage.spec.ts e2e/catalogue-migration.spec.ts e2e/health-endpoint.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/task-events-ui.spec.ts e2e/tasks-widget-ui.spec.ts e2e/weather-rain-chance-ui.spec.ts e2e/location-autocomplete-ui.spec.ts e2e/media-widget-layout.spec.ts e2e/messages-broadcast.spec.ts e2e/message-state.spec.ts e2e/rooms-migration.spec.ts e2e/automation-layout.spec.ts e2e/media-browse-flow.spec.ts e2e/meal-plan-read-only.spec.ts e2e/oauth-migration.spec.ts e2e/mcp-oauth-flow.spec.ts e2e/soft-delete-integration.spec.ts e2e/pocket-money-live.spec.ts e2e/event-search-live.spec.ts e2e/holiday-region-ui.spec.ts e2e/holiday-widget-ui.spec.ts e2e/school-sync-ui.spec.ts e2e/holiday-region-migration.spec.ts e2e/school-holiday-sync-db.spec.ts e2e/school-holidays-grants.spec.ts e2e/todo-turns-db.spec.ts e2e/todo-done-by-db.spec.ts e2e/point-adjustments-db.spec.ts e2e/family-delete-db.spec.ts e2e/todo-turns-ui.spec.ts e2e/camera-takeover-grants.spec.ts e2e/route-transition-layout.spec.ts e2e/calendar-day-tap-layout.spec.ts e2e/holiday-widgets-ui.spec.ts e2e/timetable-holidays-ui.spec.ts e2e/schedule-page-holidays-ui.spec.ts e2e/calendar-school-holidays-ui.spec.ts e2e/time-zone-ui.spec.ts e2e/settings-search-ui.spec.ts e2e/timer-pause-ui.spec.ts e2e/timer-presets-ui.spec.ts e2e/timer-alarm-ui.spec.ts e2e/pocket-money-grants.spec.ts e2e/creature-reactions-live.spec.ts e2e/creature-mood-live.spec.ts e2e/creatures-migration.spec.ts e2e/creatures-live.spec.ts e2e/creatures-surfaces-live.spec.ts e2e/device-owner-db.spec.ts e2e/device-owner-pin.spec.ts e2e/emoji-picker-ui.spec.ts e2e/creature-shop-live.spec.ts e2e/creature-shop-ui-live.spec.ts e2e/stale-chunk-recovery-ui.spec.ts e2e/reward-decisions-live.spec.ts e2e/assistant-trust-live.spec.ts e2e/shopping-phone-layout.spec.ts e2e/pocket-money-realtime-live.spec.ts e2e/calendar-repeat.spec.ts e2e/event-series-live.spec.ts e2e/weather-effects-ui.spec.ts e2e/motion-ui.spec.ts e2e/festivals-ui.spec.ts e2e/birthday-theme-ui.spec.ts e2e/creatures-on-home-ui.spec.ts e2e/shop-prices-ui.spec.ts e2e/growth-points-ui.spec.ts e2e/restore.spec.ts e2e/restore-reason-ui.spec.ts e2e/layouts-db.spec.ts e2e/layouts-api-live.spec.ts e2e/layouts-screensaver-live.spec.ts e2e/layouts-editor-ui.spec.ts e2e/layouts-settings-ui.spec.ts --project=desktop
+          npx playwright test e2e/smoke.spec.ts e2e/same-origin-live.spec.ts e2e/calendar-layout.spec.ts e2e/rls-coverage.spec.ts e2e/health-endpoint.spec.ts e2e/home-hero-layout.spec.ts e2e/dialog-ceiling-layout.spec.ts e2e/timer-widget-layout.spec.ts e2e/task-events-ui.spec.ts e2e/tasks-widget-ui.spec.ts e2e/weather-rain-chance-ui.spec.ts e2e/location-autocomplete-ui.spec.ts e2e/media-widget-layout.spec.ts e2e/messages-broadcast.spec.ts e2e/message-state.spec.ts e2e/automation-layout.spec.ts e2e/media-browse-flow.spec.ts e2e/meal-plan-read-only.spec.ts e2e/mcp-oauth-flow.spec.ts e2e/soft-delete-integration.spec.ts e2e/pocket-money-live.spec.ts e2e/event-search-live.spec.ts e2e/holiday-region-ui.spec.ts e2e/holiday-widget-ui.spec.ts e2e/school-sync-ui.spec.ts e2e/school-holiday-sync-db.spec.ts e2e/school-holidays-grants.spec.ts e2e/todo-turns-db.spec.ts e2e/todo-done-by-db.spec.ts e2e/point-adjustments-db.spec.ts e2e/family-delete-db.spec.ts e2e/todo-turns-ui.spec.ts e2e/camera-takeover-grants.spec.ts e2e/route-transition-layout.spec.ts e2e/calendar-day-tap-layout.spec.ts e2e/holiday-widgets-ui.spec.ts e2e/timetable-holidays-ui.spec.ts e2e/schedule-page-holidays-ui.spec.ts e2e/calendar-school-holidays-ui.spec.ts e2e/time-zone-ui.spec.ts e2e/settings-search-ui.spec.ts e2e/timer-pause-ui.spec.ts e2e/timer-presets-ui.spec.ts e2e/timer-alarm-ui.spec.ts e2e/pocket-money-grants.spec.ts e2e/creature-reactions-live.spec.ts e2e/creature-mood-live.spec.ts e2e/creatures-live.spec.ts e2e/creatures-surfaces-live.spec.ts e2e/device-owner-db.spec.ts e2e/device-owner-pin.spec.ts e2e/emoji-picker-ui.spec.ts e2e/creature-shop-live.spec.ts e2e/creature-shop-ui-live.spec.ts e2e/stale-chunk-recovery-ui.spec.ts e2e/reward-decisions-live.spec.ts e2e/assistant-trust-live.spec.ts e2e/shopping-phone-layout.spec.ts e2e/pocket-money-realtime-live.spec.ts e2e/calendar-repeat.spec.ts e2e/event-series-live.spec.ts e2e/weather-effects-ui.spec.ts e2e/motion-ui.spec.ts e2e/festivals-ui.spec.ts e2e/birthday-theme-ui.spec.ts e2e/creatures-on-home-ui.spec.ts e2e/shop-prices-ui.spec.ts e2e/growth-points-ui.spec.ts e2e/restore.spec.ts e2e/restore-reason-ui.spec.ts e2e/layouts-db.spec.ts e2e/layouts-api-live.spec.ts e2e/layouts-screensaver-live.spec.ts e2e/layouts-editor-ui.spec.ts e2e/layouts-settings-ui.spec.ts --project=desktop
 
       # A job of its own (the matrix above) so a WebKit-only failure reads as one at a glance rather
       # than as "the smoke suite is flaky". Most of the suite reads source files

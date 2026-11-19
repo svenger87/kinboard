@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { formatPlace, type LocationResult } from "@/lib/location-search";
 
 export type { LocationResult } from "@/lib/location-search";
@@ -34,9 +34,11 @@ export function useLocationSearch(options: UseLocationSearchOptions = {}) {
 
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const abortController = useRef<AbortController | null>(null);
+  const lastQuery = useRef("");
 
   const search = useCallback(
     (query: string) => {
+      lastQuery.current = query;
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       if (abortController.current) abortController.current.abort();
 
@@ -80,7 +82,15 @@ export function useLocationSearch(options: UseLocationSearchOptions = {}) {
     [debounceMs, limit, language, near, nearTown, countryCode],
   );
 
+  // Where the family is arrives after the field opens (a settings read). Typed
+  // before it did, a search went out without it and stayed so: ask again with
+  // it once it is known, so nearby places come first after all.
+  useEffect(() => {
+    if (lastQuery.current.trim().length >= 3) search(lastQuery.current);
+  }, [search]);
+
   const clear = useCallback(() => {
+    lastQuery.current = "";
     setResults([]);
     setError(null);
     // An aborted request leaves loading to whoever aborted it; here, nobody follows.
