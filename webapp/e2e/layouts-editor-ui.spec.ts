@@ -257,6 +257,7 @@ test("a drag of one step moves a box one step, drawn where the grid puts it", as
   expect(Math.abs(drawn.left - (GRID.offsetX + box.x * GRID.step)), JSON.stringify(drawn)).toBeLessThanOrEqual(1);
   expect(Math.abs(drawn.top - (GRID.offsetY + box.y * GRID.step)), JSON.stringify(drawn)).toBeLessThanOrEqual(1);
   expect(Math.abs(drawn.width - (box.w * GRID.step - 24)), JSON.stringify(drawn)).toBeLessThanOrEqual(1);
+  expect(Math.abs(drawn.height - (box.h * GRID.step - 24)), JSON.stringify(drawn)).toBeLessThanOrEqual(1);
   await page.keyboard.press("ControlOrMeta+z");
   await expect.poll(async () => boxOf(date)).toEqual(before);
   await page.context().close();
@@ -267,6 +268,12 @@ test("the grid shows as dots, lines or not at all, remembered after a reload", a
   const overlay = page.getByTestId("editor-grid-overlay");
   const select = page.getByTestId("editor-grid-display");
   await expect(overlay).toHaveAttribute("data-display", "dots");
+  // A portrait 1080x1920 layout in this window has steps of about 7px: dots still show.
+  await expect(overlay).toHaveAttribute("data-dots", "true");
+  // Drawn once, as patterns: a handful of elements, not one per step or cell
+  // (this grid has 48 x 88 steps).
+  expect(GRID.rows * GRID.columns).toBeGreaterThan(1000);
+  expect(await overlay.locator("*").count()).toBeLessThanOrEqual(10);
   for (const display of ["lines", "off"]) {
     await select.click();
     await page.getByTestId(`editor-grid-display-${display}`).click();
@@ -533,6 +540,37 @@ test("a copy's note on what it left out is shown once: leaving and reopening the
     await expect(notice).toHaveCount(0);
     await page.waitForTimeout(500);
   }
+  await page.context().close();
+});
+
+test("a grid_changed reload whose leave prompt is cancelled leaves the editor and its draft as they were", async ({ browser }) => {
+  const page = await openEditor(browser);
+  // The server answers as one on a newer grid would.
+  await page.route(`**/api/layouts/${layoutId}`, (route) =>
+    route.request().method() === "PATCH" ? route.fulfill({ status: 409, json: { error: "grid_changed" } }) : route.fallback(),
+  );
+  const date = page.locator("[data-editor-item=date]");
+  const before = await boxOf(date);
+  await date.click();
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(async () => (await boxOf(date)).x).toBe(before.x + 1);
+  await page.getByTestId("editor-save").click();
+  const stale = page.getByTestId("editor-stale");
+  await expect(stale).toBeVisible({ timeout: 15_000 });
+  let prompted = false;
+  page.once("dialog", (dialog) => {
+    prompted = dialog.type() === "beforeunload";
+    void dialog.dismiss();
+  });
+  await page.getByTestId("editor-reload").click();
+  await expect.poll(() => prompted).toBe(true);
+  // Still this page, still usable, the changes still kept for the tab.
+  await expect(page.getByTestId("editor-reload")).toBeEnabled();
+  await expect(page.getByTestId("layout-editor")).toHaveAttribute("data-dirty", "true");
+  expect(await page.evaluate((id) => sessionStorage.getItem(`kinboard_layout_draft:48:${id}`), layoutId)).not.toBeNull();
+  await date.click();
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(async () => (await boxOf(date)).x).toBe(before.x + 2);
   await page.context().close();
 });
 

@@ -8,8 +8,12 @@ export type GridDisplay = "dots" | "lines" | "off";
 
 export const GRID_DISPLAYS: readonly GridDisplay[] = ["dots", "lines", "off"];
 const STORAGE_KEY = "kinboard_layout_grid_display";
-/** Below this many screen pixels per step the dots run together, and only the cells' edges are drawn. */
-const MIN_DOT_STEP_PX = 8;
+/**
+ * Below this many screen pixels per step the dots run together, and only the
+ * cells' edges are drawn. 5, not more: a portrait layout in a 1440x900 window
+ * has steps of about 7px, and the dots are the point of the finer grid.
+ */
+const MIN_DOT_STEP_PX = 5;
 
 function readDisplay(): GridDisplay {
   if (typeof window === "undefined") return "dots";
@@ -40,7 +44,7 @@ export function useGridDisplay(): [GridDisplay, (v: GridDisplay) => void] {
  * scales it with the boxes): a dot where each step starts, which is where a
  * box's top left corner can sit, and the outline of each cell, four steps
  * of a cell plus its gap. One SVG with two repeating patterns, however fine
- * the grid. The dots are left out when a step is under 8 screen pixels.
+ * the grid. The dots are left out when a step is under 5 screen pixels.
  */
 export function GridOverlay({ grid, display, scale }: { grid: Grid; display: GridDisplay; scale: number }) {
   // useId's colons are not allowed in a url(#…) reference.
