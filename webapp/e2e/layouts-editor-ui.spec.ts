@@ -306,6 +306,111 @@ test("undo puts a moved widget back, redo moves it again; arrows move by a step"
   await page.context().close();
 });
 
+/** The editor back on the built-in arrangement (one undoable change), whatever earlier tests left. */
+async function resetToBuiltIn(page: Page) {
+  await page.getByTestId("editor-reset").click();
+  await page.getByTestId("editor-reset-confirm").click();
+  await expect.poll(async () => boxOf(page.locator("[data-editor-item=date]"))).toEqual({ x: 0, y: 84, w: 24, h: 4 });
+}
+
+/** A screen point on the canvas, given in steps of the layout's grid. */
+async function canvasPoint(page: Page, x: number, y: number) {
+  const c = (await page.getByTestId("editor-canvas").boundingBox())!;
+  const s = await step(page);
+  const scale = s / GRID.step;
+  return { x: c.x + (GRID.offsetX + x * GRID.step) * scale, y: c.y + (GRID.offsetY + y * GRID.step) * scale };
+}
+
+test("Shift+click selects a second box, a frame on empty canvas selects the boxes it touches, Escape clears", async ({ browser }) => {
+  const page = await openEditor(browser);
+  await resetToBuiltIn(page);
+  const clock = page.locator("[data-editor-item=clock]");
+  const date = page.locator("[data-editor-item=date]");
+  const selected = page.locator("[data-editor-item][data-selected=true]");
+  await clock.locator("[data-editor-box]").click();
+  await expect(selected).toHaveCount(1);
+  await date.locator("[data-editor-box]").click({ modifiers: ["Shift"] });
+  await expect(clock).toHaveAttribute("data-selected", "true");
+  await expect(date).toHaveAttribute("data-selected", "true");
+  await expect(page.getByTestId("inspector-selection")).toBeVisible();
+  // Shift+click again takes it out.
+  await date.locator("[data-editor-box]").click({ modifiers: ["Shift"] });
+  await expect(date).toHaveAttribute("data-selected", "false");
+  await expect(clock).toHaveAttribute("data-selected", "true");
+  // A plain click picks just that box.
+  await date.locator("[data-editor-box]").click();
+  await expect(selected).toHaveCount(1);
+  await expect(date).toHaveAttribute("data-selected", "true");
+  await page.keyboard.press("Escape");
+  await expect(selected).toHaveCount(0);
+
+  // A frame from the empty right half across the clock (rows 72-84) and the date (84-88), not the birthdays above.
+  const from = await canvasPoint(page, 40, 86);
+  const to = await canvasPoint(page, 10, 78);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 10 });
+  await expect(page.getByTestId("editor-frame")).toBeVisible();
+  await page.mouse.up();
+  await expect(page.getByTestId("editor-frame")).toHaveCount(0);
+  await expect(selected).toHaveCount(2);
+  await expect(clock).toHaveAttribute("data-selected", "true");
+  await expect(date).toHaveAttribute("data-selected", "true");
+  // Nothing moved.
+  expect(await boxOf(clock)).toEqual({ x: 0, y: 72, w: 24, h: 12 });
+  // A click on empty canvas clears the selection.
+  const empty = await canvasPoint(page, 40, 40);
+  await page.mouse.click(empty.x, empty.y);
+  await expect(selected).toHaveCount(0);
+  await page.context().close();
+});
+
+test("arrows move every selected box, Shift by a cell; Alt resizes; Delete removes both and one undo restores them", async ({ browser }) => {
+  const page = await openEditor(browser);
+  await resetToBuiltIn(page);
+  const clock = page.locator("[data-editor-item=clock]");
+  const date = page.locator("[data-editor-item=date]");
+  await clock.locator("[data-editor-box]").click();
+  await date.locator("[data-editor-box]").click({ modifiers: ["Shift"] });
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(async () => (await boxOf(clock)).x).toBe(1);
+  await expect.poll(async () => (await boxOf(date)).x).toBe(1);
+  await page.keyboard.press("Shift+ArrowRight");
+  await expect.poll(async () => (await boxOf(clock)).x).toBe(5);
+  await expect.poll(async () => (await boxOf(date)).x).toBe(5);
+  // Down would take the date off the screen: refused for both, and said why.
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByTestId("editor-refused")).toBeVisible();
+  expect(await boxOf(clock)).toEqual({ x: 5, y: 72, w: 24, h: 12 });
+  expect(await boxOf(date)).toEqual({ x: 5, y: 84, w: 24, h: 4 });
+  // The next change that works clears the message.
+  await page.keyboard.press("ArrowLeft");
+  await expect.poll(async () => (await boxOf(clock)).x).toBe(4);
+  await expect(page.getByTestId("editor-refused")).toHaveCount(0);
+
+  // Alt resizes the one selected box: right grows by a step, with Shift by a cell.
+  await clock.locator("[data-editor-box]").click();
+  await expect(page.locator("[data-editor-item][data-selected=true]")).toHaveCount(1);
+  await page.keyboard.press("Alt+ArrowRight");
+  await expect.poll(async () => boxOf(clock)).toEqual({ x: 4, y: 72, w: 25, h: 12 });
+  await page.keyboard.press("Alt+Shift+ArrowRight");
+  await expect.poll(async () => boxOf(clock)).toEqual({ x: 4, y: 72, w: 29, h: 12 });
+  await page.keyboard.press("Alt+ArrowLeft");
+  await expect.poll(async () => boxOf(clock)).toEqual({ x: 4, y: 72, w: 28, h: 12 });
+
+  // Delete removes both; one undo brings both back.
+  await date.locator("[data-editor-box]").click({ modifiers: ["Shift"] });
+  await page.keyboard.press("Delete");
+  await expect(clock).toHaveCount(0);
+  await expect(date).toHaveCount(0);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(clock).toHaveCount(1);
+  await expect(date).toHaveCount(1);
+  expect(await boxOf(clock)).toEqual({ x: 4, y: 72, w: 28, h: 12 });
+  expect(await boxOf(date)).toEqual({ x: 4, y: 84, w: 24, h: 4 });
+  await page.context().close();
+});
+
 test("a value widget's text size: S draws the clock smaller in its box, L and XL are off since M already fills it", async ({ browser }) => {
   const page = await openEditor(browser);
   const clock = page.locator("[data-editor-item=clock]");

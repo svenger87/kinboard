@@ -12,6 +12,8 @@ import { GridOverlay, type GridDisplay } from "./grid-overlay";
 
 /** No compaction, and a move or resize onto another widget is refused rather than pushing it. */
 const COMPACTOR = getCompactor(null, false, true);
+/** A frame smaller than this many screen pixels is a click on the empty canvas. */
+const FRAME_MIN_PX = 4;
 /** The resize corner's size on screen, whatever the canvas scale. */
 const HANDLE_PX = 22;
 /** Room kept under the canvas, above the navigation bar, so it fits the window without scrolling. */
@@ -61,19 +63,35 @@ function useFitScale(width: number, height: number) {
   return { ref, navRef, scale };
 }
 
+/** A rectangle in the screen's own pixels. */
+interface Rect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+const intersects = (a: Rect, b: Rect) =>
+  a.left < b.left + b.width && b.left < a.left + a.width && a.top < b.top + b.height && b.top < a.top + a.height;
+
 /**
  * The target screen at its own CSS size, scaled down to fit, with the
  * layout's widgets drawn by the real screensaver components on the grid,
  * over the grid itself (dots, lines or nothing; `display`). Editable: drag
  * to move, the corner to resize, both in whole steps and never onto another
  * widget or below the widget's minimum. Not editable: a preview, nothing moves.
+ *
+ * Selecting: a click picks one box, Shift+click adds or takes one away, and
+ * a frame dragged from the empty canvas selects the boxes it touches (with
+ * Shift, adds them). A drag moves only the box under the pointer; one that
+ * is part of a selection keeps the selection.
  */
 export function EditorCanvas({
   grid,
   items,
   editable,
   display,
-  selectedId,
+  selectedIds,
   names,
   onSelect,
   onCommit,
@@ -82,9 +100,9 @@ export function EditorCanvas({
   items: LayoutItem[];
   editable: boolean;
   display: GridDisplay;
-  selectedId: string | null;
+  selectedIds: string[];
   names: Record<SaverWidgetKey, string>;
-  onSelect: (id: string | null) => void;
+  onSelect: (ids: string[]) => void;
   onCommit: (items: LayoutItem[]) => void;
 }) {
   const { ref, navRef, scale } = useFitScale(grid.width, grid.height);
@@ -117,6 +135,68 @@ export function EditorCanvas({
     [items, onCommit],
   );
 
+  // A box pressed while part of a selection of several: the selection stays
+  // for a drag, and becomes just that box on a click that did not move.
+  const pressed = useRef<{ id: string; x: number; y: number } | null>(null);
+  // Focus that follows a press is the press's; only focus from the keyboard selects.
+  const pointerFocus = useRef(false);
+  // The frame being dragged, in the screen's own pixels; null when none.
+  const [frame, setFrame] = useState<Rect | null>(null);
+  const screenRef = useRef<HTMLDivElement>(null);
+
+  const pressBox = (e: ReactMouseEvent, id: string) => {
+    if (!editable || e.button !== 0) return;
+    pointerFocus.current = true;
+    window.setTimeout(() => (pointerFocus.current = false));
+    pressed.current = null;
+    if (e.shiftKey) onSelect(selectedIds.includes(id) ? selectedIds.filter((s) => s !== id) : [...selectedIds, id]);
+    else if (selectedIds.includes(id) && selectedIds.length > 1) pressed.current = { id, x: e.clientX, y: e.clientY };
+    else onSelect([id]);
+  };
+
+  const clickBox = (e: ReactMouseEvent, id: string) => {
+    const p = pressed.current;
+    pressed.current = null;
+    if (p && p.id === id && Math.hypot(e.clientX - p.x, e.clientY - p.y) < FRAME_MIN_PX) onSelect([id]);
+  };
+
+  /** A press on the empty canvas: a frame, or on letting go without one, a click that clears the selection. */
+  const pressCanvas = (e: ReactMouseEvent) => {
+    if ((e.target as HTMLElement).closest("[data-editor-item]")) return;
+    if (!editable || e.button !== 0 || !screenRef.current) {
+      onSelect([]);
+      return;
+    }
+    e.preventDefault();
+    const origin = screenRef.current.getBoundingClientRect();
+    const k = scale || 1;
+    const start = { x: e.clientX, y: e.clientY };
+    const add = e.shiftKey;
+    const base = selectedIds;
+    const rectTo = (x: number, y: number): Rect => ({
+      left: (Math.min(start.x, x) - origin.left) / k,
+      top: (Math.min(start.y, y) - origin.top) / k,
+      width: Math.abs(x - start.x) / k,
+      height: Math.abs(y - start.y) / k,
+    });
+    const big = (x: number, y: number) => Math.abs(x - start.x) >= FRAME_MIN_PX || Math.abs(y - start.y) >= FRAME_MIN_PX;
+    const move = (ev: MouseEvent) => setFrame(big(ev.clientX, ev.clientY) ? rectTo(ev.clientX, ev.clientY) : null);
+    const up = (ev: MouseEvent) => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      setFrame(null);
+      if (!big(ev.clientX, ev.clientY)) {
+        if (!add) onSelect([]);
+        return;
+      }
+      const r = rectTo(ev.clientX, ev.clientY);
+      const hits = items.filter((i) => intersects(r, boxRect(i, grid))).map((i) => i.id);
+      onSelect(add ? [...base, ...hits.filter((id) => !base.includes(id))] : hits);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+
   const handleSize = HANDLE_PX / (scale || 1);
   const fontSize = (i: LayoutItem) => textPx(i.text, grid.width, grid.height);
 
@@ -135,6 +215,7 @@ export function EditorCanvas({
           style={{ width: grid.width * scale, height: grid.height * scale }}
         >
           <div
+            ref={screenRef}
             className="kb-editor-screen absolute left-0 top-0 text-white"
             style={{
               width: grid.width,
@@ -143,9 +224,7 @@ export function EditorCanvas({
               transformOrigin: "0 0",
               background: "linear-gradient(160deg, #23272f 0%, #12151a 100%)",
             }}
-            onMouseDown={(e: ReactMouseEvent) => {
-              if (!(e.target as HTMLElement).closest("[data-editor-item]")) onSelect(null);
-            }}
+            onMouseDown={pressCanvas}
           >
             <style>{`
               .kb-editor-screen .react-grid-item.react-grid-placeholder { background: hsl(var(--primary)); background-clip: content-box; padding: ${INSET}px; opacity: 0.35; border-radius: ${12 + INSET}px; }
@@ -193,7 +272,7 @@ export function EditorCanvas({
                 const Widget = SAVER_WIDGET_COMPONENTS[item.widget];
                 const rect = boxRect(item, grid);
                 const box = { width: Math.round(rect.width), height: Math.round(rect.height) };
-                const selected = item.id === selectedId;
+                const selected = selectedIds.includes(item.id);
                 return (
                   <div
                     key={item.id}
@@ -205,14 +284,18 @@ export function EditorCanvas({
                     tabIndex={editable ? 0 : -1}
                     aria-label={names[item.widget]}
                     aria-pressed={selected}
-                    onMouseDown={() => editable && onSelect(item.id)}
-                    onFocus={() => editable && onSelect(item.id)}
+                    onFocus={() => {
+                      if (editable && !pointerFocus.current && !selectedIds.includes(item.id)) onSelect([item.id]);
+                    }}
                     className="pointer-events-none outline-none"
                     style={{ fontSize: fontSize(item) }}
                   >
                     {/* The box as drawn: the item less half a gap all round. Only it takes the pointer, so the gap between two boxes grabs neither. */}
                     <div
                       data-editor-box
+                      // Here, not on the item: the library's drag handler replaces the item's own onMouseDown.
+                      onMouseDown={(e) => pressBox(e, item.id)}
+                      onClick={(e) => clickBox(e, item.id)}
                       className={`pointer-events-auto absolute rounded-xl ${editable ? "cursor-grab active:cursor-grabbing" : ""}`}
                       style={{
                         inset: INSET,
@@ -231,6 +314,18 @@ export function EditorCanvas({
                 );
               })}
             </ReactGridLayout>
+            {frame && (
+              <div
+                data-testid="editor-frame"
+                aria-hidden="true"
+                className="pointer-events-none absolute z-20 rounded-sm"
+                style={{
+                  ...frame,
+                  border: `${1 / (scale || 1)}px solid hsl(var(--primary))`,
+                  background: "hsl(var(--primary) / 0.15)",
+                }}
+              />
+            )}
           </div>
         </div>
       )}

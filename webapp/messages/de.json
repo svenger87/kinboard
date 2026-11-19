@@ -3380,7 +3380,7 @@
             "XL": "Sehr groß"
           },
           "remove": "Entfernen",
-          "keys": "Pfeiltasten verschieben das ausgewählte Widget, Entf entfernt es, Strg+Z macht rückgängig.",
+          "keys": "Pfeiltasten verschieben die ausgewählten Widgets, mit Umschalt um eine ganze Zelle; Alt+Pfeiltasten ändern ihre Größe. Umschalt+Klick oder ein aufgezogener Rahmen wählt mehrere aus. Entf entfernt, Strg+Z macht rückgängig.",
           "fillsBox": "Füllt sein Feld: S macht es kleiner, für größer das Feld größer ziehen.",
           "align": "Ausrichtung",
           "aligns": {
@@ -3389,7 +3389,8 @@
             "center": "Mitte",
             "end": "Rechts"
           },
-          "alignAuto": "Automatisch nach seinem Platz: jetzt {side}."
+          "alignAuto": "Automatisch nach seinem Platz: jetzt {side}.",
+          "selected": "{count} ausgewählt"
         },
         "widgets": {
           "clock": "Uhr",
@@ -3432,6 +3433,11 @@
           "assign": "Auf „{name}“ anzeigen",
           "done": "„{name}“ zeigt jetzt dieses Layout.",
           "failed": "Das Layout konnte nicht gesetzt werden. Bitte versuche es noch einmal."
+        },
+        "refused": {
+          "out_of_bounds": "Nicht ausgeführt: Ein Widget würde über den Bildschirm hinausragen.",
+          "below_minimum": "Nicht ausgeführt: Ein Widget würde kleiner als seine Mindestgröße.",
+          "overlap": "Nicht ausgeführt: Ein Widget würde ein anderes überdecken."
         }
       }
     }

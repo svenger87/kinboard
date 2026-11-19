@@ -12,9 +12,13 @@ import type { LayoutItem, SaverWidgetKey, TextSize } from "@/lib/layouts/types";
 
 const TEXT_SIZES: TextSize[] = ["S", "M", "L", "XL"];
 
-/** The selected widget: its size, its text size, and removing it. */
+/**
+ * The selected widget: its size, its text size, and removing it. With
+ * several selected, how many (`item` is null then).
+ */
 export function EditorInspector({
   item,
+  count,
   disabled,
   names,
   onText,
@@ -22,6 +26,7 @@ export function EditorInspector({
   onRemove,
 }: {
   item: LayoutItem | null;
+  count: number;
   disabled: boolean;
   names: Record<SaverWidgetKey, string>;
   onText: (text: TextSize) => void;
@@ -33,7 +38,11 @@ export function EditorInspector({
 
   return (
     <Card className="flex flex-col gap-4 p-4" data-testid="inspector">
-      {!item ? (
+      {count > 1 ? (
+        <h2 className="font-display text-base font-semibold" data-testid="inspector-selection">
+          {t("selected", { count })}
+        </h2>
+      ) : !item ? (
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
         <>

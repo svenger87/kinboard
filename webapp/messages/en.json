@@ -3380,7 +3380,7 @@
             "XL": "Extra large"
           },
           "remove": "Remove",
-          "keys": "Arrow keys move the selected widget, Delete removes it, Ctrl+Z undoes.",
+          "keys": "Arrow keys move the selected widgets, with Shift by a whole cell; Alt+arrows resize them. Shift+click or drag a frame to select several. Delete removes, Ctrl+Z undoes.",
           "fillsBox": "Fills its box: S draws it smaller; for larger, make the box bigger.",
           "align": "Alignment",
           "aligns": {
@@ -3389,7 +3389,8 @@
             "center": "Centre",
             "end": "Right"
           },
-          "alignAuto": "Automatic by where it sits: {side} for now."
+          "alignAuto": "Automatic by where it sits: {side} for now.",
+          "selected": "{count} selected"
         },
         "widgets": {
           "clock": "Clock",
@@ -3432,6 +3433,11 @@
           "assign": "Show on “{name}”",
           "done": "“{name}” now shows this layout.",
           "failed": "The layout could not be assigned. Please try again."
+        },
+        "refused": {
+          "out_of_bounds": "Not done: a widget would leave the screen.",
+          "below_minimum": "Not done: a widget would be smaller than its minimum.",
+          "overlap": "Not done: a widget would overlap another."
         }
       }
     }

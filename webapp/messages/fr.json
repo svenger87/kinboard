@@ -3380,7 +3380,7 @@
             "XL": "Très grande"
           },
           "remove": "Retirer",
-          "keys": "Les flèches déplacent le widget sélectionné, Suppr le retire, Ctrl+Z annule.",
+          "keys": "Les flèches déplacent les widgets sélectionnés, avec Maj d’une cellule entière ; Alt+flèches les redimensionnent. Maj+clic ou un cadre tracé en sélectionne plusieurs. Suppr les retire, Ctrl+Z annule.",
           "fillsBox": "Remplit sa case : S l’affiche plus petit ; pour plus grand, agrandissez la case.",
           "align": "Alignement",
           "aligns": {
@@ -3389,7 +3389,8 @@
             "center": "Centre",
             "end": "Droite"
           },
-          "alignAuto": "Automatique selon sa place : {side} pour l’instant."
+          "alignAuto": "Automatique selon sa place : {side} pour l’instant.",
+          "selected": "{count} sélectionnés"
         },
         "widgets": {
           "clock": "Horloge",
@@ -3432,6 +3433,11 @@
           "assign": "Afficher sur « {name} »",
           "done": "« {name} » affiche maintenant cette disposition.",
           "failed": "La disposition n’a pas pu être attribuée. Veuillez réessayer."
+        },
+        "refused": {
+          "out_of_bounds": "Non appliqué : un widget sortirait de l’écran.",
+          "below_minimum": "Non appliqué : un widget serait plus petit que son minimum.",
+          "overlap": "Non appliqué : un widget en chevaucherait un autre."
         }
       }
     }

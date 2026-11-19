@@ -22,8 +22,8 @@ import { useScreensaverData } from "@/hooks/use-screensaver-data";
 import { useLayoutHistory } from "@/hooks/use-layout-history";
 import { LayoutRequestError, useSaveLayout } from "@/hooks/use-layouts";
 import { builtInScreensaver } from "@/lib/layouts/built-in";
-import { LAYOUT_GRID, gridFor } from "@/lib/layouts/grid";
-import { nudge } from "@/lib/layouts/place";
+import { GRID, LAYOUT_GRID, gridFor } from "@/lib/layouts/grid";
+import { moveBy, resizeBy, type ArrangeReason, type ArrangeResult } from "@/lib/layouts/arrange";
 import { rescaleItems } from "@/lib/layouts/rescale";
 import { validateItems, type LayoutError } from "@/lib/layouts/validate";
 import { SAVER_WIDGETS, knownWidgetItems } from "@/lib/layouts/widgets";
@@ -45,6 +45,10 @@ const OWN_ARROWS = "input, textarea, select, [contenteditable='true'], [role='gr
 const TEXT_ENTRY = "input, textarea, select, [contenteditable='true']";
 /** An open dialog (the reset confirmation, a select's list) owns the keyboard. */
 const OPEN_DIALOG = "[role='dialog'], [role='alertdialog'], [role='listbox']";
+/** Which way each arrow key moves a box, or (with Alt) which edge it grows: right and down grow, left and up shrink. */
+const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+/** How long the toolbar says why a command was refused. */
+const REFUSED_MS = 4000;
 
 /**
  * Unsaved changes, kept for this tab while they are unsaved: the PIN screen
@@ -105,7 +109,10 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const [stamp, setStamp] = useState(layout.updated_at);
   const history = useLayoutHistory(baseline);
   const { items, set, undo, redo, canUndo, canRedo, dirty } = history;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // In the order they were selected: the first is the one commands on several boxes go by.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Why the last keyboard command changed nothing; `at` restarts the timer when the same reason comes again.
+  const [refused, setRefused] = useState<{ reason: ArrangeReason; at: number } | null>(null);
   const [preview, setPreview] = useState<ScreenChoice>({ key: "own", width: layout.width, height: layout.height });
   const [stale, setStale] = useState(false);
   // The server counts positions on another grid than this page (it was
@@ -142,7 +149,12 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
     return rescaleItems(items, ownGrid, previewGrid);
   }, [items, ownGrid, previewGrid, editable]);
 
-  const selected = editable ? (items.find((i) => i.id === selectedId) ?? null) : null;
+  // Only boxes still there (an undo may have taken one away), and none on a preview.
+  const selection = useMemo(
+    () => (editable ? selectedIds.filter((id) => items.some((i) => i.id === id)) : []),
+    [editable, selectedIds, items],
+  );
+  const selected = selection.length === 1 ? (items.find((i) => i.id === selection[0]) ?? null) : null;
   const nameOf = useCallback(
     (itemId?: string) => {
       const item = items.find((i) => i.id === itemId);
@@ -166,23 +178,40 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const commit = useCallback(
     (next: LayoutItem[]) => {
       setError(null);
+      setRefused(null);
       set(next);
     },
     [set],
   );
 
+  /** A command's result: applied, or nothing changes and the toolbar says why. */
+  const apply = useCallback(
+    (result: ArrangeResult) => {
+      if (result.ok) commit(result.items);
+      else setRefused({ reason: result.reason, at: Date.now() });
+    },
+    [commit],
+  );
+
+  useEffect(() => {
+    if (!refused) return;
+    const timer = window.setTimeout(() => setRefused(null), REFUSED_MS);
+    return () => window.clearTimeout(timer);
+  }, [refused]);
+
+  /** Removes every selected box, as one change. */
   const remove = useCallback(() => {
-    if (!selectedId) return;
-    commit(items.filter((i) => i.id !== selectedId));
-    setSelectedId(null);
-  }, [commit, items, selectedId]);
+    if (selection.length === 0) return;
+    commit(items.filter((i) => !selection.includes(i.id)));
+    setSelectedIds([]);
+  }, [commit, items, selection]);
 
   const setText = (text: TextSize) => {
-    if (selectedId) commit(items.map((i) => (i.id === selectedId ? { ...i, text } : i)));
+    if (selected) commit(items.map((i) => (i.id === selected.id ? { ...i, text } : i)));
   };
 
   const setAlign = (align: Align | null) => {
-    if (selectedId) commit(items.map((i) => (i.id === selectedId ? withAlign(i, align) : i)));
+    if (selected) commit(items.map((i) => (i.id === selected.id ? withAlign(i, align) : i)));
   };
 
   // Leaving with unsaved changes asks first.
@@ -209,25 +238,26 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
         else undo();
         return;
       }
-      if (!editable || !selectedId || mod || e.altKey) return;
-      if (e.key === "Delete" || e.key === "Backspace") {
+      if (!editable || !ownGrid || selection.length === 0 || mod) return;
+      if ((e.key === "Delete" || e.key === "Backspace") && !e.altKey) {
         e.preventDefault();
         remove();
         return;
       }
       if (e.key === "Escape") {
-        setSelectedId(null);
+        setSelectedIds([]);
         return;
       }
-      const step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
-      if (!step || target?.closest(OWN_ARROWS)) return;
+      const dir = ARROWS[e.key];
+      if (!dir || target?.closest(OWN_ARROWS)) return;
       e.preventDefault();
-      const next = ownGrid && nudge(items, selectedId, step[0], step[1], ownGrid.rows);
-      if (next) commit(next);
+      // A step, or with Shift a whole cell; Alt resizes instead of moving.
+      const n = e.shiftKey ? GRID.STEPS_PER_CELL : 1;
+      apply((e.altKey ? resizeBy : moveBy)(items, selection, dir[0] * n, dir[1] * n, ownGrid.rows));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [editable, selectedId, items, ownGrid, undo, redo, remove, commit]);
+  }, [editable, selection, items, ownGrid, undo, redo, remove, apply]);
 
   /** Saves the items; true when they were saved. */
   const save = async (): Promise<boolean> => {
@@ -297,6 +327,11 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {refused && (
+            <span role="status" data-testid="editor-refused" data-reason={refused.reason} className="text-sm text-destructive">
+              {t(`refused.${refused.reason}`)}
+            </span>
+          )}
           <Select value={gridDisplay} onValueChange={(v) => setGridDisplay(v as GridDisplay)}>
             <SelectTrigger className="h-8 w-auto gap-2" data-testid="editor-grid-display" aria-label={t("gridDisplay.label")} title={t("gridDisplay.label")}>
               <Grid3x3 className="size-4" aria-hidden="true" />
@@ -335,7 +370,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
                 <AlertDialogAction
                   data-testid="editor-reset-confirm"
                   onClick={() => {
-                    setSelectedId(null);
+                    setSelectedIds([]);
                     commit(builtInScreensaver(layout.width, layout.height));
                   }}
                 >
@@ -392,20 +427,20 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       )}
 
       <div className="grid gap-4 lg:grid-cols-[13rem_minmax(0,1fr)_16rem] lg:items-start">
-        <EditorPalette items={items} rows={ownGrid.rows} disabled={!editable} names={names} onAdd={(item) => { commit([...items, item]); setSelectedId(item.id); }} />
+        <EditorPalette items={items} rows={ownGrid.rows} disabled={!editable} names={names} onAdd={(item) => { commit([...items, item]); setSelectedIds([item.id]); }} />
         <ScreensaverDataProvider value={data}>
           <EditorCanvas
             grid={previewGrid!}
             items={shown.items}
             editable={editable}
             display={gridDisplay}
-            selectedId={selected?.id ?? null}
+            selectedIds={selection}
             names={names}
-            onSelect={setSelectedId}
+            onSelect={setSelectedIds}
             onCommit={commit}
           />
         </ScreensaverDataProvider>
-        <EditorInspector item={selected} disabled={!editable} names={names} onText={setText} onAlign={setAlign} onRemove={remove} />
+        <EditorInspector item={selected} count={selection.length} disabled={!editable} names={names} onText={setText} onAlign={setAlign} onRemove={remove} />
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { firstFreeBox, nudge } from "../src/lib/layouts/place";
+import { firstFreeBox } from "../src/lib/layouts/place";
+import { moveBy } from "../src/lib/layouts/arrange";
 import { builtInScreensaver } from "../src/lib/layouts/built-in";
 import { HISTORY_LIMIT, pushHistory, redoHistory, undoHistory, type History } from "../src/hooks/use-layout-history";
 import { validateItems } from "../src/lib/layouts/validate";
@@ -41,11 +42,12 @@ test("on the built-in portrait layout every unplaced widget finds a valid spot",
 
 test("an arrow key moves a widget one step, but not off the grid or onto another", () => {
   const items = [box("clock", 0, 0, 16, 8), box("date", 16, 0, 12, 4)];
-  expect(nudge(items, "clock", 0, 1, 24)!.find((i) => i.id === "clock")).toMatchObject({ x: 0, y: 1 });
-  expect(nudge(items, "clock", -1, 0, 24)).toBeNull();
-  expect(nudge(items, "clock", 1, 0, 24)).toBeNull();
-  expect(nudge([box("clock", 0, 16, 16, 8)], "clock", 0, 1, 24)).toBeNull();
-  expect(nudge([box("clock", 32, 0, 16, 8)], "clock", 1, 0, 24)).toBeNull();
+  const down = moveBy(items, ["clock"], 0, 1, 24);
+  expect(down.ok && down.items.find((i) => i.id === "clock")).toMatchObject({ x: 0, y: 1 });
+  expect(moveBy(items, ["clock"], -1, 0, 24)).toEqual({ ok: false, reason: "out_of_bounds" });
+  expect(moveBy(items, ["clock"], 1, 0, 24)).toEqual({ ok: false, reason: "overlap" });
+  expect(moveBy([box("clock", 0, 16, 16, 8)], ["clock"], 0, 1, 24)).toEqual({ ok: false, reason: "out_of_bounds" });
+  expect(moveBy([box("clock", 32, 0, 16, 8)], ["clock"], 1, 0, 24)).toEqual({ ok: false, reason: "out_of_bounds" });
 });
 
 test("undo and redo walk the history; a new edit clears redo; 50 steps at most", () => {
