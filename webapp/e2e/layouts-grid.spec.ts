@@ -19,9 +19,28 @@ test("1080x1920: 60px cells, 12 columns, 48px edges", () => {
 });
 test("720x1280 (1080x1920 at 150%): 30px cells", () => expect(gridFor(720, 1280)!.cell).toBe(30));
 test("1920x1080: 130px cells", () => expect(gridFor(1920, 1080)!.cell).toBe(130));
-test("below 600px wide or under 6 rows there is no grid", () => {
+test("below 600px wide, or too short for six rows of 20px cells (the cell a 600px width has), there is no grid", () => {
   expect(gridFor(599, 1000)).toBeNull();
   expect(gridFor(1920, 300)).toBeNull();
+});
+test("a wide screen gets six rows: the cells shrink and the twelve columns sit centred", () => {
+  // A desktop browser on a 2560x1440 monitor (reported from a family's screen).
+  const g = gridFor(2552, 1274)!;
+  expect(g.rows).toBe(6);
+  expect(g.cell).toBe(176);
+  const used = 12 * g.cell + 11 * 24;
+  expect(g.offsetX).toBeCloseTo((2552 - used) / 2, 5);
+  // A 1920x1080 monitor minus a browser's bars.
+  expect(gridFor(1920, 960)).toMatchObject({ rows: 6, cell: 124 });
+});
+test("screens that had six rows keep the grid they had", () => {
+  for (const [w, h] of [[1080, 1920], [720, 1280], [1920, 1080], [1280, 720], [1280, 800], [800, 1280], [600, 1024]]) {
+    // The rule before wide screens were handled: cells from the width alone.
+    const cell = Math.floor((w - 96 - 11 * 24) / 12);
+    const rows = Math.floor((h - 96 + 24) / (cell + 24));
+    const g = gridFor(w, h)!;
+    expect(g).toMatchObject({ cell, rows, offsetX: 48 + (w - 96 - (12 * cell + 11 * 24)) / 2 });
+  }
 });
 test("a box spans its cells and the gaps between them", () => {
   const g = gridFor(1080, 1920)!;

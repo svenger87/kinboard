@@ -7,7 +7,7 @@
  */
 import type { LayoutItem, TextSize } from "./types";
 
-export const GRID = { EDGE: 48, GAP: 24, COLUMNS: 12, MIN_WIDTH: 600, MIN_ROWS: 6 } as const;
+export const GRID = { EDGE: 48, GAP: 24, COLUMNS: 12, MIN_WIDTH: 600, MIN_ROWS: 6, MIN_CELL: 20 } as const;
 
 export interface Grid {
   width: number;
@@ -19,14 +19,25 @@ export interface Grid {
   offsetY: number;
 }
 
-/** The grid for a screen, or null when it is too small to hold a layout. */
+/**
+ * The grid for a screen, or null when it is too small to hold a layout.
+ *
+ * Twelve square columns across the width, as many rows as fit. On a screen
+ * wider than about 1.85:1 (a desktop browser on a 2560x1440 monitor draws
+ * 2552x1274, a 1920x1080 one with its tab bar about 1920x960) twelve columns
+ * that wide leave fewer than six rows, so the cells shrink until six fit and
+ * the columns sit centred, with the spare width shared as side margin. Every
+ * screen that had six rows keeps exactly the grid it had.
+ */
 export function gridFor(width: number, height: number): Grid | null {
   if (width < GRID.MIN_WIDTH) return null;
-  const { EDGE, GAP, COLUMNS } = GRID;
-  const cell = Math.floor((width - 2 * EDGE - (COLUMNS - 1) * GAP) / COLUMNS);
-  if (cell < 1) return null;
+  const { EDGE, GAP, COLUMNS, MIN_ROWS, MIN_CELL } = GRID;
+  const byWidth = Math.floor((width - 2 * EDGE - (COLUMNS - 1) * GAP) / COLUMNS);
+  const byHeight = Math.floor((height - 2 * EDGE - (MIN_ROWS - 1) * GAP) / MIN_ROWS);
+  const cell = Math.min(byWidth, byHeight);
+  if (cell < MIN_CELL) return null;
   const rows = Math.floor((height - 2 * EDGE + GAP) / (cell + GAP));
-  if (rows < GRID.MIN_ROWS) return null;
+  if (rows < MIN_ROWS) return null;
   const usedW = COLUMNS * cell + (COLUMNS - 1) * GAP;
   const usedH = rows * cell + (rows - 1) * GAP;
   return {

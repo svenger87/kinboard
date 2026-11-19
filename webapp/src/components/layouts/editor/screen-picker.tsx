@@ -84,12 +84,14 @@ export function ScreenPicker({
   const options = useMemo(() => {
     const ownOption = own ? { key: "own", width: own.width, height: own.height, label: t("own", { width: own.width, height: own.height }) } : null;
     // A screen's reported size can carry a fraction (a zoomed browser); layouts are whole pixels.
+    // A screen too small for a grid (a phone) is listed, greyed out, rather than missing without a word.
     const deviceOptions = (devices ?? []).flatMap((d) => {
       if (!d.screen) return [];
       const width = Math.round(d.screen.viewportWidth);
       const height = Math.round(d.screen.viewportHeight);
-      if (!sizeFits(width, height)) return [];
-      return [{ key: `device:${d.id}`, width, height, label: t("device", { name: d.name, width, height }) }];
+      const fits = sizeFits(width, height);
+      const label = fits ? t("device", { name: d.name, width, height }) : t("deviceTooSmall", { name: d.name, width, height });
+      return [{ key: `device:${d.id}`, width, height, label, fits }];
     });
     const presetOptions = PRESETS.map((p) => ({
       key: `preset:${p.key}`,
@@ -128,7 +130,7 @@ export function ScreenPicker({
             <SelectGroup>
               <SelectLabel>{t("devices")}</SelectLabel>
               {options.deviceOptions.map((o) => (
-                <SelectItem key={o.key} value={o.key}>
+                <SelectItem key={o.key} value={o.key} disabled={!o.fits} data-testid={o.fits ? undefined : "screen-picker-too-small"}>
                   {o.label}
                 </SelectItem>
               ))}
