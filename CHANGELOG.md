@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-11-19
+
 ### Added
 
 - **How many points each stage needs, set by the family.** Settings → Creatures & rewards → Growing (settings PIN): the points stages 2 to 8 need (standard 50, 150, 300, 600, 1,000, 1,600, 2,500), each more than the one before. Every screen, the reward and week-summary views for Home Assistant and assistants, and the server's checks on stage writes use them (PUT `/api/creatures/growth`; `growth_points` can't be written through `/api/settings`). Raising a number never shrinks a creature: on saving, each creature growing with points keeps the stage it has as its floor. Creatures growing with money are unchanged.
@@ -1113,7 +1115,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.16.0...HEAD
+[1.16.0]: https://github.com/svenger87/kinboard/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/svenger87/kinboard/compare/v1.13.0...v1.15.0
 [1.13.0]: https://github.com/svenger87/kinboard/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/svenger87/kinboard/compare/v1.12.0...v1.12.1
