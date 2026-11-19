@@ -31,6 +31,7 @@ import type { Layout, LayoutItem, SaverWidgetKey, TextSize } from "@/lib/layouts
 import { EditorCanvas } from "./canvas";
 import { EditorPalette } from "./palette";
 import { EditorInspector } from "./inspector";
+import { withAlign, type Align } from "@/lib/layouts/align";
 import { ScreenPicker, type ScreenChoice } from "./screen-picker";
 import { CopyForSize, readCopyDropped, releaseCopyDropped } from "./copy-dialog";
 
@@ -166,6 +167,10 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
 
   const setText = (text: TextSize) => {
     if (selectedId) commit(items.map((i) => (i.id === selectedId ? { ...i, text } : i)));
+  };
+
+  const setAlign = (align: Align | null) => {
+    if (selectedId) commit(items.map((i) => (i.id === selectedId ? withAlign(i, align) : i)));
   };
 
   // Leaving with unsaved changes asks first.
@@ -363,7 +368,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
             onCommit={commit}
           />
         </ScreensaverDataProvider>
-        <EditorInspector item={selected} disabled={!editable} names={names} onText={setText} onRemove={remove} />
+        <EditorInspector item={selected} disabled={!editable} names={names} onText={setText} onAlign={setAlign} onRemove={remove} />
       </div>
     </div>
   );

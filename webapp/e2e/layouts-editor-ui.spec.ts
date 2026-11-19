@@ -264,6 +264,37 @@ test("a value widget's text size: S draws the clock smaller in its box, L and XL
   await page.context().close();
 });
 
+test("a value widget sits at the edge it touches, and the inspector sets it otherwise", async ({ browser }) => {
+  const page = await openEditor(browser);
+  const clock = page.locator("[data-editor-item=clock]");
+  // The built-in arrangement has the clock in the left column: left.
+  await expect(clock.locator("[data-align]")).toHaveAttribute("data-align", "start");
+  await clock.click();
+  await expect(page.getByTestId("inspector-align-auto")).toBeVisible();
+  await page.getByTestId("align-end").click();
+  await expect(clock.locator("[data-align]")).toHaveAttribute("data-align", "end");
+  await expect(page.getByTestId("inspector-align-auto")).toHaveCount(0);
+  await save(page);
+  expect(savedItem("clock")?.options).toMatchObject({ align: "end" });
+  await page.getByTestId("align-auto").click();
+  await expect(clock.locator("[data-align]")).toHaveAttribute("data-align", "start");
+  await save(page);
+  expect(savedItem("clock")?.options?.align).toBeUndefined();
+  // A list has no alignment to set.
+  await page.locator("[data-editor-item=events]").click();
+  await expect(page.getByTestId("align-auto")).toHaveCount(0);
+  await page.context().close();
+});
+
+test("next event says in the designer what it shows, when nothing is due within the hour", async ({ browser }) => {
+  const page = await openEditor(browser);
+  await page.getByTestId("palette-add-nextEvent").click();
+  const box = page.locator("[data-editor-item=nextEvent]");
+  await expect(box).toHaveCount(1);
+  await expect(box.getByTestId("saver-widget-not-set-up")).toBeVisible();
+  await page.context().close();
+});
+
 test("removing a widget returns it to the palette, adding places it on free cells", async ({ browser }) => {
   const page = await openEditor(browser);
   await page.locator("[data-editor-item=news]").click();

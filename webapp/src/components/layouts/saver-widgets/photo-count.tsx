@@ -17,7 +17,7 @@ export function PhotoCountWidget({ item, box, editing }: SaverWidgetProps) {
   if (photoCount === 0 && photosLoading) return null;
   if (photoCount === 0) return editing ? <NotSetUp text={t("notSetUp.photoCount")} /> : null;
   return (
-    <ValueFrame fitted={size !== null} align="center">
+    <ValueFrame item={item} fitted={size !== null}>
       <span
         ref={ref}
         className="block w-fit shrink-0 whitespace-nowrap leading-tight tabular-nums text-white/40"

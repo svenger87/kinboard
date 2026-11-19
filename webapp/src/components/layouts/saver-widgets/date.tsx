@@ -12,7 +12,7 @@ export function DateWidget({ item, box }: SaverWidgetProps) {
   const ref = useRef<HTMLParagraphElement>(null);
   const size = useFitToBox(ref, valueBox(box, item.text), [formattedDate]);
   return (
-    <ValueFrame fitted={size !== null}>
+    <ValueFrame item={item} fitted={size !== null}>
       <p
         ref={ref}
         className="block w-fit shrink-0 whitespace-nowrap font-light leading-tight tracking-wide text-white/60"

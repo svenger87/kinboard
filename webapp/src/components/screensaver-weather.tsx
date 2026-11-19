@@ -101,7 +101,7 @@ export function ScreensaverWeather({
  * applies), each column a fixed width, and as many slots as the caller says
  * fit (forecastSlotsFor). With no slot to show, the chip alone.
  */
-export function ScaledForecast({ weather, slots: maxSlots }: { weather: WeatherData; slots: number }) {
+export function ScaledForecast({ weather, slots: maxSlots, fill = false }: { weather: WeatherData; slots: number; fill?: boolean }) {
   const t = useTranslations("components.screensaver");
   const { formatWallClock } = useTimeFormat();
   const { data: forecast } = useWeatherForecast({ enabled: maxSlots > 0 });
@@ -109,21 +109,25 @@ export function ScaledForecast({ weather, slots: maxSlots }: { weather: WeatherD
   const slots = maxSlots > 0 ? upcomingSlots(forecast?.hourly, now).slice(0, Math.min(maxSlots, SLOTS)) : [];
   const NowIcon = screensaverWeatherIcon(weather.conditionMain ?? weather.condition, weather.conditionIcon);
 
-  if (slots.length === 0) return <WeatherNowChip weather={weather} scaled />;
+  if (slots.length === 0 && !fill) return <WeatherNowChip weather={weather} scaled />;
 
+  // fill: the card is the whole box and the columns share its width, so its edges are the box's.
   return (
-    <div className="flex items-stretch gap-[0.25em] bg-black/40 rounded-[0.75em] px-[0.5em] py-[0.625em] gpu-blur" data-slots={slots.length}>
-      <ScaledColumn label={t("forecastNow")} strong>
+    <div
+      className={`flex items-stretch gap-[0.25em] bg-black/40 rounded-[0.75em] px-[0.5em] py-[0.625em] gpu-blur${fill ? " size-full justify-between" : ""}`}
+      data-slots={slots.length}
+    >
+      <ScaledColumn label={t("forecastNow")} strong fill={fill}>
         <NowIcon className="size-[1.75em] text-white" strokeWidth={1.75} />
         <span className="font-display font-light text-[1.5em] text-white tabular-nums leading-none">{Math.round(weather.temp)}°</span>
         <span className="text-[0.75em] leading-[1.25] invisible" aria-hidden="true">0%</span>
       </ScaledColumn>
-      <div className="w-px self-stretch bg-white/15 mx-[0.25em]" aria-hidden="true" />
+      {slots.length > 0 && <div className="w-px self-stretch bg-white/15 mx-[0.25em]" aria-hidden="true" />}
       {slots.map((slot) => {
         const Icon = screensaverWeatherIcon(slot.conditionMain ?? slot.condition, slot.conditionIcon);
         const wet = slot.precipProbability >= RAIN_STANDS_OUT;
         return (
-          <ScaledColumn key={slot.at ?? slot.time} label={formatWallClock(slot.time)}>
+          <ScaledColumn key={slot.at ?? slot.time} label={formatWallClock(slot.time)} fill={fill}>
             <Icon className="size-[1.75em] text-white" strokeWidth={1.75} />
             <span className="font-display font-light text-[1.5em] text-white tabular-nums leading-none">{slot.temp}°</span>
             <span
@@ -155,9 +159,9 @@ export function forecastSlotsFor(widthPx: number, fontPx: number): number {
   return Math.max(0, Math.min(SLOTS, n));
 }
 
-function ScaledColumn({ label, strong = false, children }: { label: string; strong?: boolean; children: React.ReactNode }) {
+function ScaledColumn({ label, strong = false, fill = false, children }: { label: string; strong?: boolean; fill?: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex w-[4.5em] shrink-0 flex-col items-center gap-[0.375em] px-[0.25em]">
+    <div className={`flex shrink-0 flex-col items-center gap-[0.375em] px-[0.25em] ${fill ? "min-w-[4.5em] flex-1 justify-center" : "w-[4.5em]"}`}>
       <span className={`text-[0.75em] leading-[1.25] tabular-nums ${strong ? "font-semibold text-white/80" : "text-white/60"}`}>{label}</span>
       {children}
     </div>

@@ -225,7 +225,10 @@
         "vehicles": "Tesla: unter Einstellungen → Tesla „Auf Bildschirmschoner anzeigen“ einschalten",
         "photoCount": "Fotos: eine Fotoquelle unter Einstellungen → Fotos wählen"
       },
-      "weatherFailed": "Wetter konnte nicht geladen werden – Ort unter Einstellungen → Wetter prüfen"
+      "weatherFailed": "Wetter konnte nicht geladen werden – Ort unter Einstellungen → Wetter prüfen",
+      "idle": {
+        "nextEvent": "Nächster Termin: erscheint in der Stunde vor einem Termin."
+      }
     }
   },
   "localeSwitcher": {
@@ -3370,7 +3373,15 @@
           },
           "remove": "Entfernen",
           "keys": "Pfeiltasten verschieben das ausgewählte Widget, Entf entfernt es, Strg+Z macht rückgängig.",
-          "fillsBox": "Füllt sein Feld: S macht es kleiner, für größer das Feld größer ziehen."
+          "fillsBox": "Füllt sein Feld: S macht es kleiner, für größer das Feld größer ziehen.",
+          "align": "Ausrichtung",
+          "aligns": {
+            "auto": "Auto",
+            "start": "Links",
+            "center": "Mitte",
+            "end": "Rechts"
+          },
+          "alignAuto": "Automatisch nach seinem Platz: jetzt {side}."
         },
         "widgets": {
           "clock": "Uhr",

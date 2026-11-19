@@ -225,7 +225,10 @@
         "vehicles": "Tesla: turn on “Show on screensaver” under Settings → Tesla",
         "photoCount": "Photos: choose a photo source under Settings → Photos"
       },
-      "weatherFailed": "The weather could not be loaded – check the location under Settings → Weather"
+      "weatherFailed": "The weather could not be loaded – check the location under Settings → Weather",
+      "idle": {
+        "nextEvent": "Next event: shows in the hour before an event."
+      }
     }
   },
   "localeSwitcher": {
@@ -3370,7 +3373,15 @@
           },
           "remove": "Remove",
           "keys": "Arrow keys move the selected widget, Delete removes it, Ctrl+Z undoes.",
-          "fillsBox": "Fills its box: S draws it smaller; for larger, make the box bigger."
+          "fillsBox": "Fills its box: S draws it smaller; for larger, make the box bigger.",
+          "align": "Alignment",
+          "aligns": {
+            "auto": "Auto",
+            "start": "Left",
+            "center": "Centre",
+            "end": "Right"
+          },
+          "alignAuto": "Automatic by where it sits: {side} for now."
         },
         "widgets": {
           "clock": "Clock",
