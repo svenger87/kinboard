@@ -217,7 +217,7 @@ test("assigned to the kitchen in Settings → Devices, the layout counts one scr
 });
 
 test("the default pickers only offer layouts of their orientation; the portrait default gets a badge", async ({ browser }) => {
-  const created = await api.post("/api/layouts", { data: { name: LANDSCAPE, width: 1920, height: 1080, from: "builtin" } });
+  const created = await api.post("/api/layouts", { data: { grid: 48, name: LANDSCAPE, width: 1920, height: 1080, from: "builtin" } });
   expect(created.status(), await created.text()).toBe(201);
   const page = await openLayouts(browser);
   await expect(row(page, LANDSCAPE)).toBeVisible({ timeout: 30_000 });

@@ -3,8 +3,8 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { UUID } from "@/lib/home/action-requests";
-import { orientationOf } from "@/lib/layouts/grid";
-import { DEFAULTS_KEY, fail, readJson } from "@/lib/layouts/server";
+import { LAYOUT_GRID, orientationOf } from "@/lib/layouts/grid";
+import { DEFAULTS_KEY, fail, gridChanged, readJson } from "@/lib/layouts/server";
 import type { LayoutDefaults } from "@/lib/layouts/types";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,8 @@ export const dynamic = "force-dynamic";
  * bad_default. An id with no layout behind it (deleted meanwhile, or a stale
  * value a client still holds) counts as null, so a dangling slot can always
  * be cleared by sending the other one. Stored as the family's
- * `layout_defaults` setting, and the stored value is returned.
+ * `layout_defaults` setting, and the stored value is returned. A layout not
+ * on the grid (still in cells) is 409 grid_changed: screens would not use it.
  */
 export async function PUT(request: NextRequest) {
   const auth = await requireSession(request);
@@ -43,7 +44,7 @@ export async function PUT(request: NextRequest) {
     if (!UUID.test(id)) return fail("bad_default");
     const { data: row, error } = await db
       .from("layouts")
-      .select("width, height")
+      .select("width, height, grid")
       .eq("id", id)
       .eq("family_id", familyId)
       .maybeSingle();
@@ -52,6 +53,7 @@ export async function PUT(request: NextRequest) {
       defaults[slot] = null;
       continue;
     }
+    if (row.grid !== LAYOUT_GRID) return gridChanged();
     if (orientationOf(row.width, row.height) !== slot) return fail("bad_default");
   }
 

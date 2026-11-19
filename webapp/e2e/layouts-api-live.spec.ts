@@ -97,31 +97,31 @@ test("GET needs a session only, and shows this family's layouts", async () => {
 
 test("create from builtin: 201 with the built-in screensaver", async () => {
   await unlock();
-  const res = await api.post("/api/layouts", { data: { name: `${P}one`, width: 1080, height: 1920, from: "builtin" } });
+  const res = await api.post("/api/layouts", { data: { grid: 48, name: `${P}one`, width: 1080, height: 1920, from: "builtin" } });
   expect(res.status(), await res.text()).toBe(201);
   const { layout } = await res.json();
   layoutId = layout.id;
   updatedAt = layout.updated_at;
-  expect(layout).toMatchObject({ family_id: famId, name: `${P}one`, width: 1080, height: 1920 });
+  expect(layout).toMatchObject({ family_id: famId, name: `${P}one`, width: 1080, height: 1920, grid: 48 });
   expect(layout.screensaver).toEqual(builtInScreensaver(1080, 1920));
-  const bad = await api.post("/api/layouts", { data: { name: "", width: 1080, height: 1920 } });
+  const bad = await api.post("/api/layouts", { data: { grid: 48, name: "", width: 1080, height: 1920 } });
   expect(bad.status()).toBe(400);
   expect((await bad.json()).error).toBe("bad_name");
-  const size = await api.post("/api/layouts", { data: { name: "ok", width: 10, height: 1920 } });
+  const size = await api.post("/api/layouts", { data: { grid: 48, name: "ok", width: 10, height: 1920 } });
   expect((await size.json()).error).toBe("bad_size");
   // In range, but too flat for six rows of the smallest cell (20px): no screensaver could ever fit.
   // (1920x600 is fine since wide screens shrink their cells: six rows of 64px.)
-  const flat = await api.post("/api/layouts", { data: { name: "ok", width: 1920, height: 300, from: "builtin" } });
+  const flat = await api.post("/api/layouts", { data: { grid: 48, name: "ok", width: 1920, height: 300, from: "builtin" } });
   expect(flat.status()).toBe(400);
   expect((await flat.json()).error).toBe("bad_size");
 });
 
 test("create from a layout at a smaller size: 201 with what fits, the rest listed as dropped", async () => {
   await unlock();
-  const src = await api.post("/api/layouts", { data: { name: `${P}portrait`, width: 1080, height: 1920, from: "builtin" } });
+  const src = await api.post("/api/layouts", { data: { grid: 48, name: `${P}portrait`, width: 1080, height: 1920, from: "builtin" } });
   expect(src.status(), await src.text()).toBe(201);
   const srcId = (await src.json()).layout.id as string;
-  const res = await api.post("/api/layouts", { data: { name: `${P}landscape`, width: 1280, height: 720, from: srcId } });
+  const res = await api.post("/api/layouts", { data: { grid: 48, name: `${P}landscape`, width: 1280, height: 720, from: srcId } });
   expect(res.status(), await res.text()).toBe(201);
   const { layout, dropped } = (await res.json()) as { layout: { screensaver: LayoutItem[] }; dropped: string[] };
   expect(dropped.length).toBeGreaterThan(0);
@@ -129,39 +129,39 @@ test("create from a layout at a smaller size: 201 with what fits, the rest liste
   expect(validateItems(layout.screensaver, 1280, 720).ok).toBe(true);
   expect([...layout.screensaver.map((i) => i.id), ...dropped].sort()).toEqual(builtInScreensaver(1080, 1920).map((i) => i.id).sort());
   // Created from builtin or empty: nothing dropped, the field is still there.
-  const empty = await api.post("/api/layouts", { data: { name: `${P}empty`, width: 1080, height: 1920 } });
+  const empty = await api.post("/api/layouts", { data: { grid: 48, name: `${P}empty`, width: 1080, height: 1920 } });
   expect((await empty.json()).dropped).toEqual([]);
 });
 
 test("PATCH: a valid change, a stale stamp, an overlap, unknown keys", async () => {
   await unlock();
   const items = builtInScreensaver(1080, 1920);
-  const ok = await api.patch(`/api/layouts/${layoutId}`, { data: { name: `${P}renamed`, screensaver: items.slice(0, 1), updated_at: updatedAt } });
+  const ok = await api.patch(`/api/layouts/${layoutId}`, { data: { grid: 48, name: `${P}renamed`, screensaver: items.slice(0, 1), updated_at: updatedAt } });
   expect(ok.status(), await ok.text()).toBe(200);
   const { layout } = await ok.json();
   expect(layout.name).toBe(`${P}renamed`);
   expect(layout.screensaver).toHaveLength(1);
   expect(layout.updated_at).not.toBe(updatedAt);
 
-  const stale = await api.patch(`/api/layouts/${layoutId}`, { data: { name: `${P}stale`, updated_at: updatedAt } });
+  const stale = await api.patch(`/api/layouts/${layoutId}`, { data: { grid: 48, name: `${P}stale`, updated_at: updatedAt } });
   expect(stale.status()).toBe(409);
   expect((await stale.json()).error).toBe("stale");
   expect(psql(`SELECT name FROM layouts WHERE id = '${layoutId}'`)).toBe(`${P}renamed`);
 
   const fresh = layout.updated_at as string;
-  const a = { id: "a", widget: "clock", x: 0, y: 0, w: 4, h: 2, text: "M" };
-  const b = { id: "b", widget: "date", x: 2, y: 0, w: 4, h: 2, text: "M" };
+  const a = { id: "a", widget: "clock", x: 0, y: 0, w: 16, h: 8, text: "M" };
+  const b = { id: "b", widget: "date", x: 8, y: 0, w: 16, h: 8, text: "M" };
   const before = stamp(layoutId);
-  const over = await api.patch(`/api/layouts/${layoutId}`, { data: { screensaver: [a, b], updated_at: fresh } });
+  const over = await api.patch(`/api/layouts/${layoutId}`, { data: { grid: 48, screensaver: [a, b], updated_at: fresh } });
   expect(over.status()).toBe(400);
   expect((await over.json()).error).toBe("overlap");
   expect(stamp(layoutId)).toBe(before);
 
-  const junk = await api.patch(`/api/layouts/${layoutId}`, { data: { name: "x", updated_at: "not a date" } });
+  const junk = await api.patch(`/api/layouts/${layoutId}`, { data: { grid: 48, name: "x", updated_at: "not a date" } });
   expect(junk.status()).toBe(400);
   expect((await junk.json()).error).toBe("bad_body");
 
-  const unk = await api.patch(`/api/layouts/${layoutId}`, { data: { home: [], updated_at: fresh } });
+  const unk = await api.patch(`/api/layouts/${layoutId}`, { data: { grid: 48, home: [], updated_at: fresh } });
   expect(unk.status()).toBe(400);
   expect((await unk.json()).error).toBe("bad_body");
   updatedAt = fresh;
@@ -169,22 +169,64 @@ test("PATCH: a valid change, a stale stamp, an overlap, unknown keys", async () 
 
 test("duplicate: 201, same size and items, new id", async () => {
   await unlock();
-  const res = await api.post(`/api/layouts/${layoutId}/duplicate`, { data: { name: `${P}copy` } });
+  const res = await api.post(`/api/layouts/${layoutId}/duplicate`, { data: { grid: 48, name: `${P}copy` } });
   expect(res.status(), await res.text()).toBe(201);
   const { layout } = await res.json();
   expect(layout.id).not.toBe(layoutId);
-  expect(layout).toMatchObject({ name: `${P}copy`, width: 1080, height: 1920 });
+  expect(layout).toMatchObject({ name: `${P}copy`, width: 1080, height: 1920, grid: 48 });
   expect(layout.screensaver).toHaveLength(1);
+  const list = (await (await api.get("/api/layouts")).json()).layouts as { grid: number }[];
+  expect(list.length).toBeGreaterThan(0);
+  for (const l of list) expect(l.grid).toBe(48);
+});
+
+test("writes must say grid 48: without it, or with another, 409 grid_changed and nothing written", async () => {
+  await unlock();
+  const count = () => psql(`SELECT count(*) FROM layouts WHERE family_id = '${famId}'`);
+  const before = count();
+  const st = stamp(layoutId);
+  for (const g of [{}, { grid: 12 }, { grid: "48" }, { grid: null }]) {
+    const calls = [
+      api.post("/api/layouts", { data: { name: `${P}g`, width: 1080, height: 1920, ...g } }),
+      api.patch(`/api/layouts/${layoutId}`, { data: { name: `${P}g`, updated_at: updatedAt, ...g } }),
+      api.patch(`/api/layouts/${layoutId}`, { data: { screensaver: [], updated_at: updatedAt, ...g } }),
+      api.post(`/api/layouts/${layoutId}/duplicate`, { data: { name: `${P}g`, ...g } }),
+    ];
+    for (const res of await Promise.all(calls)) {
+      expect(res.status(), JSON.stringify(g)).toBe(409);
+      expect((await res.json()).error).toBe("grid_changed");
+    }
+  }
+  expect(count()).toBe(before);
+  expect(stamp(layoutId)).toBe(st);
+});
+
+test("a layout still on the 12-column grid cannot be assigned or made a default: 409 grid_changed", async () => {
+  await unlock();
+  const old = psqlRow(`INSERT INTO layouts (family_id, name, width, height, grid) VALUES ('${famId}', '${P}old-grid', 1080, 1920, 12) RETURNING id`);
+  try {
+    const assign = await api.put(`/api/devices/${deviceId}/layout`, { data: { layout_id: old } });
+    expect(assign.status(), await assign.text()).toBe(409);
+    expect((await assign.json()).error).toBe("grid_changed");
+    expect(dev()).toBe("null");
+    const before = defaults();
+    const asDefault = await api.put("/api/layouts/defaults", { data: { portrait: old, landscape: null } });
+    expect(asDefault.status(), await asDefault.text()).toBe(409);
+    expect((await asDefault.json()).error).toBe("grid_changed");
+    expect(defaults()).toBe(before);
+  } finally {
+    psql(`DELETE FROM layouts WHERE id = '${old}'`);
+  }
 });
 
 test("another family's layout is 404 on every route", async () => {
   await unlock();
-  expect((await api.patch(`/api/layouts/${otherLayoutId}`, { data: { name: "x", updated_at: stamp(otherLayoutId) } })).status()).toBe(404);
+  expect((await api.patch(`/api/layouts/${otherLayoutId}`, { data: { grid: 48, name: "x", updated_at: stamp(otherLayoutId) } })).status()).toBe(404);
   expect((await api.delete(`/api/layouts/${otherLayoutId}`)).status()).toBe(404);
-  expect((await api.post(`/api/layouts/${otherLayoutId}/duplicate`, { data: { name: "x" } })).status()).toBe(404);
+  expect((await api.post(`/api/layouts/${otherLayoutId}/duplicate`, { data: { grid: 48, name: "x" } })).status()).toBe(404);
   expect((await api.put(`/api/devices/${deviceId}/layout`, { data: { layout_id: otherLayoutId } })).status()).toBe(404);
   expect((await api.put(`/api/devices/${otherDeviceId}/layout`, { data: { layout_id: layoutId } })).status()).toBe(404);
-  expect((await api.post("/api/layouts", { data: { name: "x", width: 1080, height: 1920, from: otherLayoutId } })).status()).toBe(404);
+  expect((await api.post("/api/layouts", { data: { grid: 48, name: "x", width: 1080, height: 1920, from: otherLayoutId } })).status()).toBe(404);
   // As a default, another family's layout is no layout of this family's: it counts as none.
   const asDefault = await api.put("/api/layouts/defaults", { data: { portrait: otherLayoutId, landscape: null } });
   expect(asDefault.status()).toBe(200);

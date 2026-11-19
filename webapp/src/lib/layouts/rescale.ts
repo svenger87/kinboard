@@ -1,11 +1,11 @@
 /**
  * Redraws a layout for a screen with a different number of rows. Columns
- * always stay 12, so only the vertical position and height change: scaled by
- * the rows ratio, held at the widget's minimum, and pushed down past whatever
- * they now collide with. What no longer fits is returned as dropped rather
+ * always stay 48 steps (12 cells), so only the vertical position and height
+ * change: scaled by the ratio of whole-cell rows, held at the widget's
+ * minimum, and pushed down past whatever they now collide with. What no longer fits is returned as dropped rather
  * than squeezed below readable, so the designer can tell the family.
  */
-import { gridFor, type Grid } from "./grid";
+import { GRID, gridFor, type Grid } from "./grid";
 import { SAVER_WIDGETS } from "./widgets";
 import { collides, validateItems } from "./validate";
 import { firstFreeSpot, growToward } from "./place";
@@ -16,16 +16,23 @@ export function rescaleItems(
   from: Grid,
   to: Grid,
 ): { items: LayoutItem[]; dropped: string[] } {
-  if (from.rows === to.rows) return { items, dropped: [] };
-  const ratio = to.rows / from.rows;
+  if (from.cellRows === to.cellRows) return { items, dropped: [] };
+  const ratio = to.cellRows / from.cellRows;
 
   // Both edges are scaled and rounded, not the top and the height on their
   // own: rounding the two independently let neighbours that touched overlap
   // by a row, and each pushed the next one down until the last fell off the
   // screen (the date, on an 800x1280 tablet, with four empty rows above).
+  // An edge on a whole cell stays on a whole cell, so a layout of whole
+  // cells rescales exactly as it did on the 12-column grid.
+  const S = GRID.STEPS_PER_CELL;
+  const edge = (v: number) => {
+    const scaled = v * ratio;
+    return v % S === 0 ? Math.round(scaled / S) * S : Math.round(scaled);
+  };
   const scaled = items.map((i) => {
-    const y = Math.round(i.y * ratio);
-    const bottom = Math.round((i.y + i.h) * ratio);
+    const y = edge(i.y);
+    const bottom = edge(i.y + i.h);
     return { ...i, y, h: Math.max(SAVER_WIDGETS[i.widget].min.h, bottom - y) };
   });
 
@@ -51,7 +58,7 @@ export function rescaleItems(
  * rescaleItems cannot place is dropped, then whatever the server's check
  * still refuses (an item that was never valid, a size the new screen's
  * columns cannot hold) is dropped one at a time until the rest is valid.
- * The dropped widgets then get whatever cells are still free (placeDropped).
+ * The dropped widgets then get whatever steps are still free (placeDropped).
  * Used when a layout is copied to a new size, so the copy keeps everything
  * that fits instead of starting empty. `dropped` holds item ids.
  */

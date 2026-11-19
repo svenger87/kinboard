@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { AlertTriangle, Eye, Loader2, Redo2, RefreshCw, RotateCcw, Save, Undo2 } from "lucide-react";
+import { AlertTriangle, Eye, Grid3x3, Loader2, Redo2, RefreshCw, RotateCcw, Save, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,16 +22,17 @@ import { useScreensaverData } from "@/hooks/use-screensaver-data";
 import { useLayoutHistory } from "@/hooks/use-layout-history";
 import { LayoutRequestError, useSaveLayout } from "@/hooks/use-layouts";
 import { builtInScreensaver } from "@/lib/layouts/built-in";
-import { gridFor } from "@/lib/layouts/grid";
-import { nudge } from "@/lib/layouts/place";
+import { GRID, LAYOUT_GRID, gridFor } from "@/lib/layouts/grid";
+import { alignItems, distribute, matchSize, moveBy, resizeBy, setBox, type ArrangeReason, type ArrangeResult, type Box } from "@/lib/layouts/arrange";
 import { rescaleItems } from "@/lib/layouts/rescale";
 import { validateItems, type LayoutError } from "@/lib/layouts/validate";
 import { SAVER_WIDGETS, knownWidgetItems } from "@/lib/layouts/widgets";
 import { useNameList } from "@/hooks/use-name-list";
 import type { Layout, LayoutItem, SaverWidgetKey, TextSize } from "@/lib/layouts/types";
 import { EditorCanvas } from "./canvas";
+import { GRID_DISPLAYS, useGridDisplay, type GridDisplay } from "./grid-overlay";
 import { EditorPalette } from "./palette";
-import { EditorInspector } from "./inspector";
+import { EditorInspector, type ArrangeCommand } from "./inspector";
 import { withAlign, type Align } from "@/lib/layouts/align";
 import { ScreenPicker, type ScreenChoice } from "./screen-picker";
 import { CopyForSize, readCopyDropped, releaseCopyDropped } from "./copy-dialog";
@@ -43,22 +45,32 @@ const OWN_ARROWS = "input, textarea, select, [contenteditable='true'], [role='gr
 const TEXT_ENTRY = "input, textarea, select, [contenteditable='true']";
 /** An open dialog (the reset confirmation, a select's list) owns the keyboard. */
 const OPEN_DIALOG = "[role='dialog'], [role='alertdialog'], [role='listbox']";
+/** Which way each arrow key moves a box, or (with Alt) which edge it grows: right and down grow, left and up shrink. */
+const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+/** How long the toolbar says why a command was refused. */
+const REFUSED_MS = 4000;
 
 /**
  * Unsaved changes, kept for this tab while they are unsaved: the PIN screen
  * that comes back when Settings lock again unmounts the editor, and the
  * changes must survive it. Tied to the stamp they were made on, so they are
- * never laid over someone else's newer save.
+ * never laid over someone else's newer save. The key names the grid the
+ * positions count: a draft from an editor on another grid (the 12-column
+ * one kept `kinboard_layout_draft:<id>`, in cells) is never read as steps,
+ * even though migration 087 kept the stamp it was made on.
  */
 interface Draft {
   items: LayoutItem[];
   stamp: string;
 }
-const draftKey = (id: string) => `kinboard_layout_draft:${id}`;
+const draftKey = (id: string) => `kinboard_layout_draft:${LAYOUT_GRID}:${id}`;
+const legacyDraftKey = (id: string) => `kinboard_layout_draft:${id}`;
 
 function readDraft(id: string): Draft | null {
   if (typeof window === "undefined") return null;
   try {
+    // Unusable here: in cells, from before the steps.
+    sessionStorage.removeItem(legacyDraftKey(id));
     const raw = sessionStorage.getItem(draftKey(id));
     if (!raw) return null;
     const d = JSON.parse(raw) as Partial<Draft>;
@@ -96,12 +108,19 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const listNames = useNameList();
   const [stamp, setStamp] = useState(layout.updated_at);
   const history = useLayoutHistory(baseline);
-  const { items, set, undo, redo, canUndo, canRedo, dirty } = history;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { items, set, undo: undoHistory, redo: redoHistory, canUndo, canRedo, dirty } = history;
+  // In the order they were selected: the first is the one commands on several boxes go by.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Why the last keyboard command changed nothing; `at` restarts the timer when the same reason comes again.
+  const [refused, setRefused] = useState<{ reason: ArrangeReason; at: number } | null>(null);
   const [preview, setPreview] = useState<ScreenChoice>({ key: "own", width: layout.width, height: layout.height });
   const [stale, setStale] = useState(false);
+  // The server counts positions on another grid than this page (it was
+  // updated meanwhile): only reloading the page brings the matching code.
+  const [gridChanged, setGridChanged] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloading, setReloading] = useState(false);
+  const [gridDisplay, setGridDisplay] = useGridDisplay();
   // Read once, on mount: a draft from before the PIN screen came back.
   const [draft] = useState(() => {
     const d = readDraft(layout.id);
@@ -121,16 +140,21 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
 
   const ownGrid = useMemo(() => gridFor(layout.width, layout.height), [layout.width, layout.height]);
   const previewGrid = useMemo(() => gridFor(preview.width, preview.height) ?? ownGrid, [preview.width, preview.height, ownGrid]);
-  // Columns are always 12, so a screen with the layout's number of rows shows
-  // the same cells and can be edited; any other is a preview of the rescaled
-  // arrangement, which is not what gets saved.
+  // Every screen has 48 step columns, so one with the layout's number of
+  // rows shows the same grid and can be edited; any other is a preview of
+  // the rescaled arrangement, which is not what gets saved.
   const editable = !!ownGrid && !!previewGrid && previewGrid.rows === ownGrid.rows;
   const shown = useMemo(() => {
     if (!ownGrid || !previewGrid || editable) return { items, dropped: [] as string[] };
     return rescaleItems(items, ownGrid, previewGrid);
   }, [items, ownGrid, previewGrid, editable]);
 
-  const selected = editable ? (items.find((i) => i.id === selectedId) ?? null) : null;
+  // Only boxes still there (an undo may have taken one away), and none on a preview.
+  const selection = useMemo(
+    () => (editable ? selectedIds.filter((id) => items.some((i) => i.id === id)) : []),
+    [editable, selectedIds, items],
+  );
+  const selected = selection.length === 1 ? (items.find((i) => i.id === selection[0]) ?? null) : null;
   const nameOf = useCallback(
     (itemId?: string) => {
       const item = items.find((i) => i.id === itemId);
@@ -154,23 +178,70 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const commit = useCallback(
     (next: LayoutItem[]) => {
       setError(null);
+      setRefused(null);
       set(next);
     },
     [set],
   );
 
+  /** A command's result: applied, or nothing changes and the toolbar says why. */
+  const apply = useCallback(
+    (result: ArrangeResult) => {
+      if (result.ok) commit(result.items);
+      else setRefused({ reason: result.reason, at: Date.now() });
+    },
+    [commit],
+  );
+
+  // An undo or redo that changes something also takes away the line on a refused command.
+  const undo = useCallback(() => {
+    if (!canUndo) return;
+    undoHistory();
+    setRefused(null);
+  }, [canUndo, undoHistory]);
+  const redo = useCallback(() => {
+    if (!canRedo) return;
+    redoHistory();
+    setRefused(null);
+  }, [canRedo, redoHistory]);
+
+  useEffect(() => {
+    if (!refused) return;
+    const timer = window.setTimeout(() => setRefused(null), REFUSED_MS);
+    return () => window.clearTimeout(timer);
+  }, [refused]);
+
+  /** Removes every selected box, as one change. */
   const remove = useCallback(() => {
-    if (!selectedId) return;
-    commit(items.filter((i) => i.id !== selectedId));
-    setSelectedId(null);
-  }, [commit, items, selectedId]);
+    if (selection.length === 0) return;
+    commit(items.filter((i) => !selection.includes(i.id)));
+    setSelectedIds([]);
+  }, [commit, items, selection]);
+
+  /** Align, distribute or same size on the selection, in the order it was selected: one change, or refused with the reason. */
+  const arrange = (command: ArrangeCommand) => {
+    if (!ownGrid || selection.length < 2) return;
+    const rows = ownGrid.rows;
+    if (command.kind === "align") apply(alignItems(items, selection, command.edge, rows));
+    else if (command.kind === "distribute") apply(distribute(items, selection, command.axis, rows));
+    else apply(matchSize(items, selection, command.dim, rows));
+  };
+
+  /** The selected box put at the numbers typed into the inspector: one change, or the reason it was not done (shown by the fields). */
+  const placeBox = (box: Box): ArrangeReason | null => {
+    if (!ownGrid || !selected) return null;
+    const result = setBox(items, selected.id, box, ownGrid.rows);
+    if (!result.ok) return result.reason;
+    commit(result.items);
+    return null;
+  };
 
   const setText = (text: TextSize) => {
-    if (selectedId) commit(items.map((i) => (i.id === selectedId ? { ...i, text } : i)));
+    if (selected) commit(items.map((i) => (i.id === selected.id ? { ...i, text } : i)));
   };
 
   const setAlign = (align: Align | null) => {
-    if (selectedId) commit(items.map((i) => (i.id === selectedId ? withAlign(i, align) : i)));
+    if (selected) commit(items.map((i) => (i.id === selected.id ? withAlign(i, align) : i)));
   };
 
   // Leaving with unsaved changes asks first.
@@ -197,25 +268,26 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
         else undo();
         return;
       }
-      if (!editable || !selectedId || mod || e.altKey) return;
-      if (e.key === "Delete" || e.key === "Backspace") {
+      if (!editable || !ownGrid || selection.length === 0 || mod) return;
+      if ((e.key === "Delete" || e.key === "Backspace") && !e.altKey) {
         e.preventDefault();
         remove();
         return;
       }
       if (e.key === "Escape") {
-        setSelectedId(null);
+        setSelectedIds([]);
         return;
       }
-      const step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
-      if (!step || target?.closest(OWN_ARROWS)) return;
+      const dir = ARROWS[e.key];
+      if (!dir || target?.closest(OWN_ARROWS)) return;
       e.preventDefault();
-      const next = ownGrid && nudge(items, selectedId, step[0], step[1], ownGrid.rows);
-      if (next) commit(next);
+      // A step, or with Shift a whole cell; Alt resizes instead of moving.
+      const n = e.shiftKey ? GRID.STEPS_PER_CELL : 1;
+      apply((e.altKey ? resizeBy : moveBy)(items, selection, dir[0] * n, dir[1] * n, ownGrid.rows));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [editable, selectedId, items, ownGrid, undo, redo, remove, commit]);
+  }, [editable, selection, items, ownGrid, undo, redo, remove, apply]);
 
   /** Saves the items; true when they were saved. */
   const save = async (): Promise<boolean> => {
@@ -235,6 +307,10 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       return true;
     } catch (err) {
       if (err instanceof LayoutRequestError && err.code === "stale") setStale(true);
+      else if (err instanceof LayoutRequestError && err.code === "grid_changed") {
+        setGridChanged(true);
+        setStale(true);
+      }
       // The PIN screen comes back by itself (relockSettings).
       else if (err instanceof LayoutRequestError && err.code === "pin_required") toast.error(t("errors.pinRequired"));
       else if (err instanceof LayoutRequestError && LAYOUT_ERRORS.includes(err.code)) setError(t(`errors.${err.code as LayoutError}`, { name: nameOf(err.itemId) }));
@@ -244,6 +320,13 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   };
 
   const reload = async () => {
+    if (gridChanged) {
+      // Only new code helps. The draft stays: its key names this grid, so the
+      // new code never reads it as its own, and if the leave prompt is
+      // cancelled the editor and its changes are still here as they were.
+      window.location.reload();
+      return;
+    }
     setReloading(true);
     try {
       writeDraft(layout.id, null);
@@ -274,6 +357,27 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Always there and in the accessibility tree (sr-only while empty, never display none), so screen readers announce the line when it comes. */}
+          <span role="status" aria-live="polite" data-testid="editor-refused-status" className="text-sm text-destructive empty:sr-only">
+            {refused && (
+              <span data-testid="editor-refused" data-reason={refused.reason}>
+                {t(`refused.${refused.reason}`)}
+              </span>
+            )}
+          </span>
+          <Select value={gridDisplay} onValueChange={(v) => setGridDisplay(v as GridDisplay)}>
+            <SelectTrigger className="h-8 w-auto gap-2" data-testid="editor-grid-display" aria-label={t("gridDisplay.label")} title={t("gridDisplay.label")}>
+              <Grid3x3 className="size-4" aria-hidden="true" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {GRID_DISPLAYS.map((d) => (
+                <SelectItem key={d} value={d} data-testid={`editor-grid-display-${d}`}>
+                  {t(`gridDisplay.${d}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button variant="outline" size="sm" className="gap-2" onClick={undo} disabled={!canUndo} data-testid="editor-undo" title={t("undoHint")}>
             <Undo2 className="size-4" aria-hidden="true" />
             {t("undo")}
@@ -299,7 +403,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
                 <AlertDialogAction
                   data-testid="editor-reset-confirm"
                   onClick={() => {
-                    setSelectedId(null);
+                    setSelectedIds([]);
                     commit(builtInScreensaver(layout.width, layout.height));
                   }}
                 >
@@ -328,7 +432,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       {stale && (
         <div role="alert" data-testid="editor-stale" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
           <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-          <span className="flex-1">{t("stale")}</span>
+          <span className="flex-1">{gridChanged ? t("errors.gridChanged") : t("stale")}</span>
           <Button size="sm" variant="outline" className="gap-2" onClick={reload} disabled={reloading} data-testid="editor-reload">
             <RefreshCw className={`size-4 ${reloading ? "animate-spin" : ""}`} aria-hidden="true" />
             {t("reload")}
@@ -345,7 +449,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
         <div data-testid="preview-readonly" className="flex flex-col gap-1 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm">
           <span className="flex items-center gap-2 font-medium">
             <Eye className="size-4 shrink-0" aria-hidden="true" />
-            {t("preview.readOnly", { rows: previewGrid!.rows, layoutRows: ownGrid.rows })}
+            {t("preview.readOnly", { rows: previewGrid!.cellRows, layoutRows: ownGrid.cellRows })}
           </span>
           {shown.dropped.length > 0 && (
             <span data-testid="preview-dropped" className="text-amber-700 dark:text-amber-400">
@@ -356,19 +460,20 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       )}
 
       <div className="grid gap-4 lg:grid-cols-[13rem_minmax(0,1fr)_16rem] lg:items-start">
-        <EditorPalette items={items} rows={ownGrid.rows} disabled={!editable} names={names} onAdd={(item) => { commit([...items, item]); setSelectedId(item.id); }} />
+        <EditorPalette items={items} rows={ownGrid.rows} disabled={!editable} names={names} onAdd={(item) => { commit([...items, item]); setSelectedIds([item.id]); }} />
         <ScreensaverDataProvider value={data}>
           <EditorCanvas
             grid={previewGrid!}
             items={shown.items}
             editable={editable}
-            selectedId={selected?.id ?? null}
+            display={gridDisplay}
+            selectedIds={selection}
             names={names}
-            onSelect={setSelectedId}
+            onSelect={setSelectedIds}
             onCommit={commit}
           />
         </ScreensaverDataProvider>
-        <EditorInspector item={selected} disabled={!editable} names={names} onText={setText} onAlign={setAlign} onRemove={remove} />
+        <EditorInspector item={selected} count={selection.length} disabled={!editable} names={names} onText={setText} onAlign={setAlign} onRemove={remove} onArrange={arrange} onBox={placeBox} />
       </div>
     </div>
   );

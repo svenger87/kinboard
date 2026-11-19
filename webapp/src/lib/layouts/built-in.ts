@@ -7,15 +7,17 @@
  * Landscape: news top left, weather and forecast top right, clock and date
  * bottom left, events bottom right; birthdays sit between the two columns
  * along the bottom. Rows are scarce on a landscape panel (6 at 1920x1080),
- * so heights shrink toward each widget's minimum there.
+ * so heights shrink toward each widget's minimum there. The arrangement is
+ * worked out in whole cells and returned in steps (four to a cell).
  */
-import { gridFor, orientationOf } from "./grid";
+import { GRID, gridFor, orientationOf } from "./grid";
 import type { LayoutItem, SaverWidgetKey } from "./types";
 
 export function builtInScreensaver(width: number, height: number): LayoutItem[] {
-  const rows = gridFor(width, height)?.rows ?? 6;
+  const rows = gridFor(width, height)?.cellRows ?? GRID.MIN_ROWS;
+  const S = GRID.STEPS_PER_CELL;
   const box = (widget: SaverWidgetKey, x: number, y: number, w: number, h: number): LayoutItem => ({
-    id: widget, widget, x, y, w, h, text: "M",
+    id: widget, widget, x: x * S, y: y * S, w: w * S, h: h * S, text: "M",
   });
 
   if (orientationOf(width, height) === "portrait") {

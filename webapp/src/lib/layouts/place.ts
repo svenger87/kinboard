@@ -1,7 +1,8 @@
 /**
- * Where the editor puts a widget: the first free spot for a new one, and a
- * one-cell step for the arrow keys. Both refuse rather than overlap or leave
- * the grid, like the server's check.
+ * Where the editor puts a widget: the first free spot for a new one, at its
+ * default size or as near it as fits (positions are in steps, four to a
+ * cell). Never overlapping or off the grid, like the server's check. The
+ * arrow keys' moves are in arrange.ts.
  */
 import { GRID } from "./grid";
 import { collides } from "./validate";
@@ -43,7 +44,7 @@ export function firstFreeSpot(items: Box[], size: { w: number; h: number }, rows
 }
 
 /**
- * A placed box grown toward a size, one column at a time while it stays on
+ * A placed box grown toward a size, one step-column at a time while it stays on
  * the grid and off the others, then one row at a time the same way.
  */
 export function growToward(box: Box, target: { w: number; h: number }, others: Box[], rows: number): Box {
@@ -52,14 +53,4 @@ export function growToward(box: Box, target: { w: number; h: number }, others: B
   while (out.w < target.w && fits({ ...out, w: out.w + 1 })) out = { ...out, w: out.w + 1 };
   while (out.h < target.h && fits({ ...out, h: out.h + 1 })) out = { ...out, h: out.h + 1 };
   return out;
-}
-
-/** The items with one moved by (dx, dy) cells, or null when that leaves the grid or lands on another. */
-export function nudge(items: LayoutItem[], id: string, dx: number, dy: number, rows: number): LayoutItem[] | null {
-  const item = items.find((i) => i.id === id);
-  if (!item) return null;
-  const moved = { ...item, x: item.x + dx, y: item.y + dy };
-  if (moved.x < 0 || moved.y < 0 || moved.x + moved.w > GRID.COLUMNS || moved.y + moved.h > rows) return null;
-  if (items.some((i) => i.id !== id && collides(i, moved))) return null;
-  return items.map((i) => (i.id === id ? moved : i));
 }

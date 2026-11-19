@@ -3314,6 +3314,12 @@
         "saved": "Layout saved",
         "stale": "Someone changed this layout meanwhile — reload to see it.",
         "reload": "Reload",
+        "gridDisplay": {
+          "label": "Grid",
+          "dots": "Dots and lines",
+          "lines": "Lines",
+          "off": "Off"
+        },
         "errors": {
           "unknown_widget": "{name}: this widget is not known.",
           "out_of_bounds": "{name} does not fit on the screen.",
@@ -3321,6 +3327,7 @@
           "overlap": "{name} overlaps another widget.",
           "duplicate": "{name} is on the screen twice.",
           "bad_text_size": "{name} has an unknown text size.",
+          "gridChanged": "Kinboard was updated. Reload the page to keep editing.",
           "pinRequired": "Settings were locked — enter the PIN; your unsaved changes are kept.",
           "generic": "The layout could not be saved. Please try again."
         },
@@ -3363,8 +3370,23 @@
         },
         "inspector": {
           "empty": "Select a widget on the screen to change it.",
-          "size": "{w}×{h} cells",
-          "min": "at least {w}×{h}",
+          "box": {
+            "title": "Position and size in steps",
+            "x": "X",
+            "y": "Y",
+            "w": "W",
+            "h": "H",
+            "xName": "Distance from the left edge, in steps",
+            "yName": "Distance from the top edge, in steps",
+            "wName": "Width in steps",
+            "hName": "Height in steps",
+            "refused": {
+              "out_of_bounds": "Not applied: the widget would leave the screen, or the value is not a whole number.",
+              "below_minimum": "Not applied: the widget would be smaller than its minimum.",
+              "overlap": "Not applied: the widget would overlap another."
+            }
+          },
+          "min": "At least {w}×{h} steps; a step is a quarter of a cell.",
           "textSize": "Text size",
           "textSizes": {
             "S": "Small",
@@ -3373,7 +3395,7 @@
             "XL": "Extra large"
           },
           "remove": "Remove",
-          "keys": "Arrow keys move the selected widget, Delete removes it, Ctrl+Z undoes.",
+          "keys": "Arrow keys move the selected widgets, with Shift by a whole cell; Alt+arrows resize them. Shift+click or drag a frame to select several. Delete removes, Ctrl+Z undoes. Hold Alt while dragging to place a box without snapping.",
           "fillsBox": "Fills its box: S draws it smaller; for larger, make the box bigger.",
           "align": "Alignment",
           "aligns": {
@@ -3382,7 +3404,22 @@
             "center": "Centre",
             "end": "Right"
           },
-          "alignAuto": "Automatic by where it sits: {side} for now."
+          "alignAuto": "Automatic by where it sits: {side} for now.",
+          "selected": "{count} selected",
+          "arrange": {
+            "title": "Arrange",
+            "left": "Align left",
+            "right": "Align right",
+            "top": "Align top",
+            "bottom": "Align bottom",
+            "hcenter": "Centre horizontally",
+            "vcenter": "Centre vertically",
+            "distributeX": "Distribute horizontally",
+            "distributeY": "Distribute vertically",
+            "sameW": "Same width as the first one selected",
+            "sameH": "Same height as the first one selected",
+            "distributeHint": "Distributing needs at least three widgets."
+          }
         },
         "widgets": {
           "clock": "Clock",
@@ -3425,6 +3462,11 @@
           "assign": "Show on “{name}”",
           "done": "“{name}” now shows this layout.",
           "failed": "The layout could not be assigned. Please try again."
+        },
+        "refused": {
+          "out_of_bounds": "Not done: a widget would leave the screen.",
+          "below_minimum": "Not done: a widget would be smaller than its minimum.",
+          "overlap": "Not done: a widget would overlap another."
         }
       }
     }

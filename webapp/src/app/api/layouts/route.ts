@@ -6,7 +6,8 @@ import { UUID } from "@/lib/home/action-requests";
 import { builtInScreensaver } from "@/lib/layouts/built-in";
 import { fitItems } from "@/lib/layouts/rescale";
 import { validateItems } from "@/lib/layouts/validate";
-import { fail, notFound, parseName, readJson, sizeOk } from "@/lib/layouts/server";
+import { LAYOUT_GRID } from "@/lib/layouts/grid";
+import { fail, gridChanged, gridOk, notFound, parseName, readJson, sizeOk } from "@/lib/layouts/server";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +26,14 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/layouts  body: { name, width, height, from?: "builtin" | <layoutId> }
+ * POST /api/layouts  body: { grid: 48, name, width, height, from?: "builtin" | <layoutId> }
  *
  * A new layout of the family: empty, with the built-in screensaver, or a copy
  * of another of the family's layouts redrawn for the new size. A parent's
  * setting, behind the settings PIN. 201 { layout, dropped }: `dropped` lists
  * the ids of the copied items that did not fit the new size (empty otherwise).
+ * Without `grid: 48`, 409 grid_changed (lib/layouts/server.ts gridOk); a
+ * source layout not on the grid is 409 grid_changed too.
  */
 export async function POST(request: NextRequest) {
   const auth = await requireSession(request);
@@ -40,6 +43,7 @@ export async function POST(request: NextRequest) {
 
   const body = await readJson(request);
   if (!body) return fail("bad_body");
+  if (!gridOk(body)) return gridChanged();
   const name = parseName(body.name);
   if (!name) return fail("bad_name");
   const { width, height, from } = body;
@@ -66,12 +70,13 @@ export async function POST(request: NextRequest) {
     if (!UUID.test(from)) return notFound();
     const { data: src, error: srcErr } = await db
       .from("layouts")
-      .select("width, height, screensaver")
+      .select("width, height, grid, screensaver")
       .eq("id", from)
       .eq("family_id", familyId)
       .maybeSingle();
     if (srcErr) return NextResponse.json({ error: srcErr.message }, { status: 500 });
     if (!src) return notFound();
+    if (src.grid !== LAYOUT_GRID) return gridChanged();
     const fitted = fitItems(src.screensaver, { width: src.width, height: src.height }, { width: w, height: h });
     screensaver = fitted.items;
     dropped = fitted.dropped;
@@ -79,7 +84,7 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await db
     .from("layouts")
-    .insert({ family_id: familyId, name, width: w, height: h, screensaver })
+    .insert({ family_id: familyId, name, width: w, height: h, grid: LAYOUT_GRID, screensaver })
     .select("*")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

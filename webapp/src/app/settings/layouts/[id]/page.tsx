@@ -2,13 +2,15 @@
 
 import { use, useState } from "react";
 import { useTranslations } from "next-intl";
-import { LayoutTemplate } from "lucide-react";
+import { AlertTriangle, LayoutTemplate, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LayoutEditor } from "@/components/layouts/editor/layout-editor";
 import { LayoutUnusedNotice } from "@/components/layouts/layout-unused-notice";
 import { useLayoutDefaults, useLayouts } from "@/hooks/use-layouts";
 import { useDevices } from "@/hooks/use-supabase-queries";
+import { LAYOUT_GRID } from "@/lib/layouts/grid";
 
 /**
  * The editor of one layout's screensaver (Settings → Layouts → a layout).
@@ -42,6 +44,18 @@ export default function LayoutEditorPage({ params }: { params: Promise<{ id: str
           <p className="text-sm text-muted-foreground" data-testid="editor-not-found">
             {error ? t("loadFailed") : t("notFound")}
           </p>
+        ) : layout.grid !== LAYOUT_GRID ? (
+          // Positions on another grid than this page's code counts (the
+          // server or this page is out of date): never edited as if they were
+          // steps; reloading brings code that matches.
+          <div role="alert" data-testid="editor-grid-changed" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+            <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <span className="flex-1">{t("errors.gridChanged")}</span>
+            <Button size="sm" variant="outline" className="gap-2" onClick={() => window.location.reload()} data-testid="editor-reload">
+              <RefreshCw className="size-4" aria-hidden="true" />
+              {t("reload")}
+            </Button>
+          </div>
         ) : (
           <>
           <LayoutUnusedNotice layout={layout} />

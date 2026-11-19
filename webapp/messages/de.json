@@ -3314,6 +3314,12 @@
         "saved": "Layout gespeichert",
         "stale": "Jemand hat dieses Layout inzwischen geändert – lade neu, um die Änderung zu sehen.",
         "reload": "Neu laden",
+        "gridDisplay": {
+          "label": "Raster",
+          "dots": "Punkte und Linien",
+          "lines": "Linien",
+          "off": "Aus"
+        },
         "errors": {
           "unknown_widget": "{name}: Dieses Widget ist unbekannt.",
           "out_of_bounds": "{name} passt nicht auf den Bildschirm.",
@@ -3321,6 +3327,7 @@
           "overlap": "{name} überlappt ein anderes Widget.",
           "duplicate": "{name} ist doppelt auf dem Bildschirm.",
           "bad_text_size": "{name} hat eine unbekannte Textgröße.",
+          "gridChanged": "Kinboard wurde aktualisiert. Lade die Seite neu, um weiterzuarbeiten.",
           "pinRequired": "Die Einstellungen wurden gesperrt – gib die PIN ein; deine nicht gespeicherten Änderungen bleiben erhalten.",
           "generic": "Das Layout konnte nicht gespeichert werden. Bitte versuche es noch einmal."
         },
@@ -3363,8 +3370,23 @@
         },
         "inspector": {
           "empty": "Wähle ein Widget auf dem Bildschirm aus, um es zu ändern.",
-          "size": "{w}×{h} Felder",
-          "min": "mindestens {w}×{h}",
+          "box": {
+            "title": "Position und Größe in Schritten",
+            "x": "X",
+            "y": "Y",
+            "w": "B",
+            "h": "H",
+            "xName": "Abstand vom linken Rand, in Schritten",
+            "yName": "Abstand vom oberen Rand, in Schritten",
+            "wName": "Breite in Schritten",
+            "hName": "Höhe in Schritten",
+            "refused": {
+              "out_of_bounds": "Nicht übernommen: Das Widget würde über den Bildschirm hinausragen, oder der Wert ist keine ganze Zahl.",
+              "below_minimum": "Nicht übernommen: Das Widget wäre kleiner als seine Mindestgröße.",
+              "overlap": "Nicht übernommen: Das Widget würde ein anderes überdecken."
+            }
+          },
+          "min": "Mindestens {w}×{h} Schritte; ein Schritt ist eine Viertelzelle.",
           "textSize": "Textgröße",
           "textSizes": {
             "S": "Klein",
@@ -3373,7 +3395,7 @@
             "XL": "Sehr groß"
           },
           "remove": "Entfernen",
-          "keys": "Pfeiltasten verschieben das ausgewählte Widget, Entf entfernt es, Strg+Z macht rückgängig.",
+          "keys": "Pfeiltasten verschieben die ausgewählten Widgets, mit Umschalt um eine ganze Zelle; Alt+Pfeiltasten ändern ihre Größe. Umschalt+Klick oder ein aufgezogener Rahmen wählt mehrere aus. Entf entfernt, Strg+Z macht rückgängig. Alt beim Ziehen gedrückt halten, um ein Widget ohne Einrasten abzulegen.",
           "fillsBox": "Füllt sein Feld: S macht es kleiner, für größer das Feld größer ziehen.",
           "align": "Ausrichtung",
           "aligns": {
@@ -3382,7 +3404,22 @@
             "center": "Mitte",
             "end": "Rechts"
           },
-          "alignAuto": "Automatisch nach seinem Platz: jetzt {side}."
+          "alignAuto": "Automatisch nach seinem Platz: jetzt {side}.",
+          "selected": "{count} ausgewählt",
+          "arrange": {
+            "title": "Anordnen",
+            "left": "Links ausrichten",
+            "right": "Rechts ausrichten",
+            "top": "Oben ausrichten",
+            "bottom": "Unten ausrichten",
+            "hcenter": "Horizontal zentrieren",
+            "vcenter": "Vertikal zentrieren",
+            "distributeX": "Horizontal gleichmäßig verteilen",
+            "distributeY": "Vertikal gleichmäßig verteilen",
+            "sameW": "Gleiche Breite wie das zuerst ausgewählte Widget",
+            "sameH": "Gleiche Höhe wie das zuerst ausgewählte Widget",
+            "distributeHint": "Verteilen braucht mindestens drei Widgets."
+          }
         },
         "widgets": {
           "clock": "Uhr",
@@ -3425,6 +3462,11 @@
           "assign": "Auf „{name}“ anzeigen",
           "done": "„{name}“ zeigt jetzt dieses Layout.",
           "failed": "Das Layout konnte nicht gesetzt werden. Bitte versuche es noch einmal."
+        },
+        "refused": {
+          "out_of_bounds": "Nicht ausgeführt: Ein Widget würde über den Bildschirm hinausragen.",
+          "below_minimum": "Nicht ausgeführt: Ein Widget würde kleiner als seine Mindestgröße.",
+          "overlap": "Nicht ausgeführt: Ein Widget würde ein anderes überdecken."
         }
       }
     }

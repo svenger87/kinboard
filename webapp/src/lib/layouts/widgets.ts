@@ -2,8 +2,10 @@
  * The screensaver widgets a family can place, with the smallest box each
  * stays readable in and the box it starts with when dropped on the grid.
  * "list" widgets show more rows the taller they get, "value" widgets show
- * one thing, "fixed" widgets are drawn at one arrangement.
+ * one thing, "fixed" widgets are drawn at one arrangement. Sizes are in
+ * steps (four to a cell); the table lists them in cells.
  */
+import { GRID } from "./grid";
 import type { SaverWidgetKey } from "./types";
 
 export interface WidgetSpec {
@@ -12,12 +14,15 @@ export interface WidgetSpec {
   box: { w: number; h: number };
 }
 
+const S = GRID.STEPS_PER_CELL;
+
+/** A widget's minimum and default box, given in cells and stored in steps. */
 const spec = (
   kind: WidgetSpec["kind"],
   w: number,
   h: number,
   box: { w: number; h: number } = { w, h },
-): WidgetSpec => ({ kind, min: { w, h }, box });
+): WidgetSpec => ({ kind, min: { w: w * S, h: h * S }, box: { w: box.w * S, h: box.h * S } });
 
 export const SAVER_WIDGETS: Record<SaverWidgetKey, WidgetSpec> = {
   clock: spec("value", 4, 2, { w: 6, h: 3 }),

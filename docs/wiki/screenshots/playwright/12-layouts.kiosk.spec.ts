@@ -244,7 +244,7 @@ test.beforeAll(async () => {
   }
 
   const create = async (name: string, width: number, height: number) => {
-    const res = await laptop.api.post("/api/layouts", { data: { name, width, height, from: "builtin" } });
+    const res = await laptop.api.post("/api/layouts", { data: { grid: 48, name, width, height, from: "builtin" } });
     expect(res.status(), await res.text()).toBe(201);
     const id = (await res.json()).layout.id as string;
     state.layoutIds.push(id);
@@ -259,7 +259,7 @@ test.beforeAll(async () => {
   const k = kitchenRow.layouts.find((l: { id: string }) => l.id === kitchenLayout);
   const items = (k.screensaver as Array<{ widget: string; text: string }>).map((i) =>
     i.widget === "clock" || i.widget === "events" ? { ...i, text: "L" } : i);
-  const patched = await laptop.api.patch(`/api/layouts/${kitchenLayout}`, { data: { screensaver: items, updated_at: k.updated_at } });
+  const patched = await laptop.api.patch(`/api/layouts/${kitchenLayout}`, { data: { grid: 48, screensaver: items, updated_at: k.updated_at } });
   expect(patched.status(), await patched.text()).toBe(200);
 
   for (const [who, id] of [[kitchen, kitchenLayout], [hall, hallLayout]] as const) {

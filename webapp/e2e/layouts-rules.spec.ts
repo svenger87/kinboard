@@ -11,38 +11,39 @@ import type { Layout, LayoutItem } from "../src/lib/layouts/types";
  * The rules every screen and the server share: what a saved layout may
  * contain, how it is rescaled to another screen height, and which layout a
  * given screen uses. Pure functions, so they are pinned here without a browser.
+ * Positions are in steps, four to a cell: 48 columns.
  */
 
 const item = (o: Partial<LayoutItem> & { id: string }): LayoutItem => ({
-  widget: "news", x: 0, y: 0, w: 4, h: 3, text: "M", ...o,
+  widget: "news", x: 0, y: 0, w: 16, h: 12, text: "M", ...o,
 });
 const L = (o: Partial<Layout> & { id: string }): Layout => ({
-  family_id: "f", name: o.id, width: 1080, height: 1920, home: [], screensaver: [],
+  family_id: "f", name: o.id, width: 1080, height: 1920, grid: 48, home: [], screensaver: [],
   created_at: "", updated_at: "", ...o,
 });
 
 test.describe("validateItems", () => {
   const check = (items: unknown) => validateItems(items, 1080, 1920);
-  test("x=11, w=2 is out of bounds", () =>
-    expect(check([item({ id: "a", widget: "clock", x: 11, w: 2, h: 2 })])).toEqual({ ok: false, error: "out_of_bounds", itemId: "a" }));
+  test("x=44, w=8 is out of bounds", () =>
+    expect(check([item({ id: "a", widget: "clock", x: 44, w: 8, h: 8 })])).toEqual({ ok: false, error: "out_of_bounds", itemId: "a" }));
   test("past the last row is out of bounds", () =>
-    expect(check([item({ id: "a", y: 20, h: 3 })])).toMatchObject({ error: "out_of_bounds" }));
+    expect(check([item({ id: "a", y: 80, h: 12 })])).toMatchObject({ error: "out_of_bounds" }));
   test("non-integer is out of bounds", () =>
     expect(check([item({ id: "a", x: 0.5 })])).toMatchObject({ error: "out_of_bounds" }));
   test("a screen too small for a grid is out of bounds", () =>
     expect(validateItems([], 390, 844)).toMatchObject({ ok: false, error: "out_of_bounds" }));
-  test("two items sharing a cell overlap", () =>
-    expect(check([item({ id: "a" }), item({ id: "b", widget: "events", x: 3, y: 2, w: 4, h: 3 })]))
+  test("two items sharing a step overlap", () =>
+    expect(check([item({ id: "a" }), item({ id: "b", widget: "events", x: 15, y: 11, w: 16, h: 12 })]))
       .toMatchObject({ ok: false, error: "overlap" }));
-  test("events 3x3 is below the minimum", () =>
-    expect(check([item({ id: "a", widget: "events", w: 3, h: 3 })])).toEqual({ ok: false, error: "below_minimum", itemId: "a" }));
+  test("events 15x12 is below the minimum (16x12)", () =>
+    expect(check([item({ id: "a", widget: "events", w: 15, h: 12 })])).toEqual({ ok: false, error: "below_minimum", itemId: "a" }));
   test("unknown widget", () =>
     expect(check([item({ id: "a", widget: "toaster" as never })])).toMatchObject({ error: "unknown_widget" }));
   test("two clocks are a duplicate", () =>
-    expect(check([item({ id: "a", widget: "clock", h: 2 }), item({ id: "b", widget: "clock", x: 6, h: 2 })]))
+    expect(check([item({ id: "a", widget: "clock", h: 8 }), item({ id: "b", widget: "clock", x: 24, h: 8 })]))
       .toMatchObject({ error: "duplicate" }));
   test("two items with the same id are a duplicate", () =>
-    expect(check([item({ id: "a", widget: "clock", h: 2 }), item({ id: "a", widget: "date", x: 6, h: 2 })]))
+    expect(check([item({ id: "a", widget: "clock", h: 8 }), item({ id: "a", widget: "date", x: 24, h: 8 })]))
       .toEqual({ ok: false, error: "duplicate", itemId: "a" }));
   test("text XXL is bad", () =>
     expect(check([item({ id: "a", text: "XXL" as never })])).toMatchObject({ error: "bad_text_size" }));
@@ -60,7 +61,7 @@ test.describe("validateItems", () => {
       const items = builtInScreensaver(w, h);
       const at = (k: string) => items.find((i) => i.widget === k)!;
       expect([at("news").x, at("news").y]).toEqual([0, 0]);
-      expect(at("weatherNow").x + at("weatherNow").w).toBe(12);
+      expect(at("weatherNow").x + at("weatherNow").w).toBe(48);
       if (h > w) {
         expect([at("date").x, at("date").y]).toEqual([at("clock").x, at("clock").y + at("clock").h]);
       }
@@ -87,33 +88,41 @@ test.describe("rescaleItems", () => {
   const from = gridFor(1080, 1920)!;
   const to = gridFor(1080, 1500)!;
   test("same row count leaves items alone", () => {
-    const items = [item({ id: "a", y: 5 })];
+    const items = [item({ id: "a", y: 20 })];
     expect(rescaleItems(items, from, from)).toEqual({ items, dropped: [] });
   });
   test("keeps x/w, scales y/h by the rows ratio, never below minimum", () => {
     const { items, dropped } = rescaleItems(
-      [item({ id: "a", x: 2, w: 5, y: 10, h: 10 }), item({ id: "b", widget: "events", x: 7, w: 4, y: 0, h: 3 })], from, to);
+      [item({ id: "a", x: 8, w: 20, y: 40, h: 40 }), item({ id: "b", widget: "events", x: 28, w: 16, y: 0, h: 12 })], from, to);
     const a = items.find((i) => i.id === "a")!;
     const b = items.find((i) => i.id === "b")!;
-    expect(to.rows).toBe(17);
-    // Both edges scale: top 10 → 7.7 → 8, bottom 20 → 15.5 → 15, so 7 rows.
-    expect([a.x, a.w, a.y, a.h]).toEqual([2, 5, 8, 7]);
-    expect([b.x, b.w, b.h]).toEqual([7, 4, 3]); // 3 * 17/22 = 2.3, held at the minimum 3
+    expect(to.cellRows).toBe(17);
+    // Both edges scale, and edges on whole cells stay on whole cells:
+    // top 10 cells → 7.7 → 8, bottom 20 → 15.5 → 15, so 7 cells (28 steps).
+    expect([a.x, a.w, a.y, a.h]).toEqual([8, 20, 32, 28]);
+    expect([b.x, b.w, b.h]).toEqual([28, 16, 12]); // 12 * 17/22 = 9.3, held at the minimum 12
     expect(dropped).toEqual([]);
+  });
+  test("an edge between whole cells rounds to the nearest step, one on a whole cell to the nearest cell", () => {
+    const { items } = rescaleItems([item({ id: "a", y: 41, h: 20 }), item({ id: "b", widget: "events", x: 24, y: 40, h: 21 })], from, to);
+    // a: top 41 → 31.7 → 32, bottom 61 → 47.1 → 47.
+    expect(items.find((i) => i.id === "a")).toMatchObject({ y: 32, h: 15 });
+    // b: top 40 (10 cells) → 7.7 cells → 8 cells = 32, bottom 61 → 47.
+    expect(items.find((i) => i.id === "b")).toMatchObject({ y: 32, h: 15 });
   });
   test("the built-in portrait keeps every widget on a portrait tablet (800x1280, 20 rows)", () => {
     // Rounding top and height on their own made touching neighbours overlap
     // by a row; each pushed the next down and the date fell off the screen.
     const src = builtInScreensaver(1080, 1920);
     const tablet = gridFor(800, 1280)!;
-    expect(tablet.rows).toBe(20);
+    expect(tablet.cellRows).toBe(20);
     const r = rescaleItems(src, from, tablet);
     expect(r.dropped).toEqual([]);
     expect(r.items.map((i) => i.widget).sort()).toEqual(src.map((i) => i.widget).sort());
     expect(validateItems(r.items, 800, 1280).ok).toBe(true);
   });
   test("an item pushed past the last row is dropped", () => {
-    const stack = [0, 3, 6, 9, 12, 15, 18].map((y, i) => item({ id: `n${i}`, y, h: 3 }));
+    const stack = [0, 12, 24, 36, 48, 60, 72].map((y, i) => item({ id: `n${i}`, y, h: 12 }));
     const r = rescaleItems(stack, from, to);
     expect(r.dropped).toEqual(["n5", "n6"]);
     expect(r.items.map((i) => i.id)).toEqual(["n0", "n1", "n2", "n3", "n4"]);
@@ -141,8 +150,8 @@ test.describe("fitItems", () => {
     expect(fitItems(src, PORTRAIT, LANDSCAPE)).toEqual(fitItems(structuredClone(src), PORTRAIT, LANDSCAPE));
   });
   test("a dropped widget with no free spot at its minimum stays dropped", () => {
-    // At 1280x720 (6 rows) the news takes 10 columns of the top 5 rows: no 4x3 is left for the events.
-    const src = [item({ id: "news", widget: "news", x: 0, y: 0, w: 10, h: 18 }), item({ id: "events", widget: "events", x: 0, y: 18, w: 4, h: 4 })];
+    // At 1280x720 (6 cell rows) the news takes 10 cells of the top 5 rows: no 4x3 cells are left for the events.
+    const src = [item({ id: "news", widget: "news", x: 0, y: 0, w: 40, h: 72 }), item({ id: "events", widget: "events", x: 0, y: 72, w: 16, h: 16 })];
     const r = fitItems(src, PORTRAIT, { width: 1280, height: 720 });
     expect(validateItems(r.items, 1280, 720).ok).toBe(true);
     expect(r.items.map((i) => i.id)).toEqual(["news"]);
@@ -167,9 +176,9 @@ test.describe("fitItems", () => {
   });
   test("an item the server would refuse is dropped and the rest kept, one at a time", () => {
     const src = [
-      item({ id: "a", widget: "clock", x: 0, y: 0, w: 6, h: 3 }),
-      item({ id: "b", widget: "clock", x: 6, y: 0, w: 6, h: 3 }), // a second clock: duplicate
-      item({ id: "c", widget: "date", x: 0, y: 3, w: 3, h: 1 }),
+      item({ id: "a", widget: "clock", x: 0, y: 0, w: 24, h: 12 }),
+      item({ id: "b", widget: "clock", x: 24, y: 0, w: 24, h: 12 }), // a second clock: duplicate
+      item({ id: "c", widget: "date", x: 0, y: 12, w: 12, h: 4 }),
     ];
     const r = fitItems(src, PORTRAIT, PORTRAIT);
     expect(r.dropped).toEqual(["b"]);
@@ -201,6 +210,12 @@ test.describe("resolveLayout", () => {
   });
   test("below 600px wide: built-in even with a default", () =>
     expect(resolveLayout({ device: kiosk(null), layouts: [portrait], defaults: { portrait: "p", landscape: null }, viewport: { width: 390, height: 844 } })).toBeNull());
+  test("a layout not on the 48-step grid counts as absent: own and default alike", () => {
+    const old = L({ id: "o", grid: 12 });
+    expect(resolveLayout({ device: kiosk("o"), layouts: [old, portrait], defaults: { portrait: "p", landscape: null }, viewport: { width: 1080, height: 1920 } })?.id).toBe("p");
+    expect(resolveLayout({ device: kiosk(null), layouts: [old], defaults: { portrait: "o", landscape: null }, viewport: { width: 1080, height: 1920 } })).toBeNull();
+    expect(resolveLayout({ device: { id: "d", is_kiosk: false, layout_id: "o" }, layouts: [old], defaults: { portrait: null, landscape: null }, viewport: { width: 1080, height: 1920 } })).toBeNull();
+  });
   test("an assigned id that no longer exists falls through to the default", () =>
     expect(resolveLayout({ device: kiosk("gone"), layouts: [portrait], defaults: { portrait: "p", landscape: null }, viewport: { width: 1080, height: 1920 } })?.id).toBe("p"));
 });

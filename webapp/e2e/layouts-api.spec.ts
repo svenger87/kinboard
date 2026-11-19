@@ -49,3 +49,32 @@ test("a family import does not restore layout_defaults: the layouts it names are
   expect(src).toMatch(/dropSettingKeys: \[SETTINGS_KEYS\.layoutDefaults\]/);
   expect(src).toContain("tableSpec.dropSettingKeys?.includes(row.key)");
 });
+
+/** The handler's source, from its export to the next one. */
+function handler(rel: string, m: string): string {
+  const src = readFileSync(join(ROOT, rel), "utf8");
+  const start = src.indexOf(`export async function ${m}(`);
+  const next = src.indexOf("export async function", start + 1);
+  return src.slice(start, next === -1 ? undefined : next);
+}
+
+test("the writes check the grid marker right after the PIN and the body, before anything else", () => {
+  for (const [rel, m] of [["layouts/route.ts", "POST"], ["layouts/[id]/route.ts", "PATCH"], ["layouts/[id]/duplicate/route.ts", "POST"]] as const) {
+    const body = handler(rel, m);
+    const check = body.indexOf("gridOk(body)");
+    expect(check, `${rel} ${m}`).toBeGreaterThan(body.indexOf("readJson(request)"));
+    expect(check, `${rel} ${m}`).toBeGreaterThan(body.indexOf("requireSettingsUnlock("));
+    expect(body.indexOf("createAdminClient("), `${rel} ${m}`).toBeGreaterThan(check);
+    expect(body.indexOf("fail(\"bad_name\")") === -1 || body.indexOf("fail(\"bad_name\")") > check, `${rel} ${m}`).toBe(true);
+    expect(body, `${rel} ${m}`).toContain("gridChanged()");
+  }
+});
+
+test("assigning and defaults refuse a layout row that is not on the grid", () => {
+  for (const [rel, m] of [["layouts/defaults/route.ts", "PUT"], ["devices/[id]/layout/route.ts", "PUT"]] as const) {
+    const body = handler(rel, m);
+    expect(body, `${rel} ${m}`).toMatch(/\.select\("[^"]*\bgrid\b[^"]*"\)/);
+    expect(body, `${rel} ${m}`).toContain("!== LAYOUT_GRID");
+    expect(body, `${rel} ${m}`).toContain("gridChanged()");
+  }
+});

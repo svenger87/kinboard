@@ -24,10 +24,10 @@ export type SaverWidgetKey =
 export interface LayoutItem {
   id: string;
   widget: SaverWidgetKey;
-  /** Grid column and row of the top-left cell, counted from 0. */
+  /** Grid column and row of the top-left step, counted from 0. */
   x: number;
   y: number;
-  /** Width and height in cells. */
+  /** Width and height in steps (four to a cell). */
   w: number;
   h: number;
   text: TextSize;
@@ -41,6 +41,12 @@ export interface Layout {
   /** The screen size the layout was drawn for, in CSS pixels. */
   width: number;
   height: number;
+  /**
+   * The columns the positions count: LAYOUT_GRID (48 steps) for every layout
+   * this build reads or writes. Another value (12: cells, from before
+   * migrations/087_layout_steps.sql) marks a layout this build does not use.
+   */
+  grid: number;
   home: LayoutItem[];
   screensaver: LayoutItem[];
   created_at: string;

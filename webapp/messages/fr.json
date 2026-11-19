@@ -3314,6 +3314,12 @@
         "saved": "Disposition enregistrée",
         "stale": "Quelqu’un a modifié cette disposition entre-temps — rechargez pour voir la modification.",
         "reload": "Recharger",
+        "gridDisplay": {
+          "label": "Grille",
+          "dots": "Points et lignes",
+          "lines": "Lignes",
+          "off": "Masquée"
+        },
         "errors": {
           "unknown_widget": "{name} : ce widget est inconnu.",
           "out_of_bounds": "{name} ne tient pas sur l’écran.",
@@ -3321,6 +3327,7 @@
           "overlap": "{name} chevauche un autre widget.",
           "duplicate": "{name} figure deux fois sur l’écran.",
           "bad_text_size": "{name} a une taille de texte inconnue.",
+          "gridChanged": "Kinboard a été mis à jour. Rechargez la page pour continuer.",
           "pinRequired": "Les réglages ont été verrouillés — saisissez le code PIN ; vos modifications non enregistrées sont conservées.",
           "generic": "La disposition n’a pas pu être enregistrée. Veuillez réessayer."
         },
@@ -3363,8 +3370,23 @@
         },
         "inspector": {
           "empty": "Sélectionnez un widget sur l’écran pour le modifier.",
-          "size": "{w}×{h} cases",
-          "min": "au moins {w}×{h}",
+          "box": {
+            "title": "Position et taille en pas",
+            "x": "X",
+            "y": "Y",
+            "w": "L",
+            "h": "H",
+            "xName": "Distance depuis le bord gauche, en pas",
+            "yName": "Distance depuis le bord supérieur, en pas",
+            "wName": "Largeur en pas",
+            "hName": "Hauteur en pas",
+            "refused": {
+              "out_of_bounds": "Non appliqué : le widget sortirait de l’écran, ou la valeur n’est pas un nombre entier.",
+              "below_minimum": "Non appliqué : le widget serait plus petit que son minimum.",
+              "overlap": "Non appliqué : le widget en chevaucherait un autre."
+            }
+          },
+          "min": "Au moins {w}×{h} pas ; un pas vaut un quart de cellule.",
           "textSize": "Taille du texte",
           "textSizes": {
             "S": "Petite",
@@ -3373,7 +3395,7 @@
             "XL": "Très grande"
           },
           "remove": "Retirer",
-          "keys": "Les flèches déplacent le widget sélectionné, Suppr le retire, Ctrl+Z annule.",
+          "keys": "Les flèches déplacent les widgets sélectionnés, avec Maj d’une cellule entière ; Alt+flèches les redimensionnent. Maj+clic ou un cadre tracé en sélectionne plusieurs. Suppr les retire, Ctrl+Z annule. Maintenez Alt pendant le glissement pour placer un widget sans aimantation.",
           "fillsBox": "Remplit sa case : S l’affiche plus petit ; pour plus grand, agrandissez la case.",
           "align": "Alignement",
           "aligns": {
@@ -3382,7 +3404,22 @@
             "center": "Centre",
             "end": "Droite"
           },
-          "alignAuto": "Automatique selon sa place : {side} pour l’instant."
+          "alignAuto": "Automatique selon sa place : {side} pour l’instant.",
+          "selected": "{count} sélectionnés",
+          "arrange": {
+            "title": "Disposer",
+            "left": "Aligner à gauche",
+            "right": "Aligner à droite",
+            "top": "Aligner en haut",
+            "bottom": "Aligner en bas",
+            "hcenter": "Centrer horizontalement",
+            "vcenter": "Centrer verticalement",
+            "distributeX": "Répartir horizontalement",
+            "distributeY": "Répartir verticalement",
+            "sameW": "Même largeur que le premier sélectionné",
+            "sameH": "Même hauteur que le premier sélectionné",
+            "distributeHint": "Répartir demande au moins trois widgets."
+          }
         },
         "widgets": {
           "clock": "Horloge",
@@ -3425,6 +3462,11 @@
           "assign": "Afficher sur « {name} »",
           "done": "« {name} » affiche maintenant cette disposition.",
           "failed": "La disposition n’a pas pu être attribuée. Veuillez réessayer."
+        },
+        "refused": {
+          "out_of_bounds": "Non appliqué : un widget sortirait de l’écran.",
+          "below_minimum": "Non appliqué : un widget serait plus petit que son minimum.",
+          "overlap": "Non appliqué : un widget en chevaucherait un autre."
         }
       }
     }
