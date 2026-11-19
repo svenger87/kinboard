@@ -34,7 +34,7 @@ import { PageShell } from "@/components/page-shell";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { isScreensaverSkipPath } from "@/lib/constants";
-import { screensaverAllowed, SCREENSAVER_PREVIEW_EVENT } from "@/lib/screensaver-gate";
+import { screensaverAllowed, SCREENSAVER_PREVIEW_EVENT, wakesScreen } from "@/lib/screensaver-gate";
 import { promptShownOn } from "@/lib/home/action-prompt";
 import { usePendingAssistantActions } from "@/hooks/use-assistant-actions";
 import { useAssistantActionNotices } from "@/stores/assistant-action-notices";
@@ -169,7 +169,10 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => {
     if (!preview) return;
-    const end = () => setPreview(false);
+    // Ends the way waking from the real one does: not on a news item, a creature, or with a modal open.
+    const end = (e: Event) => {
+      if (wakesScreen(e)) setPreview(false);
+    };
     const events = ["pointerdown", "keydown", "touchstart"];
     events.forEach((event) => window.addEventListener(event, end, { passive: true }));
     return () => {

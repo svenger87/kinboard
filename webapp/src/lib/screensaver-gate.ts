@@ -38,3 +38,17 @@ export function screensaverAllowed(state: {
     && (state.assistantActionNotices ?? 0) === 0
     && !state.cameraTakeover;
 }
+
+/**
+ * Whether a touch, click or key wakes the screen from the screensaver (and
+ * ends a preview): not while a modal is open (data-modal-open on body), and
+ * not from an element marked data-no-wake or inside one — a news item opens
+ * the news window, a creature hops, the weather effects stay out of the way.
+ * The idle timer and the preview share this, so a preview behaves like the
+ * real screensaver.
+ */
+export function wakesScreen(e: Event): boolean {
+  if (typeof document !== "undefined" && document.body?.hasAttribute("data-modal-open")) return false;
+  const target = e.target as Element | null;
+  return !target?.closest?.("[data-no-wake]");
+}
