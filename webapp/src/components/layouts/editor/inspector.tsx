@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { SAVER_WIDGETS } from "@/lib/layouts/widgets";
 import { VALUE_FILL } from "@/lib/layouts/grid";
+import { autoAlign, storedAlign, type Align } from "@/lib/layouts/align";
 import type { LayoutItem, SaverWidgetKey, TextSize } from "@/lib/layouts/types";
 
 const TEXT_SIZES: TextSize[] = ["S", "M", "L", "XL"];
@@ -17,12 +18,14 @@ export function EditorInspector({
   disabled,
   names,
   onText,
+  onAlign,
   onRemove,
 }: {
   item: LayoutItem | null;
   disabled: boolean;
   names: Record<SaverWidgetKey, string>;
   onText: (text: TextSize) => void;
+  onAlign: (align: Align | null) => void;
   onRemove: () => void;
 }) {
   const t = useTranslations("settings.layouts.editor.inspector");
@@ -71,6 +74,31 @@ export function EditorInspector({
               </p>
             )}
           </div>
+          {isValue && item && (
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium" id="inspector-align">
+                {t("align")}
+              </span>
+              <SegmentedControl
+                value={storedAlign(item) ?? "auto"}
+                onValueChange={(v) => onAlign(v === "auto" ? null : (v as Align))}
+                aria-labelledby="inspector-align"
+                className="w-full"
+                disabled={disabled}
+              >
+                {(["auto", "start", "center", "end"] as const).map((a) => (
+                  <SegmentedControlItem key={a} value={a} className="flex-1" data-testid={`align-${a}`}>
+                    {t(`aligns.${a}`)}
+                  </SegmentedControlItem>
+                ))}
+              </SegmentedControl>
+              {!storedAlign(item) && (
+                <p className="text-xs text-muted-foreground" data-testid="inspector-align-auto">
+                  {t("alignAuto", { side: t(`aligns.${autoAlign(item)}`) })}
+                </p>
+              )}
+            </div>
+          )}
           <Button variant="outline" className="gap-2 text-destructive" onClick={onRemove} disabled={disabled} data-testid="inspector-remove">
             <Trash2 className="size-4" aria-hidden="true" />
             {t("remove")}

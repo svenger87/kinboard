@@ -4,6 +4,7 @@ import { useCallback, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 import type { LayoutItem } from "@/lib/layouts/types";
+import { alignOf } from "@/lib/layouts/align";
 import { SectionLabel } from "@/components/screensaver-rows";
 
 /**
@@ -56,14 +57,16 @@ export function RowGap({ children }: { children: ReactNode }) {
 }
 
 /**
- * A value widget's frame: the value at the start of the box, centred
+ * A value widget's frame: the value placed across the box as alignOf says
+ * (to the edge it touches, centred, or set in the inspector), centred
  * vertically, hidden until it has been fitted once so it does not flash at
  * the box's own size first.
  */
-export function ValueFrame({ fitted, align = "start", children }: { fitted: boolean; align?: "start" | "end" | "center"; children: ReactNode }) {
+export function ValueFrame({ item, fitted, children }: { item: LayoutItem; fitted: boolean; children: ReactNode }) {
+  const align = alignOf(item);
   const justify = align === "end" ? "justify-end" : align === "center" ? "justify-center" : "justify-start";
   return (
-    <div className={`flex size-full items-center ${justify}`} style={fitted ? undefined : { visibility: "hidden" }}>
+    <div className={`flex size-full items-center ${justify}`} data-align={align} style={fitted ? undefined : { visibility: "hidden" }}>
       {children}
     </div>
   );

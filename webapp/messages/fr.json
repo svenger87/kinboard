@@ -225,7 +225,10 @@
         "vehicles": "Tesla : activer « Afficher sur l'économiseur d'écran » dans Paramètres → Tesla",
         "photoCount": "Photos : choisir une source de photos dans Paramètres → Photos"
       },
-      "weatherFailed": "La météo n'a pas pu être chargée – vérifier le lieu dans Paramètres → Météo"
+      "weatherFailed": "La météo n'a pas pu être chargée – vérifier le lieu dans Paramètres → Météo",
+      "idle": {
+        "nextEvent": "Prochain événement : s’affiche dans l’heure qui précède un événement."
+      }
     }
   },
   "localeSwitcher": {
@@ -3370,7 +3373,15 @@
           },
           "remove": "Retirer",
           "keys": "Les flèches déplacent le widget sélectionné, Suppr le retire, Ctrl+Z annule.",
-          "fillsBox": "Remplit sa case : S l’affiche plus petit ; pour plus grand, agrandissez la case."
+          "fillsBox": "Remplit sa case : S l’affiche plus petit ; pour plus grand, agrandissez la case.",
+          "align": "Alignement",
+          "aligns": {
+            "auto": "Auto",
+            "start": "Gauche",
+            "center": "Centre",
+            "end": "Droite"
+          },
+          "alignAuto": "Automatique selon sa place : {side} pour l’instant."
         },
         "widgets": {
           "clock": "Horloge",

@@ -8,7 +8,7 @@ import { NotSetUp, type SaverWidgetProps } from "./shared";
 
 /**
  * The weather now and the next forecast slots, as the built-in screensaver's
- * forecast strip, centred in its box. Sized in em of the box's text size,
+ * forecast strip, filling its box so its edges are the grid's. Sized in em of the box's text size,
  * made smaller only where the box is too short for the strip; as many slots
  * as the box is wide enough for (none: the weather now alone).
  */
@@ -34,8 +34,8 @@ export function ForecastWidget({ item, box, editing }: SaverWidgetProps) {
   if (!weather) return weatherFailed && editing ? <NotSetUp text={t("weatherFailed")} /> : null;
   return (
     <div ref={root} className="flex size-full items-center justify-center" style={fit ? undefined : { visibility: "hidden" }}>
-      <div style={fit ? { fontSize: fit.font } : undefined}>
-        <ScaledForecast weather={weather} slots={fit?.slots ?? 0} />
+      <div className="size-full" style={fit ? { fontSize: fit.font } : undefined} data-fills-box>
+        <ScaledForecast weather={weather} slots={fit?.slots ?? 0} fill />
       </div>
     </div>
   );

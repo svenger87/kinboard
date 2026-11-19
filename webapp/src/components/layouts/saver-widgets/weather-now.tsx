@@ -19,7 +19,7 @@ export function WeatherNowWidget({ item, box, editing }: SaverWidgetProps) {
   if (weather === null) return editing ? <NotSetUp text={t("notSetUp.weatherNow")} /> : null;
   if (!weather) return weatherFailed && editing ? <NotSetUp text={t("weatherFailed")} /> : null;
   return (
-    <ValueFrame fitted={size !== null}>
+    <ValueFrame item={item} fitted={size !== null}>
       <div ref={ref} className="block w-fit shrink-0" style={size ? { fontSize: size } : undefined}>
         <WeatherNowChip weather={weather} scaled />
       </div>
