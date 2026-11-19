@@ -3395,7 +3395,7 @@
             "XL": "Extra large"
           },
           "remove": "Remove",
-          "keys": "Arrow keys move the selected widgets, with Shift by a whole cell; Alt+arrows resize them. Shift+click or drag a frame to select several. Delete removes, Ctrl+Z undoes.",
+          "keys": "Arrow keys move the selected widgets, with Shift by a whole cell; Alt+arrows resize them. Shift+click or drag a frame to select several. Delete removes, Ctrl+Z undoes. Hold Alt while dragging to place a box without snapping.",
           "fillsBox": "Fills its box: S draws it smaller; for larger, make the box bigger.",
           "align": "Alignment",
           "aligns": {

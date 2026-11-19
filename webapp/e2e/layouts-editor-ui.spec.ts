@@ -688,6 +688,33 @@ test("a guide shows while a box's left lines up with another's; dropped a step o
   }
 });
 
+test("with Alt held, a box dropped a step off a guide stays a step off it; the hint says so", async ({ browser }) => {
+  const restore = await seedLayout([
+    { id: "clock", widget: "clock", x: 4, y: 20, w: 16, h: 8, text: "M" },
+    { id: "date", widget: "date", x: 10, y: 40, w: 24, h: 4, text: "M" },
+  ]);
+  try {
+    const page = await openEditor(browser);
+    const s = await step(page);
+    const date = page.locator("[data-editor-item=date]");
+    await date.locator("[data-editor-box]").click();
+    await expect(page.getByText("Hold Alt while dragging to place a box without snapping.", { exact: false })).toBeVisible();
+    // Five steps left: the date's left at 5, a step off the clock's left at 4.
+    await page.keyboard.down("Alt");
+    await dragBy(page, date.locator("[data-editor-box]"), -5 * s, 0);
+    await page.keyboard.up("Alt");
+    await expect.poll(async () => boxOf(date)).toEqual({ x: 5, y: 40, w: 24, h: 4 });
+    // Without Alt the same drop snaps: back to 10, then again.
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect.poll(async () => boxOf(date)).toEqual({ x: 10, y: 40, w: 24, h: 4 });
+    await dragBy(page, date.locator("[data-editor-box]"), -5 * s, 0);
+    await expect.poll(async () => boxOf(date)).toEqual({ x: 4, y: 40, w: 24, h: 4 });
+    await page.context().close();
+  } finally {
+    await restore();
+  }
+});
+
 test("a value widget's text size: S draws the clock smaller in its box, L and XL are off since M already fills it", async ({ browser }) => {
   const page = await openEditor(browser);
   const clock = page.locator("[data-editor-item=clock]");

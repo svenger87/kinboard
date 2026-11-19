@@ -109,7 +109,8 @@ const intersects = (a: Rect, b: Rect) =>
  * or centre line up with another box's or the screen's centre. Dropped
  * within a step of such a line, the box is moved onto it (a resize brings
  * only the moved edge), unless that would put it on another box or off the
- * screen; the snap is part of the one change the drop makes.
+ * screen; the snap is part of the one change the drop makes. With Alt
+ * (Option) held at the drop, the box stays where it was let go.
  */
 export function EditorCanvas({
   grid,
@@ -171,10 +172,29 @@ export function EditorCanvas({
     );
   };
 
-  /** The drop: the moved box snapped (`snap`) when that is allowed, else as it was let go; one change. */
-  const drop = (next: GridLayout, item: { i: string } | null, snap: (box: Box, others: Box[]) => Box) => {
+  // Whether Alt (Option) is held: kept from the keyboard as well, in case a stop event carries no modifiers.
+  const altHeld = useRef(false);
+  useEffect(() => {
+    const track = (e: KeyboardEvent) => (altHeld.current = e.altKey);
+    const clear = () => (altHeld.current = false);
+    window.addEventListener("keydown", track);
+    window.addEventListener("keyup", track);
+    window.addEventListener("blur", clear);
+    return () => {
+      window.removeEventListener("keydown", track);
+      window.removeEventListener("keyup", track);
+      window.removeEventListener("blur", clear);
+    };
+  }, []);
+
+  /**
+   * The drop: the moved box snapped (`snap`) when that is allowed, else as it
+   * was let go; one change. With Alt held the box is left where it was let go.
+   */
+  const drop = (next: GridLayout, item: { i: string } | null, event: Event, snap: (box: Box, others: Box[]) => Box) => {
     setGuided(null);
-    const dropped = item && next.find((l) => l.i === item.i);
+    const alt = ("altKey" in event && (event as MouseEvent).altKey) || altHeld.current;
+    const dropped = !alt && item && next.find((l) => l.i === item.i);
     if (dropped) {
       const box = boxOf(dropped);
       const snapped = snap(box, next.filter((l) => l.i !== dropped.i).map(boxOf));
@@ -186,9 +206,9 @@ export function EditorCanvas({
     onCommit(toItems(next));
   };
 
-  const dragStop: EventCallback = (next, _old, item) => drop(next, item, (box, others) => snapBox(box, others, grid.columns, grid.rows));
-  const resizeStop: EventCallback = (next, _old, item) =>
-    drop(next, item, (box, others) => snapEdge(snapEdge(box, others, grid.columns, grid.rows, "right"), others, grid.columns, grid.rows, "bottom"));
+  const dragStop: EventCallback = (next, _old, item, _placeholder, event) => drop(next, item, event, (box, others) => snapBox(box, others, grid.columns, grid.rows));
+  const resizeStop: EventCallback = (next, _old, item, _placeholder, event) =>
+    drop(next, item, event, (box, others) => snapEdge(snapEdge(box, others, grid.columns, grid.rows, "right"), others, grid.columns, grid.rows, "bottom"));
 
   // A box pressed with Shift, or while part of a selection of several: the
   // selection stays for a drag, and on a click that did not move Shift adds

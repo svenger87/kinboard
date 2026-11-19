@@ -3395,7 +3395,7 @@
             "XL": "Très grande"
           },
           "remove": "Retirer",
-          "keys": "Les flèches déplacent les widgets sélectionnés, avec Maj d’une cellule entière ; Alt+flèches les redimensionnent. Maj+clic ou un cadre tracé en sélectionne plusieurs. Suppr les retire, Ctrl+Z annule.",
+          "keys": "Les flèches déplacent les widgets sélectionnés, avec Maj d’une cellule entière ; Alt+flèches les redimensionnent. Maj+clic ou un cadre tracé en sélectionne plusieurs. Suppr les retire, Ctrl+Z annule. Maintenez Alt pendant le glissement pour placer un widget sans aimantation.",
           "fillsBox": "Remplit sa case : S l’affiche plus petit ; pour plus grand, agrandissez la case.",
           "align": "Alignement",
           "aligns": {

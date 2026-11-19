@@ -3395,7 +3395,7 @@
             "XL": "Sehr groß"
           },
           "remove": "Entfernen",
-          "keys": "Pfeiltasten verschieben die ausgewählten Widgets, mit Umschalt um eine ganze Zelle; Alt+Pfeiltasten ändern ihre Größe. Umschalt+Klick oder ein aufgezogener Rahmen wählt mehrere aus. Entf entfernt, Strg+Z macht rückgängig.",
+          "keys": "Pfeiltasten verschieben die ausgewählten Widgets, mit Umschalt um eine ganze Zelle; Alt+Pfeiltasten ändern ihre Größe. Umschalt+Klick oder ein aufgezogener Rahmen wählt mehrere aus. Entf entfernt, Strg+Z macht rückgängig. Alt beim Ziehen gedrückt halten, um ein Widget ohne Einrasten abzulegen.",
           "fillsBox": "Füllt sein Feld: S macht es kleiner, für größer das Feld größer ziehen.",
           "align": "Ausrichtung",
           "aligns": {
