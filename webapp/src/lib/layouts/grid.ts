@@ -1,20 +1,35 @@
 /**
- * The grid layouts are drawn on: 12 columns, 48px edges, 24px gaps. The cell
- * size follows the screen width, so the same layout fills a 1080px panel and
- * the same panel at 150% (720px) alike. Text follows the short side instead,
- * because a width-based unit would make landscape text twice portrait's at
- * the same short side.
+ * The grid layouts are drawn on: 12 square cells across, 48px edges, and
+ * positions stored in quarter-cell steps (48 columns), with the 24px gap
+ * only between boxes, not between steps. The cell size follows the screen
+ * width, so the same layout fills a 1080px panel and the same panel at 150%
+ * (720px) alike. Text follows the short side instead, because a width-based
+ * unit would make landscape text twice portrait's at the same short side.
  */
 import type { LayoutItem, TextSize } from "./types";
 
-export const GRID = { EDGE: 48, GAP: 24, COLUMNS: 12, MIN_WIDTH: 600, MIN_ROWS: 6, MIN_CELL: 20 } as const;
+/**
+ * COLUMNS counts steps; a cell is STEPS_PER_CELL steps. MIN_ROWS counts
+ * cells (rows of whole cells), like MIN_CELL and the cell size.
+ */
+export const GRID = { EDGE: 48, GAP: 24, COLUMNS: 48, STEPS_PER_CELL: 4, MIN_WIDTH: 600, MIN_ROWS: 6, MIN_CELL: 20 } as const;
+
+/** The cells across the screen: 12. */
+const CELLS = GRID.COLUMNS / GRID.STEPS_PER_CELL;
 
 export interface Grid {
   width: number;
   height: number;
-  columns: 12;
+  /** Columns in steps: 48. */
+  columns: 48;
+  /** Rows in steps: at least 4 × cellRows, sometimes 1–3 more. */
   rows: number;
+  /** Rows of whole cells (the 12-column grid's rows). */
+  cellRows: number;
+  /** A cell's side in px; a cell plus a gap is four steps. */
   cell: number;
+  /** A step in px: (cell + GAP) / 4, possibly fractional. */
+  step: number;
   offsetX: number;
   offsetY: number;
 }
@@ -22,46 +37,55 @@ export interface Grid {
 /**
  * The grid for a screen, or null when it is too small to hold a layout.
  *
- * Twelve square columns across the width, as many rows as fit. On a screen
+ * Twelve square cells across the width, as many rows as fit. On a screen
  * wider than about 1.85:1 (a desktop browser on a 2560x1440 monitor draws
  * 2552x1274, a 1920x1080 one with its tab bar about 1920x960) twelve columns
  * that wide leave fewer than six rows, so the cells shrink until six fit and
  * the columns sit centred, with the spare width shared as side margin. Every
- * screen that had six rows keeps exactly the grid it had.
+ * screen that had six rows keeps exactly the grid it had. Positions count
+ * steps, a quarter of a cell plus its gap: 48 across, and as many down as
+ * fit (a box's last step has no gap after it).
  */
 export function gridFor(width: number, height: number): Grid | null {
   if (width < GRID.MIN_WIDTH) return null;
-  const { EDGE, GAP, COLUMNS, MIN_ROWS, MIN_CELL } = GRID;
-  const byWidth = Math.floor((width - 2 * EDGE - (COLUMNS - 1) * GAP) / COLUMNS);
+  const { EDGE, GAP, COLUMNS, STEPS_PER_CELL, MIN_ROWS, MIN_CELL } = GRID;
+  const byWidth = Math.floor((width - 2 * EDGE - (CELLS - 1) * GAP) / CELLS);
   const byHeight = Math.floor((height - 2 * EDGE - (MIN_ROWS - 1) * GAP) / MIN_ROWS);
   const cell = Math.min(byWidth, byHeight);
   if (cell < MIN_CELL) return null;
-  const rows = Math.floor((height - 2 * EDGE + GAP) / (cell + GAP));
-  if (rows < MIN_ROWS) return null;
-  const usedW = COLUMNS * cell + (COLUMNS - 1) * GAP;
-  const usedH = rows * cell + (rows - 1) * GAP;
+  const cellRows = Math.floor((height - 2 * EDGE + GAP) / (cell + GAP));
+  if (cellRows < MIN_ROWS) return null;
+  const step = (cell + GAP) / STEPS_PER_CELL;
+  const rows = Math.floor((height - 2 * EDGE + GAP) / step);
+  const usedW = CELLS * cell + (CELLS - 1) * GAP;
+  const usedH = cellRows * cell + (cellRows - 1) * GAP;
   return {
     width,
     height,
     columns: COLUMNS,
     rows,
+    cellRows,
     cell,
+    step,
     offsetX: EDGE + (width - 2 * EDGE - usedW) / 2,
     offsetY: EDGE + (height - 2 * EDGE - usedH) / 2,
   };
 }
 
-/** Pixel rectangle of a box: its cells plus the gaps between them. */
+/**
+ * Pixel rectangle of a box: its steps less one gap, so two boxes side by
+ * side always have exactly the gap between them. A box on whole cells is
+ * drawn exactly where the 12-column grid drew it.
+ */
 export function boxRect(
   item: Pick<LayoutItem, "x" | "y" | "w" | "h">,
   grid: Grid,
 ): { left: number; top: number; width: number; height: number } {
-  const step = grid.cell + GRID.GAP;
   return {
-    left: grid.offsetX + item.x * step,
-    top: grid.offsetY + item.y * step,
-    width: item.w * grid.cell + (item.w - 1) * GRID.GAP,
-    height: item.h * grid.cell + (item.h - 1) * GRID.GAP,
+    left: grid.offsetX + item.x * grid.step,
+    top: grid.offsetY + item.y * grid.step,
+    width: item.w * grid.step - GRID.GAP,
+    height: item.h * grid.step - GRID.GAP,
   };
 }
 

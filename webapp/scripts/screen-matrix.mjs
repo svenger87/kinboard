@@ -327,7 +327,7 @@ async function stub(page) {
 /**
  * Every screensaver widget at its minimum box (lib/layouts/widgets.ts), drawn
  * for 1080x1920: packed at the top, the one-row values on the last row so the
- * bottom edge is measured too.
+ * bottom edge is measured too. Listed in cells, stored in steps (four to a cell).
  */
 const MIN_ITEMS = [
   ["clock", 0, 0, 4, 2], ["forecast", 4, 0, 4, 2], ["birthdays", 8, 0, 4, 2],
@@ -335,7 +335,7 @@ const MIN_ITEMS = [
   ["weatherNow", 8, 4, 2, 1], ["photoCount", 10, 4, 1, 1],
   ["lessons", 0, 5, 4, 2], ["energy", 4, 5, 3, 2], ["vehicles", 7, 5, 3, 2],
   ["date", 0, 21, 3, 1], ["nextEvent", 4, 21, 4, 1],
-].map(([widget, x, y, w, h]) => ({ id: widget, widget, x, y, w, h, text: "M" }));
+].map(([widget, x, y, w, h]) => ({ id: widget, widget, x: x * 4, y: y * 4, w: w * 4, h: h * 4, text: "M" }));
 
 /**
  * The fixture layouts, created through the API as a parent would: a session of
@@ -433,13 +433,14 @@ function measure({ view, edge, tolerance }) {
   const edges = {};
   const lists = {};
   if (layoutRoot) {
-    // The screen's grid, as lib/layouts/grid.ts computes it: 12 columns, 24px gaps.
+    // The screen's grid, as lib/layouts/grid.ts computes it: 12 cells across,
+    // 24px gaps between boxes, positions in quarter-cell steps (48 columns).
     const GAP = 24, COLS = 12;
     const cell = Math.floor((W - 2 * edge - (COLS - 1) * GAP) / COLS);
     const rows = Math.floor((H - 2 * edge + GAP) / (cell + GAP));
     const ox = edge + (W - 2 * edge - (COLS * cell + (COLS - 1) * GAP)) / 2;
     const oy = edge + (H - 2 * edge - (rows * cell + (rows - 1) * GAP)) / 2;
-    const step = cell + GAP;
+    const step = (cell + GAP) / 4;
     const onGrid = (v) => Math.abs(v - Math.round(v)) * step <= tolerance;
     for (const b of boxes) {
       const cx = (b.x - ox) / step, cy = (b.y - oy) / step, cw = (b.w + GAP) / step, ch = (b.h + GAP) / step;

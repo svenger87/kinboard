@@ -1,6 +1,6 @@
 /**
  * Where the editor puts a widget: the first free spot for a new one, and a
- * one-cell step for the arrow keys. Both refuse rather than overlap or leave
+ * one-step move for the arrow keys (positions are in steps, four to a cell). Both refuse rather than overlap or leave
  * the grid, like the server's check.
  */
 import { GRID } from "./grid";
@@ -43,7 +43,7 @@ export function firstFreeSpot(items: Box[], size: { w: number; h: number }, rows
 }
 
 /**
- * A placed box grown toward a size, one column at a time while it stays on
+ * A placed box grown toward a size, one step-column at a time while it stays on
  * the grid and off the others, then one row at a time the same way.
  */
 export function growToward(box: Box, target: { w: number; h: number }, others: Box[], rows: number): Box {
@@ -54,7 +54,7 @@ export function growToward(box: Box, target: { w: number; h: number }, others: B
   return out;
 }
 
-/** The items with one moved by (dx, dy) cells, or null when that leaves the grid or lands on another. */
+/** The items with one moved by (dx, dy) steps, or null when that leaves the grid or lands on another. */
 export function nudge(items: LayoutItem[], id: string, dx: number, dy: number, rows: number): LayoutItem[] | null {
   const item = items.find((i) => i.id === id);
   if (!item) return null;

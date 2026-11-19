@@ -4,7 +4,8 @@
  * clock in the right-hand column would stop short of the screen's edge.
  * Automatic by the box's place on the grid: touching the right edge, to the
  * right; centred on the screen (or spanning it), centred; else to the left.
- * The inspector can set it per widget, stored as options.align.
+ * The inspector can set it per widget, stored as options.align. Positions
+ * are in steps: the right edge is at GRID.COLUMNS (48), the centre at 24.
  */
 import { GRID } from "./grid";
 import type { LayoutItem } from "./types";

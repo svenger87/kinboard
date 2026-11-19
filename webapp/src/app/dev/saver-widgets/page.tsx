@@ -13,7 +13,8 @@ import type { LayoutItem } from "@/lib/layouts/types";
 /**
  * Every screensaver widget in a box, on a 1080x1920 grid: the built-in
  * arrangement and, in the free rows above the clock, the widgets it does not
- * use. A visual check while the layouts are built; needs a family session.
+ * use (positions in steps, four to a cell). A visual check while the layouts
+ * are built; needs a family session.
  * Not served in production.
  */
 
@@ -21,15 +22,15 @@ const WIDTH = 1080;
 const HEIGHT = 1920;
 
 const EXTRA: LayoutItem[] = [
-  { id: "nextEvent", widget: "nextEvent", x: 6, y: 9, w: 6, h: 1, text: "M" },
-  { id: "photoCount", widget: "photoCount", x: 6, y: 10, w: 2, h: 1, text: "M" },
-  { id: "holidays", widget: "holidays", x: 0, y: 11, w: 6, h: 3, text: "M" },
-  { id: "lessons", widget: "lessons", x: 6, y: 11, w: 6, h: 3, text: "M" },
-  { id: "energy", widget: "energy", x: 0, y: 14, w: 6, h: 3, text: "M" },
-  { id: "vehicles", widget: "vehicles", x: 6, y: 14, w: 6, h: 3, text: "M" },
+  { id: "nextEvent", widget: "nextEvent", x: 24, y: 36, w: 24, h: 4, text: "M" },
+  { id: "photoCount", widget: "photoCount", x: 24, y: 40, w: 8, h: 4, text: "M" },
+  { id: "holidays", widget: "holidays", x: 0, y: 44, w: 24, h: 12, text: "M" },
+  { id: "lessons", widget: "lessons", x: 24, y: 44, w: 24, h: 12, text: "M" },
+  { id: "energy", widget: "energy", x: 0, y: 56, w: 24, h: 12, text: "M" },
+  { id: "vehicles", widget: "vehicles", x: 24, y: 56, w: 24, h: 12, text: "M" },
   // The forecast at its smallest box and in a large one, beside the clock.
-  { id: "forecast-small", widget: "forecast", x: 0, y: 17, w: 4, h: 2, text: "M" },
-  { id: "forecast-large", widget: "forecast", x: 6, y: 17, w: 6, h: 5, text: "XL" },
+  { id: "forecast-small", widget: "forecast", x: 0, y: 68, w: 16, h: 8, text: "M" },
+  { id: "forecast-large", widget: "forecast", x: 24, y: 68, w: 24, h: 20, text: "XL" },
 ];
 
 function Widgets({ editing }: { editing: boolean }) {

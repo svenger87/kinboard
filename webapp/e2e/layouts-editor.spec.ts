@@ -10,39 +10,42 @@ import type { LayoutItem } from "../src/lib/layouts/types";
 /**
  * The editor's rules that need no browser: where a new widget goes, how far
  * an arrow key moves one, and the undo history. No database needed.
+ * Positions are in steps, four to a cell: 48 columns, 88 rows at 1080x1920.
  */
 
 const box = (widget: LayoutItem["widget"], x: number, y: number, w: number, h: number): LayoutItem => ({ id: widget, widget, x, y, w, h, text: "M" });
 
 test("a new widget goes to the first free spot of its default box, rows first", () => {
-  expect(firstFreeBox([], "events", 22)).toEqual({ x: 0, y: 0, w: 6, h: 5 });
+  expect(firstFreeBox([], "events", 88)).toEqual({ x: 0, y: 0, w: 24, h: 20 });
   // The left half is taken on the top rows: the events start beside it.
-  expect(firstFreeBox([box("news", 0, 0, 6, 6)], "events", 22)).toEqual({ x: 6, y: 0, w: 6, h: 5 });
+  expect(firstFreeBox([box("news", 0, 0, 24, 24)], "events", 88)).toEqual({ x: 24, y: 0, w: 24, h: 20 });
 });
 
 test("with no room for the default box it shrinks toward the minimum, and gives up below it", () => {
-  // Six free rows of four columns: events (default 6x5, minimum 4x3) take 4x5.
-  const items = [box("news", 0, 0, 8, 6)];
-  expect(firstFreeBox(items, "events", 6)).toEqual({ x: 8, y: 0, w: 4, h: 5 });
-  const full = [box("news", 0, 0, 9, 6)];
-  expect(firstFreeBox(full, "events", 6)).toBeNull();
+  // 24 free rows of 16 columns: events (default 24x20, minimum 16x12) take 16x20.
+  const items = [box("news", 0, 0, 32, 24)];
+  expect(firstFreeBox(items, "events", 24)).toEqual({ x: 32, y: 0, w: 16, h: 20 });
+  // One step short of the minimum width: nothing.
+  const full = [box("news", 0, 0, 33, 24)];
+  expect(firstFreeBox(full, "events", 24)).toBeNull();
 });
 
 test("on the built-in portrait layout every unplaced widget finds a valid spot", () => {
   const items = builtInScreensaver(1080, 1920);
   for (const widget of ["nextEvent", "holidays", "lessons", "energy", "vehicles", "photoCount"] as const) {
-    const spot = firstFreeBox(items, widget, 22)!;
+    const spot = firstFreeBox(items, widget, 88)!;
     expect(spot, widget).not.toBeNull();
     expect(validateItems([...items, { id: widget, widget, ...spot, text: "M" }], 1080, 1920).ok, widget).toBe(true);
   }
 });
 
-test("an arrow key moves a widget one cell, but not off the grid or onto another", () => {
-  const items = [box("clock", 0, 0, 4, 2), box("date", 4, 0, 3, 1)];
-  expect(nudge(items, "clock", 0, 1, 6)!.find((i) => i.id === "clock")).toMatchObject({ x: 0, y: 1 });
-  expect(nudge(items, "clock", -1, 0, 6)).toBeNull();
-  expect(nudge(items, "clock", 1, 0, 6)).toBeNull();
-  expect(nudge([box("clock", 0, 4, 4, 2)], "clock", 0, 1, 6)).toBeNull();
+test("an arrow key moves a widget one step, but not off the grid or onto another", () => {
+  const items = [box("clock", 0, 0, 16, 8), box("date", 16, 0, 12, 4)];
+  expect(nudge(items, "clock", 0, 1, 24)!.find((i) => i.id === "clock")).toMatchObject({ x: 0, y: 1 });
+  expect(nudge(items, "clock", -1, 0, 24)).toBeNull();
+  expect(nudge(items, "clock", 1, 0, 24)).toBeNull();
+  expect(nudge([box("clock", 0, 16, 16, 8)], "clock", 0, 1, 24)).toBeNull();
+  expect(nudge([box("clock", 32, 0, 16, 8)], "clock", 1, 0, 24)).toBeNull();
 });
 
 test("undo and redo walk the history; a new edit clears redo; 50 steps at most", () => {
