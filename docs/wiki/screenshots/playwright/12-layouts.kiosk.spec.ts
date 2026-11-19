@@ -15,7 +15,11 @@ import { getDemoJoinCode, killAnimations, setTheme, snap, waitForReady, SCREENSH
  * "Flur quer" through the API, assigns them and sets them as the defaults,
  * adds three events for the coming days, and removes all of it afterwards.
  * Weather and news are stubbed in the browser. The UI is German whatever the
- * family's language.
+ * family's language, unless UI_LANG names another: then the UI, the demo
+ * names and events are in that language (English names for any but German),
+ * and every image is written with a -<lang> suffix before the theme's
+ * (layouts-editor-arrange-en.png, layouts-editor-arrange-en-light.png), so
+ * the wiki's German images are never overwritten.
  *
  * Runs against either stack:
  *
@@ -34,6 +38,7 @@ import { getDemoJoinCode, killAnimations, setTheme, snap, waitForReady, SCREENSH
  *   KINBOARD_DB_CONTAINER   the database container (default kinboard-demo-db)
  *   KINBOARD_DB_USER        its superuser (default postgres)
  *   KINBOARD_SETTINGS_PIN   the family's settings PIN, if it has one
+ *   UI_LANG                 the UI language: de (default), en or fr
  *
  * The database is used only for what a parent does by hand on the screen
  * itself (marking it a kiosk), the screensaver's timeout for the shot, and the
@@ -55,6 +60,13 @@ const CODE = process.env.KINBOARD_JOIN_CODE || getDemoJoinCode();
 const DB = process.env.KINBOARD_DB_CONTAINER || "kinboard-demo-db";
 const DB_USER = process.env.KINBOARD_DB_USER || "postgres";
 const PIN = process.env.KINBOARD_SETTINGS_PIN || "";
+const UI_LANG = process.env.UI_LANG || "de";
+const UI_LOCALE = ({ de: "de-DE", en: "en-US", fr: "fr-FR" } as Record<string, string>)[UI_LANG];
+if (!UI_LOCALE) throw new Error(`UI_LANG=${UI_LANG}: expected de, en or fr`);
+/** German demo text, or English for any other UI language. */
+const say = (de: string, en: string) => (UI_LANG === "de" ? de : en);
+/** An image's name: the German UI's as it is, any other with its language. */
+const shot = (name: string) => (UI_LANG === "de" ? name : `${name}-${UI_LANG}`);
 /** Joined screens carry this hardware id prefix, so a failed run can be cleaned up by the next. */
 const HW = "wiki-layouts-";
 const DESK = { width: 1440, height: 900 };
@@ -135,14 +147,14 @@ function cleanUp(st: State) {
   if (errors.length) throw errors[0];
 }
 
-/** A browser that is one of the joined devices: its session plus the client's stored state, German UI. */
+/** A browser that is one of the joined devices: its session plus the client's stored state, in UI_LANG. */
 async function open(browser: Browser, who: Joined, path: string, viewport: { width: number; height: number }, kiosk = false): Promise<Page> {
   const ctx = await browser.newContext({
     viewport,
     deviceScaleFactor: 1,
     serviceWorkers: "block",
     reducedMotion: "reduce",
-    locale: "de-DE",
+    locale: UI_LOCALE,
     storageState: await who.api.storageState(),
   });
   await ctx.addCookies([
@@ -151,7 +163,7 @@ async function open(browser: Browser, who: Joined, path: string, viewport: { wid
       value: encodeURIComponent(JSON.stringify({ state: { family: who.family, device: { ...who.device, is_kiosk: kiosk } }, version: 0 })),
       url: BASE,
     },
-    { name: "NEXT_LOCALE", value: "de", url: BASE },
+    { name: "NEXT_LOCALE", value: UI_LANG, url: BASE },
   ]);
   const page = await ctx.newPage();
   await stub(page);
@@ -188,16 +200,22 @@ async function stub(page: Page) {
   await page.route(/\/api\/weather\/forecast/, (r) =>
     r.fulfill({ json: { location: "Hamburg", coords: { lat: 53.55, lon: 10 }, timezone: 3600, daily: [], hourly, units: "metric" } }));
   await page.route(/\/api\/weather(\?|$)/, (r) =>
-    r.fulfill({ json: { temp: 6, feelsLike: 3, condition: "Bewölkt", conditionMain: "Clouds", conditionIcon: "03d", humidity: 80, windSpeed: 14, location: "Hamburg", high: 8, low: 2, visibility: 9000, sunrise: "07:48", sunset: "16:12", timezone: 3600 } }));
-  const news = [
+    r.fulfill({ json: { temp: 6, feelsLike: 3, condition: say("Bewölkt", "Cloudy"), conditionMain: "Clouds", conditionIcon: "03d", humidity: 80, windSpeed: 14, location: "Hamburg", high: 8, low: 2, visibility: 9000, sunrise: "07:48", sunset: "16:12", timezone: 3600 } }));
+  const news = (UI_LANG === "de" ? [
     ["Neue Radwege in der Innenstadt sollen bis zum Frühjahr fertig sein", "Lokal"],
     ["Stadtbibliothek verlängert Öffnungszeiten am Samstag", "Kultur"],
     ["Weihnachtsmarkt öffnet eine Woche früher", "Lokal"],
     ["Wetterdienst erwartet ein mildes Wochenende", "Wetter"],
     ["Schwimmbad im Stadtpark öffnet nach der Sanierung wieder", "Lokal"],
-  ].map(([title, category], i) => ({
+  ] : [
+    ["New cycle lanes downtown due to be finished by spring", "Local"],
+    ["City library extends its Saturday opening hours", "Culture"],
+    ["Christmas market opens a week early", "Local"],
+    ["Forecasters expect a mild weekend", "Weather"],
+    ["Park swimming pool reopens after renovation", "Local"],
+  ]).map(([title, category], i) => ({
     title, link: `https://example.org/news/${i}`, pubDate: new Date(now - (i + 1) * 40 * 60e3).toUTCString(),
-    description: title, category, source: "demo", sourceName: "Stadtanzeiger",
+    description: title, category, source: "demo", sourceName: say("Stadtanzeiger", "City Herald"),
   }));
   await page.route(/\/api\/news\?/, (r) => r.fulfill({ json: { news } }));
   await page.route(/\/api\/homeassistant\//, (r) => r.fulfill({ json: { entities: [] } }));
@@ -234,8 +252,8 @@ test.beforeAll(async () => {
   saveState();
 
   laptop = await join("Laptop");
-  kitchen = await join("Küche");
-  hall = await join("Flur");
+  kitchen = await join(say("Küche", "Kitchen"));
+  hall = await join(say("Flur", "Hall"));
   psql(`UPDATE devices SET is_kiosk = true WHERE id IN (${q(kitchen.device.id)}, ${q(hall.device.id)})`);
   // Each wall screen reports its size, as it does on its check-in.
   for (const [who, w, h] of [[kitchen, 1080, 1920], [hall, 1920, 1080]] as const) {
@@ -251,8 +269,8 @@ test.beforeAll(async () => {
     saveState();
     return id;
   };
-  kitchenLayout = await create("Küche hochkant", 1080, 1920);
-  const hallLayout = await create("Flur quer", 1920, 1080);
+  kitchenLayout = await create(say("Küche hochkant", "Kitchen portrait"), 1080, 1920);
+  const hallLayout = await create(say("Flur quer", "Hall landscape"), 1920, 1080);
   // The built-in arrangement, made a family's own: the clock larger and the
   // date beside it, the events wider.
   const kitchenRow = await (await laptop.api.get("/api/layouts")).json();
@@ -273,10 +291,10 @@ test.beforeAll(async () => {
   const calendar = psql(`SELECT id FROM calendars WHERE family_id = ${q(familyId)} ORDER BY created_at LIMIT 1`);
   if (calendar) {
     const out = psql(`INSERT INTO events (calendar_id, title, start_at, end_at) VALUES
-      (${q(calendar)}, 'Fußballtraining', date_trunc('day', now()) + interval '1 day 16 hours', date_trunc('day', now()) + interval '1 day 17 hours 30 minutes'),
-      (${q(calendar)}, 'Zahnarzt Kontrolle', date_trunc('day', now()) + interval '2 days 9 hours', date_trunc('day', now()) + interval '2 days 10 hours'),
-      (${q(calendar)}, 'Elternabend Klasse 3b', date_trunc('day', now()) + interval '3 days 19 hours', date_trunc('day', now()) + interval '3 days 21 hours'),
-      (${q(calendar)}, 'Schwimmkurs', date_trunc('day', now()) + interval '5 days 15 hours', date_trunc('day', now()) + interval '5 days 16 hours')
+      (${q(calendar)}, ${q(say("Fußballtraining", "Football practice"))}, date_trunc('day', now()) + interval '1 day 16 hours', date_trunc('day', now()) + interval '1 day 17 hours 30 minutes'),
+      (${q(calendar)}, ${q(say("Zahnarzt Kontrolle", "Dentist check-up"))}, date_trunc('day', now()) + interval '2 days 9 hours', date_trunc('day', now()) + interval '2 days 10 hours'),
+      (${q(calendar)}, ${q(say("Elternabend Klasse 3b", "Parents' evening, class 3b"))}, date_trunc('day', now()) + interval '3 days 19 hours', date_trunc('day', now()) + interval '3 days 21 hours'),
+      (${q(calendar)}, ${q(say("Schwimmkurs", "Swimming lesson"))}, date_trunc('day', now()) + interval '5 days 15 hours', date_trunc('day', now()) + interval '5 days 16 hours')
       RETURNING id`);
     state.eventIds.push(...out.split("\n").filter((l) => /^[0-9a-f-]{36}$/.test(l)));
     saveState();
@@ -300,7 +318,7 @@ test("editor → layouts-editor.png", async ({ browser }) => {
   await expect(page.getByTestId("inspector")).toBeVisible();
   await page.mouse.move(0, 0);
   await page.waitForTimeout(1500);
-  await snap(page, "layouts-editor");
+  await snap(page, shot("layouts-editor"));
   await page.context().close();
 });
 
@@ -318,7 +336,7 @@ test("editor, three boxes selected → layouts-editor-arrange.png", async ({ bro
   await expect(page.getByTestId("inspector-arrange")).toBeVisible();
   await page.mouse.move(0, 0);
   await page.waitForTimeout(1500);
-  await snap(page, "layouts-editor-arrange");
+  await snap(page, shot("layouts-editor-arrange"));
   await page.context().close();
 });
 
@@ -326,7 +344,7 @@ test("Settings → Layouts → settings-layouts.png", async ({ browser }) => {
   const page = await open(browser, laptop, "/settings/layouts", DESK);
   await expect(page.getByTestId("layouts-list")).toHaveAttribute("aria-busy", "false", { timeout: 60_000 });
   await waitForReady(page);
-  await snap(page, "settings-layouts");
+  await snap(page, shot("settings-layouts"));
   await page.context().close();
 });
 
@@ -339,7 +357,7 @@ test("Settings → Devices → settings-devices-layout.png", async ({ browser })
   const box = (await row.boundingBox())!;
   const pad = 16;
   await page.screenshot({
-    path: snapPath("settings-devices-layout"),
+    path: snapPath(shot("settings-devices-layout")),
     clip: { x: Math.max(0, box.x - pad), y: Math.max(0, box.y - pad), width: box.width + 2 * pad, height: box.height + 2 * pad },
   });
   await page.context().close();
@@ -356,7 +374,7 @@ test("designed screensaver → screensaver-designed.png", async ({ browser }) =>
   await page.waitForSelector("[data-layout-item=clock]", { timeout: 60_000 });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(3000);
-  await snap(page, "screensaver-designed");
+  await snap(page, shot("screensaver-designed"));
   await page.context().close();
 });
 
@@ -364,10 +382,10 @@ test("a copy for 1920×1080 → layouts-copy-landscape.png", async ({ browser })
   const page = await open(browser, laptop, `/settings/layouts/${kitchenLayout}`, DESK);
   await expect(page.getByTestId("editor-canvas")).toBeVisible({ timeout: 60_000 });
   await page.getByTestId("screen-picker").click();
-  await page.getByRole("option", { name: /Full HD quer – 1920×1080/ }).click();
+  await page.getByRole("option", { name: /Full HD (quer|landscape) [–—] 1920×1080/ }).click();
   await expect(page.getByTestId("preview-readonly")).toBeVisible();
   await page.getByTestId("editor-copy").click();
-  await page.getByTestId("copy-name").fill("Küche quer");
+  await page.getByTestId("copy-name").fill(say("Küche quer", "Kitchen landscape"));
   await page.getByTestId("copy-create").click();
   await page.waitForURL((u) => /\/settings\/layouts\/[0-9a-f-]{36}$/.test(u.pathname) && !u.pathname.endsWith(kitchenLayout), { timeout: 30_000 });
   state.layoutIds.push(page.url().split("/").pop()!);
@@ -378,7 +396,7 @@ test("a copy for 1920×1080 → layouts-copy-landscape.png", async ({ browser })
   await expect(page.getByTestId("editor-copy-dropped")).toBeVisible({ timeout: 30_000 });
   await waitForReady(page);
   await page.waitForTimeout(1500);
-  await snap(page, "layouts-copy-landscape");
+  await snap(page, shot("layouts-copy-landscape"));
   await page.context().close();
 });
 
