@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type Ref } from "react";
-import ReactGridLayout, { type Layout as GridLayout } from "react-grid-layout";
+import ReactGridLayout, { type EventCallback, type Layout as GridLayout } from "react-grid-layout";
 import { getCompactor, setTransform, type PositionStrategy } from "react-grid-layout/core";
 import "react-grid-layout/css/styles.css";
 import { GRID, boxRect, textPx, type Grid } from "@/lib/layouts/grid";
 import { SAVER_WIDGETS } from "@/lib/layouts/widgets";
+import { checkItems, type Box } from "@/lib/layouts/arrange";
+import { guidesFor, snapBox, snapEdge, type Guides } from "@/lib/layouts/guides";
 import type { LayoutItem, SaverWidgetKey } from "@/lib/layouts/types";
 import { SAVER_WIDGET_COMPONENTS } from "@/components/layouts/saver-widgets";
 import { GridOverlay, type GridDisplay } from "./grid-overlay";
+import { GuideLines } from "./guide-lines";
 
 /** No compaction, and a move or resize onto another widget is refused rather than pushing it. */
 const COMPACTOR = getCompactor(null, false, true);
@@ -84,6 +87,9 @@ interface Rect {
   height: number;
 }
 
+const boxOf = (l: Box): Box => ({ x: l.x, y: l.y, w: l.w, h: l.h });
+const sameBox = (a: Box, b: Box) => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+
 const intersects = (a: Rect, b: Rect) =>
   a.left < b.left + b.width && b.left < a.left + a.width && a.top < b.top + b.height && b.top < a.top + a.height;
 
@@ -98,6 +104,12 @@ const intersects = (a: Rect, b: Rect) =>
  * a frame dragged from the empty canvas selects the boxes it touches (with
  * Shift, adds them). A drag moves only the box under the pointer; one that
  * is part of a selection keeps the selection.
+ *
+ * Guides: while a box is dragged or resized, a line shows wherever its edges
+ * or centre line up with another box's or the screen's centre. Dropped
+ * within a step of such a line, the box is moved onto it (a resize brings
+ * only the moved edge), unless that would put it on another box or off the
+ * screen; the snap is part of the one change the drop makes.
  */
 export function EditorCanvas({
   grid,
@@ -135,18 +147,48 @@ export function EditorCanvas({
     [items],
   );
 
-  const commit = useCallback(
-    (next: GridLayout) => {
+  const toItems = useCallback(
+    (next: GridLayout): LayoutItem[] => {
       const byId = new Map(next.map((l) => [l.i, l]));
-      onCommit(
-        items.map((i) => {
-          const l = byId.get(i.id);
-          return l && (l.x !== i.x || l.y !== i.y || l.w !== i.w || l.h !== i.h) ? { ...i, x: l.x, y: l.y, w: l.w, h: l.h } : i;
-        }),
-      );
+      return items.map((i) => {
+        const l = byId.get(i.id);
+        return l && (l.x !== i.x || l.y !== i.y || l.w !== i.w || l.h !== i.h) ? { ...i, x: l.x, y: l.y, w: l.w, h: l.h } : i;
+      });
     },
-    [items, onCommit],
+    [items],
   );
+
+  // The box being dragged or resized, where it would land, and the lines it is on; null when none.
+  const [guided, setGuided] = useState<{ box: Box; guides: Guides } | null>(null);
+
+  const showGuides: EventCallback = (next, _old, item) => {
+    if (!item) return;
+    const box = boxOf(item);
+    const others = next.filter((l) => l.i !== item.i).map(boxOf);
+    const guides = guidesFor(box, others, grid.columns, grid.rows);
+    setGuided((prev) =>
+      prev && sameBox(prev.box, box) && prev.guides.x.join() === guides.x.join() && prev.guides.y.join() === guides.y.join() ? prev : { box, guides },
+    );
+  };
+
+  /** The drop: the moved box snapped (`snap`) when that is allowed, else as it was let go; one change. */
+  const drop = (next: GridLayout, item: { i: string } | null, snap: (box: Box, others: Box[]) => Box) => {
+    setGuided(null);
+    const dropped = item && next.find((l) => l.i === item.i);
+    if (dropped) {
+      const box = boxOf(dropped);
+      const snapped = snap(box, next.filter((l) => l.i !== dropped.i).map(boxOf));
+      if (!sameBox(snapped, box)) {
+        const result = checkItems(toItems(next.map((l) => (l.i === dropped.i ? { ...l, ...snapped } : l))), [dropped.i], grid.rows);
+        if (result.ok) return onCommit(result.items);
+      }
+    }
+    onCommit(toItems(next));
+  };
+
+  const dragStop: EventCallback = (next, _old, item) => drop(next, item, (box, others) => snapBox(box, others, grid.columns, grid.rows));
+  const resizeStop: EventCallback = (next, _old, item) =>
+    drop(next, item, (box, others) => snapEdge(snapEdge(box, others, grid.columns, grid.rows, "right"), others, grid.columns, grid.rows, "bottom"));
 
   // A box pressed with Shift, or while part of a selection of several: the
   // selection stays for a drag, and on a click that did not move Shift adds
@@ -287,8 +329,10 @@ export function EditorCanvas({
                   </span>
                 ),
               }}
-              onDragStop={commit}
-              onResizeStop={commit}
+              onDrag={showGuides}
+              onResize={showGuides}
+              onDragStop={dragStop}
+              onResizeStop={resizeStop}
             >
               {items.map((item) => {
                 const Widget = SAVER_WIDGET_COMPONENTS[item.widget];
@@ -342,6 +386,7 @@ export function EditorCanvas({
                 );
               })}
             </ReactGridLayout>
+            {guided && <GuideLines grid={grid} box={guided.box} guides={guided.guides} scale={scale} />}
             {frame && (
               <div
                 data-testid="editor-frame"

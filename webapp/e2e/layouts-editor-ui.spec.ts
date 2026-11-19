@@ -246,12 +246,14 @@ test("a widget dragged onto another is refused: nothing overlaps", async ({ brow
   await page.context().close();
 });
 
-test("a drag of one step moves a box one step, drawn where the grid puts it", async ({ browser }) => {
+test("a drag of two steps moves a box two steps, drawn where the grid puts it", async ({ browser }) => {
+  // Two, not one: dropped one step off its old place, the date's left would be
+  // a step from the line it left (the other boxes' left at 0) and snap back.
   const page = await openEditor(browser);
   const date = page.locator("[data-editor-item=date]");
   const before = await boxOf(date);
-  await dragBy(page, date, await step(page), 0);
-  await expect.poll(async () => (await boxOf(date)).x).toBe(before.x + 1);
+  await dragBy(page, date, 2 * (await step(page)), 0);
+  await expect.poll(async () => (await boxOf(date)).x).toBe(before.x + 2);
   const box = await boxOf(date);
   const drawn = await drawnBox(page, date);
   expect(Math.abs(drawn.left - (GRID.offsetX + box.x * GRID.step)), JSON.stringify(drawn)).toBeLessThanOrEqual(1);
@@ -637,6 +639,49 @@ test("the resize corner leaves a small box room to be grabbed: a 4x4 and a 16x8 
     await page.mouse.move(h.x + h.width / 2 + 2 * s, h.y + h.height / 2, { steps: 10 });
     await page.mouse.up();
     await expect.poll(async () => boxOf(small)).toEqual({ x: 26, y: 40, w: 6, h: 4 });
+    await page.context().close();
+  } finally {
+    await restore();
+  }
+});
+
+test("a guide shows while a box's left lines up with another's; dropped a step off it, the box snaps onto it", async ({ browser }) => {
+  // The date's left two steps from any line, the clock's left at 4; the date's middle sits on the screen's (44 of 88 rows).
+  const restore = await seedLayout([
+    { id: "clock", widget: "clock", x: 4, y: 20, w: 16, h: 8, text: "M" },
+    { id: "date", widget: "date", x: 10, y: 40, w: 24, h: 4, text: "M" },
+  ]);
+  try {
+    const page = await openEditor(browser);
+    const s = await step(page);
+    const date = page.locator("[data-editor-item=date]");
+    const guides = page.getByTestId("editor-guide");
+    await expect(guides).toHaveCount(0);
+    const b = (await date.locator("[data-editor-box]").boundingBox())!;
+    const sx = b.x + b.width / 2;
+    const sy = b.y + b.height / 2;
+    await page.mouse.move(sx, sy);
+    await page.mouse.down();
+    // Six steps left: the date's left on the clock's.
+    await page.mouse.move(sx - 6 * s, sy, { steps: 15 });
+    const guide = page.locator('[data-testid=editor-guide][data-axis=x][data-at="4"]');
+    await expect(guide).toBeVisible();
+    // Drawn across the whole canvas, on the boxes' left edge.
+    const canvas = (await page.getByTestId("editor-canvas").boundingBox())!;
+    const g = (await guide.boundingBox())!;
+    expect(g.height).toBeGreaterThan(canvas.height - 2);
+    expect(g.width).toBeLessThanOrEqual(1.5);
+    const clockLeft = (await page.locator("[data-editor-item=clock] [data-editor-box]").boundingBox())!.x;
+    expect(Math.abs(g.x - clockLeft)).toBeLessThanOrEqual(1.5);
+    // A step back off it: no x guide there, and let go, the date snaps onto the line.
+    await page.mouse.move(sx - 5 * s, sy, { steps: 5 });
+    await expect(page.locator("[data-testid=editor-guide][data-axis=x]")).toHaveCount(0);
+    await page.mouse.up();
+    await expect.poll(async () => boxOf(date)).toEqual({ x: 4, y: 40, w: 24, h: 4 });
+    await expect(guides).toHaveCount(0);
+    // One undo puts it back where it started: the snap is part of the drop.
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect.poll(async () => boxOf(date)).toEqual({ x: 10, y: 40, w: 24, h: 4 });
     await page.context().close();
   } finally {
     await restore();
