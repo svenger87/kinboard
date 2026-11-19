@@ -377,7 +377,7 @@ test("Home: off unless switched on, gone with animations off, still with reduced
   expect(home).toContain("const PICTURE_SCALE = 0.8;");
   expect(home).toContain("size={picture ? Math.round(size * PICTURE_SCALE) : size}");
   // The same creature as the widget: its stage, its look, its festival outfit, its mood.
-  expect(home).toContain("creatureStage({ creature, account, earnedPoints: totalsFor(person.id).earned })");
+  expect(home).toContain("creatureStage({ creature, account, earnedPoints: totalsFor(person.id).earned, pointThresholds })");
   expect(home).toContain("const look = festive(readLook(creature.look, ownedFor(person.id)));");
   expect(home).toContain('const shownMood = lying ? "sleepy" : mood === "sleepy" ? "normal" : mood;');
   // Bedtime is the family's, on the family's clock.

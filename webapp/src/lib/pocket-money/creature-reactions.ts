@@ -99,6 +99,8 @@ export function detectTaskTick(
 export interface StageContext {
   mode: RewardMode | string | null | undefined;
   storedBestTier: number | null | undefined;
+  /** The family's points thresholds; the standard ones when left out. */
+  pointThresholds?: ReadonlyArray<number>;
 }
 
 export interface StageUp {
@@ -114,7 +116,7 @@ export interface StageUp {
 export function stageUpFor(stage: StageContext | null, earnedBefore: number | null, points: number): StageUp | null {
   if (!stage || stage.mode !== "points" || earnedBefore === null || points <= 0) return null;
   const at = (earnedPoints: number) =>
-    avatarStage({ mode: "points", balanceCents: 0, earnedPoints, storedBestTier: stage.storedBestTier }).tier;
+    avatarStage({ mode: "points", balanceCents: 0, earnedPoints, storedBestTier: stage.storedBestTier, pointThresholds: stage.pointThresholds }).tier;
   const from = at(earnedBefore);
   const to = at(earnedBefore + points);
   return to > from ? { from, to } : null;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useGrowthPoints } from "@/hooks/use-point-rewards";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -146,11 +147,13 @@ export default function PocketMoneyPage() {
   // Sleepy at night, happy once today's tasks are done: one answer for the
   // creature and the stages sheet's current stage.
   const mood = useCreatureMood(active?.person_id);
+  const pointThresholds = useGrowthPoints();
   const points = active ? totalsFor(active.person_id) : null;
   const stage = creatureStage({
     creature: creature ?? { grows_with: "money", best_tier: 1 },
     account: active,
     earnedPoints: points?.earned ?? 0,
+    pointThresholds,
   });
   const pointsMode = Boolean(creature) && stage.mode === "points";
 

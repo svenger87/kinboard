@@ -22,6 +22,8 @@ Per child, with the creature on:
 | **Shop** | Lets the child buy things for their creature with their points, on their Rewards page (see *The shop* below). Off hides the shop; what was bought stays the child's and stays on. Below the switch is the list of what the child bought, with the dates. |
 | **Look** | The drawing style. The child can change it on their own page too, with no PIN. |
 
+**How many points each stage needs** is the family's to set, under **Settings → Creatures & rewards → Growing** (settings PIN). The standard numbers are 50 points to hatch (stage 2), then 150, 300, 600, 1,000, 1,600 and 2,500 for stage 8, counted over every point the child has earned. Each stage has to need more than the one before. **Raising a number never makes a creature smaller**: on saving, each creature keeps the stage it has (its `best_tier` is raised to it) and grows again once the child passes the next number; lowering one lets creatures grow at once, with the usual celebration. *Back to the standard stages* puts the numbers back, and still shrinks no one. Creatures growing with saved money follow the money, as before.
+
 The stages, the look editor and the cheering when a task is ticked off are described on the [[Pocket Money|Pocket-Money]] page (*Avatar evolution*, *Avatar style*, *Points instead of euros*); they work the same for every creature.
 
 ## Where the creatures show
@@ -68,7 +70,7 @@ A child's **points balance** is the points their tasks have earned, all time, mi
 
 On the Rewards page, under the rewards, a child whose shop is on can spend points on things for their creature (*Shop*, *Boutique*). Nineteen items in four places:
 
-| Place | Items and prices (points) |
+| Place | Items and standard prices (points) |
 |---|---|
 | **Hats & more** | Cap 25, wizard hat 40, pirate hat 40, headphones 30, flower crown 35, space helmet 60 |
 | **Glasses** | Heart glasses 20, monocle 25, star glasses 30 |
@@ -78,6 +80,7 @@ On the Rewards page, under the rewards, a child whose shop is on can spend point
 - Each card shows the child's own creature with the item on, in its own style. **Buy** asks once and then spends the points straight away: no PIN, it's the child's own choice. The shop only sells what the child can afford, holding back rewards still waiting for a parent, and each item only once.
 - An item bought is the child's for good. **Wear** puts it on, **Take off** takes it off; *Change look* offers the bought items too. One item per place: a hat from the shop replaces the free bow, party hat or flower (and the crown at the top stage, until it's taken off), shop glasses replace the free sunglasses.
 - Hats and glasses show from the hatchling on, neckwear once the creature is out of its shell; an egg wears only a background (the shop's cards show every item on a grown creature either way). Backgrounds sit behind the creature in a rounded frame. A creature shown as its classic picture changes to its Gumdrop drawing when something is put on, as with *Change look*. The astronaut, the plant and the wizard, which aren't drawn yet, have no shop.
+- **The prices are the family's.** Under Settings → Creatures & rewards → *Shop prices* (settings PIN) a parent can give any item its own price, a whole number from 1 to 10,000 points; an item changed shows its standard price beside it, an emptied field goes back to it, and *Back to the standard prices* resets them all. The shop shows the new price at once (a wall display within a minute) and the server charges it; what was bought before keeps the price it was bought for.
 - **Buying never shrinks a creature**: it grows with the points earned, and a purchase only lowers what's left to spend. The balance is earned minus approved rewards minus purchases.
 - A parent turns the shop off per child under Settings → Creatures & rewards. The shop disappears from the Rewards page; anything bought stays on, and the child can still take it off or put it back on under *Change look*.
 - **Refunds are a parent's.** The same page lists what each child bought, with the dates, and *Refund* (settings PIN) gives the points back and takes the item off if it's being worn. The item leaves the list and can be bought again later. For the child, what they buy stays theirs: only a parent can refund.

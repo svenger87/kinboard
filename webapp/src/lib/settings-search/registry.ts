@@ -308,6 +308,8 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     { anchor: "inbox", labelKey: "settings.pocketMoney.redemptionInboxTitle" },
     { anchor: "children", labelKey: "settings.creatures.speciesLabel", descriptionKey: "settings.creatures.intro" },
     { anchor: "home", labelKey: "settings.creatures.homeLabel", descriptionKey: "settings.creatures.homeHint" },
+    { anchor: "growth", labelKey: "settings.creatures.growthLabel", descriptionKey: "settings.creatures.growthHint" },
+    { anchor: "prices", labelKey: "settings.creatures.pricesLabel", descriptionKey: "settings.creatures.pricesHint" },
     { anchor: "rewards", labelKey: "settings.pocketMoney.rewardsTitle", descriptionKey: "settings.pocketMoney.rewardsDescription" },
   ]),
   ...sectionsOf(google, [

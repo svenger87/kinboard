@@ -30,6 +30,7 @@ import { getFamilyLocale } from "@/lib/family-locale";
 import { getTranslator } from "@/lib/notifications/messages";
 import { UUID } from "@/lib/home/action-requests";
 import { creatureStage } from "@/lib/creatures/stage";
+import { growthPointsFor } from "@/lib/creatures/growth";
 import { requestRedemption, type RewardNotifier } from "@/lib/pocket-money/rewards";
 import type { RpcClient } from "@/lib/pocket-money/booking";
 
@@ -161,6 +162,7 @@ export async function listRewards(familyId: string, db: Db = liveDb(), locale?: 
 
   const stageName = stageNameFor(familyLocale);
   const nameOf = new Map(peopleRows.map((p) => [p.id, p.name]));
+  const pointThresholds = await growthPointsFor(db, familyId);
 
   const children: ChildRewardsView[] = [];
   for (const person of peopleRows) {
@@ -176,6 +178,7 @@ export async function listRewards(familyId: string, db: Db = liveDb(), locale?: 
       creature: { grows_with: creature.grows_with, best_tier: creature.best_tier },
       account: account ? { balance_cents: account.balance_cents ?? 0 } : null,
       earnedPoints: Number(totals.earned),
+      pointThresholds,
     });
     const next: NextStage | null = stage.next === null
       ? null

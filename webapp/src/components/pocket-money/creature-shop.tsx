@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useBuyItem } from "@/hooks/use-point-rewards";
+import { useBuyItem, useShopPrices } from "@/hooks/use-point-rewards";
 import { useUpdateCreature } from "@/hooks/use-creatures";
 import { CreatureAvatar } from "./creature-avatar";
 import {
@@ -25,6 +25,7 @@ import {
   hasClassicArt,
   isDrawnStyle,
   itemsIn,
+  priceOf,
   type AvatarStyle,
   type CreatureLook,
   type DrawnStyle,
@@ -83,6 +84,9 @@ export function CreatureShop({
   const previewStyle: DrawnStyle = isDrawnStyle(shown) ? shown : "gumdrop";
   const previewTier = Math.max(tier, 5) as AvatarTier;
   const itemName = (item: ShopItem) => t(`items.${item.id}` as never);
+  // The family's price for an item (Settings -> Creatures), or the standard one.
+  const prices = useShopPrices();
+  const price = (item: ShopItem) => priceOf(item, prices);
 
   // The look and style as they are NOW. "Wear it" in the toast after a
   // purchase can be tapped seconds later, after other changes (another item
@@ -149,7 +153,7 @@ export function CreatureShop({
               {items.map((item) => {
                 const mine = owned.has(item.id);
                 const worn = look[slot] === item.id;
-                const affordable = totals.available >= item.cost;
+                const affordable = totals.available >= price(item);
                 return (
                   <li key={item.id}>
                     <Card
@@ -176,7 +180,7 @@ export function CreatureShop({
                       ) : (
                         <p className="text-sm font-semibold tabular-nums text-month-primary">
                           <span aria-hidden="true">⭐ </span>
-                          {t("price", { count: item.cost })}
+                          {t("price", { count: price(item) })}
                         </p>
                       )}
                       <div className="mt-auto w-full">
@@ -208,7 +212,7 @@ export function CreatureShop({
                               disabled={buy.isPending}
                               aria-disabled={!affordable || undefined}
                               onClick={() => affordable && setConfirming(item)}
-                              aria-label={t("buyAria", { item: itemName(item), count: item.cost })}
+                              aria-label={t("buyAria", { item: itemName(item), count: price(item) })}
                               aria-describedby={affordable ? undefined : `${uid}-${item.id}-missing`}
                               data-testid="shop-buy"
                             >
@@ -216,7 +220,7 @@ export function CreatureShop({
                             </Button>
                             {!affordable && (
                               <p id={`${uid}-${item.id}-missing`} className="mt-1 text-xs text-muted-foreground">
-                                {t("missing", { count: item.cost - totals.available })}
+                                {t("missing", { count: price(item) - totals.available })}
                               </p>
                             )}
                           </>
@@ -235,7 +239,7 @@ export function CreatureShop({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{confirming ? t("confirmTitle", { item: itemName(confirming) }) : ""}</AlertDialogTitle>
-            <AlertDialogDescription>{t("confirmDescription", { count: confirming?.cost ?? 0 })}</AlertDialogDescription>
+            <AlertDialogDescription>{t("confirmDescription", { count: confirming ? price(confirming) : 0 })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>

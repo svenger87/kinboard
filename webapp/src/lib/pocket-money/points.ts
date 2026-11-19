@@ -76,11 +76,30 @@ export function pointTotals(
   };
 }
 
-/** The stage a number of earned points reaches. */
-export function tierFromPoints(earnedPoints: number): AvatarTier {
+/**
+ * A family's own growth (setting `growth_points`, Settings -> Creatures): the
+ * earned points stages 2 to 8 need, seven whole numbers each above the last,
+ * read as the full threshold list (stage 1 at 0); anything else is the
+ * standard list, TIER_THRESHOLDS_POINTS.
+ */
+export function readGrowthPoints(value: unknown): ReadonlyArray<number> {
+  return isGrowthPoints(value) ? [0, ...value] : TIER_THRESHOLDS_POINTS;
+}
+
+/** Seven whole numbers from 1 up, each above the one before. */
+export function isGrowthPoints(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.length === TIER_THRESHOLDS_POINTS.length - 1 &&
+    value.every((v, i) => Number.isSafeInteger(v) && v >= 1 && (i === 0 || v > value[i - 1]))
+  );
+}
+
+/** The stage a number of earned points reaches, with the family's thresholds or the standard ones. */
+export function tierFromPoints(earnedPoints: number, thresholds: ReadonlyArray<number> = TIER_THRESHOLDS_POINTS): AvatarTier {
   let tier: AvatarTier = 1;
-  for (let i = 0; i < TIER_THRESHOLDS_POINTS.length; i++) {
-    if (earnedPoints >= TIER_THRESHOLDS_POINTS[i]) tier = (i + 1) as AvatarTier;
+  for (let i = 0; i < thresholds.length; i++) {
+    if (earnedPoints >= thresholds[i]) tier = (i + 1) as AvatarTier;
   }
   return tier;
 }
@@ -116,12 +135,15 @@ export function avatarStage(args: {
   balanceCents: number;
   earnedPoints: number;
   storedBestTier: number | null | undefined;
+  /** The family's points thresholds (readGrowthPoints); the standard ones when left out. */
+  pointThresholds?: ReadonlyArray<number>;
 }): AvatarStage {
   const stored = Math.min(8, Math.max(1, Math.floor(args.storedBestTier ?? 1))) as AvatarTier;
   if (args.mode === "points") {
-    const tier = Math.max(tierFromPoints(args.earnedPoints), stored) as AvatarTier;
-    const next = tier < 8 ? { tier: (tier + 1) as AvatarTier, at: TIER_THRESHOLDS_POINTS[tier] } : null;
-    return { mode: "points", tier, best: tier, next, thresholds: TIER_THRESHOLDS_POINTS };
+    const thresholds = args.pointThresholds ?? TIER_THRESHOLDS_POINTS;
+    const tier = Math.max(tierFromPoints(args.earnedPoints, thresholds), stored) as AvatarTier;
+    const next = tier < 8 ? { tier: (tier + 1) as AvatarTier, at: thresholds[tier] } : null;
+    return { mode: "points", tier, best: tier, next, thresholds };
   }
   const tier = tierFromBalance(args.balanceCents);
   const nextCents = nextTierThreshold(args.balanceCents);

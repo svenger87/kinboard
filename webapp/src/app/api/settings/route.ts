@@ -42,6 +42,12 @@ const DEDICATED_ROUTE_KEYS: Record<string, string> = {
   // Which layout every wall screen without its own shows: behind the settings
   // PIN, and each id checked to be one of the family's layouts of that shape.
   [SETTINGS_KEYS.layoutDefaults]: "/api/layouts/defaults",
+  // What the creature shop charges: behind the settings PIN, each price checked,
+  // or a child's own screen could make everything cost a point.
+  [SETTINGS_KEYS.shopPrices]: "/api/creatures/shop-prices",
+  // How many points each stage needs: behind the PIN, and saving it keeps every
+  // creature at the stage it has (lib/creatures/growth.ts).
+  [SETTINGS_KEYS.growthPoints]: "/api/creatures/growth",
 };
 
 function dedicatedRoute(key: unknown): NextResponse | null {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
@@ -8,7 +9,10 @@ import type { PointAwardRow, PointPurchase, PointRedemption, PointReward } from 
 import { useTodoPoints } from "./use-todo-points";
 import { pointsTotal } from "@/lib/todo-points";
 import { pointTotals, type PointTotals } from "@/lib/pocket-money/points";
-import { ownedSet } from "@/lib/pocket-money/creatures/shop";
+import { ownedSet, readShopPrices, type ShopPrices } from "@/lib/pocket-money/creatures/shop";
+import { readGrowthPoints } from "@/lib/pocket-money/points";
+import { queryKeys, useSetting } from "@/hooks/use-supabase-queries";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 /**
  * The rewards catalogue, the children's requests and their shop purchases (discussion #349; core
@@ -111,6 +115,83 @@ export function useBuyItem() {
     // A refused purchase changed nothing, but the screen's balance or shop
     // switch may be stale: refetch either way.
     onSettled: () => qc.invalidateQueries({ queryKey: [POINT_PURCHASES_KEY] }),
+  });
+}
+
+/**
+ * The family's own shop prices (Settings -> Creatures), re-read every minute so
+ * a change made on a parent's phone reaches the wall display's shop.
+ */
+export function useShopPrices(): ShopPrices {
+  return useShopPricesSetting().prices;
+}
+
+/**
+ * The prices and whether the family's own have loaded: an editor must not
+ * save before then, or a change would be built on the standard prices and
+ * undo the family's others.
+ */
+export function useShopPricesSetting(): { prices: ShopPrices; ready: boolean } {
+  const { data, isSuccess } = useSetting<unknown>(SETTINGS_KEYS.shopPrices, null, { refetchInterval: 60_000 });
+  return { prices: readShopPrices(data), ready: isSuccess };
+}
+
+/**
+ * The family's points thresholds for growing (Settings -> Creatures ->
+ * Growing), or the standard ones; re-read every minute like the shop's prices.
+ */
+export function useGrowthPoints(): ReadonlyArray<number> {
+  return useGrowthPointsSetting().thresholds;
+}
+
+/** The thresholds and whether the family's own have loaded (see useShopPricesSetting). */
+export function useGrowthPointsSetting(): { thresholds: ReadonlyArray<number>; ready: boolean } {
+  const { data, isSuccess } = useSetting<unknown>(SETTINGS_KEYS.growthPoints, null, { refetchInterval: 60_000 });
+  const thresholds = useMemo(() => readGrowthPoints(data), [data]);
+  return { thresholds, ready: isSuccess };
+}
+
+/**
+ * A parent sets how many points each stage needs (stages 2 to 8), or null for
+ * the standard ones. Needs the settings PIN; the server keeps every creature
+ * at the stage it has.
+ */
+export function useSaveGrowthPoints() {
+  const qc = useQueryClient();
+  const familyId = useFamilyStore((s) => s.family?.id ?? "");
+  return useMutation({
+    mutationFn: async (points: number[] | null) => {
+      const r = await fetch("/api/creatures/growth", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ points }),
+      });
+      if (!r.ok) throw await failure(r, "growth");
+      return (await r.json()) as { points: number[] | null; kept: number };
+    },
+    // The floors it wrote are on the creatures, so those are read again too.
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.settings(familyId, SETTINGS_KEYS.growthPoints) });
+      qc.invalidateQueries({ queryKey: ["creatures"] });
+    },
+  });
+}
+
+/** A parent sets the shop's prices, the whole list at once. Needs the settings PIN. */
+export function useSaveShopPrices() {
+  const qc = useQueryClient();
+  const familyId = useFamilyStore((s) => s.family?.id ?? "");
+  return useMutation({
+    mutationFn: async (prices: ShopPrices) => {
+      const r = await fetch("/api/creatures/shop-prices", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prices }),
+      });
+      if (!r.ok) throw await failure(r, "shop prices");
+      return ((await r.json()) as { prices: ShopPrices }).prices;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.settings(familyId, SETTINGS_KEYS.shopPrices) }),
   });
 }
 

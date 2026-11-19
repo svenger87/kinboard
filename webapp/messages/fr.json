@@ -3215,7 +3215,21 @@
       "bedtimeHint": "Les créatures dorment entre ces heures : sur l'accueil elles se couchent, dans le widget elles ont l'air endormies.",
       "bedtimeSleep": "Endormies à partir de",
       "bedtimeWake": "Réveillées à",
-      "bedtimeReset": "Revenir à {sleep}–{wake}"
+      "bedtimeReset": "Revenir à {sleep}–{wake}",
+      "pricesLabel": "Prix de la boutique",
+      "pricesHint": "Ce que coûte chaque article de la boutique des créatures, en points de tâches. Un nouveau prix compte dès le prochain achat ; ce qui a déjà été acheté garde son prix d'achat. Videz un champ pour revenir au prix standard.",
+      "pricesStandard": "standard {count}",
+      "pricesInvalid": "Un prix est un nombre entier de {min} à {max}.",
+      "priceAria": "Prix de {item}, en points",
+      "pricesReset": "Revenir aux prix standard",
+      "growthLabel": "Grandir",
+      "growthHint": "Combien de points de tâches une créature doit avoir pour atteindre chaque stade, en comptant tous les points gagnés par l'enfant. Augmenter un nombre ne rapetisse jamais une créature : elle garde son stade et grandit de nouveau quand l'enfant atteint le nombre suivant. Les créatures qui grandissent avec l'argent de poche suivent l'argent.",
+      "growthHatch": "Stade 2 (éclosion)",
+      "growthStage": "Stade {n}",
+      "growthAria": "Points pour le stade {n}",
+      "growthInvalid": "Chaque stade demande plus de points que le précédent, en nombres entiers.",
+      "growthReset": "Revenir aux stades standard",
+      "growthKept": "{count, plural, one {# créature garde son stade} other {# créatures gardent leur stade}}"
     },
     "layouts": {
       "title": "Dispositions",
@@ -3496,6 +3510,8 @@
       "creatures": "créature, créatures, dragon, animal, avatar, récompense, récompenses, points, points de tâches, boutique, grandir",
       "creatures_children": "créature, activer, espèce, dragon, grandit avec, points, argent, boutique",
       "creatures_home": "créatures sur l'accueil, promener, jouer, animaux, coucher, dormir, réveil",
+      "creatures_growth": "grandir, stades, éclosion, points par stade, niveau, évolution",
+      "creatures_prices": "prix de la boutique, prix, coût, points, chapeaux, lunettes, fonds, boutique des créatures",
       "creatures_inbox": "demandes de récompense, en attente, accepter, refuser, échanger",
       "creatures_rewards": "récompenses, points, points de tâches, échanger, cadeaux",
       "theme_festivals": "fêtes, Noël, Avent, Saint-Nicolas, Saint-Martin, lanternes, traîneau, Père Noël, décorations, festif, Saint-Sylvestre, feu d'artifice, confettis"

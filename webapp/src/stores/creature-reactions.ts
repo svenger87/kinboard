@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { QueryClient } from "@tanstack/react-query";
+import { readGrowthPoints } from "@/lib/pocket-money/points";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import {
   detectTaskTick,
   enqueueReaction,
@@ -123,6 +125,8 @@ const PEOPLE_KEY = (familyId: string) => ["people", familyId];
 const AWARDS_KEY = (familyId: string) => ["todo-point-awards", familyId];
 const CREATURES_KEY = (familyId: string) => ["creatures", familyId];
 const ACCOUNTS_KEY = (familyId: string) => ["pocket-money-accounts", familyId];
+// The family's growth thresholds as useGrowthPoints() caches them (queryKeys.settings).
+const GROWTH_KEY = (familyId: string) => ["settings", familyId, SETTINGS_KEYS.growthPoints];
 
 interface PersonLike { id: string; is_child?: boolean | null }
 interface AwardLike { person_id: string; points: number }
@@ -158,8 +162,9 @@ export function reactToTaskChange(
   const hasAccount = Boolean(
     queryClient.getQueryData<AccountLike[]>(ACCOUNTS_KEY(familyId))?.some((a) => a.person_id === tick.personId),
   );
+  const pointThresholds = readGrowthPoints(queryClient.getQueryData(GROWTH_KEY(familyId)));
   const stage = creature
-    ? { mode: creature.grows_with === "money" && hasAccount ? "money" : "points", storedBestTier: creature.best_tier }
+    ? { mode: creature.grows_with === "money" && hasAccount ? "money" : "points", storedBestTier: creature.best_tier, pointThresholds }
     : null;
   return publishCreatureReaction({ ...tick, earnedBefore, stage });
 }

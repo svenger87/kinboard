@@ -2,21 +2,22 @@
  * The creature shop's one write (RFC-017 §5): a child buys an item with
  * their task points. purchase_person_point_item() in
  * docker/migrations/078_point_purchases.sql does every check under the
- * child's lock; this turns its answer into an HTTP one. The price comes from
- * the catalogue (lib/pocket-money/creatures/shop.ts), never from the request.
+ * child's lock; this turns its answer into an HTTP one. The price is the
+ * family's (priceOf in lib/pocket-money/creatures/shop.ts: its own price, or
+ * the catalogue's), never the request's.
  * A parent can refund a purchase (refundPurchase, behind the settings PIN).
  * The client is a parameter so a spec can hand it the real admin client.
  */
 
 import { UUID } from "@/lib/home/action-requests";
 import type { RpcClient } from "@/lib/pocket-money/booking";
-import { shopItem } from "@/lib/pocket-money/creatures/shop";
+import { priceOf, shopItem, type ShopPrices } from "@/lib/pocket-money/creatures/shop";
 
 type Answer = { status: number; body: Record<string, unknown> };
 
 export async function buyItem(
   client: RpcClient,
-  input: { familyId: string; personId: string; itemId: unknown },
+  input: { familyId: string; personId: string; itemId: unknown; prices?: ShopPrices | null },
 ): Promise<Answer> {
   if (!UUID.test(input.personId)) return { status: 404, body: { error: "not found" } };
   const item = shopItem(input.itemId);
@@ -26,7 +27,7 @@ export async function buyItem(
     p_family_id: input.familyId,
     p_person_id: input.personId,
     p_item_id: item.id,
-    p_cost: item.cost,
+    p_cost: priceOf(item, input.prices),
   });
   if (error) return { status: 500, body: { error: error.message } };
   const answer = data as { ok?: unknown; error?: unknown; purchase?: unknown; balance?: unknown; pending?: unknown } | null;

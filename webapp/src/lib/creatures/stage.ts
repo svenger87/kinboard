@@ -35,6 +35,8 @@ export function creatureStage(args: {
   creature: CreatureLike;
   account: AccountLike | null | undefined;
   earnedPoints: number;
+  /** The family's points thresholds (readGrowthPoints in lib/pocket-money/points.ts); the standard ones when left out. */
+  pointThresholds?: ReadonlyArray<number>;
 }): AvatarStage {
   const mode = effectiveGrowsWith(args.creature, args.account);
   return avatarStage({
@@ -42,6 +44,7 @@ export function creatureStage(args: {
     balanceCents: args.account?.balance_cents ?? 0,
     earnedPoints: args.earnedPoints,
     storedBestTier: args.creature.best_tier,
+    pointThresholds: args.pointThresholds,
   });
 }
 
@@ -62,9 +65,10 @@ export function justifiedTiers(args: {
   creature: CreatureLike;
   account: AccountLike | null | undefined;
   earnedPoints: number;
+  pointThresholds?: ReadonlyArray<number>;
 }): { seen: number; best: number } {
   const stage = creatureStage(args);
-  const best = stage.mode === "money" ? tierFromBalance(args.account?.balance_cents ?? 0) : tierFromPoints(args.earnedPoints);
+  const best = stage.mode === "money" ? tierFromBalance(args.account?.balance_cents ?? 0) : tierFromPoints(args.earnedPoints, args.pointThresholds);
   return { seen: stage.tier, best };
 }
 
