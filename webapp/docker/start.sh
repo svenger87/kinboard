@@ -2,7 +2,7 @@
 # Kinboard — local Docker operations.
 #
 # Usage:
-#   ./start.sh up        # bring stack up
+#   ./start.sh up        # fetch the published webapp image, bring stack up
 #   ./start.sh down      # tear down
 #   ./start.sh restart   # rebuild webapp + restart
 #   ./start.sh logs      # tail logs
@@ -237,6 +237,7 @@ case "$cmd" in
     # (issue #106). A warning, not a refusal — building from source on
     # purpose is a supported path.
     if $COMPOSE $COMPOSE_FILES config 2>/dev/null | grep -q 'image: kinboard-webapp:local'; then
+      building_from_source=1
       if docker image inspect "ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest}" >/dev/null 2>&1; then
         echo "warning: the webapp will be BUILT FROM SOURCE, but the published image" >&2
         echo "         ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest} is already on this machine." >&2
@@ -244,6 +245,20 @@ case "$cmd" in
         echo "         from COMPOSE_FILES." >&2
         echo "         To build on purpose, run 'git pull --ff-only origin main' first, or you" >&2
         echo "         will rebuild the version you are already running." >&2
+      fi
+    fi
+
+    # Fetch the published webapp image before starting it. `up -d` alone
+    # starts whatever `kinboard:latest` is already on the machine, so an
+    # install that runs `git pull && ./start.sh up` on boot kept the version it
+    # was first installed with: the scripts updated, the app did not, and only
+    # Settings showed the old version. Offline (no network at boot), the pull
+    # fails and the stack starts on the image it has.
+    if [[ -z "${building_from_source:-}" ]]; then
+      echo "→ fetching ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest}"
+      if ! $COMPOSE $COMPOSE_FILES pull webapp; then
+        echo "warning: could not fetch the webapp image (offline?);" >&2
+        echo "         starting with the version already on this machine." >&2
       fi
     fi
 

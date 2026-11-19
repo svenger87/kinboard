@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`./start.sh up` now fetches the new version.** It started whatever webapp image was already on the machine, so an install that runs `git pull` and `./start.sh up` at boot, as the Windows autostart does, stayed on the version it was installed with: the scripts updated, the app did not, and Settings still showed the old version while the changelog showed the new one. `up` now pulls the published image first (the tag in `KINBOARD_TAG`, `latest` by default) and recreates the webapp when it changed; without a network it says so and starts with the image it has. A source build (`docker-compose.build.yml`) is not affected.
+
 ## [1.16.0] - 2026-11-19
 
 ### Added
