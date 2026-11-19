@@ -3390,7 +3390,21 @@
             "end": "Right"
           },
           "alignAuto": "Automatic by where it sits: {side} for now.",
-          "selected": "{count} selected"
+          "selected": "{count} selected",
+          "arrange": {
+            "title": "Arrange",
+            "left": "Align left",
+            "right": "Align right",
+            "top": "Align top",
+            "bottom": "Align bottom",
+            "hcenter": "Centre horizontally",
+            "vcenter": "Centre vertically",
+            "distributeX": "Distribute horizontally",
+            "distributeY": "Distribute vertically",
+            "sameW": "Same width as the first one selected",
+            "sameH": "Same height as the first one selected",
+            "distributeHint": "Distributing needs at least three widgets."
+          }
         },
         "widgets": {
           "clock": "Clock",

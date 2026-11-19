@@ -3390,7 +3390,21 @@
             "end": "Rechts"
           },
           "alignAuto": "Automatisch nach seinem Platz: jetzt {side}.",
-          "selected": "{count} ausgewählt"
+          "selected": "{count} ausgewählt",
+          "arrange": {
+            "title": "Anordnen",
+            "left": "Links ausrichten",
+            "right": "Rechts ausrichten",
+            "top": "Oben ausrichten",
+            "bottom": "Unten ausrichten",
+            "hcenter": "Horizontal zentrieren",
+            "vcenter": "Vertikal zentrieren",
+            "distributeX": "Horizontal gleichmäßig verteilen",
+            "distributeY": "Vertikal gleichmäßig verteilen",
+            "sameW": "Gleiche Breite wie das zuerst ausgewählte Widget",
+            "sameH": "Gleiche Höhe wie das zuerst ausgewählte Widget",
+            "distributeHint": "Verteilen braucht mindestens drei Widgets."
+          }
         },
         "widgets": {
           "clock": "Uhr",

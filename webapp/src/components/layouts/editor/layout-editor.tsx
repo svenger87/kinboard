@@ -23,7 +23,7 @@ import { useLayoutHistory } from "@/hooks/use-layout-history";
 import { LayoutRequestError, useSaveLayout } from "@/hooks/use-layouts";
 import { builtInScreensaver } from "@/lib/layouts/built-in";
 import { GRID, LAYOUT_GRID, gridFor } from "@/lib/layouts/grid";
-import { moveBy, resizeBy, type ArrangeReason, type ArrangeResult } from "@/lib/layouts/arrange";
+import { alignItems, distribute, matchSize, moveBy, resizeBy, type ArrangeReason, type ArrangeResult } from "@/lib/layouts/arrange";
 import { rescaleItems } from "@/lib/layouts/rescale";
 import { validateItems, type LayoutError } from "@/lib/layouts/validate";
 import { SAVER_WIDGETS, knownWidgetItems } from "@/lib/layouts/widgets";
@@ -32,7 +32,7 @@ import type { Layout, LayoutItem, SaverWidgetKey, TextSize } from "@/lib/layouts
 import { EditorCanvas } from "./canvas";
 import { GRID_DISPLAYS, useGridDisplay, type GridDisplay } from "./grid-overlay";
 import { EditorPalette } from "./palette";
-import { EditorInspector } from "./inspector";
+import { EditorInspector, type ArrangeCommand } from "./inspector";
 import { withAlign, type Align } from "@/lib/layouts/align";
 import { ScreenPicker, type ScreenChoice } from "./screen-picker";
 import { CopyForSize, readCopyDropped, releaseCopyDropped } from "./copy-dialog";
@@ -217,6 +217,15 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
     commit(items.filter((i) => !selection.includes(i.id)));
     setSelectedIds([]);
   }, [commit, items, selection]);
+
+  /** Align, distribute or same size on the selection, in the order it was selected: one change, or refused with the reason. */
+  const arrange = (command: ArrangeCommand) => {
+    if (!ownGrid || selection.length < 2) return;
+    const rows = ownGrid.rows;
+    if (command.kind === "align") apply(alignItems(items, selection, command.edge, rows));
+    else if (command.kind === "distribute") apply(distribute(items, selection, command.axis, rows));
+    else apply(matchSize(items, selection, command.dim, rows));
+  };
 
   const setText = (text: TextSize) => {
     if (selected) commit(items.map((i) => (i.id === selected.id ? { ...i, text } : i)));
@@ -455,7 +464,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
             onCommit={commit}
           />
         </ScreensaverDataProvider>
-        <EditorInspector item={selected} count={selection.length} disabled={!editable} names={names} onText={setText} onAlign={setAlign} onRemove={remove} />
+        <EditorInspector item={selected} count={selection.length} disabled={!editable} names={names} onText={setText} onAlign={setAlign} onRemove={remove} onArrange={arrange} />
       </div>
     </div>
   );

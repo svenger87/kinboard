@@ -411,6 +411,64 @@ test("arrows move every selected box, Shift by a cell; Alt resizes; Delete remov
   await page.context().close();
 });
 
+/** The saved arrangement replaced (as another editor would), returning a function that puts the old one back. */
+async function seedLayout(items: LayoutItem[]): Promise<() => Promise<void>> {
+  const stampNow = () => JSON.parse(psql(`SELECT json_build_object('updated_at', updated_at, 'screensaver', screensaver)::text FROM layouts WHERE id = '${layoutId}'`));
+  const before = stampNow();
+  const res = await api.patch(`/api/layouts/${layoutId}`, { data: { grid: 48, screensaver: items, updated_at: before.updated_at } });
+  expect(res.status(), await res.text()).toBe(200);
+  return async () => {
+    const back = await api.patch(`/api/layouts/${layoutId}`, { data: { grid: 48, screensaver: before.screensaver, updated_at: stampNow().updated_at } });
+    expect(back.status(), await back.text()).toBe(200);
+  };
+}
+
+test("align top lines three boxes up in one change, one undo puts all three back; a refused align says why", async ({ browser }) => {
+  // Boxes big enough on the scaled canvas that a click on their middle is not on the resize corner.
+  const restore = await seedLayout([
+    { id: "clock", widget: "clock", x: 0, y: 20, w: 16, h: 8, text: "M" },
+    { id: "date", widget: "date", x: 18, y: 10, w: 12, h: 4, text: "M" },
+    { id: "weatherNow", widget: "weatherNow", x: 32, y: 30, w: 16, h: 8, text: "M" },
+  ]);
+  try {
+    const page = await openEditor(browser);
+    const clock = page.locator("[data-editor-item=clock]");
+    const date = page.locator("[data-editor-item=date]");
+    const weather = page.locator("[data-editor-item=weatherNow]");
+    // One box: no arrange section.
+    await clock.locator("[data-editor-box]").click();
+    await expect(page.getByTestId("inspector-arrange")).toHaveCount(0);
+    await date.locator("[data-editor-box]").click({ modifiers: ["Shift"] });
+    await expect(page.getByTestId("inspector-arrange")).toBeVisible();
+    // Two boxes leave nothing to spread.
+    await expect(page.getByTestId("distribute-x")).toBeDisabled();
+    await weather.locator("[data-editor-box]").click({ modifiers: ["Shift"] });
+    await expect(page.getByTestId("distribute-x")).toBeEnabled();
+    await expect(page.getByTestId("arrange-top")).toHaveAttribute("aria-label", /.+/);
+
+    await page.getByTestId("arrange-top").click();
+    await expect.poll(async () => [await boxOf(clock), await boxOf(date), await boxOf(weather)]).toEqual([
+      { x: 0, y: 10, w: 16, h: 8 },
+      { x: 18, y: 10, w: 12, h: 4 },
+      { x: 32, y: 10, w: 16, h: 8 },
+    ]);
+    // Left would put the date on the clock: refused, nothing moves.
+    await page.getByTestId("arrange-left").click();
+    await expect(page.getByTestId("editor-refused")).toHaveAttribute("data-reason", "overlap");
+    expect((await boxOf(date)).x).toBe(18);
+    await page.getByTestId("editor-undo").click();
+    await expect.poll(async () => [await boxOf(clock), await boxOf(date), await boxOf(weather)]).toEqual([
+      { x: 0, y: 20, w: 16, h: 8 },
+      { x: 18, y: 10, w: 12, h: 4 },
+      { x: 32, y: 30, w: 16, h: 8 },
+    ]);
+    await expect(page.getByTestId("editor-undo")).toBeDisabled();
+    await page.context().close();
+  } finally {
+    await restore();
+  }
+});
+
 test("Shift+dragging a selected box moves it and keeps the selection; undo clears the refusal line, which sits in a live status", async ({ browser }) => {
   const page = await openEditor(browser);
   await resetToBuiltIn(page);

@@ -3390,7 +3390,21 @@
             "end": "Droite"
           },
           "alignAuto": "Automatique selon sa place : {side} pour l’instant.",
-          "selected": "{count} sélectionnés"
+          "selected": "{count} sélectionnés",
+          "arrange": {
+            "title": "Disposer",
+            "left": "Aligner à gauche",
+            "right": "Aligner à droite",
+            "top": "Aligner en haut",
+            "bottom": "Aligner en bas",
+            "hcenter": "Centrer horizontalement",
+            "vcenter": "Centrer verticalement",
+            "distributeX": "Répartir horizontalement",
+            "distributeY": "Répartir verticalement",
+            "sameW": "Même largeur que le premier sélectionné",
+            "sameH": "Même hauteur que le premier sélectionné",
+            "distributeHint": "Répartir demande au moins trois widgets."
+          }
         },
         "widgets": {
           "clock": "Horloge",
