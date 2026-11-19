@@ -348,8 +348,8 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Always there, so screen readers announce the line when it comes. */}
-          <span role="status" aria-live="polite" data-testid="editor-refused-status" className="text-sm text-destructive empty:hidden">
+          {/* Always there and in the accessibility tree (sr-only while empty, never display none), so screen readers announce the line when it comes. */}
+          <span role="status" aria-live="polite" data-testid="editor-refused-status" className="text-sm text-destructive empty:sr-only">
             {refused && (
               <span data-testid="editor-refused" data-reason={refused.reason}>
                 {t(`refused.${refused.reason}`)}

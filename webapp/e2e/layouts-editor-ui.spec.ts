@@ -478,6 +478,9 @@ test("Shift+dragging a selected box moves it and keeps the selection; undo clear
   // Mounted before anything is refused, so screen readers announce what comes into it.
   await expect(status).toHaveAttribute("role", "status");
   await expect(status).toHaveAttribute("aria-live", "polite");
+  // Empty, it is out of sight but still in the accessibility tree: never display none, or the text would arrive with the region and go unannounced.
+  expect(await status.evaluate((el) => getComputedStyle(el).display)).not.toBe("none");
+  expect(await status.evaluate((el) => el.childElementCount)).toBe(0);
   await clock.locator("[data-editor-box]").click();
   await date.locator("[data-editor-box]").click({ modifiers: ["Shift"] });
   await page.keyboard.down("Shift");
