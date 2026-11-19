@@ -6,7 +6,9 @@ import { LayoutTemplate } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LayoutEditor } from "@/components/layouts/editor/layout-editor";
-import { useLayouts } from "@/hooks/use-layouts";
+import { LayoutUnusedNotice } from "@/components/layouts/layout-unused-notice";
+import { useLayoutDefaults, useLayouts } from "@/hooks/use-layouts";
+import { useDevices } from "@/hooks/use-supabase-queries";
 
 /**
  * The editor of one layout's screensaver (Settings → Layouts → a layout).
@@ -17,6 +19,10 @@ export default function LayoutEditorPage({ params }: { params: Promise<{ id: str
   const t = useTranslations("settings.layouts.editor");
   const { data: layouts, isLoading, isFetching, error, refetch } = useLayouts();
   const layout = layouts?.find((l) => l.id === id);
+  // The "no screen shows it" notice needs these; waiting for them keeps it from pushing the canvas down mid-drag.
+  const devices = useDevices();
+  const defaults = useLayoutDefaults();
+  const usageLoading = (devices.isLoading && !devices.error) || (defaults.isLoading && !defaults.error);
   // A reload after someone else's save starts the editor over from the server's copy.
   const [generation, setGeneration] = useState(0);
 
@@ -30,13 +36,15 @@ export default function LayoutEditorPage({ params }: { params: Promise<{ id: str
           className="mb-6"
         />
         {/* A copy just made may not be in the list yet: wait for the refetch rather than say "not found". */}
-        {isLoading || (!layouts && !error) || (!layout && isFetching) ? (
+        {isLoading || usageLoading || (!layouts && !error) || (!layout && isFetching) ? (
           <Skeleton className="h-[60vh] w-full rounded-xl" />
         ) : !layout ? (
           <p className="text-sm text-muted-foreground" data-testid="editor-not-found">
             {error ? t("loadFailed") : t("notFound")}
           </p>
         ) : (
+          <>
+          <LayoutUnusedNotice layout={layout} />
           <LayoutEditor
             key={`${layout.id}:${generation}`}
             layout={layout}
@@ -45,6 +53,7 @@ export default function LayoutEditorPage({ params }: { params: Promise<{ id: str
               setGeneration((g) => g + 1);
             }}
           />
+          </>
         )}
       </div>
     </main>

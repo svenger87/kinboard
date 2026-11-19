@@ -3256,7 +3256,9 @@
         "screenHint": "Die Größe, für die das Layout gestaltet wird. Bildschirme anderer Größe bekommen es skaliert.",
         "create": "Anlegen und bearbeiten",
         "cancel": "Abbrechen",
-        "failed": "Das Layout konnte nicht angelegt werden. Bitte versuche es noch einmal."
+        "failed": "Das Layout konnte nicht angelegt werden. Bitte versuche es noch einmal.",
+        "useOn": "Gleich auf „{name}“ anzeigen",
+        "assignFailed": "Das Layout wurde angelegt, konnte aber nicht auf „{name}“ gesetzt werden."
       },
       "duplicate": {
         "button": "Duplizieren",
@@ -3402,6 +3404,14 @@
           "failed": "Die Kopie konnte nicht angelegt werden. Bitte versuche es noch einmal.",
           "pinRequired": "Die Einstellungen wurden gesperrt – gib die PIN ein und versuche es noch einmal.",
           "dropped": "Nicht auf dieser Größe: {names}"
+        },
+        "unused": {
+          "text": "Dieses Layout ist noch auf keinem Bildschirm zu sehen. Speichern allein setzt es nicht auf einen Bildschirm.",
+          "noScreen": "Dieses Layout ist noch auf keinem Bildschirm zu sehen, und kein Bildschirm ist so gedreht wie es. Setze es unter Einstellungen → Geräte oder als Standard unter Layouts.",
+          "pick": "Bildschirm",
+          "assign": "Auf „{name}“ anzeigen",
+          "done": "„{name}“ zeigt jetzt dieses Layout.",
+          "failed": "Das Layout konnte nicht gesetzt werden. Bitte versuche es noch einmal."
         }
       }
     }

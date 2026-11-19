@@ -3256,7 +3256,9 @@
         "screenHint": "The size the layout is drawn for. Screens of other sizes get it rescaled.",
         "create": "Create and edit",
         "cancel": "Cancel",
-        "failed": "The layout could not be created. Please try again."
+        "failed": "The layout could not be created. Please try again.",
+        "useOn": "Show it on “{name}” right away",
+        "assignFailed": "The layout was created but could not be put on “{name}”."
       },
       "duplicate": {
         "button": "Duplicate",
@@ -3402,6 +3404,14 @@
           "failed": "The copy could not be created. Please try again.",
           "pinRequired": "Settings were locked — enter the PIN and try again.",
           "dropped": "Not on this size: {names}"
+        },
+        "unused": {
+          "text": "No screen shows this layout yet. Saving alone does not put it on a screen.",
+          "noScreen": "No screen shows this layout yet, and none is turned the way it is drawn. Assign it in Settings → Devices or set it as a default under Layouts.",
+          "pick": "Screen",
+          "assign": "Show on “{name}”",
+          "done": "“{name}” now shows this layout.",
+          "failed": "The layout could not be assigned. Please try again."
         }
       }
     }
