@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { wakesScreen } from "@/lib/screensaver-gate";
 
 interface UseIdleTimeoutOptions {
   /** Idle timeout in milliseconds (default: 2 minutes) */
@@ -82,16 +83,8 @@ export function useIdleTimeout({
     let timer: NodeJS.Timeout;
 
     const handleActivity = (e: Event) => {
-      // Ignore all activity when a modal is open (data-modal-open on body)
-      if (document.body.hasAttribute("data-modal-open")) {
-        return;
-      }
-
-      // Ignore events from elements with data-no-wake attribute or their children
-      const target = e.target as HTMLElement;
-      if (target?.closest?.("[data-no-wake]")) {
-        return;
-      }
+      // Not while a modal is open, nor from a data-no-wake element (wakesScreen).
+      if (!wakesScreen(e)) return;
 
       setIsIdle(false);
       clearTimeout(timer);
