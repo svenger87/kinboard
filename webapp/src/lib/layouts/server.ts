@@ -1,15 +1,25 @@
 /**
- * What the layout routes share: reading a JSON body, checking a name and a
- * size, and the family's per-orientation defaults (a row of `settings`).
+ * What the layout routes share: reading a JSON body, checking a name, a size
+ * and the grid marker, and the family's per-orientation defaults (a row of
+ * `settings`).
  */
 import { NextResponse } from "next/server";
-import { gridFor } from "./grid";
+import { LAYOUT_GRID, gridFor } from "./grid";
 import type { LayoutDefaults } from "./types";
 
 export const DEFAULTS_KEY = "layout_defaults";
 
 export const fail = (error: string, status = 400) => NextResponse.json({ error }, { status });
 export const notFound = () => fail("not found", 404);
+
+/**
+ * A write must say which grid its positions count (`grid: LAYOUT_GRID`): a
+ * page still running a bundle from before the steps sends none, and its cell
+ * positions must not land in a layout counted in steps. 409 grid_changed tells
+ * it to reload. Also the answer for a layout row not on the grid.
+ */
+export const gridOk = (body: Record<string, unknown>) => body.grid === LAYOUT_GRID;
+export const gridChanged = () => fail("grid_changed", 409);
 
 export async function readJson(request: Request): Promise<Record<string, unknown> | null> {
   try {

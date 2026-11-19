@@ -23,6 +23,7 @@ const OTHER_FAMILY = "c1a0de00-0086-4000-8000-00000000d002";
 const LAYOUT = "c1a0de00-0086-4000-8000-00000000d0a1";
 const OTHER_LAYOUT = "c1a0de00-0086-4000-8000-00000000d0a2";
 const DEVICE = "c1a0de00-0086-4000-8000-00000000d0e1";
+const OLD_LAYOUT = "c1a0de00-0086-4000-8000-00000000d0a3";
 
 function psql(sql: string, user = "postgres"): string {
   return execFileSync(
@@ -138,4 +139,40 @@ test("the migration runs again on the next boot and changes nothing", () => {
   expect([psql(grantsSql), psql(deviceGrantsSql)]).toEqual(before);
   expect(psql(`SELECT count(*) FROM pg_policies WHERE tablename = 'layouts'`)).toBe("1");
   expect(psql(`SELECT count(*) FROM layouts WHERE id = '${LAYOUT}'`)).toBe("1");
+});
+
+test("087: layouts.grid is NOT NULL, 48 by default; a 12-column row is converted to steps once", () => {
+  expect(psql(`SELECT data_type || '|' || is_nullable || '|' || column_default FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'layouts' AND column_name = 'grid'`)).toBe("smallint|NO|48");
+  expect(psql(`SELECT grid FROM layouts WHERE id = '${LAYOUT}'`)).toBe("48");
+  expect(() => psql(`UPDATE layouts SET grid = NULL WHERE id = '${LAYOUT}'`)).toThrow();
+
+  // A row as an older image left it: cells, grid 12.
+  const saver = `[{"id":"a","widget":"clock","x":7,"y":1,"w":5,"h":3,"text":"L","options":{"seconds":true}}]`;
+  const home = `[{"id":"h","widget":"date","x":0,"y":2,"w":4,"h":1,"text":"M"}]`;
+  psql(`INSERT INTO layouts (id, family_id, name, width, height, grid, home, screensaver, updated_at)
+    VALUES ('${OLD_LAYOUT}', '${FAMILY}', 'claude-old', 1080, 1920, 12, '${home}'::jsonb, '${saver}'::jsonb, '2026-01-02T03:04:05Z')`);
+  // A 48-step row with items must not be touched.
+  psql(`UPDATE layouts SET screensaver = '[{"id":"b","widget":"date","x":1,"y":1,"w":8,"h":4,"text":"M"}]'::jsonb WHERE id = '${LAYOUT}'`);
+  const row = (id: string) => psql(`SELECT grid || '|' || home::text || '|' || screensaver::text || '|' || updated_at::text FROM layouts WHERE id = '${id}'`);
+  const fresh = row(LAYOUT);
+
+  const file = readFileSync(join(process.cwd(), "docker", "migrations/087_layout_steps.sql"), "utf8");
+  psql(file);
+  expect(psql(`SELECT grid FROM layouts WHERE id = '${OLD_LAYOUT}'`)).toBe("48");
+  expect(JSON.parse(psql(`SELECT screensaver::text FROM layouts WHERE id = '${OLD_LAYOUT}'`))).toEqual([
+    { id: "a", widget: "clock", x: 28, y: 4, w: 20, h: 12, text: "L", options: { seconds: true } },
+  ]);
+  expect(JSON.parse(psql(`SELECT home::text FROM layouts WHERE id = '${OLD_LAYOUT}'`))).toEqual([
+    { id: "h", widget: "date", x: 0, y: 8, w: 16, h: 4, text: "M" },
+  ]);
+  expect(psql(`SELECT updated_at = '2026-01-02T03:04:05Z' FROM layouts WHERE id = '${OLD_LAYOUT}'`)).toBe("t");
+  expect(row(LAYOUT)).toBe(fresh);
+
+  // Again, as on every boot: nothing changes.
+  const converted = row(OLD_LAYOUT);
+  psql(file);
+  expect(row(OLD_LAYOUT)).toBe(converted);
+  expect(row(LAYOUT)).toBe(fresh);
+  expect(psql(`SELECT column_default FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'layouts' AND column_name = 'grid'`)).toBe("48");
 });

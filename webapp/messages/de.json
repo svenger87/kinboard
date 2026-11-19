@@ -3321,6 +3321,7 @@
           "overlap": "{name} überlappt ein anderes Widget.",
           "duplicate": "{name} ist doppelt auf dem Bildschirm.",
           "bad_text_size": "{name} hat eine unbekannte Textgröße.",
+          "gridChanged": "Kinboard wurde aktualisiert. Lade die Seite neu, um weiterzuarbeiten.",
           "pinRequired": "Die Einstellungen wurden gesperrt – gib die PIN ein; deine nicht gespeicherten Änderungen bleiben erhalten.",
           "generic": "Das Layout konnte nicht gespeichert werden. Bitte versuche es noch einmal."
         },

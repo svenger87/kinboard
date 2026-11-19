@@ -53,3 +53,20 @@ test("the hooks are exported from the barrel", () => {
   expect(src).toContain("use-layouts");
   expect(src).toContain("use-active-layout");
 });
+
+test("create, save and duplicate send grid: LAYOUT_GRID, so the server can refuse an old bundle", () => {
+  const src = read("hooks/use-layouts.ts");
+  expect(src).toMatch(/import \{[^}]*LAYOUT_GRID[^}]*\} from "@\/lib\/layouts\/grid"/);
+  for (const name of ["useSaveLayout", "useCreateLayout", "useDuplicateLayout"]) {
+    const start = src.indexOf(`export function ${name}(`);
+    expect(start, name).toBeGreaterThanOrEqual(0);
+    const next = src.indexOf("export function", start + 1);
+    expect(src.slice(start, next === -1 ? undefined : next), name).toContain("grid: LAYOUT_GRID");
+  }
+});
+
+test("LAYOUT_GRID is the 48 columns of the grid", async () => {
+  const { LAYOUT_GRID, GRID } = await import("../src/lib/layouts/grid");
+  expect(LAYOUT_GRID).toBe(48);
+  expect(LAYOUT_GRID).toBe(GRID.COLUMNS);
+});

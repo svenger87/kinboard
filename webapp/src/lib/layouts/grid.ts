@@ -14,6 +14,13 @@ import type { LayoutItem, TextSize } from "./types";
  */
 export const GRID = { EDGE: 48, GAP: 24, COLUMNS: 48, STEPS_PER_CELL: 4, MIN_WIDTH: 600, MIN_ROWS: 6, MIN_CELL: 20 } as const;
 
+/**
+ * The grid marker a saved layout carries (layouts.grid,
+ * migrations/087_layout_steps.sql): the columns its positions count. A row
+ * with another value is in cells from before the steps and is not used.
+ */
+export const LAYOUT_GRID = 48;
+
 /** The cells across the screen: 12. */
 const CELLS = GRID.COLUMNS / GRID.STEPS_PER_CELL;
 

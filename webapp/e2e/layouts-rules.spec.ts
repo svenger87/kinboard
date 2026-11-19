@@ -18,7 +18,7 @@ const item = (o: Partial<LayoutItem> & { id: string }): LayoutItem => ({
   widget: "news", x: 0, y: 0, w: 16, h: 12, text: "M", ...o,
 });
 const L = (o: Partial<Layout> & { id: string }): Layout => ({
-  family_id: "f", name: o.id, width: 1080, height: 1920, home: [], screensaver: [],
+  family_id: "f", name: o.id, width: 1080, height: 1920, grid: 48, home: [], screensaver: [],
   created_at: "", updated_at: "", ...o,
 });
 
@@ -210,6 +210,12 @@ test.describe("resolveLayout", () => {
   });
   test("below 600px wide: built-in even with a default", () =>
     expect(resolveLayout({ device: kiosk(null), layouts: [portrait], defaults: { portrait: "p", landscape: null }, viewport: { width: 390, height: 844 } })).toBeNull());
+  test("a layout not on the 48-step grid counts as absent: own and default alike", () => {
+    const old = L({ id: "o", grid: 12 });
+    expect(resolveLayout({ device: kiosk("o"), layouts: [old, portrait], defaults: { portrait: "p", landscape: null }, viewport: { width: 1080, height: 1920 } })?.id).toBe("p");
+    expect(resolveLayout({ device: kiosk(null), layouts: [old], defaults: { portrait: "o", landscape: null }, viewport: { width: 1080, height: 1920 } })).toBeNull();
+    expect(resolveLayout({ device: { id: "d", is_kiosk: false, layout_id: "o" }, layouts: [old], defaults: { portrait: null, landscape: null }, viewport: { width: 1080, height: 1920 } })).toBeNull();
+  });
   test("an assigned id that no longer exists falls through to the default", () =>
     expect(resolveLayout({ device: kiosk("gone"), layouts: [portrait], defaults: { portrait: "p", landscape: null }, viewport: { width: 1080, height: 1920 } })?.id).toBe("p"));
 });

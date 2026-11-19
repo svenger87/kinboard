@@ -3321,6 +3321,7 @@
           "overlap": "{name} overlaps another widget.",
           "duplicate": "{name} is on the screen twice.",
           "bad_text_size": "{name} has an unknown text size.",
+          "gridChanged": "Kinboard was updated. Reload the page to keep editing.",
           "pinRequired": "Settings were locked — enter the PIN; your unsaved changes are kept.",
           "generic": "The layout could not be saved. Please try again."
         },

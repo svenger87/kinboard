@@ -19,8 +19,8 @@ const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 const P = "claude-saverlayout-";
 const SIZE = { width: 1080, height: 1920 };
 const ITEMS: LayoutItem[] = [
-  { id: "clock", widget: "clock", x: 0, y: 17, w: 6, h: 3, text: "M" },
-  { id: "events", widget: "events", x: 0, y: 11, w: 6, h: 5, text: "M" },
+  { id: "clock", widget: "clock", x: 0, y: 68, w: 24, h: 12, text: "M" },
+  { id: "events", widget: "events", x: 0, y: 44, w: 24, h: 20, text: "M" },
 ];
 
 let famId = "";
@@ -98,11 +98,11 @@ test.beforeAll(async () => {
   const setPin = await apiA.post("/api/pin", { data: { family_id: famId, action: "set", pin: "4711" } });
   expect(setPin.ok(), await setPin.text()).toBe(true);
 
-  const created = await apiA.post("/api/layouts", { data: { name: `${P}one`, ...SIZE, from: "builtin" } });
+  const created = await apiA.post("/api/layouts", { data: { grid: 48, name: `${P}one`, ...SIZE, from: "builtin" } });
   expect(created.status(), await created.text()).toBe(201);
   const { layout } = await created.json();
   layoutId = layout.id;
-  const patched = await apiA.patch(`/api/layouts/${layoutId}`, { data: { screensaver: ITEMS, updated_at: layout.updated_at } });
+  const patched = await apiA.patch(`/api/layouts/${layoutId}`, { data: { grid: 48, screensaver: ITEMS, updated_at: layout.updated_at } });
   expect(patched.status(), await patched.text()).toBe(200);
   const assigned = await apiA.put(`/api/devices/${deviceA.id}/layout`, { data: { layout_id: layoutId } });
   expect(assigned.status(), await assigned.text()).toBe(200);

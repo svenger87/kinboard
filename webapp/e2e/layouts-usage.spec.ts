@@ -15,6 +15,7 @@ const layout = (id: string, width: number, height: number): Layout => ({
   name: id,
   width,
   height,
+  grid: 48,
   home: [],
   screensaver: [],
   created_at: "",

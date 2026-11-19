@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { isPinRequired, relockSettings } from "@/lib/pin-session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { LAYOUT_GRID } from "@/lib/layouts/grid";
 import type { Layout, LayoutDefaults, LayoutItem } from "@/lib/layouts/types";
 import { queryKeys, useSetting } from "./use-supabase-queries";
 
@@ -112,12 +113,15 @@ function useAfterWrite(also: string[] = []) {
   };
 }
 
-/** Save a change; `updated_at` is the stamp the editor loaded, echoed exactly. A stale one fails with code "stale". */
+/**
+ * Save a change; `updated_at` is the stamp the editor loaded, echoed exactly. A stale one fails with code "stale".
+ * Every write says which grid its positions count (`grid: LAYOUT_GRID`); a server on another grid answers "grid_changed".
+ */
 export function useSaveLayout() {
   const onSuccess = useAfterWrite();
   return useMutation({
     mutationFn: ({ id, ...body }: { id: string; name?: string; screensaver?: LayoutItem[]; updated_at: string }) =>
-      request<{ layout: Layout }>(`/api/layouts/${id}`, "PATCH", body).then((r) => r.layout),
+      request<{ layout: Layout }>(`/api/layouts/${id}`, "PATCH", { ...body, grid: LAYOUT_GRID }).then((r) => r.layout),
     onSuccess,
   });
 }
@@ -129,7 +133,7 @@ export function useCreateLayout() {
   const onSuccess = useAfterWrite();
   return useMutation({
     mutationFn: (body: { name: string; width: number; height: number; from?: string }) =>
-      request<{ layout: Layout; dropped?: string[] }>("/api/layouts", "POST", body).then(
+      request<{ layout: Layout; dropped?: string[] }>("/api/layouts", "POST", { ...body, grid: LAYOUT_GRID }).then(
         (r): CreatedLayout => ({ ...r.layout, dropped: r.dropped ?? [] }),
       ),
     onSuccess,
@@ -149,7 +153,7 @@ export function useDuplicateLayout() {
   const onSuccess = useAfterWrite();
   return useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) =>
-      request<{ layout: Layout }>(`/api/layouts/${id}/duplicate`, "POST", { name }).then((r) => r.layout),
+      request<{ layout: Layout }>(`/api/layouts/${id}/duplicate`, "POST", { name, grid: LAYOUT_GRID }).then((r) => r.layout),
     onSuccess,
   });
 }

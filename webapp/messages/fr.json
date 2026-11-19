@@ -3321,6 +3321,7 @@
           "overlap": "{name} chevauche un autre widget.",
           "duplicate": "{name} figure deux fois sur l’écran.",
           "bad_text_size": "{name} a une taille de texte inconnue.",
+          "gridChanged": "Kinboard a été mis à jour. Rechargez la page pour continuer.",
           "pinRequired": "Les réglages ont été verrouillés — saisissez le code PIN ; vos modifications non enregistrées sont conservées.",
           "generic": "La disposition n’a pas pu être enregistrée. Veuillez réessayer."
         },

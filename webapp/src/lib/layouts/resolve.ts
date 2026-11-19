@@ -3,9 +3,11 @@
  * kiosks only) the family default for the orientation it currently has; a
  * layout drawn for the other orientation gives way, so a turned screen picks
  * the matching one and goes back when turned again. A screen too small for a
- * grid gets null, which means the built-in arrangement.
+ * grid gets null, which means the built-in arrangement. A layout not on the
+ * grid this build counts (LAYOUT_GRID) is in cells from before the steps: it
+ * counts as no layout at all, never as steps.
  */
-import { gridFor, orientationOf } from "./grid";
+import { LAYOUT_GRID, gridFor, orientationOf } from "./grid";
 import type { Layout, LayoutDefaults } from "./types";
 
 export function resolveLayout(args: {
@@ -20,7 +22,7 @@ export function resolveLayout(args: {
   const usable = (id: string | null | undefined): Layout | null => {
     if (!id) return null;
     const l = layouts.find((x) => x.id === id);
-    return l && orientationOf(l.width, l.height) === orientation ? l : null;
+    return l && l.grid === LAYOUT_GRID && orientationOf(l.width, l.height) === orientation ? l : null;
   };
   const own = usable(device?.layout_id);
   if (own) return own;

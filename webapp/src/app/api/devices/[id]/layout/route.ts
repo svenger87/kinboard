@@ -3,7 +3,8 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { UUID } from "@/lib/home/action-requests";
-import { fail, notFound, readJson } from "@/lib/layouts/server";
+import { LAYOUT_GRID } from "@/lib/layouts/grid";
+import { fail, gridChanged, notFound, readJson } from "@/lib/layouts/server";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,8 @@ export const dynamic = "force-dynamic";
  * screens learn of it. updated_at is left alone: bumping it would make an
  * open editor's next save fail as stale. Behind the settings PIN; the
  * browser roles cannot write devices.layout_id (migrations/086_layouts.sql).
- * Answers with the whole device row.
+ * Answers with the whole device row. A layout not on the grid (still in
+ * cells) is 409 grid_changed: the screen would not use it.
  */
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -48,12 +50,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (layoutId !== null) {
     const { data: layout, error: layoutErr } = await db
       .from("layouts")
-      .select("id")
+      .select("id, grid")
       .eq("id", layoutId)
       .eq("family_id", familyId)
       .maybeSingle();
     if (layoutErr) return NextResponse.json({ error: layoutErr.message }, { status: 500 });
     if (!layout) return notFound();
+    if (layout.grid !== LAYOUT_GRID) return gridChanged();
   }
 
   const { data, error } = await db

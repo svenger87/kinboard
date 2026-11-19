@@ -148,7 +148,7 @@ test.beforeAll(async () => {
   const unlock = await api.post("/api/pin", { data: { family_id: famId, action: "verify", pin: PIN } });
   expect(unlock.ok(), await unlock.text()).toBe(true);
 
-  const created = await api.post("/api/layouts", { data: { name: `${P}Küche`, ...SIZE, from: "builtin" } });
+  const created = await api.post("/api/layouts", { data: { grid: 48, name: `${P}Küche`, ...SIZE, from: "builtin" } });
   expect(created.status(), await created.text()).toBe(201);
   layoutId = (await created.json()).layout.id;
 });
@@ -413,7 +413,7 @@ test("a copy for a 1920x1080 preview is a new valid layout, opened with what it 
 
 test("a copy's note on what it left out is shown once: leaving and reopening the copy shows none", async ({ browser }) => {
   // A fresh built-in portrait: copied to 1920x1080 it always leaves the birthdays out.
-  const created = await api.post("/api/layouts", { data: { name: `${P}Flur`, ...SIZE, from: "builtin" } });
+  const created = await api.post("/api/layouts", { data: { grid: 48, name: `${P}Flur`, ...SIZE, from: "builtin" } });
   expect(created.status(), await created.text()).toBe(201);
   const sourceId = (await created.json()).layout.id as string;
   const page = await openEditor(browser, sourceId);
@@ -454,7 +454,7 @@ test("saving over someone else's change shows the reload message", async ({ brow
   // Another editor saves first, with the stamp both loaded.
   const current = JSON.parse(psql(`SELECT json_build_object('updated_at', updated_at, 'screensaver', screensaver)::text FROM layouts WHERE id = '${layoutId}'`));
   const theirs = (current.screensaver as LayoutItem[]).map((i) => (i.widget === "weatherNow" ? { ...i, text: "XL" } : i));
-  const other = await api.patch(`/api/layouts/${layoutId}`, { data: { screensaver: theirs, updated_at: current.updated_at } });
+  const other = await api.patch(`/api/layouts/${layoutId}`, { data: { grid: 48, screensaver: theirs, updated_at: current.updated_at } });
   expect(other.status(), await other.text()).toBe(200);
 
   await page.locator("[data-editor-item=date]").click();

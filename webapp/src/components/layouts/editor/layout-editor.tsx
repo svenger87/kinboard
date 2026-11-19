@@ -100,6 +100,9 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<ScreenChoice>({ key: "own", width: layout.width, height: layout.height });
   const [stale, setStale] = useState(false);
+  // The server counts positions on another grid than this page (it was
+  // updated meanwhile): only reloading the page brings the matching code.
+  const [gridChanged, setGridChanged] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloading, setReloading] = useState(false);
   // Read once, on mount: a draft from before the PIN screen came back.
@@ -235,6 +238,10 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       return true;
     } catch (err) {
       if (err instanceof LayoutRequestError && err.code === "stale") setStale(true);
+      else if (err instanceof LayoutRequestError && err.code === "grid_changed") {
+        setGridChanged(true);
+        setStale(true);
+      }
       // The PIN screen comes back by itself (relockSettings).
       else if (err instanceof LayoutRequestError && err.code === "pin_required") toast.error(t("errors.pinRequired"));
       else if (err instanceof LayoutRequestError && LAYOUT_ERRORS.includes(err.code)) setError(t(`errors.${err.code as LayoutError}`, { name: nameOf(err.itemId) }));
@@ -245,6 +252,13 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
 
   const reload = async () => {
     setReloading(true);
+    if (gridChanged) {
+      // The draft counts the old grid's positions: the new code must not read
+      // it back as its own (the migration keeps updated_at, so it would).
+      writeDraft(layout.id, null);
+      window.location.reload();
+      return;
+    }
     try {
       writeDraft(layout.id, null);
       await onReload();
@@ -328,7 +342,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       {stale && (
         <div role="alert" data-testid="editor-stale" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
           <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-          <span className="flex-1">{t("stale")}</span>
+          <span className="flex-1">{gridChanged ? t("errors.gridChanged") : t("stale")}</span>
           <Button size="sm" variant="outline" className="gap-2" onClick={reload} disabled={reloading} data-testid="editor-reload">
             <RefreshCw className={`size-4 ${reloading ? "animate-spin" : ""}`} aria-hidden="true" />
             {t("reload")}

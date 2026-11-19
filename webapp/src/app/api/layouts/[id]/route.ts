@@ -4,19 +4,23 @@ import { requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { UUID } from "@/lib/home/action-requests";
 import { validateItems } from "@/lib/layouts/validate";
-import { DEFAULTS_KEY, fail, notFound, parseName, readDefaults, readJson } from "@/lib/layouts/server";
+import { LAYOUT_GRID } from "@/lib/layouts/grid";
+import { DEFAULTS_KEY, fail, gridChanged, gridOk, notFound, parseName, readDefaults, readJson } from "@/lib/layouts/server";
 
 export const dynamic = "force-dynamic";
 
-const PATCHABLE = new Set(["name", "screensaver", "updated_at"]);
+const PATCHABLE = new Set(["grid", "name", "screensaver", "updated_at"]);
 
 /**
- * PATCH /api/layouts/[id]  body: { name?, screensaver?, updated_at }
+ * PATCH /api/layouts/[id]  body: { grid: 48, name?, screensaver?, updated_at }
  *
  * Saves a change to a layout of the family. `updated_at` is the stamp the
  * editor loaded: if the row has moved on, 409 stale and nothing is written,
  * so two editors cannot overwrite each other unseen. The screensaver is
  * checked against the layout's own size. `home` is not editable yet.
+ *
+ * Without `grid: 48` (a page on a bundle from before the steps), or on a row
+ * not yet on the grid, 409 grid_changed and nothing is written.
  *
  * Clients must echo `updated_at` exactly as the server returned it; an
  * unparseable one is 400 bad_body.
@@ -30,19 +34,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!UUID.test(id)) return notFound();
 
   const body = await readJson(request);
-  if (!body || Object.keys(body).some((k) => !PATCHABLE.has(k))) return fail("bad_body");
+  if (!body) return fail("bad_body");
+  if (!gridOk(body)) return gridChanged();
+  if (Object.keys(body).some((k) => !PATCHABLE.has(k))) return fail("bad_body");
   if (typeof body.updated_at !== "string" || Number.isNaN(Date.parse(body.updated_at))) return fail("bad_body");
 
   const familyId = auth.session.familyId;
   const db = createAdminClient() as any;
   const { data: row, error: rowErr } = await db
     .from("layouts")
-    .select("id, width, height")
+    .select("id, width, height, grid")
     .eq("id", id)
     .eq("family_id", familyId)
     .maybeSingle();
   if (rowErr) return NextResponse.json({ error: rowErr.message }, { status: 500 });
   if (!row) return notFound();
+  if (row.grid !== LAYOUT_GRID) return gridChanged();
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (body.name !== undefined) {
@@ -63,6 +70,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .eq("id", id)
     .eq("family_id", familyId)
     .eq("updated_at", body.updated_at)
+    .eq("grid", LAYOUT_GRID)
     .select("*")
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

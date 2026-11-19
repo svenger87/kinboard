@@ -141,6 +141,7 @@ export interface Database {
           name: string;
           width: number;
           height: number;
+          grid?: number;
           home?: import("@/lib/layouts/types").LayoutItem[];
           screensaver?: import("@/lib/layouts/types").LayoutItem[];
           created_at?: string;
@@ -152,6 +153,7 @@ export interface Database {
           name?: string;
           width?: number;
           height?: number;
+          grid?: number;
           home?: import("@/lib/layouts/types").LayoutItem[];
           screensaver?: import("@/lib/layouts/types").LayoutItem[];
           created_at?: string;
