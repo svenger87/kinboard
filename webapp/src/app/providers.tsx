@@ -34,7 +34,7 @@ import { PageShell } from "@/components/page-shell";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { isScreensaverSkipPath } from "@/lib/constants";
-import { screensaverAllowed } from "@/lib/screensaver-gate";
+import { screensaverAllowed, SCREENSAVER_PREVIEW_EVENT } from "@/lib/screensaver-gate";
 import { promptShownOn } from "@/lib/home/action-prompt";
 import { usePendingAssistantActions } from "@/hooks/use-assistant-actions";
 import { useAssistantActionNotices } from "@/stores/assistant-action-notices";
@@ -156,6 +156,27 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
     presenceTimeout: presenceTimeoutMs,
   });
 
+  // A preview asked for from Settings -> Screensaver: show the
+  // screensaver now instead of after the idle timeout. It bypasses the
+  // gate below on purpose — a person standing at this screen asked to
+  // see it, on whatever page and whatever screen this is — and it ends
+  // at the next touch or key, the way waking from the real one does.
+  const [preview, setPreview] = useState(false);
+  useEffect(() => {
+    const onPreview = () => setPreview(true);
+    window.addEventListener(SCREENSAVER_PREVIEW_EVENT, onPreview);
+    return () => window.removeEventListener(SCREENSAVER_PREVIEW_EVENT, onPreview);
+  }, []);
+  useEffect(() => {
+    if (!preview) return;
+    const end = () => setPreview(false);
+    const events = ["pointerdown", "keydown", "touchstart"];
+    events.forEach((event) => window.addEventListener(event, end, { passive: true }));
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, end));
+    };
+  }, [preview]);
+
   // Which routes skip the screensaver. This read window.location.pathname once
   // in a mount-only effect, so it never updated on a client-side navigation —
   // whatever route happened to load first decided it for the whole session.
@@ -210,7 +231,7 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
 
   // Hide nav bars during screensaver to save GPU (backdrop-blur is expensive on ARM)
   // And an assistant request waiting for a person must not sit under it either.
-  const showScreensaver = screensaverAllowed({
+  const showScreensaver = preview || screensaverAllowed({
     isIdle,
     skipPath: skipScreensaver,
     handheld: suppressForViewport,

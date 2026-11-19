@@ -8,6 +8,15 @@
  * each of those arrives precisely when nobody is standing at the board, and
  * underneath a photo slideshow it would be missed.
  */
+/**
+ * Asks the screensaver to show itself right now (Settings -> Screensaver
+ * -> Preview). A window event, in the style of the app's other same-tab
+ * signals ("kinboard:text-scale-change" and friends): the settings page
+ * dispatches it, the ScreensaverProvider listens. It carries no state —
+ * the preview ends at the next touch or keypress, like waking for real.
+ */
+export const SCREENSAVER_PREVIEW_EVENT = "kinboard:preview-screensaver";
+
 export function screensaverAllowed(state: {
   isIdle: boolean;
   skipPath: boolean;
