@@ -22,7 +22,7 @@ export interface Grid {
   height: number;
   /** Columns in steps: 48. */
   columns: 48;
-  /** Rows in steps: at least 4 × cellRows, sometimes 1–3 more. */
+  /** Rows in steps: exactly 4 × cellRows, so every box stays inside the edges. */
   rows: number;
   /** Rows of whole cells (the 12-column grid's rows). */
   cellRows: number;
@@ -43,8 +43,8 @@ export interface Grid {
  * that wide leave fewer than six rows, so the cells shrink until six fit and
  * the columns sit centred, with the spare width shared as side margin. Every
  * screen that had six rows keeps exactly the grid it had. Positions count
- * steps, a quarter of a cell plus its gap: 48 across, and as many down as
- * fit (a box's last step has no gap after it).
+ * steps, a quarter of a cell plus its gap: 48 across, and four per row of
+ * whole cells down (a box's last step has no gap after it).
  */
 export function gridFor(width: number, height: number): Grid | null {
   if (width < GRID.MIN_WIDTH) return null;
@@ -56,7 +56,8 @@ export function gridFor(width: number, height: number): Grid | null {
   const cellRows = Math.floor((height - 2 * EDGE + GAP) / (cell + GAP));
   if (cellRows < MIN_ROWS) return null;
   const step = (cell + GAP) / STEPS_PER_CELL;
-  const rows = Math.floor((height - 2 * EDGE + GAP) / step);
+  // Whole cells' worth of steps only: a step past them would reach into the edge.
+  const rows = cellRows * STEPS_PER_CELL;
   const usedW = CELLS * cell + (CELLS - 1) * GAP;
   const usedH = cellRows * cell + (cellRows - 1) * GAP;
   return {

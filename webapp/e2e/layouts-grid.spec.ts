@@ -63,6 +63,15 @@ test("1080x1920: 48 columns of 21px steps, 88 rows", () => {
   const g = gridFor(1080, 1920)!;
   expect(g).toMatchObject({ columns: 48, cell: 60, step: 21, cellRows: 22, rows: 88 });
 });
+test("rows are exactly four steps per row of cells, so a box on the last row stays inside the 48px edge", () => {
+  for (const [w, h] of [[1920, 1080], [1280, 800], [2552, 1274], [1080, 1920], [1280, 720]]) {
+    const g = gridFor(w, h)!;
+    expect(g.rows, `${w}x${h}`).toBe(g.cellRows * 4);
+    const r = boxRect({ x: 0, y: g.rows - 4, w: 48, h: 4 }, g);
+    expect(r.top + r.height, `${w}x${h}`).toBeLessThanOrEqual(h - 48 + 1e-9);
+    expect(r.left + r.width, `${w}x${h}`).toBeLessThanOrEqual(w - 48 + 1e-9);
+  }
+});
 test("a box on whole cells is drawn exactly where the 12-column grid drew it", () => {
   for (const [w, h] of [[1080, 1920], [1920, 1080], [1280, 720], [2552, 1274], [800, 1280]]) {
     const g = gridFor(w, h)!;
