@@ -304,6 +304,24 @@ test("editor → layouts-editor.png", async ({ browser }) => {
   await page.context().close();
 });
 
+test("editor, three boxes selected → layouts-editor-arrange.png", async ({ browser }) => {
+  const page = await open(browser, laptop, `/settings/layouts/${kitchenLayout}`, DESK);
+  await expect(page.getByTestId("editor-canvas")).toBeVisible({ timeout: 60_000 });
+  await waitForReady(page);
+  // The grid as dots (the default, but a browser may remember another choice).
+  await page.getByTestId("editor-grid-display").click();
+  await page.getByTestId("editor-grid-display-dots").click();
+  // Shift+click adds a box to the selection, as a parent would pick them.
+  await page.locator("[data-editor-item=news]").click();
+  await page.locator("[data-editor-item=weatherNow]").click({ modifiers: ["Shift"] });
+  await page.locator("[data-editor-item=forecast]").click({ modifiers: ["Shift"] });
+  await expect(page.getByTestId("inspector-arrange")).toBeVisible();
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(1500);
+  await snap(page, "layouts-editor-arrange");
+  await page.context().close();
+});
+
 test("Settings → Layouts → settings-layouts.png", async ({ browser }) => {
   const page = await open(browser, laptop, "/settings/layouts", DESK);
   await expect(page.getByTestId("layouts-list")).toHaveAttribute("aria-busy", "false", { timeout: 60_000 });

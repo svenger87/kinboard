@@ -41,6 +41,8 @@ Unsaved changes survive the settings PIN locking in the middle of an edit. If so
 
 ### Tools
 
+![The layout editor with three boxes selected (news, weather now and the forecast): the grid shown as dots, and the inspector's Arrange buttons for aligning, distributing and matching sizes](images/layouts-editor-arrange.png)
+
 - **Grid** — the toolbar shows it as dots and lines, as lines, or not at all; the choice is remembered in this browser.
 - **Guides** — while you drag or resize, a box snaps within one step of another box's edge or centre, or of the screen's centre, and a line shows what it lined up with. Hold Alt (Option) while dragging to drop exactly where you let go.
 - **Several boxes** — Shift+click adds to the selection, or drag a frame on empty canvas. With several selected you can align left, right, top, bottom or centre, distribute horizontally or vertically (the outermost boxes stay), or give them the same width or height (as the first selected). Delete removes all of them.
@@ -63,7 +65,7 @@ After an update to Kinboard, reload screens and editors that were open: an edito
 
 - **Lists** (events, birthdays, holidays, news, lessons) show as many whole entries as fit and end with "+3 more" for the rest. A taller box shows more entries; the text stays at its size.
 - **Single values** (clock, date, next event, weather now, photo count) grow to fill their box.
-- **The forecast** shows as many forecast slots as the box is wide enough for. **Energy** and **Tesla** are drawn at one size, centred in their box.
+- **The forecast** shows as many forecast slots as the box is wide enough for. **Energy** and **Tesla** can be as small as half a cell high: in a flat box their figures sit side by side, otherwise they are stacked. They use the box's text size and get smaller only when that does not fit.
 
 Text sizes follow the screen's short side, so a layout looks the same on every screen of its shape.
 
