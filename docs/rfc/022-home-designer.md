@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Proposed 2026-11-18 |
 | **Date** | 2026-11-18 |
-| **Depends on** | The layout designer for the screensaver (#478): the `layouts` table and its routes, assignment and defaults, the 12-column grid, `resolveLayout`, `LayoutGrid`/`ListBox`/`useFitToBox`, the editor and Settings → Layouts; the screen matrix (#476); each screen's reported size (#472) |
+| **Depends on** | The layout designer for the screensaver (#478): the `layouts` table and its routes, assignment and defaults, the 48-column grid, `resolveLayout`, `LayoutGrid`/`ListBox`/`useFitToBox`, the editor and Settings → Layouts; the screen matrix (#476); each screen's reported size (#472) |
 | **Discussion** | #282 |
 
 ## 1. Why
@@ -25,11 +25,17 @@ layout describes a whole wall screen, both of its faces.
 ## 2. The rule: same layout, same grid, same editor
 
 Nothing new where #478 already decided. A layout has had a `home` arrangement
-since migration 086, empty until now. It uses the same grid (12 columns, 48px
-edge, 24px gap, square cells), the same assignment (a kiosk's own layout, else
+since migration 086, empty until now. It uses the same grid (48 columns in steps of a quarter
+cell, a 24px gap only between boxes, 48px edge; the screensaver's since the
+fine-grid change, and saved layouts were converted without changing how they
+look), the same assignment (a kiosk's own layout, else
 the family's default for its orientation, else built-in), the same text sizes
-(S/M/L/XL), the same validation and the same editor. A family edits Home and
-the screensaver of one layout side by side.
+(S/M/L/XL), the same validation and the same editor, with its tools: the grid as dots, lines or
+off; snap guides while dragging (Alt drops without snapping); several boxes at
+once (Shift+click or a frame) with align, distribute and same width/height;
+exact X/Y/W/H in steps; arrows by a step (Shift: a cell, Alt: resize); a
+refused move says why and changes nothing; one undo per command. A family
+edits Home and the screensaver of one layout side by side.
 
 What changes for a family that never opens the designer: nothing. Home stays
 the responsive grid, on every device.
@@ -49,8 +55,9 @@ Every Home widget renders in a box it did not choose, with the two behaviours
 
 The rest gets a layout of its own that fits its box: the week overview, the
 school schedule, the forecast, creatures, vehicles, stonks, the media player,
-photos, the family members. Each widget gets a minimum size in cells, as on
-the screensaver.
+photos, the family members. Each widget gets a minimum size, as on the
+screensaver. Minimums count in steps: where this RFC or the widget table
+speaks of cells or columns, multiply by 4 (6 columns of width are 24 steps).
 
 | Widget | Kind | Note |
 |---|---|---|
@@ -59,7 +66,7 @@ the screensaver.
 | schedule | fixed | per child as today: one widget per child (`options.personId`) |
 | birthday | list | |
 | holidays | list | |
-| weekOverview | fixed | seven columns; needs ≥ 6 columns of width |
+| weekOverview | fixed | seven columns; needs ≥ 24 steps (6 cells) of width |
 | mealPlan | list | |
 | wasteCollection | list | |
 | notes | list | |
