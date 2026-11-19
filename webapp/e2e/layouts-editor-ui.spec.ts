@@ -411,6 +411,68 @@ test("arrows move every selected box, Shift by a cell; Alt resizes; Delete remov
   await page.context().close();
 });
 
+test("Shift+dragging a selected box moves it and keeps the selection; undo clears the refusal line, which sits in a live status", async ({ browser }) => {
+  const page = await openEditor(browser);
+  await resetToBuiltIn(page);
+  const clock = page.locator("[data-editor-item=clock]");
+  const date = page.locator("[data-editor-item=date]");
+  const status = page.getByTestId("editor-refused-status");
+  // Mounted before anything is refused, so screen readers announce what comes into it.
+  await expect(status).toHaveAttribute("role", "status");
+  await expect(status).toHaveAttribute("aria-live", "polite");
+  await clock.locator("[data-editor-box]").click();
+  await date.locator("[data-editor-box]").click({ modifiers: ["Shift"] });
+  await page.keyboard.down("Shift");
+  await dragBy(page, date.locator("[data-editor-box]"), 2 * (await step(page)), 0);
+  await page.keyboard.up("Shift");
+  await expect.poll(async () => (await boxOf(date)).x).toBe(2);
+  await expect(date).toHaveAttribute("data-selected", "true");
+  await expect(clock).toHaveAttribute("data-selected", "true");
+  // Down takes the date off the screen: refused, said in the status.
+  await page.keyboard.press("ArrowDown");
+  await expect(status.getByTestId("editor-refused")).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect.poll(async () => (await boxOf(date)).x).toBe(0);
+  await expect(page.getByTestId("editor-refused")).toHaveCount(0, { timeout: 1500 });
+  await page.context().close();
+});
+
+test("a frame is dropped when the window loses focus; pressing the resize corner never starts one", async ({ browser }) => {
+  const page = await openEditor(browser);
+  await resetToBuiltIn(page);
+  const clock = page.locator("[data-editor-item=clock]");
+  const selected = page.locator("[data-editor-item][data-selected=true]");
+  await clock.locator("[data-editor-box]").click();
+  const from = await canvasPoint(page, 40, 86);
+  const to = await canvasPoint(page, 10, 78);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 10 });
+  await expect(page.getByTestId("editor-frame")).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await expect(page.getByTestId("editor-frame")).toHaveCount(0);
+  await page.mouse.up();
+  // The mouseup after the blur selects nothing new.
+  await expect(selected).toHaveCount(1);
+  await expect(clock).toHaveAttribute("data-selected", "true");
+
+  // The clock's resize corner, pressed and dragged: a resize, never a frame.
+  const handle = clock.locator(".react-resizable-handle");
+  await expect(handle).toBeVisible();
+  const h = (await handle.boundingBox())!;
+  const s = await step(page);
+  await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(h.x + h.width / 2 + 2 * s, h.y + h.height / 2 - s, { steps: 10 });
+  await expect(page.getByTestId("editor-frame")).toHaveCount(0);
+  await page.mouse.up();
+  await expect(page.getByTestId("editor-frame")).toHaveCount(0);
+  await expect(selected).toHaveCount(1);
+  await expect(clock).toHaveAttribute("data-selected", "true");
+  await expect.poll(async () => (await boxOf(clock)).w).toBe(26);
+  await page.context().close();
+});
+
 test("a value widget's text size: S draws the clock smaller in its box, L and XL are off since M already fills it", async ({ browser }) => {
   const page = await openEditor(browser);
   const clock = page.locator("[data-editor-item=clock]");

@@ -108,7 +108,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const listNames = useNameList();
   const [stamp, setStamp] = useState(layout.updated_at);
   const history = useLayoutHistory(baseline);
-  const { items, set, undo, redo, canUndo, canRedo, dirty } = history;
+  const { items, set, undo: undoHistory, redo: redoHistory, canUndo, canRedo, dirty } = history;
   // In the order they were selected: the first is the one commands on several boxes go by.
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   // Why the last keyboard command changed nothing; `at` restarts the timer when the same reason comes again.
@@ -192,6 +192,18 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
     },
     [commit],
   );
+
+  // An undo or redo that changes something also takes away the line on a refused command.
+  const undo = useCallback(() => {
+    if (!canUndo) return;
+    undoHistory();
+    setRefused(null);
+  }, [canUndo, undoHistory]);
+  const redo = useCallback(() => {
+    if (!canRedo) return;
+    redoHistory();
+    setRefused(null);
+  }, [canRedo, redoHistory]);
 
   useEffect(() => {
     if (!refused) return;
@@ -327,11 +339,14 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {refused && (
-            <span role="status" data-testid="editor-refused" data-reason={refused.reason} className="text-sm text-destructive">
-              {t(`refused.${refused.reason}`)}
-            </span>
-          )}
+          {/* Always there, so screen readers announce the line when it comes. */}
+          <span role="status" aria-live="polite" data-testid="editor-refused-status" className="text-sm text-destructive empty:hidden">
+            {refused && (
+              <span data-testid="editor-refused" data-reason={refused.reason}>
+                {t(`refused.${refused.reason}`)}
+              </span>
+            )}
+          </span>
           <Select value={gridDisplay} onValueChange={(v) => setGridDisplay(v as GridDisplay)}>
             <SelectTrigger className="h-8 w-auto gap-2" data-testid="editor-grid-display" aria-label={t("gridDisplay.label")} title={t("gridDisplay.label")}>
               <Grid3x3 className="size-4" aria-hidden="true" />

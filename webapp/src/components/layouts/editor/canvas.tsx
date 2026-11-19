@@ -135,9 +135,10 @@ export function EditorCanvas({
     [items, onCommit],
   );
 
-  // A box pressed while part of a selection of several: the selection stays
-  // for a drag, and becomes just that box on a click that did not move.
-  const pressed = useRef<{ id: string; x: number; y: number } | null>(null);
+  // A box pressed with Shift, or while part of a selection of several: the
+  // selection stays for a drag, and on a click that did not move Shift adds
+  // or takes the box away, a plain click makes it the only one selected.
+  const pressed = useRef<{ id: string; x: number; y: number; shift: boolean } | null>(null);
   // Focus that follows a press is the press's; only focus from the keyboard selects.
   const pointerFocus = useRef(false);
   // The frame being dragged, in the screen's own pixels; null when none.
@@ -149,15 +150,16 @@ export function EditorCanvas({
     pointerFocus.current = true;
     window.setTimeout(() => (pointerFocus.current = false));
     pressed.current = null;
-    if (e.shiftKey) onSelect(selectedIds.includes(id) ? selectedIds.filter((s) => s !== id) : [...selectedIds, id]);
-    else if (selectedIds.includes(id) && selectedIds.length > 1) pressed.current = { id, x: e.clientX, y: e.clientY };
+    if (e.shiftKey || (selectedIds.includes(id) && selectedIds.length > 1)) pressed.current = { id, x: e.clientX, y: e.clientY, shift: e.shiftKey };
     else onSelect([id]);
   };
 
   const clickBox = (e: ReactMouseEvent, id: string) => {
     const p = pressed.current;
     pressed.current = null;
-    if (p && p.id === id && Math.hypot(e.clientX - p.x, e.clientY - p.y) < FRAME_MIN_PX) onSelect([id]);
+    if (!p || p.id !== id || Math.hypot(e.clientX - p.x, e.clientY - p.y) >= FRAME_MIN_PX) return;
+    if (!p.shift) onSelect([id]);
+    else onSelect(selectedIds.includes(id) ? selectedIds.filter((s) => s !== id) : [...selectedIds, id]);
   };
 
   /** A press on the empty canvas: a frame, or on letting go without one, a click that clears the selection. */
@@ -181,10 +183,15 @@ export function EditorCanvas({
     });
     const big = (x: number, y: number) => Math.abs(x - start.x) >= FRAME_MIN_PX || Math.abs(y - start.y) >= FRAME_MIN_PX;
     const move = (ev: MouseEvent) => setFrame(big(ev.clientX, ev.clientY) ? rectTo(ev.clientX, ev.clientY) : null);
-    const up = (ev: MouseEvent) => {
+    const stop = () => {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
+      window.removeEventListener("blur", stop);
       setFrame(null);
+    };
+    // The window losing focus (another app, a dialog) drops the frame: its mouseup may never come here.
+    const up = (ev: MouseEvent) => {
+      stop();
       if (!big(ev.clientX, ev.clientY)) {
         if (!add) onSelect([]);
         return;
@@ -195,6 +202,7 @@ export function EditorCanvas({
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
+    window.addEventListener("blur", stop);
   };
 
   const handleSize = HANDLE_PX / (scale || 1);
