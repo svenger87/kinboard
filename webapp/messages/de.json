@@ -1300,7 +1300,8 @@
       "intro": "Untere Navigation sortieren und nicht benötigte Einträge ausblenden. Die Einstellungen gelten nur auf diesem Gerät.",
       "reset": "Standard-Reihenfolge wiederherstellen",
       "perDeviceHint": "Auf diesem Gerät gespeichert. Neue Bereiche (z. B. ein frisch aktiviertes Plugin) erscheinen am Ende, bis du sie verschiebst.",
-      "dragToReorder": "Zum Sortieren ziehen"
+      "dragToReorder": "Zum Sortieren ziehen",
+      "homeAlwaysFirst": "Immer zuerst"
     },
     "theme": {
       "title": "Design",

@@ -1300,7 +1300,8 @@
       "intro": "Réorganisez la navigation inférieure et masquez les éléments inutiles. Ces réglages s’appliquent uniquement à cet appareil.",
       "reset": "Réinitialiser l'ordre par défaut",
       "perDeviceHint": "Enregistré sur cet appareil. Les nouvelles surfaces (ex. un plugin récemment activé) apparaissent à la fin jusqu'à ce que vous les réorganisiez.",
-      "dragToReorder": "Glisser pour réorganiser"
+      "dragToReorder": "Glisser pour réorganiser",
+      "homeAlwaysFirst": "Toujours en premier"
     },
     "theme": {
       "title": "Design",

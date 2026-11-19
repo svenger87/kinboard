@@ -47,6 +47,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Home can no longer be arranged into a place the bar won't put it.** Settings → Navigation listed Home as an ordinary draggable row, so another item could be dragged above it and the order saved — but both navigation bars pin Home at the front, outside the scrolling row, and silently rendered it first anyway. Home now sits pinned at the top of the list, marked *Always first*, with no drag handle; every order the page saves starts with it, and orders saved earlier display correctly without being rewritten.
+
 - **Layouts for wide screens and desktop browsers.** A screen wider than about 1.85:1 (a browser window on a 2560×1440 monitor draws about 2552×1274, one on a 1920×1080 monitor about 1920×960) had no room for the six rows a layout needs, so it was left out of the editor's screens without a word and always showed the built-in screensaver. Its cells now shrink until six rows fit, with the columns centred; every other screen keeps the grid it had. A screen still too small (a phone) is listed in the editor, greyed out, saying so.
 
 - **An event's location search finds nearby places first even when typed straight away.** A search typed before the family's weather location had loaded went out without it and stayed so, so places near home did not come first. It is asked again once the location is known.

@@ -1300,7 +1300,8 @@
       "intro": "Reorder the bottom navigation and hide items you do not need. These settings apply to this device only.",
       "reset": "Reset to default order",
       "perDeviceHint": "Saved on this device. New surfaces (e.g. a freshly enabled plugin) appear at the end until you reorder them.",
-      "dragToReorder": "Drag to reorder"
+      "dragToReorder": "Drag to reorder",
+      "homeAlwaysFirst": "Always first"
     },
     "theme": {
       "title": "Design",
