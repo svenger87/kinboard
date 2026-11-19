@@ -7,7 +7,7 @@ import { useCreatureBedtime, useCreatureMood, useFamilyTimeZone, useMinuteClock 
 import { useCreatures } from "@/hooks/use-creatures";
 import { useFestivalLook } from "@/hooks/use-festival";
 import { useMotion } from "@/hooks/use-motion";
-import { useOwnedItems, usePointTotals } from "@/hooks/use-point-rewards";
+import { useOwnedItems, usePointTotals, useGrowthPoints } from "@/hooks/use-point-rewards";
 import { usePocketMoneyAccounts } from "@/hooks/use-pocket-money-accounts";
 import { usePeople } from "@/hooks";
 import { useSetting } from "@/hooks/use-supabase-queries";
@@ -103,16 +103,17 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
   const minute = useMinuteClock();
   const timeZone = useFamilyTimeZone();
   const bedtime = useCreatureBedtime();
+  const pointThresholds = useGrowthPoints();
   const bedtimeNow = minute !== 0 && isSleepyTime(new Date(minute * MINUTE_MS), timeZone, bedtime);
 
   const cast = useMemo(
     () =>
       kids.map(({ person, creature }) => {
         const account = accounts.find((a) => a.person_id === person.id);
-        const stage = creatureStage({ creature, account, earnedPoints: totalsFor(person.id).earned });
+        const stage = creatureStage({ creature, account, earnedPoints: totalsFor(person.id).earned, pointThresholds });
         return { person, creature, account, tier: stage.tier };
       }),
-    [kids, accounts, totalsFor],
+    [kids, accounts, totalsFor, pointThresholds],
   );
   const castKey = cast.map((c) => `${c.person.id}:${c.tier === 1 ? "egg" : "up"}`).join(",");
 

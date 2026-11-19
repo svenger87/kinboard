@@ -3215,7 +3215,21 @@
       "bedtimeHint": "Zwischen diesen Zeiten schlafen die Kreaturen: auf der Startseite legen sie sich hin, im Widget sehen sie müde aus.",
       "bedtimeSleep": "Schlafen ab",
       "bedtimeWake": "Wach um",
-      "bedtimeReset": "Zurück auf {sleep}–{wake}"
+      "bedtimeReset": "Zurück auf {sleep}–{wake}",
+      "pricesLabel": "Preise im Laden",
+      "pricesHint": "Was jedes Teil im Kreaturen-Laden kostet, in Aufgabenpunkten. Ein neuer Preis gilt ab dem nächsten Kauf; was schon gekauft ist, behält seinen Kaufpreis. Ein leeres Feld setzt den Standardpreis zurück.",
+      "pricesStandard": "Standard {count}",
+      "pricesInvalid": "Ein Preis ist eine ganze Zahl von {min} bis {max}.",
+      "priceAria": "Preis von {item}, in Punkten",
+      "pricesReset": "Zurück zu den Standardpreisen",
+      "growthLabel": "Wachsen",
+      "growthHint": "Wie viele Aufgabenpunkte eine Kreatur für jede Stufe braucht, gezählt über alle Punkte, die das Kind verdient hat. Eine höhere Zahl macht keine Kreatur kleiner: Sie behält ihre Stufe und wächst weiter, sobald das Kind die nächste Zahl erreicht. Kreaturen, die mit dem Taschengeld wachsen, folgen dem Geld.",
+      "growthHatch": "Stufe 2 (schlüpft)",
+      "growthStage": "Stufe {n}",
+      "growthAria": "Punkte für Stufe {n}",
+      "growthInvalid": "Jede Stufe braucht mehr Punkte als die vorige, in ganzen Zahlen.",
+      "growthReset": "Zurück zu den Standardstufen",
+      "growthKept": "{count, plural, one {# Kreatur behält ihre Stufe} other {# Kreaturen behalten ihre Stufe}}"
     },
     "layouts": {
       "title": "Layouts",
@@ -3496,6 +3510,8 @@
       "creatures": "Kreatur, Kreaturen, Drache, Haustier, Avatar, Belohnung, Belohnungen, Punkte, Aufgabenpunkte, Laden, wachsen",
       "creatures_children": "Kreatur, einschalten, Art, Drache, wächst mit, Punkte, Geld, Laden",
       "creatures_home": "Kreaturen auf der Startseite, laufen, spielen, Haustiere, Schlafenszeit, schlafen, aufwachen",
+      "creatures_growth": "Wachsen, Stufen, schlüpfen, Punkte pro Stufe, Level, Entwicklung",
+      "creatures_prices": "Ladenpreise, Preis, Kosten, Punkte, Hüte, Brillen, Hintergründe, Kreaturen-Laden",
       "creatures_inbox": "Belohnungswünsche, warten, erlauben, ablehnen, Freigabe, einlösen",
       "creatures_rewards": "Belohnungen, Punkte, Aufgabenpunkte, einlösen, Preise, Prämien",
       "theme_festivals": "Feste, Weihnachten, Advent, Nikolaus, Sankt Martin, Martinstag, Laternen, Schlitten, Weihnachtsmann, Schmuck, Dekoration, festlich, Silvester, Feuerwerk, Konfetti"

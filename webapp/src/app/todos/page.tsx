@@ -1,5 +1,6 @@
 "use client";
 
+import { useGrowthPoints } from "@/hooks/use-point-rewards";
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -204,8 +205,9 @@ function ChildChip({
   // During a festival, its outfit instead of the child's own item (RFC-020 §2.3).
   const festive = useFestivalLook();
   const mood = useCreatureMood(creature ? person.id : null);
+  const pointThresholds = useGrowthPoints();
   const stage = creature
-    ? creatureStage({ creature, account: accounts?.find((a) => a.person_id === person.id), earnedPoints: earned })
+    ? creatureStage({ creature, account: accounts?.find((a) => a.person_id === person.id), earnedPoints: earned, pointThresholds })
     : null;
   return (
     <div

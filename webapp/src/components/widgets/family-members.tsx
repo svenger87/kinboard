@@ -25,7 +25,7 @@ import { usePeople, useTodos, useEvents } from "@/hooks";
 import { useTodoPoints } from "@/hooks/use-todo-points";
 import { showsPoints } from "@/lib/todo-points";
 import { usePocketMoneyAccounts } from "@/hooks/use-pocket-money-accounts";
-import { useOwnedItems, usePointTotals } from "@/hooks/use-point-rewards";
+import { useOwnedItems, usePointTotals, useGrowthPoints } from "@/hooks/use-point-rewards";
 import { rewardsHref } from "@/lib/device-owner";
 import { ReactingCreature } from "@/components/pocket-money/creature-reaction";
 import { creatureStage } from "@/lib/creatures/stage";
@@ -104,6 +104,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
   const { data: events } = useEvents(today.toISOString(), weekFromNow.toISOString());
 
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const pointThresholds = useGrowthPoints();
 
   // Filter to only show events that haven't ended yet
   const upcomingEvents = events?.filter((e) => {
@@ -240,6 +241,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
             creature,
             account: accounts.find((a) => a.person_id === selectedPerson.id),
             earnedPoints: totalsFor(selectedPerson.id).earned,
+            pointThresholds,
           });
           return { species: creature.species, style: creature.style, look: festive(readLook(creature.look, ownedFor(selectedPerson.id))), tier: stage.tier };
         })()}

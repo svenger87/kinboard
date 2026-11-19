@@ -1,5 +1,6 @@
 "use client";
 
+import { useGrowthPoints } from "@/hooks/use-point-rewards";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -156,9 +157,10 @@ function ChildRewards({ person, creature }: { person: Person; creature: Creature
   const { data: redemptions = [] } = usePointRedemptions();
   const updateCreature = useUpdateCreature();
   const mood = useCreatureMood(person.id);
+  const pointThresholds = useGrowthPoints();
 
   const totals = totalsFor(person.id);
-  const stage = creatureStage({ creature, account, earnedPoints: totals.earned });
+  const stage = creatureStage({ creature, account, earnedPoints: totals.earned, pointThresholds });
   const pointsMode = stage.mode === "points";
   const species = creature.species;
   const style = creature.style ?? "classic";

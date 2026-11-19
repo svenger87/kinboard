@@ -1,5 +1,6 @@
 "use client";
 
+import { useGrowthPoints } from "@/hooks/use-point-rewards";
 import Link from "next/link";
 import { useState } from "react";
 import { PiggyBank } from "lucide-react";
@@ -280,11 +281,13 @@ function PocketMoneyWidgetTab({ child, recentCount }: { child: Child; recentCoun
   const festive = useFestivalLook();
   // Sleepy at night, happy once today's tasks are done; still, either way.
   const mood = useCreatureMood(personId);
+  const pointThresholds = useGrowthPoints();
   const points = totalsFor(personId);
   const stage = creatureStage({
     creature: creature ?? { grows_with: "money", best_tier: 1 },
     account,
     earnedPoints: points.earned,
+    pointThresholds,
   });
   const pointsMode = !account || (Boolean(creature) && stage.mode === "points");
   const primary = goals.find((g) => g.is_primary && g.status === "active");

@@ -1,7 +1,10 @@
 "use client";
 
+import { useGrowthPoints } from "@/hooks/use-point-rewards";
 import { useMemo, useState } from "react";
 import { CreaturesHomeSettings } from "@/components/settings/creatures-home-settings";
+import { ShopPricesSettings } from "@/components/settings/shop-prices-settings";
+import { GrowthSettings } from "@/components/settings/growth-settings";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
@@ -115,6 +118,8 @@ export default function CreaturesSettingsPage() {
         </div>
 
         <CreaturesHomeSettings />
+        <GrowthSettings />
+        <ShopPricesSettings />
         <RewardCatalogue />
       </div>
     </main>
@@ -154,6 +159,7 @@ function ChildCreatureCard({
   // back as it was.
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
+  const pointThresholds = useGrowthPoints();
 
   const on = Boolean(activeCreatureOf(creature ? [creature] : [], kid.id));
   const busy = switchOn.isPending || update.isPending;
@@ -179,7 +185,7 @@ function ChildCreatureCard({
   };
 
   const tier = creature
-    ? creatureStage({ creature, account, earnedPoints: totalsFor(kid.id).earned }).tier
+    ? creatureStage({ creature, account, earnedPoints: totalsFor(kid.id).earned, pointThresholds }).tier
     : 1;
   const look = readLook(creature?.look, ownedFor(kid.id));
   const growsWith: GrowsWith = creature?.grows_with === "money" ? "money" : "points";

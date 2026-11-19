@@ -33,6 +33,7 @@ import { eventsOverlapping, familyCalendarIds, type ListedEvent, type SearchDb }
 import { listBirthdays } from "@/lib/integration-birthdays";
 import { listCountdowns } from "@/lib/countdowns";
 import { creatureStage } from "@/lib/creatures/stage";
+import { growthPointsFor } from "@/lib/creatures/growth";
 import { stageNameFor } from "@/lib/integration-rewards";
 
 // The admin client is untyped for these tables, as in the other routes.
@@ -270,6 +271,7 @@ export async function readWeekSummary(
     txRows = rows<TxRow>(await d.from("pocket_money_transactions").select("account_id, amount_cents, created_at")
       .in("account_id", moneyAccounts.map((a) => a.id)).gte("created_at", fromIso), "pocket money transactions");
   }
+  const pointThresholds = await growthPointsFor(d, familyId);
   for (const person of peopleRows) {
     if (person.is_child !== true) continue;
     const creature = creatureRows.find((c) => c.person_id === person.id);
@@ -288,6 +290,7 @@ export async function readWeekSummary(
       creature: { grows_with: creature.grows_with, best_tier: creature.best_tier },
       account: account ? { balance_cents: balance } : null,
       earnedPoints: earned,
+      pointThresholds,
     }).tier;
     const fromStage = at(earnedStart, balanceStart);
     const toStage = at(earnedEnd, balanceEnd);

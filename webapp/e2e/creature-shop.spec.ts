@@ -163,7 +163,11 @@ test.describe("buying: the price is the catalogue's", () => {
     const route = codeOnly(read("src/app/api/creatures/[personId]/purchases/route.ts"));
     expect(route).toContain("familyId: auth.session.familyId");
     expect(route).toContain("itemId: body.item_id");
-    expect(route).not.toMatch(/\bcost\b|price/);
+    // Nothing but item_id is read from the body; the price is the family's
+    // setting, read from the database, or the catalogue's.
+    expect(route).toContain("as { item_id?: unknown } | null");
+    expect(route).not.toMatch(/body\??\.(?!item_id)/);
+    expect(route).toContain("prices: readShopPrices(setting?.value),");
     expect(route).not.toContain("requireSettingsUnlock");
   });
 

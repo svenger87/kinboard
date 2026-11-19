@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/require-session";
 import type { RpcClient } from "@/lib/pocket-money/booking";
 import { buyItem } from "@/lib/creatures/purchases";
+import { readShopPrices } from "@/lib/pocket-money/creatures/shop";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +16,9 @@ export const dynamic = "force-dynamic";
  * for a reward it is the child's own action, and a parent's say is the Shop
  * switch under Settings -> Creatures & rewards, which the database checks.
  *
- * The price is the catalogue's (lib/pocket-money/creatures/shop.ts); a price
- * in the body is ignored. purchase_person_point_item() refuses it when the
+ * The price is the family's own for that item (setting shop_prices) or the
+ * catalogue's (lib/pocket-money/creatures/shop.ts); a price in the body is
+ * ignored. purchase_person_point_item() refuses it when the
  * child has no creature switched on, the shop is off, the item is already
  * theirs, or their balance less what is waiting for a parent does not cover
  * it -- all under the child's lock, so two taps never pay twice.
@@ -33,10 +36,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "item_id required" }, { status: 400 });
   }
 
-  const result = await buyItem(createAdminClient() as unknown as RpcClient, {
+  const db = createAdminClient();
+  const { data: setting, error } = await (db as any)
+    .from("settings")
+    .select("value")
+    .eq("family_id", auth.session.familyId)
+    .eq("key", SETTINGS_KEYS.shopPrices)
+    .maybeSingle();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const result = await buyItem(db as unknown as RpcClient, {
     familyId: auth.session.familyId,
     personId,
     itemId: body.item_id,
+    prices: readShopPrices(setting?.value),
   });
   return NextResponse.json(result.body, { status: result.status });
 }

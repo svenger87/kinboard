@@ -10,6 +10,7 @@ import type { SessionContext } from "@/lib/session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { moneyAvailable, pluginOn, type CreaturePatch } from "./rules";
 import { clampStageWrites, justifiedTiers } from "./stage";
+import { growthPointsFor } from "./growth";
 import { wornNotOwned } from "@/lib/pocket-money/creatures/look";
 import { SHOP_SLOTS, ownedSet } from "@/lib/pocket-money/creatures/shop";
 
@@ -155,9 +156,13 @@ export async function applyCreaturePatch(args: {
   }
 
   if (patch.best_tier !== undefined || patch.last_seen_tier !== undefined) {
-    const [account, earned] = await Promise.all([accountOf(db, familyId, personId), earnedPoints(db, familyId, personId)]);
+    const [account, earned, pointThresholds] = await Promise.all([
+      accountOf(db, familyId, personId),
+      earnedPoints(db, familyId, personId),
+      growthPointsFor(db, familyId),
+    ]);
     const growsWith = patch.grows_with ?? creature.grows_with;
-    patch = clampStageWrites(patch, justifiedTiers({ creature: { grows_with: growsWith, best_tier: creature.best_tier }, account, earnedPoints: earned }));
+    patch = clampStageWrites(patch, justifiedTiers({ creature: { grows_with: growsWith, best_tier: creature.best_tier }, account, earnedPoints: earned, pointThresholds }));
   }
 
   const { data, error } = await db
