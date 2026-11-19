@@ -10,7 +10,7 @@ Nothing changes for a family that never creates a layout: every screen keeps the
 
 - **Named and owned by the family** — "Küche hochkant", "Flur quer". Every device of the family can see it; only a parent with the [settings PIN](Security-and-Threat-Model#the-settings-pin) can change it.
 - **Made for one screen size** — a width and a height in CSS pixels, the size the page is drawn at on that screen. Settings → Devices shows the size each screen reports, including the browser's scaling (a 1080×1920 panel at Windows 150% draws pages at 720×1280).
-- **Drawn on a grid** — 12 columns of square cells, 24px apart, 48px from the screen's edges. Widgets snap to whole cells, so the spacing is always even and two widgets can never overlap.
+- **Drawn on a grid** — 48 columns, each step a quarter of a square cell. The 24px gap sits only between boxes, and the screen's edges are 48px away. Widgets snap to steps, so two widgets can never overlap and the spacing stays even. Layouts made before the finer grid look exactly as they did.
 - **Shared where you want** — several screens can use the same layout; editing it changes all of them.
 
 ## Creating a layout
@@ -29,15 +29,35 @@ A new layout starts from the built-in screensaver's arrangement for that shape, 
 
 The editor shows the screen at its true proportions, scaled to fit, with the real widgets and your family's real data: your events, birthdays, weather and news, as the wall will show them.
 
-- **Move** a widget by dragging it; it snaps to the grid. A widget cannot be dropped on top of another.
-- **Resize** it by dragging its corner. Each widget has a minimum size (the inspector shows it, e.g. "at least 4×3"); it will not go smaller.
+- **Move** a widget by dragging it; it snaps to the grid (and to other boxes, see Tools). A widget cannot be dropped on top of another.
+- **Resize** it by dragging its corner. Each widget has a minimum size (the inspector shows it); it will not go smaller.
 - **Palette** (left) — the widgets not yet on the screen: clock, date, next event, weather now, forecast, events, birthdays, holidays, news, lessons, energy, Tesla and the photo count. Click one to add it in the first free space; each widget appears once.
 - **Inspector** (right) — the selected widget's size, its **text size** (Small, Medium, Large, Extra large) and **Remove**.
 - **Undo / Redo** — every change in this session, also with Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y).
-- **Keyboard** — the arrow keys move the selected widget a cell at a time, Delete removes it, Escape deselects.
+- **Keyboard** — see the table under Tools; Delete removes the selection, Escape deselects.
 - **Reset** puts the built-in arrangement back (undoable until you leave the page); **Save** writes the layout, and the screens using it update within a second or two.
 
 Unsaved changes survive the settings PIN locking in the middle of an edit. If someone else saved the same layout meanwhile, Save says so and offers to reload rather than overwrite their work.
+
+### Tools
+
+- **Grid** — the toolbar shows it as dots and lines, as lines, or not at all; the choice is remembered in this browser.
+- **Guides** — while you drag or resize, a box snaps within one step of another box's edge or centre, or of the screen's centre, and a line shows what it lined up with. Hold Alt (Option) while dragging to drop exactly where you let go.
+- **Several boxes** — Shift+click adds to the selection, or drag a frame on empty canvas. With several selected you can align left, right, top, bottom or centre, distribute horizontally or vertically (the outermost boxes stay), or give them the same width or height (as the first selected). Delete removes all of them.
+- **Exact values** — the inspector has X, Y, W and H as number fields, in steps. A value that doesn't fit is refused with the reason.
+- **Refused moves** — a move or command that can't be done says why and changes nothing. Each command is one undo.
+
+| Keys | Does |
+| --- | --- |
+| Arrow | Move one step |
+| Shift + arrow | Move a whole cell (four steps) |
+| Alt + arrow | Resize one step |
+| Alt + Shift + arrow | Resize a whole cell |
+| Delete | Remove the selected boxes |
+| Escape | Deselect |
+| Ctrl+Z / Ctrl+Shift+Z | Undo / redo |
+
+If the editor was open before an update, Save says "Kinboard was updated" and asks you to reload the page, since the old editor can't write into the new grid.
 
 ### How widgets fill their box
 
@@ -68,7 +88,7 @@ Settings → Devices says what each screen will show: "Uses the default layout �
 
 ## On screens of other sizes
 
-A layout drawn for 1080×1920 also runs on a 720×1280 screen (the same panel at 150%): positions and sizes are stored in grid cells, so it scales. When the other screen has a different number of rows — a tablet at 800×1280, say — the rows are scaled proportionally, minimum sizes win, and a widget that no longer fits is left out. Settings → Devices lists what a screen leaves out ("Not shown on this screen: Birthdays").
+A layout drawn for 1080×1920 also runs on a 720×1280 screen (the same panel at 150%): positions and sizes are stored in grid steps, so it scales. When the other screen has a different number of rows — a tablet at 800×1280, say — the rows are scaled proportionally, minimum sizes win, and a widget that no longer fits is left out. Settings → Devices lists what a screen leaves out ("Not shown on this screen: Birthdays").
 
 In the editor, the screen picker previews the layout on any other size. The preview is read-only and names what does not fit. To arrange the layout for that size, **Make a copy for this size**: the copy is a new layout of that size, redrawn from the saved one. Widgets that lost their place are moved into free cells first, shrinking toward their minimum, and only those that still do not fit are left out; the new editor lists them ("Not on this size: Birthdays") so you can make room and add them back from the palette.
 
