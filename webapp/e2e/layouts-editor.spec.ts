@@ -75,7 +75,17 @@ test("the editor uses react-grid-layout pinned, with collisions refused and no c
   const canvas = readFileSync(join(__dirname, "..", "src/components/layouts/editor/canvas.tsx"), "utf8");
   expect(canvas).toContain("getCompactor(null, false, true)");
   expect(canvas).toMatch(/maxRows:\s*grid\.rows/);
-  expect(canvas).toMatch(/margin:\s*\[24, 24\]/);
+  // Steps: a column and a row are one step, no margin; the box is inset by half a gap.
+  expect(canvas).toMatch(/cols:\s*grid\.columns/);
+  expect(canvas).toMatch(/rowHeight:\s*grid\.step/);
+  expect(canvas).toMatch(/margin:\s*\[0, 0\]/);
+  expect(canvas).toMatch(/containerPadding:\s*\[grid\.offsetX - INSET, grid\.offsetY - INSET\]/);
+  expect(canvas).toMatch(/const INSET = GRID\.GAP \/ 2/);
+  // The grid is drawn once, as patterns, not one element per step.
+  const overlay = readFileSync(join(__dirname, "..", "src/components/layouts/editor/grid-overlay.tsx"), "utf8");
+  expect(overlay.match(/<pattern/g)?.length).toBe(2);
+  expect(overlay).not.toMatch(/\.map\(/);
+  expect(overlay).toContain('"kinboard_layout_grid_display"');
 });
 
 test("the editor's strings exist in German, English and French alike", () => {

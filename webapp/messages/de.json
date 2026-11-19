@@ -3314,6 +3314,12 @@
         "saved": "Layout gespeichert",
         "stale": "Jemand hat dieses Layout inzwischen geändert – lade neu, um die Änderung zu sehen.",
         "reload": "Neu laden",
+        "gridDisplay": {
+          "label": "Raster",
+          "dots": "Punkte und Linien",
+          "lines": "Linien",
+          "off": "Aus"
+        },
         "errors": {
           "unknown_widget": "{name}: Dieses Widget ist unbekannt.",
           "out_of_bounds": "{name} passt nicht auf den Bildschirm.",

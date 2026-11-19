@@ -11,7 +11,7 @@ import type { LayoutItem } from "../src/lib/layouts/types";
 /**
  * The screensaver editor at Settings → Layouts → one layout, driven with the
  * mouse and the keyboard on a 1080x1920 layout made from the built-in one:
- * moves and resizes land on whole cells and are saved, the minimum and the
+ * moves and resizes land on whole steps (a quarter cell) and are saved, the minimum and the
  * other widgets hold, undo works, a save over someone else's change is
  * refused with the reload message, and the canvas shows the family's real
  * events. In a family of its own, removed afterwards. Needs the stack
@@ -53,8 +53,16 @@ function purge(ids: string[]) {
 const saved = (): LayoutItem[] => JSON.parse(psql(`SELECT screensaver::text FROM layouts WHERE id = '${layoutId}'`));
 const savedItem = (widget: string) => saved().find((i) => i.widget === widget);
 
-/** The editor, in a browser that is the family's device with the settings unlocked. */
-async function openEditor(browser: Browser, id = layoutId): Promise<Page> {
+/**
+ * The editor, in a browser that is the family's device with the settings
+ * unlocked. `session` is put in the tab's sessionStorage before the page
+ * loads; with `canvas: false` the page is returned without waiting for the canvas.
+ */
+async function openEditor(
+  browser: Browser,
+  id = layoutId,
+  { session = {}, canvas = true }: { session?: Record<string, string>; canvas?: boolean } = {},
+): Promise<Page> {
   const ctx = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     serviceWorkers: "block",
@@ -69,8 +77,9 @@ async function openEditor(browser: Browser, id = layoutId): Promise<Page> {
     },
   ]);
   const page = await ctx.newPage();
-  await page.addInitScript((familyId) => {
+  await page.addInitScript(({ familyId, session }) => {
     sessionStorage.setItem("kinboard_settings_unlock", JSON.stringify({ familyId, at: Date.now() }));
+    for (const [k, v] of Object.entries(session)) sessionStorage.setItem(k, v);
     const hide = () => {
       const el = document.createElement("style");
       el.textContent = "nextjs-portal{display:none!important}";
@@ -78,8 +87,9 @@ async function openEditor(browser: Browser, id = layoutId): Promise<Page> {
     };
     if (document.head) hide();
     else document.addEventListener("DOMContentLoaded", hide);
-  }, famId);
+  }, { familyId: famId, session });
   await page.goto(`/settings/layouts/${id}`, { waitUntil: "domcontentloaded" });
+  if (!canvas) return page;
   await expect(page.getByTestId("editor-canvas")).toBeVisible({ timeout: 60_000 });
   await expect(page.locator("[data-editor-item=clock]")).toBeVisible();
   return page;
@@ -89,7 +99,16 @@ async function openEditor(browser: Browser, id = layoutId): Promise<Page> {
 async function step(page: Page): Promise<number> {
   const scale = Number(await page.getByTestId("editor-canvas").getAttribute("data-scale"));
   expect(scale).toBeGreaterThan(0);
-  return (GRID.cell + 24) * scale;
+  return GRID.step * scale;
+}
+
+/** Where an item's box is drawn, in the screen's own (unscaled) pixels from the canvas's top left. */
+async function drawnBox(page: Page, item: Locator) {
+  const canvas = page.getByTestId("editor-canvas");
+  const scale = Number(await canvas.getAttribute("data-scale"));
+  const c = (await canvas.boundingBox())!;
+  const b = (await item.locator("[data-editor-box]").boundingBox())!;
+  return { left: (b.x - c.x) / scale, top: (b.y - c.y) / scale, width: b.width / scale, height: b.height / scale };
 }
 
 const boxOf = async (item: Locator) => {
@@ -171,7 +190,7 @@ test("the canvas shows the real widgets with the family's events", async ({ brow
   await page.context().close();
 });
 
-test("dragging the clock two columns right saves x+2", async ({ browser }) => {
+test("dragging the clock two steps right saves x+2", async ({ browser }) => {
   const page = await openEditor(browser);
   const before = savedItem("clock")!;
   const clock = page.locator("[data-editor-item=clock]");
@@ -187,10 +206,11 @@ test("resizing the events below their minimum stops at the minimum", async ({ br
   const events = page.locator("[data-editor-item=events]");
   const before = await boxOf(events);
   const s = await step(page);
-  await dragBy(page, events.locator(".react-resizable-handle"), -6 * s, -6 * s);
-  await expect.poll(async () => boxOf(events)).toEqual({ ...before, w: 4, h: 3 });
+  await dragBy(page, events.locator(".react-resizable-handle"), -40 * s, -40 * s);
+  // The events' minimum: 4x3 cells, 16x12 steps.
+  await expect.poll(async () => boxOf(events)).toEqual({ ...before, w: 16, h: 12 });
   await save(page);
-  expect(savedItem("events")).toMatchObject({ x: before.x, y: before.y, w: 4, h: 3 });
+  expect(savedItem("events")).toMatchObject({ x: before.x, y: before.y, w: 16, h: 12 });
   await page.context().close();
 });
 
@@ -201,7 +221,9 @@ test("a widget dragged onto another is refused: nothing overlaps", async ({ brow
   const start = await boxOf(weather);
   const n = (await news.boundingBox())!;
   const w = (await weather.boundingBox())!;
-  await dragBy(page, weather, n.x + n.width / 2 - (w.x + w.width / 2), n.y + n.height / 2 - (w.y + w.height / 2));
+  // Straight across onto the news beside it: on a diagonal, every step on the
+  // way would already sit on the forecast below, and nothing would move.
+  await dragBy(page, weather, n.x + n.width / 2 - (w.x + w.width / 2), 0);
   const boxes = await page.locator("[data-editor-item]").evaluateAll((els) =>
     els.map((el) => {
       const [x, y, w, h] = (el.getAttribute("data-box") ?? "").split(",").map(Number);
@@ -224,7 +246,42 @@ test("a widget dragged onto another is refused: nothing overlaps", async ({ brow
   await page.context().close();
 });
 
-test("undo puts a moved widget back, redo moves it again; arrows move by a cell", async ({ browser }) => {
+test("a drag of one step moves a box one step, drawn where the grid puts it", async ({ browser }) => {
+  const page = await openEditor(browser);
+  const date = page.locator("[data-editor-item=date]");
+  const before = await boxOf(date);
+  await dragBy(page, date, await step(page), 0);
+  await expect.poll(async () => (await boxOf(date)).x).toBe(before.x + 1);
+  const box = await boxOf(date);
+  const drawn = await drawnBox(page, date);
+  expect(Math.abs(drawn.left - (GRID.offsetX + box.x * GRID.step)), JSON.stringify(drawn)).toBeLessThanOrEqual(1);
+  expect(Math.abs(drawn.top - (GRID.offsetY + box.y * GRID.step)), JSON.stringify(drawn)).toBeLessThanOrEqual(1);
+  expect(Math.abs(drawn.width - (box.w * GRID.step - 24)), JSON.stringify(drawn)).toBeLessThanOrEqual(1);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect.poll(async () => boxOf(date)).toEqual(before);
+  await page.context().close();
+});
+
+test("the grid shows as dots, lines or not at all, remembered after a reload", async ({ browser }) => {
+  const page = await openEditor(browser);
+  const overlay = page.getByTestId("editor-grid-overlay");
+  const select = page.getByTestId("editor-grid-display");
+  await expect(overlay).toHaveAttribute("data-display", "dots");
+  for (const display of ["lines", "off"]) {
+    await select.click();
+    await page.getByTestId(`editor-grid-display-${display}`).click();
+    await expect(overlay).toHaveAttribute("data-display", display);
+  }
+  await page.reload();
+  await expect(page.getByTestId("editor-canvas")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId("editor-grid-overlay")).toHaveAttribute("data-display", "off");
+  await page.getByTestId("editor-grid-display").click();
+  await page.getByTestId("editor-grid-display-dots").click();
+  await expect(page.getByTestId("editor-grid-overlay")).toHaveAttribute("data-display", "dots");
+  await page.context().close();
+});
+
+test("undo puts a moved widget back, redo moves it again; arrows move by a step", async ({ browser }) => {
   const page = await openEditor(browser);
   const date = page.locator("[data-editor-item=date]");
   const before = await boxOf(date);
@@ -307,8 +364,8 @@ test("removing a widget returns it to the palette, adding places it on free cell
   const news = page.locator("[data-editor-item=news]");
   await expect(news).toHaveCount(1);
   const box = await boxOf(news);
-  expect(box.w).toBeGreaterThanOrEqual(4);
-  expect(box.h).toBeGreaterThanOrEqual(3);
+  expect(box.w).toBeGreaterThanOrEqual(16);
+  expect(box.h).toBeGreaterThanOrEqual(12);
   await expect(page.getByTestId("palette-add-news")).toHaveCount(0);
   await save(page);
   expect(savedItem("news")).toMatchObject(box);
@@ -337,6 +394,36 @@ test("unsaved changes survive the settings locking again", async ({ browser }) =
   await save(page);
   expect(savedItem("date")).toMatchObject({ ...before, x: before.x + 1 });
   await expect(page.getByTestId("editor-draft-notice")).toHaveCount(0);
+  await page.context().close();
+});
+
+test("a draft left by the editor from before the steps (counted in cells) is not restored", async ({ browser }) => {
+  const res = await api.get("/api/layouts");
+  expect(res.ok(), await res.text()).toBe(true);
+  const layout = ((await res.json()) as { layouts: { id: string; updated_at: string; screensaver: LayoutItem[] }[] }).layouts.find((l) => l.id === layoutId)!;
+  // What the 12-column editor kept: its key, the same stamp (087 keeps updated_at), positions in cells.
+  const cells = layout.screensaver.map((i) => ({ ...i, x: Math.floor(i.x / 4), y: Math.floor(i.y / 4), w: Math.max(1, Math.floor(i.w / 4)), h: Math.max(1, Math.floor(i.h / 4)) }));
+  const page = await openEditor(browser, layoutId, {
+    session: { [`kinboard_layout_draft:${layoutId}`]: JSON.stringify({ items: cells, stamp: layout.updated_at }) },
+  });
+  await expect(page.getByTestId("layout-editor")).toHaveAttribute("data-dirty", "false");
+  await expect(page.getByTestId("editor-draft-notice")).toHaveCount(0);
+  const clock = layout.screensaver.find((i) => i.widget === "clock")!;
+  expect(await boxOf(page.locator("[data-editor-item=clock]"))).toEqual({ x: clock.x, y: clock.y, w: clock.w, h: clock.h });
+  await page.context().close();
+});
+
+test("a layout still on the 12-column grid is not edited: the page asks to reload", async ({ browser }) => {
+  const created = await api.post("/api/layouts", { data: { grid: 48, name: `${P}Alt`, ...SIZE, from: "builtin" } });
+  expect(created.status(), await created.text()).toBe(201);
+  const oldId = (await created.json()).layout.id as string;
+  psql(`UPDATE layouts SET grid = 12 WHERE id = '${oldId}'`);
+  const page = await openEditor(browser, oldId, { canvas: false });
+  const notice = page.getByTestId("editor-grid-changed");
+  await expect(notice).toBeVisible({ timeout: 60_000 });
+  await expect(notice).toContainText(/reload|neu laden|recharge/i);
+  await expect(notice.getByTestId("editor-reload")).toBeVisible();
+  await expect(page.getByTestId("editor-canvas")).toHaveCount(0);
   await page.context().close();
 });
 

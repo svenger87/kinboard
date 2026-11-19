@@ -3314,6 +3314,12 @@
         "saved": "Disposition enregistrée",
         "stale": "Quelqu’un a modifié cette disposition entre-temps — rechargez pour voir la modification.",
         "reload": "Recharger",
+        "gridDisplay": {
+          "label": "Grille",
+          "dots": "Points et lignes",
+          "lines": "Lignes",
+          "off": "Masquée"
+        },
         "errors": {
           "unknown_widget": "{name} : ce widget est inconnu.",
           "out_of_bounds": "{name} ne tient pas sur l’écran.",

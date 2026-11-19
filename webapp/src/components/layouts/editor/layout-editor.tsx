@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { AlertTriangle, Eye, Loader2, Redo2, RefreshCw, RotateCcw, Save, Undo2 } from "lucide-react";
+import { AlertTriangle, Eye, Grid3x3, Loader2, Redo2, RefreshCw, RotateCcw, Save, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +22,7 @@ import { useScreensaverData } from "@/hooks/use-screensaver-data";
 import { useLayoutHistory } from "@/hooks/use-layout-history";
 import { LayoutRequestError, useSaveLayout } from "@/hooks/use-layouts";
 import { builtInScreensaver } from "@/lib/layouts/built-in";
-import { gridFor } from "@/lib/layouts/grid";
+import { LAYOUT_GRID, gridFor } from "@/lib/layouts/grid";
 import { nudge } from "@/lib/layouts/place";
 import { rescaleItems } from "@/lib/layouts/rescale";
 import { validateItems, type LayoutError } from "@/lib/layouts/validate";
@@ -29,6 +30,7 @@ import { SAVER_WIDGETS, knownWidgetItems } from "@/lib/layouts/widgets";
 import { useNameList } from "@/hooks/use-name-list";
 import type { Layout, LayoutItem, SaverWidgetKey, TextSize } from "@/lib/layouts/types";
 import { EditorCanvas } from "./canvas";
+import { GRID_DISPLAYS, useGridDisplay, type GridDisplay } from "./grid-overlay";
 import { EditorPalette } from "./palette";
 import { EditorInspector } from "./inspector";
 import { withAlign, type Align } from "@/lib/layouts/align";
@@ -48,17 +50,23 @@ const OPEN_DIALOG = "[role='dialog'], [role='alertdialog'], [role='listbox']";
  * Unsaved changes, kept for this tab while they are unsaved: the PIN screen
  * that comes back when Settings lock again unmounts the editor, and the
  * changes must survive it. Tied to the stamp they were made on, so they are
- * never laid over someone else's newer save.
+ * never laid over someone else's newer save. The key names the grid the
+ * positions count: a draft from an editor on another grid (the 12-column
+ * one kept `kinboard_layout_draft:<id>`, in cells) is never read as steps,
+ * even though migration 087 kept the stamp it was made on.
  */
 interface Draft {
   items: LayoutItem[];
   stamp: string;
 }
-const draftKey = (id: string) => `kinboard_layout_draft:${id}`;
+const draftKey = (id: string) => `kinboard_layout_draft:${LAYOUT_GRID}:${id}`;
+const legacyDraftKey = (id: string) => `kinboard_layout_draft:${id}`;
 
 function readDraft(id: string): Draft | null {
   if (typeof window === "undefined") return null;
   try {
+    // Unusable here: in cells, from before the steps.
+    sessionStorage.removeItem(legacyDraftKey(id));
     const raw = sessionStorage.getItem(draftKey(id));
     if (!raw) return null;
     const d = JSON.parse(raw) as Partial<Draft>;
@@ -105,6 +113,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const [gridChanged, setGridChanged] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloading, setReloading] = useState(false);
+  const [gridDisplay, setGridDisplay] = useGridDisplay();
   // Read once, on mount: a draft from before the PIN screen came back.
   const [draft] = useState(() => {
     const d = readDraft(layout.id);
@@ -124,9 +133,9 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
 
   const ownGrid = useMemo(() => gridFor(layout.width, layout.height), [layout.width, layout.height]);
   const previewGrid = useMemo(() => gridFor(preview.width, preview.height) ?? ownGrid, [preview.width, preview.height, ownGrid]);
-  // Columns are always 12, so a screen with the layout's number of rows shows
-  // the same cells and can be edited; any other is a preview of the rescaled
-  // arrangement, which is not what gets saved.
+  // Every screen has 48 step columns, so one with the layout's number of
+  // rows shows the same grid and can be edited; any other is a preview of
+  // the rescaled arrangement, which is not what gets saved.
   const editable = !!ownGrid && !!previewGrid && previewGrid.rows === ownGrid.rows;
   const shown = useMemo(() => {
     if (!ownGrid || !previewGrid || editable) return { items, dropped: [] as string[] };
@@ -251,14 +260,14 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   };
 
   const reload = async () => {
-    setReloading(true);
     if (gridChanged) {
-      // The draft counts the old grid's positions: the new code must not read
-      // it back as its own (the migration keeps updated_at, so it would).
-      writeDraft(layout.id, null);
+      // Only new code helps. The draft stays: its key names this grid, so the
+      // new code never reads it as its own, and if the leave prompt is
+      // cancelled the editor and its changes are still here as they were.
       window.location.reload();
       return;
     }
+    setReloading(true);
     try {
       writeDraft(layout.id, null);
       await onReload();
@@ -288,6 +297,19 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Select value={gridDisplay} onValueChange={(v) => setGridDisplay(v as GridDisplay)}>
+            <SelectTrigger className="h-8 w-auto gap-2" data-testid="editor-grid-display" aria-label={t("gridDisplay.label")} title={t("gridDisplay.label")}>
+              <Grid3x3 className="size-4" aria-hidden="true" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {GRID_DISPLAYS.map((d) => (
+                <SelectItem key={d} value={d} data-testid={`editor-grid-display-${d}`}>
+                  {t(`gridDisplay.${d}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button variant="outline" size="sm" className="gap-2" onClick={undo} disabled={!canUndo} data-testid="editor-undo" title={t("undoHint")}>
             <Undo2 className="size-4" aria-hidden="true" />
             {t("undo")}
@@ -359,7 +381,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
         <div data-testid="preview-readonly" className="flex flex-col gap-1 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm">
           <span className="flex items-center gap-2 font-medium">
             <Eye className="size-4 shrink-0" aria-hidden="true" />
-            {t("preview.readOnly", { rows: previewGrid!.rows, layoutRows: ownGrid.rows })}
+            {t("preview.readOnly", { rows: previewGrid!.cellRows, layoutRows: ownGrid.cellRows })}
           </span>
           {shown.dropped.length > 0 && (
             <span data-testid="preview-dropped" className="text-amber-700 dark:text-amber-400">
@@ -376,6 +398,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
             grid={previewGrid!}
             items={shown.items}
             editable={editable}
+            display={gridDisplay}
             selectedId={selected?.id ?? null}
             names={names}
             onSelect={setSelectedId}

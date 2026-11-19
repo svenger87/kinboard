@@ -354,7 +354,7 @@ async function createFixtures() {
       if (!unlock.ok()) throw new Error(`fixtures: the PIN was not accepted: ${unlock.status()} ${await unlock.text()}`);
     }
     const create = async (name, width, height, from) => {
-      const res = await api.post("/api/layouts", { data: { name, width, height, ...(from ? { from } : {}) } });
+      const res = await api.post("/api/layouts", { data: { grid: 48, name, width, height, ...(from ? { from } : {}) } });
       if (res.status() === 403) throw new Error("fixtures: the family has a settings PIN; pass it with --pin");
       if (res.status() !== 201) throw new Error(`fixtures: creating ${name} failed: ${res.status()} ${await res.text()}`);
       return (await res.json()).layout;
@@ -362,7 +362,7 @@ async function createFixtures() {
     const portrait = await create("matrix-Hochkant", 1080, 1920, "builtin");
     const landscape = await create("matrix-Quer", 1920, 1080, "builtin");
     const min = await create("matrix-Alle Widgets", 1080, 1920);
-    const patched = await api.patch(`/api/layouts/${min.id}`, { data: { screensaver: MIN_ITEMS, updated_at: min.updated_at } });
+    const patched = await api.patch(`/api/layouts/${min.id}`, { data: { grid: 48, screensaver: MIN_ITEMS, updated_at: min.updated_at } });
     if (patched.status() !== 200) throw new Error(`fixtures: saving the minimum layout failed: ${patched.status()} ${await patched.text()}`);
     return { portrait: portrait.id, landscape: landscape.id, min: min.id };
   } finally {

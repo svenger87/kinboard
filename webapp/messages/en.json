@@ -3314,6 +3314,12 @@
         "saved": "Layout saved",
         "stale": "Someone changed this layout meanwhile — reload to see it.",
         "reload": "Reload",
+        "gridDisplay": {
+          "label": "Grid",
+          "dots": "Dots and lines",
+          "lines": "Lines",
+          "off": "Off"
+        },
         "errors": {
           "unknown_widget": "{name}: this widget is not known.",
           "out_of_bounds": "{name} does not fit on the screen.",

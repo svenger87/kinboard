@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as R
 import ReactGridLayout, { type Layout as GridLayout } from "react-grid-layout";
 import { getCompactor, setTransform, type PositionStrategy } from "react-grid-layout/core";
 import "react-grid-layout/css/styles.css";
-import { boxRect, textPx, type Grid } from "@/lib/layouts/grid";
+import { GRID, boxRect, textPx, type Grid } from "@/lib/layouts/grid";
 import { SAVER_WIDGETS } from "@/lib/layouts/widgets";
 import type { LayoutItem, SaverWidgetKey } from "@/lib/layouts/types";
 import { SAVER_WIDGET_COMPONENTS } from "@/components/layouts/saver-widgets";
+import { GridOverlay, type GridDisplay } from "./grid-overlay";
 
 /** No compaction, and a move or resize onto another widget is refused rather than pushing it. */
 const COMPACTOR = getCompactor(null, false, true);
@@ -15,6 +16,12 @@ const COMPACTOR = getCompactor(null, false, true);
 const HANDLE_PX = 22;
 /** Room kept under the canvas, above the navigation bar, so it fits the window without scrolling. */
 const BOTTOM_ROOM = 16;
+/**
+ * Each grid item spans whole steps, a box plus half a gap on every side, so
+ * columns are exactly a step wide with no margin; the box is drawn inset by
+ * half a gap, which leaves a full gap between neighbours.
+ */
+const INSET = GRID.GAP / 2;
 
 /**
  * The library's own scaled strategy (createScaledStrategy) places a dragged
@@ -56,15 +63,16 @@ function useFitScale(width: number, height: number) {
 
 /**
  * The target screen at its own CSS size, scaled down to fit, with the
- * layout's widgets drawn by the real screensaver components on the grid.
- * Editable: drag to move, the corner to resize, both in whole cells and
- * never onto another widget or below the widget's minimum; the cells show
- * while a widget is moving. Not editable: a preview, nothing moves.
+ * layout's widgets drawn by the real screensaver components on the grid,
+ * over the grid itself (dots, lines or nothing; `display`). Editable: drag
+ * to move, the corner to resize, both in whole steps and never onto another
+ * widget or below the widget's minimum. Not editable: a preview, nothing moves.
  */
 export function EditorCanvas({
   grid,
   items,
   editable,
+  display,
   selectedId,
   names,
   onSelect,
@@ -73,13 +81,13 @@ export function EditorCanvas({
   grid: Grid;
   items: LayoutItem[];
   editable: boolean;
+  display: GridDisplay;
   selectedId: string | null;
   names: Record<SaverWidgetKey, string>;
   onSelect: (id: string | null) => void;
   onCommit: (items: LayoutItem[]) => void;
 }) {
   const { ref, navRef, scale } = useFitScale(grid.width, grid.height);
-  const [moving, setMoving] = useState(false);
   const strategy = useMemo(() => scaledStrategy(scale || 1), [scale]);
 
   const layout = useMemo<GridLayout>(
@@ -98,7 +106,6 @@ export function EditorCanvas({
 
   const commit = useCallback(
     (next: GridLayout) => {
-      setMoving(false);
       const byId = new Map(next.map((l) => [l.i, l]));
       onCommit(
         items.map((i) => {
@@ -109,24 +116,6 @@ export function EditorCanvas({
     },
     [items, onCommit],
   );
-
-  const cells = useMemo(() => {
-    if (!moving) return null;
-    const out = [];
-    for (let y = 0; y < grid.rows; y++) {
-      for (let x = 0; x < grid.columns; x++) {
-        const r = boxRect({ x, y, w: 1, h: 1 }, grid);
-        out.push(
-          <div
-            key={`${x}-${y}`}
-            className="absolute rounded-md border border-dashed border-white/20 bg-white/[0.03]"
-            style={{ left: r.left, top: r.top, width: r.width, height: r.height }}
-          />,
-        );
-      }
-    }
-    return out;
-  }, [moving, grid]);
 
   const handleSize = HANDLE_PX / (scale || 1);
   const fontSize = (i: LayoutItem) => textPx(i.text, grid.width, grid.height);
@@ -159,21 +148,21 @@ export function EditorCanvas({
             }}
           >
             <style>{`
-              .kb-editor-screen .react-grid-item.react-grid-placeholder { background: hsl(var(--primary)); opacity: 0.35; border-radius: 12px; }
+              .kb-editor-screen .react-grid-item.react-grid-placeholder { background: hsl(var(--primary)); background-clip: content-box; padding: ${INSET}px; opacity: 0.35; border-radius: ${12 + INSET}px; }
               .kb-editor-screen .react-grid-item > .react-resizable-handle::after { display: none; }
               .kb-editor-screen .react-grid-item > .react-resizable-handle { opacity: 0; }
               .kb-editor-screen .react-grid-item:hover > .react-resizable-handle,
               .kb-editor-screen .react-grid-item[data-selected="true"] > .react-resizable-handle { opacity: 1; }
             `}</style>
-            {cells}
+            <GridOverlay grid={grid} display={display} scale={scale} />
             <ReactGridLayout
               width={grid.width}
               layout={layout}
               gridConfig={{
                 cols: grid.columns,
-                rowHeight: grid.cell,
-                margin: [24, 24],
-                containerPadding: [grid.offsetX, grid.offsetY],
+                rowHeight: grid.step,
+                margin: [0, 0],
+                containerPadding: [grid.offsetX - INSET, grid.offsetY - INSET],
                 maxRows: grid.rows,
               }}
               compactor={COMPACTOR}
@@ -187,8 +176,8 @@ export function EditorCanvas({
                 handleComponent: (axis, handleRef) => (
                   <span
                     ref={handleRef as Ref<HTMLSpanElement>}
-                    className={`react-resizable-handle react-resizable-handle-${axis} absolute bottom-0 right-0 cursor-se-resize`}
-                    style={{ width: handleSize, height: handleSize }}
+                    className={`react-resizable-handle react-resizable-handle-${axis} pointer-events-auto absolute cursor-se-resize`}
+                    style={{ width: handleSize, height: handleSize, right: INSET, bottom: INSET }}
                   >
                     <span
                       className="absolute rounded-br-md border-b-white border-r-white"
@@ -197,8 +186,6 @@ export function EditorCanvas({
                   </span>
                 ),
               }}
-              onDragStart={() => setMoving(true)}
-              onResizeStart={() => setMoving(true)}
               onDragStop={commit}
               onResizeStop={commit}
             >
@@ -220,18 +207,25 @@ export function EditorCanvas({
                     aria-pressed={selected}
                     onMouseDown={() => editable && onSelect(item.id)}
                     onFocus={() => editable && onSelect(item.id)}
-                    className={`rounded-xl outline-none ${editable ? "cursor-grab active:cursor-grabbing" : ""}`}
-                    style={{
-                      fontSize: fontSize(item),
-                      boxShadow: selected
-                        ? `0 0 0 ${3 / (scale || 1)}px hsl(var(--primary))`
-                        : editable
-                          ? `0 0 0 ${1 / (scale || 1)}px rgba(255,255,255,0.25)`
-                          : undefined,
-                    }}
+                    className="pointer-events-none outline-none"
+                    style={{ fontSize: fontSize(item) }}
                   >
-                    <div className="pointer-events-none size-full overflow-hidden">
-                      <Widget item={item} box={box} editing />
+                    {/* The box as drawn: the item less half a gap all round. Only it takes the pointer, so the gap between two boxes grabs neither. */}
+                    <div
+                      data-editor-box
+                      className={`pointer-events-auto absolute rounded-xl ${editable ? "cursor-grab active:cursor-grabbing" : ""}`}
+                      style={{
+                        inset: INSET,
+                        boxShadow: selected
+                          ? `0 0 0 ${3 / (scale || 1)}px hsl(var(--primary))`
+                          : editable
+                            ? `0 0 0 ${1 / (scale || 1)}px rgba(255,255,255,0.25)`
+                            : undefined,
+                      }}
+                    >
+                      <div className="pointer-events-none size-full overflow-hidden">
+                        <Widget item={item} box={box} editing />
+                      </div>
                     </div>
                   </div>
                 );
