@@ -62,7 +62,7 @@ import {
   useUpdateSetting,
 } from "@/hooks";
 import { toast } from "sonner";
-import { DEFAULT_MONTHLY_TERMS } from "@/lib/unsplash-defaults";
+import { DEFAULT_MONTHLY_TERMS, allMonthTerms, customizedTerms } from "@/lib/unsplash-defaults";
 import { PageHeader } from "@/components/page-header";
 import { IntegrationConfigHint } from "@/components/integration-config-hint";
 
@@ -125,21 +125,10 @@ export default function PhotoSettingsPage() {
   const [termsChanged, setTermsChanged] = useState(false);
   const [newTermInputs, setNewTermInputs] = useState<Record<string, string>>({});
 
-  // Sync monthly terms from saved settings
-  // Old single-string format is discarded in favor of new array defaults
+  // Show what each month actually uses: the household's own list where they
+  // edited one, the current defaults everywhere else.
   useEffect(() => {
-    if (unsplashSettings?.monthly_terms) {
-      const merged: Record<string, string[]> = {};
-      for (const [k, v] of Object.entries(DEFAULT_MONTHLY_TERMS)) {
-        const saved = unsplashSettings.monthly_terms[k];
-        if (Array.isArray(saved) && saved.length > 0) {
-          merged[k] = saved;
-        } else {
-          merged[k] = [...v];
-        }
-      }
-      setMonthlyTerms(merged);
-    }
+    setMonthlyTerms(allMonthTerms(unsplashSettings?.monthly_terms));
   }, [unsplashSettings?.monthly_terms]);
 
   // ── Loading state ──
@@ -247,9 +236,11 @@ export default function PhotoSettingsPage() {
       await testUnsplashConnection.mutateAsync(unsplashKey);
       setUnsplashTestSuccess(true);
 
+      // Only months someone edited are stored; the rest follow the
+      // defaults, so a later release's better list still reaches them.
       await saveUnsplashSettings.mutateAsync({
         access_key: unsplashKey,
-        monthly_terms: monthlyTerms,
+        monthly_terms: customizedTerms(monthlyTerms),
       });
 
       setUnsplashDialogOpen(false);
@@ -301,7 +292,7 @@ export default function PhotoSettingsPage() {
     try {
       await saveUnsplashSettings.mutateAsync({
         ...unsplashSettings,
-        monthly_terms: monthlyTerms,
+        monthly_terms: customizedTerms(monthlyTerms),
       });
       setTermsChanged(false);
       toast.success(t("termsSavedToast"));
