@@ -32,6 +32,26 @@
   size-adjust: 137.28%;
 }
 
+/* Font styles (Settings → Design → Font style, lib/font-style.ts): the
+   family's choice lands on <body data-font-style> (hooks/use-font-style.ts)
+   and these rules point the two type variables at the picked pair. The
+   per-style variables come from src/app/fonts.ts. The attribute selector
+   outranks the fonts' own variable classes on <body>; everything below
+   inherits the remapped variables. Mono stays Space Mono in every style. */
+body[data-font-style="rounded"] {
+  --font-display: var(--font-display-rounded);
+  --font-sans: var(--font-sans-rounded);
+}
+
+body[data-font-style="clean"] {
+  --font-display: var(--font-display-clean);
+  --font-sans: var(--font-sans-clean);
+}
+
+body[data-font-style="serif"] {
+  --font-display: var(--font-display-serif);
+}
+
 /* Centered dialogs are portals, outside page shells that provide safe-area
    padding. Keep their panels clear of notches and home indicators, including
    short landscape viewports. The custom-property fallbacks let layout tests

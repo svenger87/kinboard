@@ -22,6 +22,9 @@ export const SETTINGS_KEYS = {
   // last_error_at, last_error }. Written only by the server (plan ruling 20).
   schoolHolidaySync: "school_holiday_sync",
   theme: "theme",
+  // { style }, the family's typeface pairing (lib/font-style.ts);
+  // absent means classic.
+  fontStyle: "font_style",
   widgetVisibility: "widget_visibility",
   scheduleWidget: "schedule_widget",
   // { displayMode, recentTransactions }, the dashboard pocket-money

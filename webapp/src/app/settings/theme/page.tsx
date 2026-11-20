@@ -17,6 +17,14 @@ import { useTheme } from "next-themes";
 import { PageHeader } from "@/components/page-header";
 import { FestivalSettingsCard } from "@/components/settings/festival-settings";
 import { ALL_PALETTE_CLASSES, type Palette as ThemePalette } from "@/hooks/use-theme-settings";
+import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import {
+  FONT_STYLES,
+  DEFAULT_FONT_STYLE_SETTINGS,
+  fontStyleOf,
+  type FontStyleId,
+  type FontStyleSettings,
+} from "@/lib/font-style";
 
 // Month names are computed per-locale via date-fns; these are the
 // theme metadata only. The "name" is decorative branding kept in
@@ -107,6 +115,13 @@ export default function ThemeSettingsPage() {
   const { data: settings, isLoading } = useSetting<ThemeSettings>("theme", DEFAULT_SETTINGS);
   const updateSetting = useUpdateSetting<ThemeSettings>();
 
+  // Font style: a family setting of its own (lib/font-style.ts), applied
+  // app-wide by useFontStyle in ThemeSettingsProvider.
+  const { data: fontStyleSettings, isLoading: isLoadingFontStyle } =
+    useSetting<FontStyleSettings>(SETTINGS_KEYS.fontStyle, DEFAULT_FONT_STYLE_SETTINGS);
+  const updateFontStyle = useUpdateSetting<FontStyleSettings>();
+  const fontStyle = fontStyleOf(fontStyleSettings);
+
   // Per-device text scale — localStorage, not the Supabase settings above.
   const [textScale, setTextScale] = useTextScale();
   // Per-device animations (lib/motion.ts) — a Pi on the wall turns them off
@@ -155,6 +170,10 @@ export default function ThemeSettingsPage() {
     });
   };
 
+  const handleFontStyleChange = (id: FontStyleId) => {
+    updateFontStyle.mutate({ key: SETTINGS_KEYS.fontStyle, value: { style: id } });
+  };
+
   const handleThemeOverride = (index: number) => {
     const newOverride = index === currentMonth ? null : index;
     updateSetting.mutate({
@@ -200,7 +219,7 @@ export default function ThemeSettingsPage() {
           className="mb-8"
         />
 
-        {isLoading ? (
+        {isLoading || isLoadingFontStyle ? (
           <div className="flex flex-col gap-6">
             <Skeleton className="h-48 w-full rounded-xl" />
             <Skeleton className="h-48 w-full rounded-xl" />
@@ -293,6 +312,50 @@ export default function ThemeSettingsPage() {
                       />
                       <span className="text-xs font-medium" style={{ color: `hsl(${p.text})` }}>
                         {t(`palette_${p.id}`)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Font Style Section */}
+            <motion.div id="font-style" data-setting="font-style"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.18 }}
+              className="mb-6"
+            >
+              <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+                {t("fontStyleHeading")}
+              </h2>
+              <Card className="p-4">
+                <p className="text-sm text-muted-foreground mb-4">{t("fontStyleIntro")}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {FONT_STYLES.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => handleFontStyleChange(s.id)}
+                      disabled={updateFontStyle.isPending}
+                      aria-pressed={fontStyle === s.id}
+                      data-font-style-option={s.id}
+                      className={`relative rounded-xl border border-border p-3 text-left transition-all ${
+                        fontStyle === s.id
+                          ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                          : "hover:scale-[1.02]"
+                      } ${updateFontStyle.isPending ? "opacity-50" : ""}`}
+                    >
+                      <span
+                        className="block text-lg leading-tight"
+                        style={{ fontFamily: `var(${s.displayVariable})` }}
+                      >
+                        {t(`fontStyle_${s.id}`)}
+                      </span>
+                      <span
+                        className="block text-xs text-muted-foreground mt-1"
+                        style={{ fontFamily: `var(${s.sansVariable})` }}
+                      >
+                        {s.pairing}
                       </span>
                     </button>
                   ))}

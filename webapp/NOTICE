@@ -66,7 +66,7 @@ and is not distributed with Kinboard.
 
 Fonts
 -----
-Kinboard ships three typefaces, each under the SIL Open Font License,
+Kinboard ships seven typefaces, each under the SIL Open Font License,
 Version 1.1 (https://openfontlicense.org). The PolyForm Noncommercial License
 does not apply to them. The full license text sits next to each font in
 webapp/src/assets/fonts/<family>/OFL.txt (in the Docker image:
@@ -78,6 +78,14 @@ webapp/src/assets/fonts/<family>/OFL.txt (in the Docker image:
   (https://github.com/marcologous/hanken-grotesk)
   Space Mono — Copyright 2016 The Space Mono Project Authors
   (https://github.com/googlefonts/spacemono)
+  Fredoka — Copyright 2016 The Fredoka Project Authors
+  (https://github.com/hafontia/Fredoka-One)
+  Quicksand — Copyright 2011 The Quicksand Project Authors
+  (https://github.com/andrew-paglinawan/QuicksandFamily)
+  Inter — Copyright 2020 The Inter Project Authors
+  (https://github.com/rsms/inter)
+  Fraunces — Copyright 2018 The Fraunces Project Authors
+  (https://github.com/undercasetype/Fraunces)
 
 The files are woff2 conversions, subset to the characters Google Fonts serves
 for these families, of the fonts in https://github.com/google/fonts.

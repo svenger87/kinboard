@@ -5,7 +5,18 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { getMonthTheme } from "@/lib/utils";
 import { ChunkErrorRecovery } from "@/components/chunk-error-recovery";
-import { display, sans, mono } from "./fonts";
+import {
+  display,
+  sans,
+  mono,
+  displayRounded,
+  sansRounded,
+  displayClean,
+  sansClean,
+  displaySerif,
+  displayClassic,
+  sansClassic,
+} from "./fonts";
 import { publicApiEnv } from "@/lib/supabase/api-base";
 import { MOTION_INIT_SCRIPT } from "@/lib/motion";
 import { FESTIVAL_INIT_SCRIPT } from "@/lib/festival-settings";
@@ -69,7 +80,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} className={monthTheme} suppressHydrationWarning>
       <body
-        className={`${display.variable} ${sans.variable} ${mono.variable} font-sans antialiased min-h-page bg-background`}
+        className={`${display.variable} ${sans.variable} ${mono.variable} ${displayRounded.variable} ${sansRounded.variable} ${displayClean.variable} ${sansClean.variable} ${displaySerif.variable} ${displayClassic.variable} ${sansClassic.variable} font-sans antialiased min-h-page bg-background`}
       >
         {/* Before anything paints: this device's animation level (lib/motion.ts). */}
         <script dangerouslySetInnerHTML={{ __html: MOTION_INIT_SCRIPT }} />

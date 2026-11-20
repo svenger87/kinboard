@@ -61,6 +61,94 @@ const spaceMono = localFont({
   fallback: ["Space Mono Fallback"],
 });
 
+// ---------------------------------------------------------------------------
+// The font-style picker's extra pairings (Settings → Design → Font style,
+// lib/font-style.ts). Same treatment as the three above: the TTFs in
+// github.com/google/fonts (ofl/fredoka, ofl/quicksand, ofl/inter,
+// ofl/fraunces) at commit cc5661d4, converted to woff2 with fontTools, subset
+// to the same latin + latin-ext + vietnamese characters, hinting dropped.
+// Fredoka's wdth is pinned to 100 (its default), Inter's opsz to 14 like
+// Bricolage's, Fraunces' SOFT and WONK to 0 and its opsz to a display 100;
+// Inter and Fraunces keep wght 300–700 of their wider ranges. No metric
+// fallbacks: these faces only ever swap in over the classic pairing, which
+// is already on screen, so a jump would be the swap itself either way.
+//
+// The classic pair is registered a second time under its own variables so
+// the picker's cards (and any future preview) can name it directly while
+// another style is remapping --font-display / --font-sans.
+
+const fredoka = localFont({
+  src: "../assets/fonts/fredoka/Fredoka-wght.woff2",
+  weight: "300 700",
+  style: "normal",
+  variable: "--font-display-rounded",
+  display: "swap",
+  adjustFontFallback: false,
+});
+
+const quicksand = localFont({
+  src: "../assets/fonts/quicksand/Quicksand-wght.woff2",
+  weight: "300 700",
+  style: "normal",
+  variable: "--font-sans-rounded",
+  display: "swap",
+  adjustFontFallback: false,
+});
+
+const interDisplay = localFont({
+  src: "../assets/fonts/inter/Inter-wght.woff2",
+  weight: "300 700",
+  style: "normal",
+  variable: "--font-display-clean",
+  display: "swap",
+  adjustFontFallback: false,
+});
+
+const interSans = localFont({
+  src: "../assets/fonts/inter/Inter-wght.woff2",
+  weight: "300 700",
+  style: "normal",
+  variable: "--font-sans-clean",
+  display: "swap",
+  adjustFontFallback: false,
+});
+
+const fraunces = localFont({
+  src: "../assets/fonts/fraunces/Fraunces-wght.woff2",
+  weight: "300 700",
+  style: "normal",
+  variable: "--font-display-serif",
+  display: "swap",
+  adjustFontFallback: false,
+});
+
+const bricolageGrotesqueClassic = localFont({
+  src: "../assets/fonts/bricolage-grotesque/BricolageGrotesque-wght.woff2",
+  weight: "300 700",
+  style: "normal",
+  variable: "--font-display-classic",
+  display: "swap",
+  adjustFontFallback: false,
+  fallback: ["Bricolage Grotesque Fallback"],
+});
+
+const hankenGroteskClassic = localFont({
+  src: "../assets/fonts/hanken-grotesk/HankenGrotesk-wght.woff2",
+  weight: "400 700",
+  style: "normal",
+  variable: "--font-sans-classic",
+  display: "swap",
+  adjustFontFallback: false,
+  fallback: ["Hanken Grotesk Fallback"],
+});
+
 export const display = bricolageGrotesque;
 export const sans = hankenGrotesk;
 export const mono = spaceMono;
+export const displayRounded = fredoka;
+export const sansRounded = quicksand;
+export const displayClean = interDisplay;
+export const sansClean = interSans;
+export const displaySerif = fraunces;
+export const displayClassic = bricolageGrotesqueClassic;
+export const sansClassic = hankenGroteskClassic;
