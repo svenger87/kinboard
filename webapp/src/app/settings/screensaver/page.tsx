@@ -27,7 +27,13 @@ import {
   SCREENSAVER_OVERLAY_OPACITY_MAX,
   SCREENSAVER_OVERLAY_OPACITY_MIN,
   SCREENSAVER_OVERLAY_OPACITY_STEP,
+  SCREENSAVER_PANEL_COLORS,
+  SCREENSAVER_PANEL_RGB,
   screensaverOverlayOpacity,
+  screensaverPanelColor,
+  screensaverPanelTextColor,
+  type ScreensaverPanelColor,
+  type ScreensaverPanelTextColor,
 } from "@/types/screensaver";
 import { useState } from "react";
 import Link from "next/link";
@@ -119,6 +125,26 @@ export default function ScreensaverSettingsPage() {
     updateSettings.mutate({
       key: "screensaver",
       value: { ...settings, overlayOpacity: value },
+    });
+  };
+
+  // The panels' colour, and the writing colour in force: the stored
+  // writing colour when the family picked one, the one derived from the
+  // panel colour otherwise.
+  const panelColor = screensaverPanelColor(settings.panelColor);
+  const panelTextColor = screensaverPanelTextColor(settings.panelTextColor, panelColor);
+
+  const handlePanelColorChange = (value: ScreensaverPanelColor) => {
+    updateSettings.mutate({
+      key: "screensaver",
+      value: { ...settings, panelColor: value },
+    });
+  };
+
+  const handlePanelTextColorChange = (value: ScreensaverPanelTextColor) => {
+    updateSettings.mutate({
+      key: "screensaver",
+      value: { ...settings, panelTextColor: value },
     });
   };
 
@@ -277,6 +303,63 @@ export default function ScreensaverSettingsPage() {
                 aria-label={t("panelOpacityLabel")}
               />
               <span className="w-10 text-right text-sm tabular-nums">{opacityDraft ?? overlayOpacity}%</span>
+            </div>
+          </div>
+          <div id="panel-color" data-setting="panel-color" className="flex items-center justify-between gap-4">
+            <div>
+              <Label>{t("panelColorLabel")}</Label>
+              <p className="text-xs text-muted-foreground">{t("panelColorDescription")}</p>
+            </div>
+            <div className="flex items-start gap-2 shrink-0" role="radiogroup" aria-label={t("panelColorLabel")}>
+              {SCREENSAVER_PANEL_COLORS.map((color) => {
+                const name = t(`panelColor.${color}`);
+                const selected = panelColor === color;
+                return (
+                  <button
+                    key={color}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-label={name}
+                    title={name}
+                    data-testid={`screensaver-panel-color-${color}`}
+                    onClick={() => handlePanelColorChange(color)}
+                    disabled={updateSettings.isPending}
+                    className="flex w-12 flex-col items-center gap-1 disabled:opacity-50"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`size-8 rounded-full border border-black/25 ${selected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
+                      style={{ backgroundColor: `rgb(${SCREENSAVER_PANEL_RGB[color]})` }}
+                    />
+                    <span className={`text-[11px] leading-tight ${selected ? "font-medium" : "text-muted-foreground"}`}>{name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div id="panel-text-color" data-setting="panel-text-color" className="flex items-center justify-between gap-4">
+            <div>
+              <Label>{t("panelTextColorLabel")}</Label>
+              <p className="text-xs text-muted-foreground">{t("panelTextColorDescription")}</p>
+            </div>
+            <div className="flex shrink-0 rounded-lg border p-0.5" role="group" aria-label={t("panelTextColorLabel")}>
+              {(["white", "black"] as const).map((color) => {
+                const selected = panelTextColor === color;
+                return (
+                  <button
+                    key={color}
+                    type="button"
+                    aria-pressed={selected}
+                    data-testid={`screensaver-panel-text-color-${color}`}
+                    onClick={() => handlePanelTextColorChange(color)}
+                    disabled={updateSettings.isPending}
+                    className={`rounded-md px-3 py-1.5 text-sm disabled:opacity-50 ${selected ? "bg-primary font-medium text-primary-foreground" : "text-muted-foreground"}`}
+                  >
+                    {t(`panelTextColor.${color}`)}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div id="preview" data-setting="preview" className="flex items-center justify-between gap-4">

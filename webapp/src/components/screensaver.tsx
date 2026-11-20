@@ -11,7 +11,15 @@ import { BirthdayRow, EnergyRows, EventRow, NewsCard, SectionLabel, TeslaRows, u
 import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties } from "react";
 import { type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
-import { screensaverOverlayOpacity } from "@/types/screensaver";
+import {
+  SCREENSAVER_PANEL_ACCENT_RGB,
+  SCREENSAVER_PANEL_AMBER_RGB,
+  SCREENSAVER_PANEL_RGB,
+  SCREENSAVER_PANEL_TEXT_RGB,
+  screensaverOverlayOpacity,
+  screensaverPanelColor,
+  screensaverPanelTextColor,
+} from "@/types/screensaver";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
 import { Cake, Calendar, Newspaper, X, ExternalLink, BookOpen, Clock } from "lucide-react";
 import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
@@ -173,6 +181,13 @@ export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) 
   // panels as a CSS variable on the root below, so the weather, the
   // events and the news all move together.
   const overlayOpacity = screensaverOverlayOpacity(screensaverSettings.overlayOpacity);
+  // The panels' colour and the colour of the writing on them (Panel
+  // colour / Panel text colour) ride along the same way: the root below
+  // publishes the triplets, and the panels' .panel-fg* classes read
+  // them. The writing colour derives from the panel colour until the
+  // family picks one itself.
+  const panelColor = screensaverPanelColor(screensaverSettings.panelColor);
+  const panelTextColor = screensaverPanelTextColor(screensaverSettings.panelTextColor, panelColor);
 
 
 
@@ -340,7 +355,15 @@ export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) 
         className={`fixed inset-0 z-[100] screensaver-fade-in ${
           currentBlobUrl ? "bg-black" : "screensaver-canvas-empty"
         }`}
-        style={{ "--screensaver-overlay-opacity": overlayOpacity / 100 } as CSSProperties}
+        style={
+          {
+            "--screensaver-overlay-opacity": overlayOpacity / 100,
+            "--screensaver-panel-rgb": SCREENSAVER_PANEL_RGB[panelColor],
+            "--screensaver-panel-fg-rgb": SCREENSAVER_PANEL_TEXT_RGB[panelTextColor],
+            "--screensaver-panel-accent-rgb": SCREENSAVER_PANEL_ACCENT_RGB[panelTextColor],
+            "--screensaver-panel-amber-rgb": SCREENSAVER_PANEL_AMBER_RGB[panelTextColor],
+          } as CSSProperties
+        }
       >
         {/* Background Photo - Only render current and previous for performance */}
         <div className="absolute inset-0">
@@ -440,7 +463,7 @@ export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) 
 
               {/* Divider between energy and Tesla */}
               {showEnergyWidget && showTeslaWidget && (
-                <div className="border-t border-white/10" />
+                <div className="border-t panel-fg-border-soft" />
               )}
 
               {showTeslaWidget && (

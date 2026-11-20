@@ -41,10 +41,12 @@ test("stored values are respected, clamped to the slider's range and snapped to 
 test("the screensaver root publishes the setting as the panels' CSS variable", () => {
   const saver = read("src/components/screensaver.tsx");
   expect(saver).toContain("const overlayOpacity = screensaverOverlayOpacity(screensaverSettings.overlayOpacity);");
-  expect(saver).toContain('style={{ "--screensaver-overlay-opacity": overlayOpacity / 100 } as CSSProperties}');
+  expect(saver).toContain('"--screensaver-overlay-opacity": overlayOpacity / 100');
   const css = read("src/app/globals.css");
   expect(css).toContain(".screensaver-panel {");
-  expect(css).toContain("background-color: rgb(0 0 0 / var(--screensaver-overlay-opacity, 0.7));");
+  // The fill's colour is the Panel colour variable (screensaver-panel-color.spec.ts);
+  // the opacity in it is this setting.
+  expect(css).toContain("background-color: rgb(var(--screensaver-panel-rgb, 0 0 0) / var(--screensaver-overlay-opacity, 0.7));");
   expect(css).toContain(".screensaver-panel-hover:hover {");
 });
 

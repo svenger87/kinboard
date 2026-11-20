@@ -14,13 +14,15 @@ import { upcomingSlots } from "@/lib/weather-effects";
  * a child can tell from across the room whether today is a raincoat day.
  *
  * The strip's surface is the screensaver's shared panel fill
- * (.screensaver-panel — its opacity is Settings -> Screensaver ->
- * Panel opacity) plus a hairline border: the fill alone disappears on
- * the black pillarbox beside a portrait photo at any opacity, and the
- * strip — wide, and anchored top right — is the one screensaver block
- * that regularly straddles that edge, so without the border its card
- * visibly ends mid-widget where the photo does. The border keeps it
- * one card on any backdrop.
+ * (.screensaver-panel — its colour and opacity are Settings ->
+ * Screensaver -> Panel colour / Panel opacity) plus a hairline border:
+ * the fill alone disappears on the black pillarbox beside a portrait
+ * photo at any opacity, and the strip — wide, and anchored top right —
+ * is the one screensaver block that regularly straddles that edge, so
+ * without the border its card visibly ends mid-widget where the photo
+ * does. The border keeps it one card on any backdrop; it and the
+ * writing take the Panel text colour (.panel-fg* in globals.css), so a
+ * light panel gets a dark hairline and dark writing.
  *
  * The slots are OpenWeatherMap's, three hours apart: the free forecast has no
  * hourly steps. They come from the Weather widget's own query (same cache,
@@ -67,17 +69,17 @@ export function ScreensaverWeather({
   const small = large ? "text-base" : "text-xs";
   return (
     <div
-      className="flex items-stretch gap-1 screensaver-panel border border-white/15 rounded-xl px-2 py-2.5 gpu-blur"
+      className="flex items-stretch gap-1 screensaver-panel border panel-fg-border rounded-xl px-2 py-2.5 gpu-blur"
       data-testid="screensaver-forecast"
       data-slots={slots.length}
     >
       <Column label={t("forecastNow")} labelClass={small} strong>
-        <NowIcon className={`${icon} text-white`} strokeWidth={1.75} />
-        <span className={`font-display font-light ${temp} text-white tabular-nums leading-none`}>{Math.round(weather.temp)}°</span>
+        <NowIcon className={`${icon} panel-fg`} strokeWidth={1.75} />
+        <span className={`font-display font-light ${temp} panel-fg tabular-nums leading-none`}>{Math.round(weather.temp)}°</span>
         {/* The rain row stays level across the columns: "now" has no chance, only the slots do. */}
         <span className={`${small} invisible`} aria-hidden="true">0%</span>
       </Column>
-      <div className="w-px self-stretch bg-white/15 mx-1" aria-hidden="true" />
+      <div className="w-px self-stretch panel-fg-line mx-1" aria-hidden="true" />
       {slots.map((slot, i) => {
         const Icon = screensaverWeatherIcon(slot.conditionMain ?? slot.condition, slot.conditionIcon);
         const wet = slot.precipProbability >= RAIN_STANDS_OUT;
@@ -88,10 +90,10 @@ export function ScreensaverWeather({
             labelClass={small}
             className={i >= SLOTS_NARROW ? "hidden md:flex" : undefined}
           >
-            <Icon className={`${icon} text-white`} strokeWidth={1.75} />
-            <span className={`font-display font-light ${temp} text-white tabular-nums leading-none`}>{slot.temp}°</span>
+            <Icon className={`${icon} panel-fg`} strokeWidth={1.75} />
+            <span className={`font-display font-light ${temp} panel-fg tabular-nums leading-none`}>{slot.temp}°</span>
             <span
-              className={`flex items-center gap-0.5 tabular-nums ${small} ${wet ? "font-semibold text-sky-300" : "text-white/55"}`}
+              className={`flex items-center gap-0.5 tabular-nums ${small} ${wet ? "font-semibold panel-accent" : "panel-fg-55"}`}
               data-wet={wet ? "true" : undefined}
             >
               <Droplets className={large ? "size-3.5" : "size-3"} aria-hidden="true" />
@@ -123,24 +125,24 @@ export function ScaledForecast({ weather, slots: maxSlots, fill = false }: { wea
   // fill: the card is the whole box and the columns share its width, so its edges are the box's.
   return (
     <div
-      className={`flex items-stretch gap-[0.25em] screensaver-panel border border-white/15 rounded-[0.75em] px-[0.5em] py-[0.625em] gpu-blur${fill ? " size-full justify-between" : ""}`}
+      className={`flex items-stretch gap-[0.25em] screensaver-panel border panel-fg-border rounded-[0.75em] px-[0.5em] py-[0.625em] gpu-blur${fill ? " size-full justify-between" : ""}`}
       data-slots={slots.length}
     >
       <ScaledColumn label={t("forecastNow")} strong fill={fill}>
-        <NowIcon className="size-[1.75em] text-white" strokeWidth={1.75} />
-        <span className="font-display font-light text-[1.5em] text-white tabular-nums leading-none">{Math.round(weather.temp)}°</span>
+        <NowIcon className="size-[1.75em] panel-fg" strokeWidth={1.75} />
+        <span className="font-display font-light text-[1.5em] panel-fg tabular-nums leading-none">{Math.round(weather.temp)}°</span>
         <span className="text-[0.75em] leading-[1.25] invisible" aria-hidden="true">0%</span>
       </ScaledColumn>
-      {slots.length > 0 && <div className="w-px self-stretch bg-white/15 mx-[0.25em]" aria-hidden="true" />}
+      {slots.length > 0 && <div className="w-px self-stretch panel-fg-line mx-[0.25em]" aria-hidden="true" />}
       {slots.map((slot) => {
         const Icon = screensaverWeatherIcon(slot.conditionMain ?? slot.condition, slot.conditionIcon);
         const wet = slot.precipProbability >= RAIN_STANDS_OUT;
         return (
           <ScaledColumn key={slot.at ?? slot.time} label={formatWallClock(slot.time)} fill={fill}>
-            <Icon className="size-[1.75em] text-white" strokeWidth={1.75} />
-            <span className="font-display font-light text-[1.5em] text-white tabular-nums leading-none">{slot.temp}°</span>
+            <Icon className="size-[1.75em] panel-fg" strokeWidth={1.75} />
+            <span className="font-display font-light text-[1.5em] panel-fg tabular-nums leading-none">{slot.temp}°</span>
             <span
-              className={`flex items-center gap-[0.125em] tabular-nums text-[0.75em] leading-[1.25] ${wet ? "font-semibold text-sky-300" : "text-white/55"}`}
+              className={`flex items-center gap-[0.125em] tabular-nums text-[0.75em] leading-[1.25] ${wet ? "font-semibold panel-accent" : "panel-fg-55"}`}
               data-wet={wet ? "true" : undefined}
             >
               <Droplets className="size-[1em]" aria-hidden="true" />
@@ -171,7 +173,7 @@ export function forecastSlotsFor(widthPx: number, fontPx: number): number {
 function ScaledColumn({ label, strong = false, fill = false, children }: { label: string; strong?: boolean; fill?: boolean; children: React.ReactNode }) {
   return (
     <div className={`flex shrink-0 flex-col items-center gap-[0.375em] px-[0.25em] ${fill ? "min-w-[4.5em] flex-1 justify-center" : "w-[4.5em]"}`}>
-      <span className={`text-[0.75em] leading-[1.25] tabular-nums ${strong ? "font-semibold text-white/80" : "text-white/60"}`}>{label}</span>
+      <span className={`text-[0.75em] leading-[1.25] tabular-nums ${strong ? "font-semibold panel-fg-80" : "panel-fg-60"}`}>{label}</span>
       {children}
     </div>
   );
@@ -187,13 +189,13 @@ export function WeatherNowChip({ weather, scaled = false }: { weather: WeatherDa
     <div
       className={
         scaled
-          ? "flex items-center gap-[0.75em] screensaver-panel border border-white/15 rounded-[0.75em] px-[1em] py-[0.625em]"
-          : "flex items-center gap-3 screensaver-panel border border-white/15 rounded-xl px-4 py-2.5"
+          ? "flex items-center gap-[0.75em] screensaver-panel border panel-fg-border rounded-[0.75em] px-[1em] py-[0.625em]"
+          : "flex items-center gap-3 screensaver-panel border panel-fg-border rounded-xl px-4 py-2.5"
       }
       data-testid={scaled ? undefined : "screensaver-weather"}
     >
-      <NowIcon className={`${scaled ? "size-[1.75em]" : "size-7"} text-white`} strokeWidth={1.75} />
-      <span className={`font-display font-light ${scaled ? "text-[1.875em]" : "text-3xl"} text-white tabular-nums leading-none`}>
+      <NowIcon className={`${scaled ? "size-[1.75em]" : "size-7"} panel-fg`} strokeWidth={1.75} />
+      <span className={`font-display font-light ${scaled ? "text-[1.875em]" : "text-3xl"} panel-fg tabular-nums leading-none`}>
         {Math.round(weather.temp)}°
       </span>
     </div>
@@ -215,7 +217,7 @@ function Column({
 }) {
   return (
     <div className={`flex-col items-center gap-1.5 px-2 min-w-[3.5rem] ${className ?? "flex"}`}>
-      <span className={`${labelClass} tabular-nums ${strong ? "font-semibold text-white/80" : "text-white/60"}`}>{label}</span>
+      <span className={`${labelClass} tabular-nums ${strong ? "font-semibold panel-fg-80" : "panel-fg-60"}`}>{label}</span>
       {children}
     </div>
   );

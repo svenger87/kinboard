@@ -1491,6 +1491,21 @@
       "previewButton": "预览",
       "panelOpacityLabel": "面板不透明度",
       "panelOpacityDescription": "屏保上的深色面板（天气、日程、新闻）在照片上显示得有多实。",
+      "panelColorLabel": "面板颜色",
+      "panelColorDescription": "屏保上各个面板（天气、日程、新闻）的颜色。",
+      "panelColor": {
+        "black": "黑色",
+        "graphite": "石墨灰",
+        "grey": "灰色",
+        "silver": "银色",
+        "white": "白色"
+      },
+      "panelTextColorLabel": "面板文字颜色",
+      "panelTextColorDescription": "面板上文字的颜色。未选择时自动跟随面板颜色——深色面板用白字，浅色面板用黑字。",
+      "panelTextColor": {
+        "white": "白色",
+        "black": "黑色"
+      },
       "weatherEffectsLabel": "天气效果",
       "weatherEffectsDescription": "像主页一样，在照片上叠加雪、雨、霜等效果。哪些效果、何时显示，在 <link>天气</link> 中设置。",
       "birthdayCountLabel": "生日数量",
@@ -3580,6 +3595,8 @@
       "screensaver_lessons": "课程，课程表，上学，科目，体育，运动服，带，打包，孩子",
       "screensaver_preview": "预览，显示，试试，测试，现在查看",
       "screensaver_panel-opacity": "不透明度，面板，透明，深色背景，可读性",
+      "screensaver_panel-color": "面板颜色，颜色，灰色，银色，白色，黑色，石墨灰",
+      "screensaver_panel-text-color": "文字颜色，字体颜色，黑字，白字",
       "screensaver_weather-effects": "天气效果，雪，雨，霜，雾，暴风雨，动画，天气",
       "screensaver_night": "夜晚，黑暗，昏暗，就寝，睡觉，只有时钟，烧屏",
       "screensaver_timeout": "超时，空闲，无活动，分钟，何时，开始",
