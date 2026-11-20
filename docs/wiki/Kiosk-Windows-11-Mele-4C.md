@@ -305,10 +305,20 @@ Then drop your public key into `C:\Users\Calendar\.ssh\authorized_keys` and you 
 | Symptom | Likely cause |
 |---|---|
 | **Edge doesn't auto-launch on boot** | KioskLauncher task didn't fire. Check `C:\kiosk.log` exists; if not, verify the task is enabled and runs as `Calendar` with **Run only when user is logged on**. Check Task Scheduler → KioskLauncher → **Last run result**: `0x41306` means the task fired before the user was logged on (confirm AutoLogon is set); `0x1` means the batch script returned nonzero (check `C:\kiosk.log` for what failed). |
-| **On-screen keyboard doesn't appear** | `EnableDesktopModeAutoInvoke` not set, or TabTip.exe not running. Re-run `kiosk-launcher.bat` manually and verify both. |
+| **On-screen keyboard doesn't appear** | Run [touch-keyboard-diagnostics.ps1](https://github.com/svenger87/kinboard/blob/main/kiosk/touch-keyboard-diagnostics.ps1) in a normal PowerShell window while signed in as the kiosk user. Check **Settings → Time & language → Typing → Touch keyboard** and set **Show the touch keyboard** to **Always**. This controls automatic display when tapping a text field; the taskbar keyboard icon is a separate setting. Test by tapping a field in Notepad and then Edge. The script reports the service, registry values, present keyboard and touch devices, and kiosk task account without changing them. |
 | **Presence sensor not detecting** | Check `C:\presence-sensor.log` for the COM port detected. If wrong, set `SERIAL_PORT` env var or hard-code in the script. |
 | **Display turns off mid-day** | Powercfg `monitor-timeout-ac` got reset by Windows Update. Re-apply via DisplayWake. |
 | **Kiosk Edge shows "Your browser is being managed"** | Group Policy applied — that's fine, ignore the chrome banner. |
+
+For the keyboard check, save the linked script as `C:\touch-keyboard-diagnostics.ps1`, sign in as the kiosk user, and run it in a normal PowerShell window:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\touch-keyboard-diagnostics.ps1
+```
+
+It opens the Typing settings page. Set the **Show the touch keyboard** dropdown to **Always** and tap a text field with a finger. If Notepad opens the keyboard but Edge does not, test Edge in a regular window to narrow down the kiosk behavior.
+
+The script also lists present keyboard-class devices, including HID and virtual keyboards. Run it once with the physical keyboard connected and once after unplugging it. If a keyboard device remains, Windows may still treat it as attached; the device list alone does not prove that it blocks auto-open. Identify the device before disabling anything. **Always** avoids dependence on keyboard-presence detection.
 | **Edge updates pop a UAC dialog** | Group Policy → disable Edge auto-update, or accept that the dialog is one tap to dismiss |
 
 ## Related
