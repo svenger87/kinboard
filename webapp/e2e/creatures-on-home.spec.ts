@@ -349,7 +349,7 @@ test("Home measures its cards for the creatures; the idle screen has none", () =
   const home = codeOnly(read("src/components/creatures-on-home.tsx"));
   expect(home).toContain('const PLATFORM_SELECTOR = ".festival-grid > :not(button)";');
   expect(home).toContain('if (placement !== "home" || still || width === 0) return;');
-  expect(home).toContain("{ width, size, now, sleeping: sleepingRef.current, platforms: platforms.current }");
+  expect(home).toContain("{ width, size, now, sleeping: sleepingRef.current, platforms: platforms.current, weather: weatherRef.current }");
   expect(home).toContain("el.outer.style.transform = `translate3d(${left}px, ${snap(-(up + p.lift))}px, 0)`;");
   // The cards it measures are the ones Home renders.
   expect(read("src/app/page.tsx")).toContain('<section className="festival-grid ');
@@ -379,7 +379,7 @@ test("Home: off unless switched on, gone with animations off, still with reduced
   // The same creature as the widget: its stage, its look, its festival outfit, its mood.
   expect(home).toContain("creatureStage({ creature, account, earnedPoints: totalsFor(person.id).earned, pointThresholds })");
   expect(home).toContain("const look = festive(readLook(creature.look, ownedFor(person.id)));");
-  expect(home).toContain('const shownMood = lying ? "sleepy" : mood === "sleepy" ? "normal" : mood;');
+  expect(home).toContain('const shownMood = lying === "sleep" ? "sleepy" : lying === "sun" ? "happy" : mood === "sleepy" ? "normal" : mood;');
   // Bedtime is the family's, on the family's clock.
   expect(home).toContain("isSleepyTime(new Date(minute * MINUTE_MS), timeZone, bedtime)");
   const css = read("src/app/globals.css");

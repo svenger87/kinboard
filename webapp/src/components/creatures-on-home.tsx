@@ -18,7 +18,8 @@ import { MINUTE_MS } from "@/lib/minute-clock";
 import { classicIsDrawn, effectiveStyle } from "@/lib/pocket-money/creatures";
 import { readLook } from "@/lib/pocket-money/creatures/look";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { placeRoamers, poke, pose, stepRoamers, type Platform, type RoamEvent, type Roamer } from "@/lib/creatures/roam";
+import { CALM, placeRoamers, poke, pose, roamWeather, stepRoamers, type Platform, type RoamEvent, type Roamer } from "@/lib/creatures/roam";
+import { useHomeWeather } from "@/stores/home-weather";
 import type { Creature, PocketMoneyAccount, Person } from "@/types/database";
 
 /**
@@ -41,6 +42,12 @@ import type { Creature, PocketMoneyAccount, Person } from "@/types/database";
  * (leaning, settled, dimmed) instead of being turned over like a sticker.
  * The drawing's own ground shadow is hidden here: each creature gets one that
  * stays flat on the floor, smaller while it is in the air, longer lying down.
+ *
+ * On Home they react to the weather effects showing (stores/home-weather.ts):
+ * an umbrella in the child's colour in rain (shaking in a storm), a towel to
+ * lie on now and then in the heat, leaning into the wind and pushed back by
+ * it, shivering in the frost, hopping after the snow, walking slower in fog.
+ * Nothing they wear changes: the umbrella and the towel are the floor's.
  */
 export function CreaturesOnHome() {
   const { data: on } = useSetting<unknown>(SETTINGS_KEYS.creaturesOnHome, false, { refetchInterval: 60_000 });
@@ -82,6 +89,9 @@ const PLATFORM_MS = 1000;
  */
 const PICTURE_SCALE = 0.8;
 
+/** Why a creature is lying down: asleep at bedtime, or on its towel in the heat. */
+type Lying = "sleep" | "sun";
+
 interface FloorProps {
   kids: Array<{ person: Person; creature: Creature }>;
   still: boolean;
@@ -118,10 +128,25 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
   const castKey = cast.map((c) => `${c.person.id}:${c.tier === 1 ? "egg" : "up"}`).join(",");
 
   const roamers = useRef<Roamer[]>([]);
-  const elements = useRef(new Map<string, { outer: HTMLElement; inner: HTMLElement; shadow: HTMLElement }>());
+  const elements = useRef(new Map<string, { outer: HTMLElement; inner: HTMLElement; shadow: HTMLElement; towel: HTMLElement }>());
   const bursts = useRef(new Map<string, (count: number) => void>());
-  const [lying, setLying] = useState<ReadonlySet<string>>(new Set());
-  const lyingRef = useRef<ReadonlySet<string>>(new Set());
+  // Who is lying down, and why: asleep at bedtime, or on a towel in the heat.
+  const [lying, setLying] = useState<ReadonlyMap<string, Lying>>(new Map());
+  const lyingRef = useRef<ReadonlyMap<string, Lying>>(new Map());
+  // What it last lay down for, so getting up from the towel takes the towel away.
+  const lastLying = useRef(new Map<string, Lying>());
+
+  // Home's weather, as the overlay shows it; the idle screen's creatures keep calm.
+  const homeEffects = useHomeWeather((s) => s.effects);
+  const homeGust = useHomeWeather((s) => s.gust);
+  const weather = useMemo(
+    () => (placement === "home" ? roamWeather(homeEffects, homeGust) : CALM),
+    [placement, homeEffects, homeGust],
+  );
+  const weatherRef = useRef(weather);
+  weatherRef.current = weather;
+  const wet = placement === "home" && (homeEffects.includes("rain") || homeEffects.includes("storm"));
+  const stormy = placement === "home" && homeEffects.includes("storm");
   const sleepingRef = useRef<ReadonlySet<string>>(new Set());
   sleepingRef.current = bedtimeNow ? new Set(cast.map((c) => c.person.id)) : new Set();
 
@@ -218,17 +243,22 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
       // dark background; software rendering in tests does not show it).
       const dpr = window.devicePixelRatio || 1;
       const snap = (v: number) => (Math.round(v * dpr) / dpr).toFixed(2);
-      const nextLying = new Set<string>();
+      const nextLying = new Map<string, Lying>();
       for (const r of roamers.current) {
         const el = elements.current.get(r.id);
         if (!el) continue;
-        const p = still ? { lift: 0, tilt: 0, lying: r.state === "asleep" } : pose(r, now, size);
+        const p = still ? { lift: 0, tilt: 0, lying: r.state === "asleep" } : pose(r, now, size, weatherRef.current);
         // Up on a card, or on the way: its feet that far above the floor.
         const up = r.y ?? 0;
         // Lying down and getting up take 0.7 s.
-        const k = r.state === "asleep" ? Math.min(1, (now - r.since) / 700) : r.state === "waking" ? Math.max(0, 1 - (now - r.since) / 700) : 0;
+        const down = r.state === "asleep" || r.state === "sunbathe";
+        if (down) lastLying.current.set(r.id, r.state === "sunbathe" ? "sun" : "sleep");
+        const k = down ? Math.min(1, (now - r.since) / 700) : r.state === "waking" ? Math.max(0, 1 - (now - r.since) / 700) : 0;
         const ready = still ? (p.lying ? 1 : 0) : k;
-        if (ready > 0.5) nextLying.add(r.id);
+        const why = lastLying.current.get(r.id) ?? "sleep";
+        if (ready > 0.5) nextLying.set(r.id, why);
+        // The towel: spread out under one lying down in the heat, rolled away as it gets up.
+        el.towel.style.opacity = why === "sun" && ready > 0 ? ready.toFixed(2) : "0";
         const left = snap(r.x - size / 2);
         const picture = el.outer.dataset.art === "picture";
         el.outer.style.transform = `translate3d(${left}px, ${snap(-(up + p.lift))}px, 0)`;
@@ -246,12 +276,13 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
         const stretch = (picture ? PICTURE_SCALE : 1) * (1 - 0.45 * air) + (picture || r.egg ? 0 : 0.35 * ready);
         el.shadow.style.transform = `translate3d(${left}px, ${snap(-up)}px, 0) scaleX(${stretch.toFixed(3)})`;
         el.shadow.style.opacity = (1 - 0.6 * air).toFixed(2);
+        el.towel.style.transform = `translate3d(${snap(r.x - size * 0.65)}px, ${snap(-up)}px, 0)`;
         if (el.outer.dataset.state !== r.state) el.outer.dataset.state = r.state;
         const dir = String(r.dir);
         if (el.outer.dataset.dir !== dir) el.outer.dataset.dir = dir;
       }
       const prev = lyingRef.current;
-      if (nextLying.size !== prev.size || [...nextLying].some((id) => !prev.has(id))) {
+      if (nextLying.size !== prev.size || [...nextLying].some(([id, why]) => prev.get(id) !== why)) {
         lyingRef.current = nextLying;
         setLying(nextLying);
       }
@@ -275,7 +306,7 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
       if (!still) {
         const { roamers: next, events } = stepRoamers(
           roamers.current,
-          { width, size, now, sleeping: sleepingRef.current, platforms: platforms.current },
+          { width, size, now, sleeping: sleepingRef.current, platforms: platforms.current, weather: weatherRef.current },
           dt,
           random,
         );
@@ -333,6 +364,7 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
       // On the idle screen a tap on a creature is for the creature, not a wake-up.
       data-no-wake={placement === "idle" ? "" : undefined}
       data-count={cast.length}
+      data-weather={placement === "home" ? homeEffects.join(",") : undefined}
       aria-label={t("aria")}
       role="group"
     >
@@ -344,10 +376,11 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
             creature={c.creature}
             tier={c.tier}
             size={size}
-            lying={lying.has(c.person.id)}
+            lying={lying.get(c.person.id) ?? false}
             still={still}
-            register={(outer, inner, shadow) => {
-              if (outer && inner && shadow) elements.current.set(c.person.id, { outer, inner, shadow });
+            umbrella={wet ? (stormy ? "storm" : "rain") : null}
+            register={(outer, inner, shadow, towel) => {
+              if (outer && inner && shadow && towel) elements.current.set(c.person.id, { outer, inner, shadow, towel });
               else elements.current.delete(c.person.id);
             }}
             registerBurst={(fn) => {
@@ -368,6 +401,7 @@ function FloorCreature({
   size,
   lying,
   still,
+  umbrella,
   register,
   registerBurst,
   onTap,
@@ -376,9 +410,11 @@ function FloorCreature({
   creature: Creature;
   tier: number;
   size: number;
-  lying: boolean;
+  lying: Lying | false;
   still: boolean;
-  register: (outer: HTMLElement | null, inner: HTMLElement | null, shadow: HTMLElement | null) => void;
+  /** Rain: an umbrella over it, in the child's colour; a storm shakes it. */
+  umbrella: "rain" | "storm" | null;
+  register: (outer: HTMLElement | null, inner: HTMLElement | null, shadow: HTMLElement | null, towel: HTMLElement | null) => void;
   registerBurst: (fn: ((count: number) => void) | null) => void;
   onTap: () => void;
 }) {
@@ -391,13 +427,14 @@ function FloorCreature({
   const outer = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const shadow = useRef<HTMLSpanElement>(null);
+  const towel = useRef<HTMLSpanElement>(null);
   const { burst, layer } = useParticles();
   // A classic picture, as CreatureAvatar shows it: no moods, so it dozes instead of lying down.
   const picture = effectiveStyle(creature.species, creature.style) === "classic" && !classicIsDrawn(creature.species, creature.style);
 
   useEffect(() => {
-    register(outer.current, inner.current, shadow.current);
-    return () => register(null, null, null);
+    register(outer.current, inner.current, shadow.current, towel.current);
+    return () => register(null, null, null, null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
@@ -406,8 +443,9 @@ function FloorCreature({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [burst, size]);
 
-  // Eyes closed only once lying down: walking to bed it is still awake.
-  const shownMood = lying ? "sleepy" : mood === "sleepy" ? "normal" : mood;
+  // Eyes closed only once lying down to sleep: walking to bed it is still
+  // awake, and on its towel in the sun it is happy.
+  const shownMood = lying === "sleep" ? "sleepy" : lying === "sun" ? "happy" : mood === "sleepy" ? "normal" : mood;
   const stageName = tPM(`species.${creature.species}.tier${tier}` as never);
 
   return (
@@ -416,6 +454,14 @@ function FloorCreature({
         ref={shadow}
         className="home-creature-shadow absolute left-0 will-change-transform"
         style={{ width: size, bottom: Math.round(size * 0.03), height: Math.round(size * 0.1) }}
+        aria-hidden="true"
+      />
+      <span
+        ref={towel}
+        className="home-creature-towel absolute left-0 will-change-transform"
+        style={{ width: Math.round(size * 1.3), bottom: 0, height: Math.round(size * 0.13), opacity: 0, ["--towel" as string]: person.color ?? "#56B6E8" }}
+        data-testid="home-creature-towel"
+        data-person={person.id}
         aria-hidden="true"
       />
       <div
@@ -427,6 +473,8 @@ function FloorCreature({
         data-art={picture ? "picture" : "drawn"}
         data-egg={tier === 1 ? "true" : "false"}
         data-lying={lying ? "true" : "false"}
+        data-sun={lying === "sun" ? "true" : undefined}
+        data-umbrella={umbrella ?? undefined}
       >
         <div ref={inner} className="home-creature-body size-full" style={{ transformOrigin: "50% 100%" }}>
           <button
@@ -453,7 +501,8 @@ function FloorCreature({
             />
           </button>
         </div>
-        {lying && (
+        {umbrella && <Umbrella color={person.color ?? "#56B6E8"} size={size} storm={umbrella === "storm"} />}
+        {lying === "sleep" && (
           <span className="home-creature-zzz" aria-hidden="true">
             <span>z</span>
             <span>z</span>
@@ -462,5 +511,31 @@ function FloorCreature({
         {layer}
       </div>
     </>
+  );
+}
+
+/**
+ * Rain's umbrella, held over the creature (awake or asleep) in its child's
+ * colour: a scalloped canopy over its head and a handle down beside it. Not
+ * turned with the creature, so it stays upright when one lies down. In a
+ * storm it shakes in the gusts (CSS; held still with reduced motion).
+ */
+function Umbrella({ color, size, storm }: { color: string; size: number; storm: boolean }) {
+  const w = Math.round(size * 1.15);
+  return (
+    <svg
+      className={`home-creature-umbrella${storm ? " home-creature-umbrella-storm" : ""}`}
+      data-testid="home-creature-umbrella"
+      viewBox="0 0 120 110"
+      width={w}
+      height={Math.round((w * 110) / 120)}
+      style={{ left: Math.round((size - w) / 2), bottom: Math.round(size * 0.3) }}
+      aria-hidden="true"
+    >
+      <path d="M 92 30 L 92 96 Q 92 106 84 106 Q 77 106 77 99" fill="none" stroke="#5B4636" strokeWidth="4.5" strokeLinecap="round" />
+      <path d="M 8 44 Q 60 -18 112 44 Q 103 36 94 44 Q 85 36 76 44 Q 67 36 60 44 Q 53 36 44 44 Q 35 36 26 44 Q 17 36 8 44 Z" fill={color} stroke="rgb(0 0 0 / 0.25)" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M 60 10 Q 44 26 44 44 M 60 10 Q 76 26 76 44" fill="none" stroke="rgb(255 255 255 / 0.45)" strokeWidth="2.5" />
+      <path d="M 60 4 L 60 12" stroke="#5B4636" strokeWidth="4" strokeLinecap="round" />
+    </svg>
   );
 }

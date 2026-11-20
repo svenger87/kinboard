@@ -3,6 +3,7 @@
 import { forwardRef, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMotion } from "@/hooks/use-motion";
+import { useHomeWeather } from "@/stores/home-weather";
 import { useFestival } from "@/hooks/use-festival";
 import { useFamilyStore } from "@/stores/family-store";
 import { cheerCreatures } from "@/stores/creature-reactions";
@@ -136,14 +137,24 @@ export function WeatherEffects({
   const tapRef = useRef<HTMLButtonElement>(null);
 
   const effects = forced && forced.length > 0 ? forced : preview.length > 0 ? preview : activeEffects(reading, settings, system);
+  // How hard the wind blows, against the family's threshold: 1 at it, up to 2.
+  const windKmh = weather ? (system === "imperial" ? weather.windSpeed * 1.609344 : weather.windSpeed) : 0;
+  const gust = effects.includes("wind") ? Math.min(2, Math.max(1, windKmh / Math.max(1, settings.windAtKmh))) : 0;
+  // Home's effects, for the creatures walking below them (stores/home-weather.ts);
+  // never the settings page's own preview, nor the screensaver's.
+  const publish = home && !forced;
+  const effectsKey = effects.join(",");
+  const setHomeWeather = useHomeWeather((s) => s.setHomeWeather);
+  useEffect(() => {
+    if (!publish) return;
+    setHomeWeather(effectsKey ? (effectsKey.split(",") as WeatherEffect[]) : [], gust);
+  }, [publish, effectsKey, gust, setHomeWeather]);
+  useEffect(() => (publish ? () => setHomeWeather([], 0) : undefined), [publish, setHomeWeather]);
   if (effects.length === 0 && visitor) return <FestivalVisitor placement={placement} />;
   if (effects.length === 0 || motion === "off") return null;
   const on = new Set(effects);
   const intensity = settings.intensity;
   const strength = intensity === "normal" ? 1 : 0.65;
-  // How hard the wind blows, against the family's threshold: 1 at it, up to 2.
-  const windKmh = weather ? (system === "imperial" ? weather.windSpeed * 1.609344 : weather.windSpeed) : 0;
-  const gust = on.has("wind") ? Math.min(2, Math.max(1, windKmh / Math.max(1, settings.windAtKmh))) : 0;
   const moving = (["snow", "rain", "storm", "wind", "fog", "heat"] as const).filter((e) => on.has(e));
   const wet = on.has("rain") || on.has("storm");
 
