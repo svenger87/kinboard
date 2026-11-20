@@ -1,7 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { DEFAULT_MONTHLY_TERMS } from "../src/lib/unsplash-defaults";
+import {
+  DEFAULT_MONTHLY_TERMS,
+  allMonthTerms,
+  customizedTerms,
+  termsForMonth,
+} from "../src/lib/unsplash-defaults";
+import { preferFresh, recentPhotoIds, rememberPhotos } from "../src/lib/unsplash-recent";
 
 /**
  * "I very often see the same images."
@@ -97,7 +103,7 @@ test.describe("the term pool", () => {
     for (let m = 1; m <= 12; m++) {
       const terms = DEFAULT_MONTHLY_TERMS[String(m)];
       expect(terms, `month ${m}`).toBeDefined();
-      expect(terms.length, `month ${m}`).toBeGreaterThanOrEqual(14);
+      expect(terms.length, `month ${m}`).toBeGreaterThanOrEqual(25);
     }
   });
 
@@ -117,10 +123,30 @@ test.describe("the term pool", () => {
     }
   });
 
+  test("terms are short and broad, not narrow descriptions", () => {
+    // "foggy autumn forest mystical dark" narrows Unsplash's random draw to
+    // a handful of photos that come back every hour.
+    for (const terms of Object.values(DEFAULT_MONTHLY_TERMS)) {
+      for (const term of terms) {
+        expect(term.split(" ").length, term).toBeLessThanOrEqual(3);
+      }
+    }
+  });
+
+  test("no month is dominated by one mood", () => {
+    // November used to be fog, mist, grey and moody in nearly every term,
+    // so different subjects all came back as the same picture.
+    const mood = /\b(fog|foggy|mist|misty|moody|dark|grey|gray|golden|dramatic)\b/;
+    for (let m = 1; m <= 12; m++) {
+      const terms = DEFAULT_MONTHLY_TERMS[String(m)];
+      expect(terms.filter((t) => mood.test(t)).length, `month ${m}`).toBeLessThanOrEqual(3);
+    }
+  });
+
   test("the route draws five terms and tops up a thin pool", () => {
     expect(route).toContain("TERMS_PER_FETCH = 5");
     expect(route).toContain("MIN_POOL_SIZE");
-    expect(route).toContain("while (combined.length < MIN_POOL_SIZE");
+    expect(route).toContain("while (freshCount() < MIN_POOL_SIZE");
   });
 
   test("top-up can't loop past the terms available", () => {
@@ -129,5 +155,97 @@ test.describe("the term pool", () => {
     let nextTerm = 3, iterations = 0;
     while (0 < 40 && nextTerm < ordered.length) { nextTerm += 2; iterations++; }
     expect(iterations).toBe(0);
+  });
+});
+
+// The November list as 1.16 shipped it. Connecting Unsplash saved a copy of
+// every month like this with the key, which froze the defaults for good.
+const SHIPPED_NOVEMBER = [
+  "foggy autumn forest mystical dark",
+  "smokestack industrial chimney",
+  "bare trees silhouette sunset moody",
+  "rainy city lights night reflection",
+  "old warehouse brick industrial",
+  "stormy sea waves coast dramatic",
+  "street lanterns fog old town",
+  "steam locomotive fog nostalgic",
+  "bare branches grey sky",
+  "late autumn frost morning",
+  "warm café window rainy",
+  "misty river valley",
+  "last leaves clinging",
+  "low november sun trees",
+];
+
+test.describe("saved terms", () => {
+  test("nothing saved means the current defaults", () => {
+    expect(termsForMonth(undefined, "11")).toEqual(DEFAULT_MONTHLY_TERMS["11"]);
+    expect(termsForMonth({}, "11")).toEqual(DEFAULT_MONTHLY_TERMS["11"]);
+  });
+
+  test("a copy of an older release's defaults follows the new defaults", () => {
+    expect(termsForMonth({ "11": SHIPPED_NOVEMBER }, "11")).toEqual(DEFAULT_MONTHLY_TERMS["11"]);
+    // The first release shipped the first eight.
+    expect(termsForMonth({ "11": SHIPPED_NOVEMBER.slice(0, 8) }, "11")).toEqual(
+      DEFAULT_MONTHLY_TERMS["11"],
+    );
+  });
+
+  test("a list someone edited is kept", () => {
+    const own = [...SHIPPED_NOVEMBER, "our dog"];
+    expect(termsForMonth({ "11": own }, "11")).toEqual(own);
+    expect(termsForMonth({ "11": ["lighthouses"] }, "11")).toEqual(["lighthouses"]);
+  });
+
+  test("old single-string and empty values fall back to the defaults", () => {
+    expect(termsForMonth({ "11": "autumn forest" }, "11")).toEqual(DEFAULT_MONTHLY_TERMS["11"]);
+    expect(termsForMonth({ "11": [] }, "11")).toEqual(DEFAULT_MONTHLY_TERMS["11"]);
+    expect(termsForMonth({ "11": ["", "  "] }, "11")).toEqual(DEFAULT_MONTHLY_TERMS["11"]);
+  });
+
+  test("only edited months are stored", () => {
+    expect(customizedTerms(allMonthTerms(undefined))).toEqual({});
+    const terms = allMonthTerms({ "11": SHIPPED_NOVEMBER });
+    expect(customizedTerms(terms)).toEqual({});
+    terms["3"] = ["tulips", "our garden"];
+    expect(customizedTerms(terms)).toEqual({ "3": ["tulips", "our garden"] });
+  });
+
+  test("the settings page stores only edited months", () => {
+    const page = readFileSync(
+      join(__dirname, "..", "src", "app", "settings", "photos", "page.tsx"),
+      "utf8",
+    );
+    expect(page).not.toContain("monthly_terms: monthlyTerms");
+    expect(page.match(/monthly_terms: customizedTerms\(monthlyTerms\)/g)?.length).toBe(2);
+  });
+});
+
+test.describe("recently shown photos", () => {
+  const photos = (ids: string[]) => ids.map((id) => ({ id }));
+
+  test("photos handed out recently are skipped when there are enough new ones", () => {
+    const pool = preferFresh(photos(["a", "b", "c", "d"]), new Set(["a", "b"]), 2);
+    expect(pool.map((p) => p.id)).toEqual(["c", "d"]);
+  });
+
+  test("a thin month tops up with recent photos rather than shrinking", () => {
+    const pool = preferFresh(photos(["a", "b", "c", "d"]), new Set(["a", "b", "c"]), 3);
+    expect(pool.map((p) => p.id)).toEqual(["d", "a", "b"]);
+  });
+
+  test("the memory is per family and bounded", () => {
+    rememberPhotos("fam-1", Array.from({ length: 350 }, (_, i) => `p${i}`));
+    const recent = recentPhotoIds("fam-1");
+    expect(recent.size).toBe(300);
+    expect(recent.has("p0")).toBe(false);
+    expect(recent.has("p349")).toBe(true);
+    expect(recentPhotoIds("fam-2").size).toBe(0);
+  });
+
+  test("the route uses it, and asks for Unsplash's strict filter", () => {
+    expect(route).toContain("preferFresh(combined, recent, MIN_POOL_SIZE)");
+    expect(route).toContain("rememberPhotos(familyId");
+    expect(route).toContain('"content_filter", "high"');
   });
 });

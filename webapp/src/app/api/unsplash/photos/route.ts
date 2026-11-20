@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
-import { DEFAULT_MONTHLY_TERMS } from "@/lib/unsplash-defaults";
+import { termsForMonth } from "@/lib/unsplash-defaults";
+import { preferFresh, recentPhotoIds, rememberPhotos } from "@/lib/unsplash-recent";
 
 interface UnsplashSettings {
   access_key: string;
@@ -46,8 +47,8 @@ function withUtm(url: string): string {
 // (unlike /search/photos which is deterministic relevance-sorted). Combining
 // multiple terms dilutes thematic overrepresentation (e.g. chimneys swamping
 // November), while still respecting the user-curated monthly term list.
-// Five terms rather than three. Each month now offers fourteen, so three was
-// sampling under a quarter of the month's variety per fetch — and the set only
+// Five terms rather than three. Each month offers around thirty, so three was
+// sampling a tenth of the month's variety per fetch — and the set only
 // refreshes hourly, so whatever those three returned was the entire hour's
 // wallpaper. Five calls an hour is nothing against Unsplash's rate limits.
 const TERMS_PER_FETCH = 5;
@@ -75,6 +76,8 @@ async function fetchRandomPhotos(
   url.searchParams.set("query", query);
   url.searchParams.set("orientation", "portrait");
   url.searchParams.set("count", String(count));
+  // A kitchen wall that children walk past: Unsplash's strictest filter.
+  url.searchParams.set("content_filter", "high");
 
   const response = await fetch(url.toString(), {
     headers: {
@@ -133,11 +136,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Pick up to 3 distinct terms from the current month's array
+  // The household's own list for this month if they edited it, otherwise
+  // the current defaults (an unedited copy saved by an older release counts
+  // as the defaults).
   const currentMonth = String(new Date().getMonth() + 1);
-  const monthlyTerms = unsplashSettings.monthly_terms ?? DEFAULT_MONTHLY_TERMS;
-  const termsSource = monthlyTerms[currentMonth] ?? DEFAULT_MONTHLY_TERMS[currentMonth];
-  const termsList = Array.isArray(termsSource) ? termsSource : [termsSource];
+  const termsList = termsForMonth(unsplashSettings.monthly_terms, currentMonth);
 
   if (termsList.length === 0) {
     return NextResponse.json([], { status: 200 });
@@ -175,15 +178,20 @@ export async function GET(request: NextRequest) {
     // and the screensaver cycles a handful of pictures until the next
     // refetch. Top up from the terms we didn't draw rather than let that
     // happen; the rate limit has ample room for a couple of extra calls.
+    const recent = recentPhotoIds(familyId);
+    const freshCount = () => combined.filter((p) => !recent.has(p.id)).length;
     let nextTerm = pickedTerms.length;
-    while (combined.length < MIN_POOL_SIZE && nextTerm < ordered.length) {
+    while (freshCount() < MIN_POOL_SIZE && nextTerm < ordered.length) {
       const topUp = ordered.slice(nextTerm, nextTerm + 2);
       nextTerm += topUp.length;
       await collect(topUp);
     }
 
+    const pool = preferFresh(combined, recent, MIN_POOL_SIZE);
+    rememberPhotos(familyId, pool.map((p) => p.id));
+
     // Final shuffle so photos from different terms are interleaved, not grouped.
-    const shuffled = shuffle(combined);
+    const shuffled = shuffle(pool);
 
     const photos = shuffled.map((photo) => ({
       id: photo.id,

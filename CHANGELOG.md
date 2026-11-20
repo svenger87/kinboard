@@ -14,10 +14,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - **The header of a settings page stays in view.** On the longer settings pages the back button and the page's name scrolled away with the page, so going back meant scrolling up first. They now stay at the top of the screen while the page scrolls, on an opaque bar that appears only once the page has moved; at the top of the page everything looks as before (#282).
+- **More varied Unsplash photos on the screensaver.** The photos for a month looked much alike: the month's search terms were long and nearly all asked for the same mood (in November fog, mist, grey and dark), and Unsplash's random photos for a long search come from a small set, so the same pictures came back hour after hour. Each month now has 28 short terms that mix the season with subjects that have nothing in common (animals, food, places, close-ups), photos shown in the last few hours are skipped while there are enough new ones, and Unsplash is asked for its strictest content filter.
 
 ### Fixed
 
 - **`./start.sh up` now fetches the new version.** It started whatever webapp image was already on the machine, so an install that runs `git pull` and `./start.sh up` at boot, as the Windows autostart does, stayed on the version it was installed with: the scripts updated, the app did not, and Settings still showed the old version while the changelog showed the new one. `up` now pulls the published image first (the tag in `KINBOARD_TAG`, `latest` by default) and recreates the webapp when it changed; without a network it says so and starts with the image it has. A source build (`docker-compose.build.yml`) is not affected.
+- **Better Unsplash terms now reach installs that connected Unsplash in the app.** Connecting Unsplash under Settings → Photos saved a copy of every month's search terms with the key, and from then on that copy was used, so a later release's terms never arrived. Only months someone actually edited are stored now, and a stored month that is just a copy of an earlier release's terms follows the current ones; edited months stay as they are.
 
 ## [1.16.0] - 2026-11-19
 
