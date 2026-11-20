@@ -2613,7 +2613,7 @@
       }
     },
     "itemLanguageLabel": "Langue",
-    "itemLanguageDescription": "Changer la langue de l'interface entre l'anglais et l'allemand",
+    "itemLanguageDescription": "Changer la langue de l'interface",
     "language": {
       "title": "Langue",
       "subtitle": "Choisir la langue de l'interface",

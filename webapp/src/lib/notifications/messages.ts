@@ -2,8 +2,12 @@ import { createTranslator } from "next-intl";
 import en from "../../../messages/en.json";
 import de from "../../../messages/de.json";
 import fr from "../../../messages/fr.json";
+import zh from "../../../messages/zh.json";
+import { deepMerge } from "@/i18n/deep-merge";
 
-const MESSAGES: Record<string, typeof de> = { en, de, fr };
+// A community locale may be incomplete: like the UI (i18n/request.ts), it is
+// laid over English, so a key it lacks reads in English, not as its path.
+const MESSAGES: Record<string, typeof de> = { en, de, fr, zh: deepMerge(en, zh) as typeof de };
 
 /** Translator for server-generated push payloads (namespace `push`). */
 export function getPushTranslator(locale: string) {

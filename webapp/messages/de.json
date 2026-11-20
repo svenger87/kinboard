@@ -2613,7 +2613,7 @@
       }
     },
     "itemLanguageLabel": "Sprache",
-    "itemLanguageDescription": "Oberfläche zwischen Englisch und Deutsch wechseln",
+    "itemLanguageDescription": "Oberflächensprache wechseln",
     "language": {
       "title": "Sprache",
       "subtitle": "Sprache der Oberfläche auswählen",

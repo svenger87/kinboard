@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
+import { LOCALES } from "@/i18n/locales";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
@@ -176,7 +177,7 @@ export default function ShoppingPage() {
       return;
     }
     const recognition = new Ctor();
-    recognition.lang = locale === "de" ? "de-DE" : locale === "fr" ? "fr-FR" : "en-US";
+    recognition.lang = LOCALES.find((l) => l.code === locale)?.bcp47 ?? "en-US";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     recognition.onresult = (event) => {
