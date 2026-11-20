@@ -1,4 +1,4 @@
-import { de, enUS, fr, type Locale as DateFnsLocale } from "date-fns/locale";
+import { de, enUS, fr, zhCN, type Locale as DateFnsLocale } from "date-fns/locale";
 
 /**
  * Maps an app UI locale code (from next-intl) to the matching date-fns locale
@@ -13,6 +13,8 @@ export function getDateFnsLocale(locale: string): DateFnsLocale {
       return de;
     case "fr":
       return fr;
+    case "zh":
+      return zhCN;
     default:
       return enUS;
   }
