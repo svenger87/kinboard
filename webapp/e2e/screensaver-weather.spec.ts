@@ -63,3 +63,16 @@ test("on the screensaver the effects keep its order, and Home's stop underneath"
   expect(fx).toContain('const covered = () => placement === "home" && document.documentElement.hasAttribute("data-screensaver");');
   expect(fx).toContain('if (placement === "home") screensaver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-screensaver"] });');
 });
+
+test("the weather surfaces pair their fill with a border, so the card survives a black backdrop", () => {
+  const strip = read("src/components/screensaver-weather.tsx");
+  // The surfaces are filled with translucent black alone nowhere: on the
+  // black pillarbox beside a portrait photo that fill is invisible, and the
+  // wide forecast strip — anchored top right — straddles the photo's edge,
+  // so its card visibly ended mid-widget. Every surface (the strip, the
+  // scaled strip for layout boxes, the now chip in both sizes) pairs the
+  // fill with the hairline border instead.
+  const paired = strip.match(/bg-black\/40 border border-white\/15/g) ?? [];
+  expect(paired.length).toBe(4);
+  expect(strip).not.toContain("bg-black/40 rounded");
+});
