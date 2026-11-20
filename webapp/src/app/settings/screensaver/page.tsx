@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -20,7 +21,15 @@ import { useScreensaverSettings, useUpdateScreensaverSettings } from "@/hooks/us
 import { useFamilyStore } from "@/stores/family-store";
 import { usePresence } from "@/hooks/use-presence";
 import { PageHeader } from "@/components/page-header";
-import { SCREENSAVER_LIST_COUNTS, screensaverListCount } from "@/types/screensaver";
+import {
+  SCREENSAVER_LIST_COUNTS,
+  screensaverListCount,
+  SCREENSAVER_OVERLAY_OPACITY_MAX,
+  SCREENSAVER_OVERLAY_OPACITY_MIN,
+  SCREENSAVER_OVERLAY_OPACITY_STEP,
+  screensaverOverlayOpacity,
+} from "@/types/screensaver";
+import { useState } from "react";
 import Link from "next/link";
 import { useCreatureBedtime } from "@/hooks/use-creature-mood";
 import { formatClock } from "@/lib/creature-mood";
@@ -100,6 +109,18 @@ export default function ScreensaverSettingsPage() {
   };
 
   const showBirthdays = settings.showBirthdays ?? true;
+
+  const overlayOpacity = screensaverOverlayOpacity(settings.overlayOpacity);
+  // The slider's position while it is being dragged; the stored value
+  // only changes when the drag commits.
+  const [opacityDraft, setOpacityDraft] = useState<number | null>(null);
+
+  const handleOverlayOpacityChange = (value: number) => {
+    updateSettings.mutate({
+      key: "screensaver",
+      value: { ...settings, overlayOpacity: value },
+    });
+  };
 
   if (isLoading) {
     return (
@@ -228,6 +249,34 @@ export default function ScreensaverSettingsPage() {
                 </Select>
               )}
               <Switch id="screensaver-birthdays" checked={showBirthdays} onCheckedChange={(value) => updateDisplayOption("showBirthdays", value)} disabled={updateSettings.isPending} />
+            </div>
+          </div>
+          <div id="panel-opacity" data-setting="panel-opacity" className="flex items-center justify-between gap-4">
+            <div>
+              <Label htmlFor="screensaver-panel-opacity">{t("panelOpacityLabel")}</Label>
+              <p className="text-xs text-muted-foreground">{t("panelOpacityDescription")}</p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <Slider
+                id="screensaver-panel-opacity"
+                // Uncontrolled with `key`:
+                // a fully-controlled slider against server state freezes
+                // the thumb mid-drag, before the commit can land.
+                key={`panel-opacity-${overlayOpacity}`}
+                defaultValue={[overlayOpacity]}
+                min={SCREENSAVER_OVERLAY_OPACITY_MIN}
+                max={SCREENSAVER_OVERLAY_OPACITY_MAX}
+                step={SCREENSAVER_OVERLAY_OPACITY_STEP}
+                className="w-36"
+                onValueChange={([value]) => setOpacityDraft(value)}
+                onValueCommit={([value]) => {
+                  setOpacityDraft(null);
+                  handleOverlayOpacityChange(value);
+                }}
+                disabled={updateSettings.isPending}
+                aria-label={t("panelOpacityLabel")}
+              />
+              <span className="w-10 text-right text-sm tabular-nums">{opacityDraft ?? overlayOpacity}%</span>
             </div>
           </div>
           <div id="preview" data-setting="preview" className="flex items-center justify-between gap-4">

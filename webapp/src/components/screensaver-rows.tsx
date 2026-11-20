@@ -32,12 +32,12 @@ export type ScreensaverBirthday = ScreensaverData["upcomingBirthdays"][number];
 export const pick = (scale: RowScale, normal: string, large: string, box: string) =>
   scale === "box" ? box : scale === "large" ? large : normal;
 
-/** The card a row sits on. */
+/** The card a row sits on: the screensaver's shared panel fill (.screensaver-panel). */
 export const rowCard = (scale: RowScale, align: "center" | "start" = "center") =>
   `flex ${align === "start" ? "items-start" : "items-center"} ${
     scale === "box"
-      ? "gap-[0.5em] bg-black/40 rounded-[0.5em] px-[0.75em] py-[0.4em] gpu-blur"
-      : "gap-2 landscape:lg:gap-3 bg-black/40 rounded-lg px-3 py-1.5 landscape:lg:px-4 landscape:lg:py-2 gpu-blur"
+      ? "gap-[0.5em] screensaver-panel rounded-[0.5em] px-[0.75em] py-[0.4em] gpu-blur"
+      : "gap-2 landscape:lg:gap-3 screensaver-panel rounded-lg px-3 py-1.5 landscape:lg:px-4 landscape:lg:py-2 gpu-blur"
   }`;
 
 /** "Today, 14:00", "Tomorrow", "Fri, 9:30": when an event in the list starts. */
@@ -272,8 +272,8 @@ export function NewsCard({
     </>
   );
   const card = box
-    ? "w-full flex gap-[0.6em] bg-black/50 rounded-[0.5em] p-[0.4em] text-left group gpu-blur"
-    : "w-full flex gap-3 bg-black/50 rounded-lg p-2 hover:bg-black/60 transition-colors text-left group gpu-blur";
+    ? "w-full flex gap-[0.6em] screensaver-panel rounded-[0.5em] p-[0.4em] text-left group gpu-blur"
+    : "w-full flex gap-3 screensaver-panel rounded-lg p-2 screensaver-panel-hover transition-colors text-left group gpu-blur";
   if (!onSelect) return <div className={card}>{content}</div>;
   return (
     <button

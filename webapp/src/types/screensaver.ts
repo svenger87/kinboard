@@ -45,6 +45,11 @@ export interface ScreensaverSettings {
   // Home's weather effects (snow, rain, frost...) over the photos too, with
   // the thresholds from Settings -> Weather; separate from Home's own switch.
   weatherEffects?: boolean;
+  // How solid the screensaver's dark panels are over the photos
+  // (weather, events, news...), as a percentage from 30 to 95
+  // in steps of 5; absent means the default, 70 — see
+  // screensaverOverlayOpacity below.
+  overlayOpacity?: number;
 }
 
 /** The choices for both lists. */
@@ -57,6 +62,24 @@ export const SCREENSAVER_LIST_COUNTS = [1, 2, 3, 4, 5] as const;
  */
 export function screensaverListCount(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 5 ? value : fallback;
+}
+
+/** Panel opacity bounds and default, as percentages (Settings -> Screensaver). */
+export const SCREENSAVER_OVERLAY_OPACITY_MIN = 30;
+export const SCREENSAVER_OVERLAY_OPACITY_MAX = 95;
+export const SCREENSAVER_OVERLAY_OPACITY_STEP = 5;
+export const SCREENSAVER_OVERLAY_OPACITY_DEFAULT = 70;
+
+/**
+ * A stored panel opacity as a percentage from 30 to 95 on the slider's
+ * 5-point steps; anything else (never set, hand-edited, a string) is
+ * the default, 70 — solid enough that the panels read as cards over a
+ * bright photo, where the old fixed 40% fill washed out.
+ */
+export function screensaverOverlayOpacity(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return SCREENSAVER_OVERLAY_OPACITY_DEFAULT;
+  const clamped = Math.min(SCREENSAVER_OVERLAY_OPACITY_MAX, Math.max(SCREENSAVER_OVERLAY_OPACITY_MIN, value));
+  return Math.round(clamped / SCREENSAVER_OVERLAY_OPACITY_STEP) * SCREENSAVER_OVERLAY_OPACITY_STEP;
 }
 
 export const DEFAULT_SCREENSAVER_SETTINGS: ScreensaverSettings = {
@@ -74,6 +97,7 @@ export const DEFAULT_SCREENSAVER_SETTINGS: ScreensaverSettings = {
   showForecast: false,
   showLessons: false,
   weatherEffects: false,
+  overlayOpacity: SCREENSAVER_OVERLAY_OPACITY_DEFAULT,
 };
 
 export interface PresenceState {

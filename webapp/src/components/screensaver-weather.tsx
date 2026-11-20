@@ -13,12 +13,14 @@ import { upcomingSlots } from "@/lib/weather-effects";
  * it, each with its time, an icon, the temperature and the chance of rain, so
  * a child can tell from across the room whether today is a raincoat day.
  *
- * The strip's surface is a translucent black fill plus a hairline
- * border: the fill alone disappears on the black pillarbox beside a
- * portrait photo, and the strip — wide, and anchored top right — is
- * the one screensaver block that regularly straddles that edge, so
- * without the border its card visibly ends mid-widget where the
- * photo does. The border keeps it one card on any backdrop.
+ * The strip's surface is the screensaver's shared panel fill
+ * (.screensaver-panel — its opacity is Settings -> Screensaver ->
+ * Panel opacity) plus a hairline border: the fill alone disappears on
+ * the black pillarbox beside a portrait photo at any opacity, and the
+ * strip — wide, and anchored top right — is the one screensaver block
+ * that regularly straddles that edge, so without the border its card
+ * visibly ends mid-widget where the photo does. The border keeps it
+ * one card on any backdrop.
  *
  * The slots are OpenWeatherMap's, three hours apart: the free forecast has no
  * hourly steps. They come from the Weather widget's own query (same cache,
@@ -65,7 +67,7 @@ export function ScreensaverWeather({
   const small = large ? "text-base" : "text-xs";
   return (
     <div
-      className="flex items-stretch gap-1 bg-black/40 border border-white/15 rounded-xl px-2 py-2.5 gpu-blur"
+      className="flex items-stretch gap-1 screensaver-panel border border-white/15 rounded-xl px-2 py-2.5 gpu-blur"
       data-testid="screensaver-forecast"
       data-slots={slots.length}
     >
@@ -121,7 +123,7 @@ export function ScaledForecast({ weather, slots: maxSlots, fill = false }: { wea
   // fill: the card is the whole box and the columns share its width, so its edges are the box's.
   return (
     <div
-      className={`flex items-stretch gap-[0.25em] bg-black/40 border border-white/15 rounded-[0.75em] px-[0.5em] py-[0.625em] gpu-blur${fill ? " size-full justify-between" : ""}`}
+      className={`flex items-stretch gap-[0.25em] screensaver-panel border border-white/15 rounded-[0.75em] px-[0.5em] py-[0.625em] gpu-blur${fill ? " size-full justify-between" : ""}`}
       data-slots={slots.length}
     >
       <ScaledColumn label={t("forecastNow")} strong fill={fill}>
@@ -185,8 +187,8 @@ export function WeatherNowChip({ weather, scaled = false }: { weather: WeatherDa
     <div
       className={
         scaled
-          ? "flex items-center gap-[0.75em] bg-black/40 border border-white/15 rounded-[0.75em] px-[1em] py-[0.625em]"
-          : "flex items-center gap-3 bg-black/40 border border-white/15 rounded-xl px-4 py-2.5"
+          ? "flex items-center gap-[0.75em] screensaver-panel border border-white/15 rounded-[0.75em] px-[1em] py-[0.625em]"
+          : "flex items-center gap-3 screensaver-panel border border-white/15 rounded-xl px-4 py-2.5"
       }
       data-testid={scaled ? undefined : "screensaver-weather"}
     >

@@ -798,6 +798,25 @@
   /* Previously had will-change, transform, backface-visibility - removed for ARM compatibility */
 }
 
+/* The screensaver's dark panels — the weather strip and chips, the event,
+   birthday and lesson rows, the news cards, the energy
+   card, a designed layout's widget boxes — share one fill, so they read
+   as one family over a photo. Its opacity is the family's Panel opacity
+   setting (Settings -> Screensaver), which the screensaver root
+   publishes as --screensaver-overlay-opacity; the fallback is the
+   setting's own default, for the layout-box preview page, which draws
+   these blocks outside a screensaver. A panel's border and rounding stay
+   its own — this is only the fill. */
+.screensaver-panel {
+  background-color: rgb(0 0 0 / var(--screensaver-overlay-opacity, 0.7));
+}
+
+/* The news card's hover: one step deeper than the panel fill (the old
+   bg-black/50 -> /60 step), never past solid. */
+.screensaver-panel-hover:hover {
+  background-color: rgb(0 0 0 / min(1, calc(var(--screensaver-overlay-opacity, 0.7) + 0.1)));
+}
+
 /* No photo source configured means DEFAULT_PHOTOS is empty and there is
    literally nothing to draw, so the canvas was flat black — a ~1100x850px void
    in the middle of an otherwise well-composed screen, and the ordinary state
