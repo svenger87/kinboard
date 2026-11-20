@@ -1156,6 +1156,32 @@ html[data-screensaver] nav {
 .home-creature .creature-ground {
   display: none;
 }
+/* The weather (components/creatures-on-home.tsx): the heat's towel, in the
+   child's colour with white stripes, and rain's umbrella over the creature. */
+.home-creature-towel {
+  border-radius: 3px;
+  background: repeating-linear-gradient(90deg, var(--towel) 0 14%, rgb(255 255 255 / 0.9) 14% 20%);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+.home-creature-umbrella {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+  transform-origin: 77% 95%;
+}
+.home-creature-umbrella-storm {
+  animation: home-creature-umbrella-shake 1.4s ease-in-out infinite;
+}
+@keyframes home-creature-umbrella-shake {
+  0%, 100% { transform: rotate(-4deg); }
+  30% { transform: rotate(7deg); }
+  60% { transform: rotate(-2deg); }
+}
+:root:not([data-motion="full"]) .home-creature-umbrella-storm {
+  animation: none;
+}
 .home-creature-shadow {
   border-radius: 50%;
   background: radial-gradient(closest-side, rgb(0 0 0 / 0.32), rgb(0 0 0 / 0));

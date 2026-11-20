@@ -26,7 +26,8 @@ export type RoamState =
   | "toBed" // walking to its bed spot
   | "asleep" // lying down
   | "waking" // getting up, a moment before walking again
-  | "jump"; // through the air, onto a card or back down (`jump`)
+  | "jump" // through the air, onto a card or back down (`jump`)
+  | "sunbathe"; // in the heat: lying on a towel on the floor for a while (`until`)
 
 /** A widget card's top edge, in the floor's pixels: `top` is its height above the floor. */
 export interface Platform {
@@ -85,6 +86,40 @@ export interface World {
   sleeping: ReadonlySet<string>;
   /** The cards it may jump onto (Home); none on the idle screen. */
   platforms?: readonly Platform[];
+  /** What the weather on the screen does to them (Home's weather effects); calm when left out. */
+  weather?: RoamWeather;
+}
+
+/**
+ * How the weather effects showing on Home move the creatures (roamWeather()).
+ * Nothing here changes what a creature wears: rain's umbrella and the heat's
+ * towel are drawn by the floor, beside the creature.
+ */
+export interface RoamWeather {
+  /** The overlay's wind, blowing left to right: 0 calm, 1 to 2 at the family's windy threshold and above. */
+  wind: number;
+  /** Walking pace, 1 as usual: slower in fog and in the heat. */
+  pace: number;
+  /** How many times as often they hop: more in the snow, catching flakes. */
+  hops: number;
+  /** The heat: now and then one lies down on a towel for a while. */
+  sunbathe: boolean;
+  /** Freezing: shivering while they stand. */
+  shiver: boolean;
+}
+
+export const CALM: RoamWeather = { wind: 0, pace: 1, hops: 1, sunbathe: false, shiver: false };
+
+/** The weather effects showing (lib/weather-effects.ts) and the overlay's gust, as what they do to the creatures. */
+export function roamWeather(effects: readonly string[], gust: number): RoamWeather {
+  const on = new Set(effects);
+  return {
+    wind: on.has("wind") ? Math.min(2, Math.max(1, gust)) : 0,
+    pace: on.has("fog") ? FOG_PACE : on.has("heat") ? HEAT_PACE : 1,
+    hops: on.has("snow") ? SNOW_HOPS : 1,
+    sunbathe: on.has("heat"),
+    shiver: on.has("freezing"),
+  };
 }
 
 /** Something the drawing shows once: hearts over a creature, a heart between two playing. */
@@ -113,6 +148,19 @@ export const VISIT_CHANCE = 0.2;
 export const LEAVE_CHANCE = 0.4;
 /** Of those, how many hop across to a neighbouring card instead of down. */
 export const ACROSS_CHANCE = 0.5;
+/** In the heat: the chance an idle creature on the floor goes to lie on its towel, and for how long. */
+export const SUNBATHE_CHANCE = 0.3;
+export const SUNBATHE_MS = 9000;
+/** Fog and heat: walking pace. Snow: hops this many times as often. */
+export const FOG_PACE = 0.7;
+export const HEAT_PACE = 0.8;
+export const SNOW_HOPS = 2.5;
+/** Wind: how much one unit of wind speeds up a walk with it or slows one against it; how fast it pushes one standing still, px/s. */
+export const WIND_PACE = 0.35;
+export const WIND_PUSH_PX_PER_S = 9;
+/** The slowest a walk into the wind gets. */
+export const MIN_PACE = 0.25;
+
 /** A jump's time: a base, more the further it goes, and a cap. */
 export const JUMP_MS = 520;
 export const JUMP_MS_PER_PX = 0.9;
@@ -226,6 +274,12 @@ export function stepRoamers(
   };
 
   const platforms = world.platforms ?? [];
+  const weather = world.weather ?? CALM;
+  /** A walk's speed toward `to`: the weather's pace, quicker with the wind and slower against it. */
+  const pace = (r: Roamer, base: number, to: number) => {
+    const along = Math.sign(to - r.x);
+    return base * Math.max(MIN_PACE, weather.pace * (1 + along * WIND_PACE * weather.wind));
+  };
 
   roamers.forEach((r, i) => {
     r.x = Math.min(hi, Math.max(lo, r.x));
@@ -290,7 +344,7 @@ export function stepRoamers(
       if (r.partner) release(r);
       if (r.state !== "toBed") set(r, "toBed", now);
       r.target = bed;
-      if (move(r, bed, BED_PX_PER_S, dt)) set(r, "asleep", now);
+      if (move(r, bed, pace(r, BED_PX_PER_S, bed), dt)) set(r, "asleep", now);
       return;
     }
     if (r.state === "asleep" || r.state === "toBed") {
@@ -300,7 +354,7 @@ export function stepRoamers(
 
     switch (r.state) {
       case "walk":
-        if (move(r, r.target, WALK_PX_PER_S, dt)) {
+        if (move(r, r.target, pace(r, WALK_PX_PER_S, r.target), dt)) {
           // A walk to the take-off spot ends in the jump, if the card is still there.
           const plan = r.plan;
           r.plan = null;
@@ -312,6 +366,10 @@ export function stepRoamers(
       case "hop":
       case "waking":
         if (now >= r.until) set(r, "idle", now, now + 1000 + rng() * 2000);
+        break;
+      case "sunbathe":
+        // Up again when its time on the towel is over.
+        if (now >= r.until) set(r, "waking", now, now + WAKE_MS);
         break;
       case "approach": {
         const p = r.partner ? byId.get(r.partner) : undefined;
@@ -325,7 +383,7 @@ export function stepRoamers(
         const gap = world.size * PLAY_GAP;
         const near = p.x >= r.x ? p.x - gap : p.x + gap;
         const spot = near < lo || near > hi ? (near < lo ? p.x + gap : p.x - gap) : near;
-        if (move(r, spot, WALK_PX_PER_S * 1.4, dt)) {
+        if (move(r, spot, pace(r, WALK_PX_PER_S * 1.4, spot), dt)) {
           for (const c of [r, p]) {
             set(c, "play", now, now + PLAY_MS);
             c.dir = c === r ? (p.x >= r.x ? 1 : -1) : p.x >= r.x ? -1 : 1;
@@ -375,6 +433,8 @@ export function stepRoamers(
       case "idle":
       default: {
         if (r.state !== "idle") set(r, "idle", now, now + 1500);
+        // Standing in the wind on the floor: pushed back a little, downwind.
+        if (!stand && weather.wind > 0) r.x = Math.min(hi, r.x + (weather.wind * WIND_PUSH_PX_PER_S * dt) / 1000);
         if (now < r.until) break;
         if (stand) {
           // Up on a card: look around, walk along it, hop, and after a while leave.
@@ -397,12 +457,17 @@ export function stepRoamers(
               r.plan = { x: Math.min(hi, Math.max(lo, land)), top: 0, to: null };
             }
             set(r, "walk", now);
-          } else if (roll < LEAVE_CHANCE + HOP_CHANCE) {
+          } else if (roll < LEAVE_CHANCE + HOP_CHANCE * weather.hops) {
             set(r, "hop", now, now + HOP_MS);
           } else {
             r.target = plo + rng() * (phi - plo);
             set(r, "walk", now);
           }
+          break;
+        }
+        // In the heat, now and then down on the towel for a while.
+        if (weather.sunbathe && rng() < SUNBATHE_CHANCE) {
+          set(r, "sunbathe", now, now + SUNBATHE_MS + rng() * SUNBATHE_MS * 0.6);
           break;
         }
         const friends = roamers.filter((o) => o !== r && !o.egg && !o.partner && free(o) && !world.sleeping.has(o.id));
@@ -413,7 +478,7 @@ export function stepRoamers(
           p.partner = r.id;
           set(r, "approach", now);
           set(p, "idle", now, now + 60_000); // waits for its friend
-        } else if (roll < PLAY_CHANCE + HOP_CHANCE) {
+        } else if (roll < PLAY_CHANCE + HOP_CHANCE * weather.hops) {
           set(r, "hop", now, now + HOP_MS);
         } else {
           r.target = lo + rng() * (hi - lo);
@@ -458,8 +523,25 @@ export function poke(input: readonly Roamer[], id: string, now: number): { roame
   return { roamers, events: [{ kind: "hearts", x: r.x, count: 5 }] };
 }
 
-/** How the drawing poses a creature this frame: lift off the floor (px), lean (deg), and lying down. */
-export function pose(r: Roamer, now: number, size: number): { lift: number; tilt: number; lying: boolean } {
+/**
+ * How the drawing poses a creature this frame: lift off the floor (px), lean
+ * (deg), and lying down. In the wind one standing or walking leans into it
+ * (to the left, where it blows from); in the frost one standing shivers.
+ */
+export function pose(r: Roamer, now: number, size: number, weather: RoamWeather = CALM): { lift: number; tilt: number; lying: boolean } {
+  const p = stillPose(r, now, size);
+  if (p.lying || r.state === "jump") return p;
+  // The drawing turns inside scaleX(dir): a lean to the left is -dir.
+  let tilt = p.tilt - r.dir * weather.wind * WIND_LEAN_DEG;
+  if (weather.shiver && (r.state === "idle" || r.state === "egg" || r.state === "waking")) tilt += Math.sin(now / 28) * SHIVER_DEG;
+  return { ...p, tilt };
+}
+
+/** How far one unit of wind leans a creature, deg, and how far the frost shakes one, deg. */
+export const WIND_LEAN_DEG = 8;
+export const SHIVER_DEG = 1.6;
+
+function stillPose(r: Roamer, now: number, size: number): { lift: number; tilt: number; lying: boolean } {
   const t = now - r.since;
   const hop = (ms: number, height: number) => {
     const k = (t % ms) / ms;
@@ -496,6 +578,7 @@ export function pose(r: Roamer, now: number, size: number): { lift: number; tilt
       return { lift: 4 * k * (1 - k) * height, tilt: (k - 0.5) * 14, lying: false };
     }
     case "asleep":
+    case "sunbathe":
       return { lift: 0, tilt: 0, lying: true };
     default:
       return { lift: 0, tilt: 0, lying: false };
