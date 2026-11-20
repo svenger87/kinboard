@@ -1302,7 +1302,8 @@
       "intro": "重新排序底部导航并隐藏不需要的项目。这些设置仅适用于此设备。",
       "reset": "重置为默认顺序",
       "perDeviceHint": "保存在此设备上。新的界面（例如刚启用的插件）会出现在末尾，直到你重新排序。",
-      "dragToReorder": "拖动以重新排序"
+      "dragToReorder": "拖动以重新排序",
+      "homeAlwaysFirst": "始终在最前"
     },
     "theme": {
       "title": "设计",

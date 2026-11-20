@@ -121,7 +121,7 @@ jobs:
             );
             const enKeys = new Set(flatten(en));
             let failed = false;
-            for (const loc of ["de", "fr"]) {
+            for (const loc of ["de", "fr", "zh"]) {
               const locKeys = new Set(flatten(require("./webapp/messages/" + loc + ".json")));
               const missing = [...enKeys].filter(k => !locKeys.has(k));
               const extra = [...locKeys].filter(k => !enKeys.has(k));
