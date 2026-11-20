@@ -148,7 +148,6 @@ export const VISIT_CHANCE = 0.2;
 export const LEAVE_CHANCE = 0.4;
 /** Of those, how many hop across to a neighbouring card instead of down. */
 export const ACROSS_CHANCE = 0.5;
-/** A jump's time: a base, more the further it goes, and a cap. */
 /** In the heat: the chance an idle creature on the floor goes to lie on its towel, and for how long. */
 export const SUNBATHE_CHANCE = 0.3;
 export const SUNBATHE_MS = 9000;
@@ -162,6 +161,7 @@ export const WIND_PUSH_PX_PER_S = 9;
 /** The slowest a walk into the wind gets. */
 export const MIN_PACE = 0.25;
 
+/** A jump's time: a base, more the further it goes, and a cap. */
 export const JUMP_MS = 520;
 export const JUMP_MS_PER_PX = 0.9;
 export const JUMP_MAX_MS = 1300;
