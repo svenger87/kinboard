@@ -25,6 +25,9 @@ export const SETTINGS_KEYS = {
   // { style }, the family's typeface pairing (lib/font-style.ts);
   // absent means classic.
   fontStyle: "font_style",
+  // { style }, the family's Chinese typeface (lib/font-style-cjk.ts);
+  // absent means the device's own CJK fonts ("system").
+  fontStyleCjk: "font_style_cjk",
   widgetVisibility: "widget_visibility",
   scheduleWidget: "schedule_widget",
   // { displayMode, recentTransactions }, the dashboard pocket-money

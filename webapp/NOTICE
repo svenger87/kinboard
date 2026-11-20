@@ -66,7 +66,7 @@ and is not distributed with Kinboard.
 
 Fonts
 -----
-Kinboard ships seven typefaces, each under the SIL Open Font License,
+Kinboard ships ten typefaces, each under the SIL Open Font License,
 Version 1.1 (https://openfontlicense.org). The PolyForm Noncommercial License
 does not apply to them. The full license text sits next to each font in
 webapp/src/assets/fonts/<family>/OFL.txt (in the Docker image:
@@ -86,6 +86,12 @@ webapp/src/assets/fonts/<family>/OFL.txt (in the Docker image:
   (https://github.com/rsms/inter)
   Fraunces — Copyright 2018 The Fraunces Project Authors
   (https://github.com/undercasetype/Fraunces)
+  Noto Sans SC — Copyright 2014-2021 Adobe, with Reserved Font Name
+  'Source' (https://github.com/notofonts/noto-cjk)
+  Noto Serif SC — Copyright 2012 Google Inc.
+  (https://github.com/notofonts/noto-cjk)
+  ZCOOL KuaiLe — Copyright 2018 The ZCOOL KuaiLe Project Authors
+  (https://github.com/googlefonts/zcool-kuaile)
 
 The files are woff2 conversions, subset to the characters Google Fonts serves
 for these families, of the fonts in https://github.com/google/fonts.

@@ -221,11 +221,16 @@ COPY --from=builder /app/src/assets/fonts/fredoka/OFL.txt ./licenses/fonts/fredo
 COPY --from=builder /app/src/assets/fonts/quicksand/OFL.txt ./licenses/fonts/quicksand-OFL.txt
 COPY --from=builder /app/src/assets/fonts/inter/OFL.txt ./licenses/fonts/inter-OFL.txt
 COPY --from=builder /app/src/assets/fonts/fraunces/OFL.txt ./licenses/fonts/fraunces-OFL.txt
+COPY --from=builder /app/src/assets/fonts/noto-sans-sc/OFL.txt ./licenses/fonts/noto-sans-sc-OFL.txt
+COPY --from=builder /app/src/assets/fonts/noto-serif-sc/OFL.txt ./licenses/fonts/noto-serif-sc-OFL.txt
+COPY --from=builder /app/src/assets/fonts/zcool-kuaile/OFL.txt ./licenses/fonts/zcool-kuaile-OFL.txt
 RUN test -f ./licenses/NOTICE && test -f ./licenses/date-holidays-LICENSE && test -f ./licenses/emojibase-LICENSE \
  && test -f ./licenses/fonts/bricolage-grotesque-OFL.txt && test -f ./licenses/fonts/hanken-grotesk-OFL.txt \
  && test -f ./licenses/fonts/space-mono-OFL.txt \
  && test -f ./licenses/fonts/fredoka-OFL.txt && test -f ./licenses/fonts/quicksand-OFL.txt \
- && test -f ./licenses/fonts/inter-OFL.txt && test -f ./licenses/fonts/fraunces-OFL.txt
+ && test -f ./licenses/fonts/inter-OFL.txt && test -f ./licenses/fonts/fraunces-OFL.txt \
+ && test -f ./licenses/fonts/noto-sans-sc-OFL.txt && test -f ./licenses/fonts/noto-serif-sc-OFL.txt \
+ && test -f ./licenses/fonts/zcool-kuaile-OFL.txt
 
 # Bake migrations, their runner and the entrypoint into the image. The
 # entrypoint applies migrations against the db before exec'ing the Next.js

@@ -52,6 +52,31 @@ body[data-font-style="serif"] {
   --font-display: var(--font-display-serif);
 }
 
+/* Chinese font styles (Settings → Design → Font style in a Chinese UI,
+   lib/font-style-cjk.ts): tailwind.config.ts puts var(--font-cjk) at the
+   head of the display and text stacks. The default names a family that
+   does not exist — the slot is empty on purpose, so per-character
+   fallback passes straight to the Latin face and then the device, as it
+   did before this picker. A picked face (hooks/use-font-style.ts lands
+   it on <body data-font-style-cjk>, Chinese UI only) heads both stacks;
+   its subset carries no Latin glyphs, so Latin words and numbers still
+   fall through to the font-style pairing behind it. */
+body {
+  --font-cjk: "Kinboard CJK System";
+}
+
+body[data-font-style-cjk="noto-sans"] {
+  --font-cjk: var(--font-cjk-noto-sans);
+}
+
+body[data-font-style-cjk="noto-serif"] {
+  --font-cjk: var(--font-cjk-noto-serif);
+}
+
+body[data-font-style-cjk="zcool-kuaile"] {
+  --font-cjk: var(--font-cjk-zcool-kuaile);
+}
+
 /* Centered dialogs are portals, outside page shells that provide safe-area
    padding. Keep their panels clear of notches and home indicators, including
    short landscape viewports. The custom-property fallbacks let layout tests

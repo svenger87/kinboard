@@ -16,6 +16,9 @@ import {
   displaySerif,
   displayClassic,
   sansClassic,
+  cjkNotoSans,
+  cjkNotoSerif,
+  cjkZcoolKuaile,
 } from "./fonts";
 import { publicApiEnv } from "@/lib/supabase/api-base";
 import { MOTION_INIT_SCRIPT } from "@/lib/motion";
@@ -80,7 +83,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} className={monthTheme} suppressHydrationWarning>
       <body
-        className={`${display.variable} ${sans.variable} ${mono.variable} ${displayRounded.variable} ${sansRounded.variable} ${displayClean.variable} ${sansClean.variable} ${displaySerif.variable} ${displayClassic.variable} ${sansClassic.variable} font-sans antialiased min-h-page bg-background`}
+        className={`${display.variable} ${sans.variable} ${mono.variable} ${displayRounded.variable} ${sansRounded.variable} ${displayClean.variable} ${sansClean.variable} ${displaySerif.variable} ${displayClassic.variable} ${sansClassic.variable} ${cjkNotoSans.variable} ${cjkNotoSerif.variable} ${cjkZcoolKuaile.variable} font-sans antialiased min-h-page bg-background`}
       >
         {/* Before anything paints: this device's animation level (lib/motion.ts). */}
         <script dangerouslySetInnerHTML={{ __html: MOTION_INIT_SCRIPT }} />

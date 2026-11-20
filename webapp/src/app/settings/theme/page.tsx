@@ -25,6 +25,13 @@ import {
   type FontStyleId,
   type FontStyleSettings,
 } from "@/lib/font-style";
+import {
+  FONT_STYLES_CJK,
+  DEFAULT_FONT_STYLE_CJK_SETTINGS,
+  fontStyleCjkOf,
+  type FontStyleCjkId,
+  type FontStyleCjkSettings,
+} from "@/lib/font-style-cjk";
 
 // Month names are computed per-locale via date-fns; these are the
 // theme metadata only. The "name" is decorative branding kept in
@@ -122,6 +129,15 @@ export default function ThemeSettingsPage() {
   const updateFontStyle = useUpdateSetting<FontStyleSettings>();
   const fontStyle = fontStyleOf(fontStyleSettings);
 
+  // In a Chinese UI the same picker offers the Chinese typefaces and edits
+  // this setting instead (lib/font-style-cjk.ts): one picker, and each
+  // language remembers its own choice.
+  const { data: fontStyleCjkSettings, isLoading: isLoadingFontStyleCjk } =
+    useSetting<FontStyleCjkSettings>(SETTINGS_KEYS.fontStyleCjk, DEFAULT_FONT_STYLE_CJK_SETTINGS);
+  const updateFontStyleCjk = useUpdateSetting<FontStyleCjkSettings>();
+  const fontStyleCjk = fontStyleCjkOf(fontStyleCjkSettings);
+  const isZh = locale === "zh";
+
   // Per-device text scale — localStorage, not the Supabase settings above.
   const [textScale, setTextScale] = useTextScale();
   // Per-device animations (lib/motion.ts) — a Pi on the wall turns them off
@@ -174,6 +190,10 @@ export default function ThemeSettingsPage() {
     updateFontStyle.mutate({ key: SETTINGS_KEYS.fontStyle, value: { style: id } });
   };
 
+  const handleFontStyleCjkChange = (id: FontStyleCjkId) => {
+    updateFontStyleCjk.mutate({ key: SETTINGS_KEYS.fontStyleCjk, value: { style: id } });
+  };
+
   const handleThemeOverride = (index: number) => {
     const newOverride = index === currentMonth ? null : index;
     updateSetting.mutate({
@@ -219,7 +239,7 @@ export default function ThemeSettingsPage() {
           className="mb-8"
         />
 
-        {isLoading || isLoadingFontStyle ? (
+        {isLoading || isLoadingFontStyle || isLoadingFontStyleCjk ? (
           <div className="flex flex-col gap-6">
             <Skeleton className="h-48 w-full rounded-xl" />
             <Skeleton className="h-48 w-full rounded-xl" />
@@ -331,6 +351,37 @@ export default function ThemeSettingsPage() {
               </h2>
               <Card className="p-4">
                 <p className="text-sm text-muted-foreground mb-4">{t("fontStyleIntro")}</p>
+                {isZh ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {FONT_STYLES_CJK.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => handleFontStyleCjkChange(s.id)}
+                      disabled={updateFontStyleCjk.isPending}
+                      aria-pressed={fontStyleCjk === s.id}
+                      data-font-style-cjk-option={s.id}
+                      className={`relative rounded-xl border border-border p-3 text-left transition-all ${
+                        fontStyleCjk === s.id
+                          ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                          : "hover:scale-[1.02]"
+                      } ${updateFontStyleCjk.isPending ? "opacity-50" : ""}`}
+                    >
+                      <span
+                        className="block text-lg leading-tight"
+                        style={s.variable ? { fontFamily: `var(${s.variable})` } : undefined}
+                      >
+                        {t(s.labelKey)}
+                      </span>
+                      <span
+                        className="block text-xs text-muted-foreground mt-1"
+                        style={s.variable ? { fontFamily: `var(${s.variable})` } : undefined}
+                      >
+                        {s.pairing}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                ) : (
                 <div className="grid grid-cols-2 gap-3">
                   {FONT_STYLES.map((s) => (
                     <button
@@ -360,6 +411,7 @@ export default function ThemeSettingsPage() {
                     </button>
                   ))}
                 </div>
+                )}
               </Card>
             </motion.div>
 

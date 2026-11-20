@@ -142,6 +142,49 @@ const hankenGroteskClassic = localFont({
   fallback: ["Hanken Grotesk Fallback"],
 });
 
+// ---------------------------------------------------------------------------
+// The Chinese faces for the same picker (Settings → Design → Font style in
+// a Chinese UI, lib/font-style-cjk.ts). Same treatment again: the TTFs in
+// github.com/google/fonts (ofl/notosanssc, ofl/notoserifsc,
+// ofl/zcoolkuaile) at commit cc5661d4, converted to woff2 with fontTools,
+// hinting dropped. The subsets are the GB2312-80 level 1+2 hanzi (6,763)
+// plus every CJK character the zh catalog uses, general punctuation, CJK
+// symbols and fullwidth forms — and deliberately no Latin: these faces
+// head the stacks (globals.css, --font-cjk) only for characters they
+// carry, and Latin words and numbers must fall through to the family's
+// Latin pairing behind them. Noto Sans SC and Noto Serif SC keep
+// wght 300–700 of their wider ranges; ZCOOL KuaiLe ships a single 400
+// weight, so its bold is the browser's synthesis, as for any
+// single-weight face. No metric fallbacks, for the same reason as the
+// picker's pairings above.
+
+const notoSansSC = localFont({
+  src: "../assets/fonts/noto-sans-sc/NotoSansSC-wght.woff2",
+  weight: "300 700",
+  style: "normal",
+  variable: "--font-cjk-noto-sans",
+  display: "swap",
+  adjustFontFallback: false,
+});
+
+const notoSerifSC = localFont({
+  src: "../assets/fonts/noto-serif-sc/NotoSerifSC-wght.woff2",
+  weight: "300 700",
+  style: "normal",
+  variable: "--font-cjk-noto-serif",
+  display: "swap",
+  adjustFontFallback: false,
+});
+
+const zcoolKuaile = localFont({
+  src: "../assets/fonts/zcool-kuaile/ZCOOLKuaiLe-Regular.woff2",
+  weight: "400",
+  style: "normal",
+  variable: "--font-cjk-zcool-kuaile",
+  display: "swap",
+  adjustFontFallback: false,
+});
+
 export const display = bricolageGrotesque;
 export const sans = hankenGrotesk;
 export const mono = spaceMono;
@@ -152,3 +195,6 @@ export const sansClean = interSans;
 export const displaySerif = fraunces;
 export const displayClassic = bricolageGrotesqueClassic;
 export const sansClassic = hankenGroteskClassic;
+export const cjkNotoSans = notoSansSC;
+export const cjkNotoSerif = notoSerifSC;
+export const cjkZcoolKuaile = zcoolKuaile;
