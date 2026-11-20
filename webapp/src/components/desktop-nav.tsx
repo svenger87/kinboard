@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { isNoNavPath, navEntryLabel } from "@/lib/constants";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
-import { useSettingsIconOnly } from "@/hooks/use-hidden-nav-items";
+import { useNavIconsOnly, useSettingsIconOnly } from "@/hooks/use-hidden-nav-items";
 import { useNavBadges } from "@/hooks/use-nav-badges";
 
 export function DesktopNav() {
@@ -21,6 +21,7 @@ export function DesktopNav() {
   const badges = useNavBadges();
   const navItems = useVisibleNavItems();
   const settingsIconOnly = useSettingsIconOnly();
+  const iconsOnly = useNavIconsOnly();
 
   const updateScrollIndicators = useCallback(() => {
     const el = scrollRef.current;
@@ -117,7 +118,13 @@ export function DesktopNav() {
 
       <div
         ref={scrollRef}
-        className="flex items-center overflow-x-auto scrollbar-hide pr-4 gap-2 overscroll-x-contain touch-pan-x"
+        className={`flex items-center overflow-x-auto scrollbar-hide pr-4 overscroll-x-contain touch-pan-x ${
+          // Icons only: the entries share the row evenly instead of each taking
+          // its label's width, so the bar fits without scrolling. Still a
+          // scroller, for a narrow screen with many entries.
+          iconsOnly ? "gap-0" : "gap-2"
+        }`}
+        data-icons-only={iconsOnly ? "" : undefined}
         style={{ paddingLeft: "var(--nav-home-pin)" }}
         onKeyDown={(e) => {
           if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
@@ -136,26 +143,30 @@ export function DesktopNav() {
           // prefix also stops "/settings" claiming a hypothetical "/settings-x".
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
+          const labelHidden = iconsOnly || (item.href === "/settings" && settingsIconOnly);
 
           return (
             <Link
               key={item.href}
               ref={isActive ? activeRef : undefined}
               href={item.href}
-              aria-label={item.href === "/settings" && settingsIconOnly ? navEntryLabel(item, tNav) : undefined}
+              aria-label={labelHidden ? navEntryLabel(item, tNav) : undefined}
+              title={iconsOnly ? navEntryLabel(item, tNav) : undefined}
               aria-current={isActive ? "page" : undefined}
               // 44px minimum, 48px on kiosk-width displays. These were 36px tall
               // with 14px labels — the single largest cluster of undersized
               // targets in the audit (3,840 hits), on the product's primary
               // device, while MobileNav already enforced 44px (KB-22).
-              className={`group relative min-h-[44px] lg:min-h-[48px] px-4 lg:px-5 py-2 rounded-full transition-colors duration-200 flex items-center gap-2 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+              className={`group relative min-h-[44px] lg:min-h-[48px] py-2 rounded-full transition-colors duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+                iconsOnly ? "min-w-[44px] flex-1 justify-center px-1" : "flex-shrink-0 px-4 lg:px-5"
+              } ${
                 isActive
                   ? "bg-primary/[0.12] text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               }`}
             >
               <span className="relative">
-                <Icon className="size-4 lg:size-5" strokeWidth={1.75} />
+                <Icon className={iconsOnly ? "size-6 lg:size-7" : "size-4 lg:size-5"} strokeWidth={1.75} />
                 {badges[item.href] && !isActive && (
                   <span
                     className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-primary text-3xs font-bold text-primary-foreground px-1"
@@ -165,7 +176,7 @@ export function DesktopNav() {
                   </span>
                 )}
               </span>
-              {!(item.href === "/settings" && settingsIconOnly) && <span className="whitespace-nowrap text-sm font-medium lg:text-base">{navEntryLabel(item, tNav)}</span>}
+              {!labelHidden && <span className="whitespace-nowrap text-sm font-medium lg:text-base">{navEntryLabel(item, tNav)}</span>}
               {isActive && (
                 <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-primary rounded-full" />
               )}

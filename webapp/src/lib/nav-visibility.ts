@@ -1,5 +1,6 @@
 const KEY = "kinboard.hidden-nav-items";
 const SETTINGS_ICON_KEY = "kinboard.settings-icon-only";
+const ICONS_ONLY_KEY = "kinboard.nav-icons-only";
 export const NAV_VISIBILITY_EVENT = "kinboard:nav-visibility-change";
 
 /**
@@ -60,5 +61,19 @@ export function getSettingsIconOnly(): boolean {
 
 export function setSettingsIconOnly(value: boolean) {
   window.localStorage.setItem(SETTINGS_ICON_KEY, String(value));
+  window.dispatchEvent(new Event(NAV_VISIBILITY_EVENT));
+}
+
+/**
+ * Every entry of the wall bar right of Home as a larger icon without its
+ * label, so the whole bar fits in one row without scrolling (#282). Home keeps
+ * its label: it is the one entry a kiosk must always find.
+ */
+export function getNavIconsOnly(): boolean {
+  return typeof window !== "undefined" && window.localStorage.getItem(ICONS_ONLY_KEY) === "true";
+}
+
+export function setNavIconsOnly(value: boolean) {
+  window.localStorage.setItem(ICONS_ONLY_KEY, String(value));
   window.dispatchEvent(new Event(NAV_VISIBILITY_EVENT));
 }

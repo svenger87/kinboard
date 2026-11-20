@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   effectiveHiddenNavItems,
   getHiddenNavItems,
+  getNavIconsOnly,
   getSettingsIconOnly,
   NAV_VISIBILITY_EVENT,
 } from "@/lib/nav-visibility";
@@ -31,10 +32,11 @@ export function useHiddenNavItems(): readonly string[] {
   return useMemo(() => effectiveHiddenNavItems(hidden, isKiosk), [hidden, isKiosk]);
 }
 
-export function useSettingsIconOnly(): boolean {
-  const [iconOnly, setIconOnly] = useState(false);
+/** A per-device nav flag from local storage, following changes from any tab. */
+function useNavFlag(read: () => boolean): boolean {
+  const [value, setValue] = useState(false);
   useEffect(() => {
-    const update = () => setIconOnly(getSettingsIconOnly());
+    const update = () => setValue(read());
     update();
     window.addEventListener(NAV_VISIBILITY_EVENT, update);
     window.addEventListener("storage", update);
@@ -42,6 +44,14 @@ export function useSettingsIconOnly(): boolean {
       window.removeEventListener(NAV_VISIBILITY_EVENT, update);
       window.removeEventListener("storage", update);
     };
-  }, []);
-  return iconOnly;
+  }, [read]);
+  return value;
+}
+
+export function useSettingsIconOnly(): boolean {
+  return useNavFlag(getSettingsIconOnly);
+}
+
+export function useNavIconsOnly(): boolean {
+  return useNavFlag(getNavIconsOnly);
 }

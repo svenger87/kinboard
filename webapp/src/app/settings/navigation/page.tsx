@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { useVisibleNavItems } from "@/hooks/use-visible-nav-items";
 import { setNavOrder, clearNavOrder } from "@/lib/nav-order";
-import { canHideNavItem, getHiddenNavItems, setHiddenNavItems, setSettingsIconOnly } from "@/lib/nav-visibility";
-import { useHiddenNavItems, useSettingsIconOnly } from "@/hooks/use-hidden-nav-items";
+import { canHideNavItem, getHiddenNavItems, setHiddenNavItems, setNavIconsOnly, setSettingsIconOnly } from "@/lib/nav-visibility";
+import { useHiddenNavItems, useNavIconsOnly, useSettingsIconOnly } from "@/hooks/use-hidden-nav-items";
 import { Switch } from "@/components/ui/switch";
 import { useFamilyStore } from "@/stores/family-store";
 import { navEntryLabel } from "@/lib/constants";
@@ -21,6 +21,7 @@ export default function NavigationSettingsPage() {
   const visibleItems = useVisibleNavItems(true);
   const hiddenItems = useHiddenNavItems();
   const settingsIconOnly = useSettingsIconOnly();
+  const iconsOnly = useNavIconsOnly();
   const { device } = useFamilyStore();
   const isKiosk = device?.is_kiosk ?? false;
 
@@ -107,12 +108,20 @@ export default function NavigationSettingsPage() {
           {t(isKiosk ? "fixedItemsHintKiosk" : "fixedItemsHint")}
         </p>
 
+        <Card id="nav-icons-only" data-setting="nav-icons-only" className="flex items-center justify-between gap-4 p-4">
+          <div>
+            <p className="font-medium">{t("iconsOnly")}</p>
+            <p className="text-sm text-muted-foreground">{t("iconsOnlyHint")}</p>
+          </div>
+          <Switch checked={iconsOnly} onCheckedChange={setNavIconsOnly} aria-label={t("iconsOnly")} />
+        </Card>
+
         <Card id="settings-icon" data-setting="settings-icon" className="flex items-center justify-between gap-4 p-4">
           <div>
             <p className="font-medium">{t("settingsIconOnly")}</p>
             <p className="text-sm text-muted-foreground">{t("settingsIconOnlyHint")}</p>
           </div>
-          <Switch checked={settingsIconOnly} onCheckedChange={setSettingsIconOnly} aria-label={t("settingsIconOnly")} />
+          <Switch checked={settingsIconOnly || iconsOnly} disabled={iconsOnly} onCheckedChange={setSettingsIconOnly} aria-label={t("settingsIconOnly")} />
         </Card>
 
         <Button

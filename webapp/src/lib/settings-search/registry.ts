@@ -232,6 +232,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     { anchor: "compact-home", labelKey: "settings.widgets.compactHomeLabel", descriptionKey: "settings.widgets.compactHomeDescription" },
   ]),
   ...sectionsOf(navigation, [
+    { anchor: "nav-icons-only", labelKey: "settings.navigation.iconsOnly", descriptionKey: "settings.navigation.iconsOnlyHint" },
     { anchor: "settings-icon", labelKey: "settings.navigation.settingsIconOnly", descriptionKey: "settings.navigation.settingsIconOnlyHint" },
   ]),
   ...sectionsOf(theme, [
