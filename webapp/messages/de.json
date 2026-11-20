@@ -3307,6 +3307,8 @@
         "tooSmall": "Der Bildschirm dieses Layouts ({width}×{height}) ist zu klein für das Raster.",
         "undo": "Rückgängig",
         "undoHint": "Rückgängig (Strg+Z)",
+        "previewScreensaver": "Vorschau",
+        "previewScreensaverHint": "Zeigt diese Anordnung jetzt als Bildschirmschoner auf diesem Bildschirm, ob gespeichert oder nicht. Eine Berührung beendet sie.",
         "redo": "Wiederholen",
         "redoHint": "Wiederholen (Strg+Umschalt+Z)",
         "reset": "Zurücksetzen",

@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - **Icons only in the wall bar.** Settings → Navigation → *Icons only*: on the bar at the bottom of a wall screen, every entry right of Home shows as a larger icon without its name, and the entries share one row instead of scrolling, so the whole bar is in view at once. Home keeps its name; each icon keeps its name as a tooltip and for screen readers. Per device, like the other navigation settings; phones keep their bar (#282).
+- **Preview in the layout editor.** Settings → Layouts → a layout → *Preview*: the screensaver comes up on this screen right away with the arrangement as it is in the editor, saved or not, with the family's photo, data and options, fitted to this screen the way an assigned layout is. A touch or a key ends it and the editor is back as it was, unsaved changes included, so a change can be checked on the wall before it is saved (#282).
 
 ### Changed
 

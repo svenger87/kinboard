@@ -818,6 +818,38 @@ test("removing a widget returns it to the palette, adding places it on free cell
   await page.context().close();
 });
 
+test("Preview shows the arrangement as it is now, unsaved, as this screen's screensaver; a key ends it", async ({ browser }) => {
+  const page = await openEditor(browser);
+  // The layout's own size, so the preview draws it unscaled.
+  await page.setViewportSize(SIZE);
+  expect(saved().some((i) => i.widget === "news")).toBe(true);
+  await page.locator("[data-editor-item=news]").click();
+  await page.keyboard.press("Delete");
+  await expect(page.locator("[data-editor-item=news]")).toHaveCount(0);
+  const clockBox = await boxOf(page.locator("[data-editor-item=clock]"));
+
+  const saver = page.getByTestId("designed-screensaver");
+  await expect(saver).toHaveCount(0);
+  await page.getByTestId("editor-preview-screensaver").click();
+  await expect(saver).toBeVisible({ timeout: 15_000 });
+  // The unsaved arrangement: no news, the clock where the editor has it (give or take the burn-in shift).
+  await expect(saver.locator("[data-layout-item=clock]")).toBeVisible();
+  await expect(saver.locator("[data-layout-item=news]")).toHaveCount(0);
+  const drawn = (await saver.locator("[data-layout-item=clock]").boundingBox())!;
+  const pitch = GRID.step;
+  expect(Math.abs(drawn.x - (GRID.offsetX + clockBox.x * pitch))).toBeLessThanOrEqual(12);
+  expect(Math.abs(drawn.y - (GRID.offsetY + clockBox.y * pitch))).toBeLessThanOrEqual(12);
+
+  // A key ends it; the editor and its unsaved change are still there, and nothing was saved.
+  await page.locator("body").press("Shift");
+  await expect(saver).toHaveCount(0);
+  await expect(page.getByTestId("editor-canvas")).toBeVisible();
+  await expect(page.locator("[data-editor-item=news]")).toHaveCount(0);
+  await expect(page.getByTestId("layout-editor")).toHaveAttribute("data-dirty", "true");
+  expect(saved().some((i) => i.widget === "news")).toBe(true);
+  await page.context().close();
+});
+
 test("unsaved changes survive the settings locking again", async ({ browser }) => {
   const page = await openEditor(browser);
   const date = page.locator("[data-editor-item=date]");
