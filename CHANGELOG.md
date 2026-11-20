@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **The header of a settings page stays in view.** On the longer settings pages the back button and the page's name scrolled away with the page, so going back meant scrolling up first. They now stay at the top of the screen while the page scrolls, on an opaque bar that appears only once the page has moved; at the top of the page everything looks as before (#282).
+
 ### Fixed
 
 - **`./start.sh up` now fetches the new version.** It started whatever webapp image was already on the machine, so an install that runs `git pull` and `./start.sh up` at boot, as the Windows autostart does, stayed on the version it was installed with: the scripts updated, the app did not, and Settings still showed the old version while the changelog showed the new one. `up` now pulls the published image first (the tag in `KINBOARD_TAG`, `latest` by default) and recreates the webapp when it changed; without a network it says so and starts with the image it has. A source build (`docker-compose.build.yml`) is not affected.
