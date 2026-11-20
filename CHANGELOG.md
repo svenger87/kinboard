@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Icons only in the wall bar.** Settings → Navigation → *Icons only*: on the bar at the bottom of a wall screen, every entry right of Home shows as a larger icon without its name, and the entries share one row instead of scrolling, so the whole bar is in view at once. Home keeps its name; each icon keeps its name as a tooltip and for screen readers. Per device, like the other navigation settings; phones keep their bar (#282).
+
 ### Changed
 
 - **The header of a settings page stays in view.** On the longer settings pages the back button and the page's name scrolled away with the page, so going back meant scrolling up first. They now stay at the top of the screen while the page scrolls, on an opaque bar that appears only once the page has moved; at the top of the page everything looks as before (#282).
