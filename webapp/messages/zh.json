@@ -2612,7 +2612,7 @@
       }
     },
     "itemLanguageLabel": "语言",
-    "itemLanguageDescription": "在英语和德语之间切换界面",
+    "itemLanguageDescription": "切换界面语言",
     "language": {
       "title": "语言",
       "subtitle": "选择界面语言",

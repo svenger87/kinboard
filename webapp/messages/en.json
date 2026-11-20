@@ -2613,7 +2613,7 @@
       }
     },
     "itemLanguageLabel": "Language",
-    "itemLanguageDescription": "Switch the interface between English and German",
+    "itemLanguageDescription": "Switch the interface language",
     "language": {
       "title": "Language",
       "subtitle": "Choose the interface language",
