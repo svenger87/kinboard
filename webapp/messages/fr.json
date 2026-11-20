@@ -3307,6 +3307,8 @@
         "tooSmall": "L’écran de cette disposition ({width}×{height}) est trop petit pour la grille.",
         "undo": "Annuler",
         "undoHint": "Annuler (Ctrl+Z)",
+        "previewScreensaver": "Aperçu",
+        "previewScreensaverHint": "Affiche cette disposition maintenant comme économiseur d'écran sur cet écran, enregistrée ou non. Un toucher l'arrête.",
         "redo": "Rétablir",
         "redoHint": "Rétablir (Ctrl+Maj+Z)",
         "reset": "Réinitialiser",

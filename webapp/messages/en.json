@@ -3307,6 +3307,8 @@
         "tooSmall": "This layout's screen ({width}×{height}) is too small for the grid.",
         "undo": "Undo",
         "undoHint": "Undo (Ctrl+Z)",
+        "previewScreensaver": "Preview",
+        "previewScreensaverHint": "Show this arrangement as the screensaver on this screen now, saved or not. A touch ends it.",
         "redo": "Redo",
         "redoHint": "Redo (Ctrl+Shift+Z)",
         "reset": "Reset",

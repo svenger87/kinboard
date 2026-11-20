@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useScreensaverData } from "@/hooks/use-screensaver-data";
 import { DesignedScreensaver } from "@/components/layouts/designed-screensaver";
 import { useActiveLayout } from "@/hooks/use-active-layout";
+import type { PreviewLayout } from "@/lib/screensaver-gate";
 import { ScreensaverDataProvider, useScreensaverDataValue } from "@/components/layouts/screensaver-data-context";
 import { BirthdayRow, EnergyRows, EventRow, NewsCard, SectionLabel, TeslaRows, useEventWhen, useNewsTime } from "@/components/screensaver-rows";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -42,6 +43,8 @@ const BURN_IN_TRANSITION = "translate 6s ease-in-out";
 
 interface ScreensaverProps {
   photos?: string[];
+  /** A preview of a layout being edited, drawn instead of the one this screen was given. */
+  previewLayout?: PreviewLayout | null;
 }
 
 
@@ -99,7 +102,7 @@ function ScreensaverPhotoLayer({
   );
 }
 
-export function Screensaver({ photos }: ScreensaverProps) {
+export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) {
   const t = useTranslations("components.screensaver");
   const eventWhen = useEventWhen();
   const formatNewsTime = useNewsTime();
@@ -118,8 +121,8 @@ export function Screensaver({ photos }: ScreensaverProps) {
   const screensaverData = useScreensaverDataValue(data);
   // The layout this screen was given, if any: it replaces the news, the
   // weather column, the bottom cluster and the photo counter below.
-  const active = useActiveLayout("screensaver");
-  const designed = active.layout && active.grid ? { items: active.items, grid: active.grid } : null;
+  const active = useActiveLayout("screensaver", previewLayout);
+  const designed = active.grid ? { items: active.items, grid: active.grid } : null;
   // Until the layout queries have answered, neither the built-in blocks nor a
   // layout: a kiosk with a layout must not show the built-in screensaver
   // first and then swap. The photo shows meanwhile. Should the answer take

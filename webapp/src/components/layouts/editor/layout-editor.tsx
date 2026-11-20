@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { AlertTriangle, Eye, Grid3x3, Loader2, Redo2, RefreshCw, RotateCcw, Save, Undo2 } from "lucide-react";
+import { AlertTriangle, Eye, Grid3x3, Loader2, MonitorPlay, Redo2, RefreshCw, RotateCcw, Save, Undo2 } from "lucide-react";
+import { previewScreensaver } from "@/lib/screensaver-gate";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -378,6 +379,18 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
               ))}
             </SelectContent>
           </Select>
+          {/* The arrangement as it is now, saved or not, as this screen's screensaver until the next touch (#282). */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => previewScreensaver({ width: layout.width, height: layout.height, items })}
+            data-testid="editor-preview-screensaver"
+            title={t("previewScreensaverHint")}
+          >
+            <MonitorPlay className="size-4" aria-hidden="true" />
+            {t("previewScreensaver")}
+          </Button>
           <Button variant="outline" size="sm" className="gap-2" onClick={undo} disabled={!canUndo} data-testid="editor-undo" title={t("undoHint")}>
             <Undo2 className="size-4" aria-hidden="true" />
             {t("undo")}

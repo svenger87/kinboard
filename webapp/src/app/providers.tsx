@@ -34,7 +34,7 @@ import { PageShell } from "@/components/page-shell";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { isScreensaverSkipPath } from "@/lib/constants";
-import { screensaverAllowed, SCREENSAVER_PREVIEW_EVENT, wakesScreen } from "@/lib/screensaver-gate";
+import { previewLayoutOf, screensaverAllowed, SCREENSAVER_PREVIEW_EVENT, wakesScreen, type PreviewLayout } from "@/lib/screensaver-gate";
 import { promptShownOn } from "@/lib/home/action-prompt";
 import { usePendingAssistantActions } from "@/hooks/use-assistant-actions";
 import { useAssistantActionNotices } from "@/stores/assistant-action-notices";
@@ -161,9 +161,10 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
   // gate below on purpose — a person standing at this screen asked to
   // see it, on whatever page and whatever screen this is — and it ends
   // at the next touch or key, the way waking from the real one does.
-  const [preview, setPreview] = useState(false);
+  // The layout editor's preview brings the layout it is editing along.
+  const [preview, setPreview] = useState<false | { layout: PreviewLayout | null }>(false);
   useEffect(() => {
-    const onPreview = () => setPreview(true);
+    const onPreview = (e: Event) => setPreview({ layout: previewLayoutOf(e) });
     window.addEventListener(SCREENSAVER_PREVIEW_EVENT, onPreview);
     return () => window.removeEventListener(SCREENSAVER_PREVIEW_EVENT, onPreview);
   }, []);
@@ -234,7 +235,7 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
 
   // Hide nav bars during screensaver to save GPU (backdrop-blur is expensive on ARM)
   // And an assistant request waiting for a person must not sit under it either.
-  const showScreensaver = preview || screensaverAllowed({
+  const showScreensaver = !!preview || screensaverAllowed({
     isIdle,
     skipPath: skipScreensaver,
     handheld: suppressForViewport,
@@ -265,7 +266,7 @@ function ScreensaverProvider({ children }: { children: ReactNode }) {
         />
       )}
       <AnimatePresence>
-        {showScreensaver && <Screensaver key="screensaver" />}
+        {showScreensaver && <Screensaver key="screensaver" previewLayout={preview ? preview.layout : null} />}
       </AnimatePresence>
     </>
   );
