@@ -66,6 +66,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Weather temperatures on the screensaver in the sans face.** The current and hourly temperatures of the screensaver's weather strip — and the temperature chip that stands in when no forecast is there — were set in the display face at its lightest weight; with a serif display face chosen, the digits' hairline strokes all but disappeared against the photo. They are now set in the family's sans face at the same weight, so they read clearly from across the room. The rain chances already used the sans face and are unchanged.
 
+- **Weather temperatures on the home widget and in the weather dialog in the sans face.** The large current temperature on the home weather widget and in the weather dialog was set in the display face at its lightest weight — the same hairline digits the screensaver strip had. It is now set in the family's sans face at the same weight. The high and low, hourly and daily figures around it already used the sans face and are unchanged.
+
 ### Fixed
 
 - **Home can no longer be arranged into a place the bar won't put it.** Settings → Navigation listed Home as an ordinary draggable row, so another item could be dragged above it and the order saved — but both navigation bars pin Home at the front, outside the scrolling row, and silently rendered it first anyway. Home now sits pinned at the top of the list, marked *Always first*, with no drag handle; every order the page saves starts with it, and orders saved earlier display correctly without being rewritten.
