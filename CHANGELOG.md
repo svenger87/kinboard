@@ -64,6 +64,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Even spacing on the screensaver.** The clock, the events and the birthdays at the bottom of the screensaver now sit at one even distance from each other: 24px, or 40px with the large clock and events. Before, the lists were 16px apart and the clock 24px below them. With the large clock and on landscape screens, the clock's row was also half again as tall as its digits, which left a wide gap above and below the time. The photo counter ("12 / 99") moved from under the birthdays to the bottom right corner, where it no longer pushes the clock down (#282).
 
+- **Weather temperatures on the screensaver in the sans face.** The current and hourly temperatures of the screensaver's weather strip — and the temperature chip that stands in when no forecast is there — were set in the display face at its lightest weight; with a serif display face chosen, the digits' hairline strokes all but disappeared against the photo. They are now set in the family's sans face at the same weight, so they read clearly from across the room. The rain chances already used the sans face and are unchanged.
+
 ### Fixed
 
 - **Home can no longer be arranged into a place the bar won't put it.** Settings → Navigation listed Home as an ordinary draggable row, so another item could be dragged above it and the order saved — but both navigation bars pin Home at the front, outside the scrolling row, and silently rendered it first anyway. Home now sits pinned at the top of the list, marked *Always first*, with no drag handle; every order the page saves starts with it, and orders saved earlier display correctly without being rewritten.

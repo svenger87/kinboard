@@ -75,7 +75,7 @@ export function ScreensaverWeather({
     >
       <Column label={t("forecastNow")} labelClass={small} strong>
         <NowIcon className={`${icon} panel-fg`} strokeWidth={1.75} />
-        <span className={`font-display font-light ${temp} panel-fg tabular-nums leading-none`}>{Math.round(weather.temp)}°</span>
+        <span className={`font-sans font-light ${temp} panel-fg tabular-nums leading-none`}>{Math.round(weather.temp)}°</span>
         {/* The rain row stays level across the columns: "now" has no chance, only the slots do. */}
         <span className={`${small} invisible`} aria-hidden="true">0%</span>
       </Column>
@@ -91,7 +91,7 @@ export function ScreensaverWeather({
             className={i >= SLOTS_NARROW ? "hidden md:flex" : undefined}
           >
             <Icon className={`${icon} panel-fg`} strokeWidth={1.75} />
-            <span className={`font-display font-light ${temp} panel-fg tabular-nums leading-none`}>{slot.temp}°</span>
+            <span className={`font-sans font-light ${temp} panel-fg tabular-nums leading-none`}>{slot.temp}°</span>
             <span
               className={`flex items-center gap-0.5 tabular-nums ${small} ${wet ? "font-semibold panel-accent" : "panel-fg-55"}`}
               data-wet={wet ? "true" : undefined}
@@ -130,7 +130,7 @@ export function ScaledForecast({ weather, slots: maxSlots, fill = false }: { wea
     >
       <ScaledColumn label={t("forecastNow")} strong fill={fill}>
         <NowIcon className="size-[1.75em] panel-fg" strokeWidth={1.75} />
-        <span className="font-display font-light text-[1.5em] panel-fg tabular-nums leading-none">{Math.round(weather.temp)}°</span>
+        <span className="font-sans font-light text-[1.5em] panel-fg tabular-nums leading-none">{Math.round(weather.temp)}°</span>
         <span className="text-[0.75em] leading-[1.25] invisible" aria-hidden="true">0%</span>
       </ScaledColumn>
       {slots.length > 0 && <div className="w-px self-stretch panel-fg-line mx-[0.25em]" aria-hidden="true" />}
@@ -140,7 +140,7 @@ export function ScaledForecast({ weather, slots: maxSlots, fill = false }: { wea
         return (
           <ScaledColumn key={slot.at ?? slot.time} label={formatWallClock(slot.time)} fill={fill}>
             <Icon className="size-[1.75em] panel-fg" strokeWidth={1.75} />
-            <span className="font-display font-light text-[1.5em] panel-fg tabular-nums leading-none">{slot.temp}°</span>
+            <span className="font-sans font-light text-[1.5em] panel-fg tabular-nums leading-none">{slot.temp}°</span>
             <span
               className={`flex items-center gap-[0.125em] tabular-nums text-[0.75em] leading-[1.25] ${wet ? "font-semibold panel-accent" : "panel-fg-55"}`}
               data-wet={wet ? "true" : undefined}
@@ -195,7 +195,7 @@ export function WeatherNowChip({ weather, scaled = false }: { weather: WeatherDa
       data-testid={scaled ? undefined : "screensaver-weather"}
     >
       <NowIcon className={`${scaled ? "size-[1.75em]" : "size-7"} panel-fg`} strokeWidth={1.75} />
-      <span className={`font-display font-light ${scaled ? "text-[1.875em]" : "text-3xl"} panel-fg tabular-nums leading-none`}>
+      <span className={`font-sans font-light ${scaled ? "text-[1.875em]" : "text-3xl"} panel-fg tabular-nums leading-none`}>
         {Math.round(weather.temp)}°
       </span>
     </div>
