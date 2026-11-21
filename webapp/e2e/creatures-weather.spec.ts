@@ -20,9 +20,10 @@ import {
   type World,
 } from "../src/lib/creatures/roam";
 import { codeOnly } from "./source-helpers";
+import { useFloorWeather } from "../src/stores/home-weather";
 
 /**
- * The creatures on Home react to the weather effects showing: the engine's
+ * The creatures on Home and the screensaver react to the weather effects showing: the engine's
  * part (lib/creatures/roam.ts: wind, pace, hops, sunbathing, the lean and the
  * shiver), driven step by step with a seeded random source; and the wiring
  * from the weather overlay through stores/home-weather.ts to the floor, which
@@ -183,19 +184,38 @@ test("the pose: leaning into the wind (to the left, whichever way it faces), shi
   expect(Math.max(...tilts.map(Math.abs))).toBeLessThan(2);
 });
 
-test("the wiring: the overlay shares Home's effects, the floor moves and poses with them and draws the umbrella and the towel", () => {
+test("the store: Home's and the screensaver's weather are kept apart, so Home's overlay under the screensaver can't overwrite it", () => {
+  const { setFloorWeather } = useFloorWeather.getState();
+  setFloorWeather("idle", ["rain"], 0);
+  setFloorWeather("home", [], 0);
+  expect(useFloorWeather.getState().idle).toEqual({ effects: ["rain"], gust: 0 });
+  expect(useFloorWeather.getState().home).toEqual({ effects: [], gust: 0 });
+  setFloorWeather("home", ["wind"], 1.5);
+  expect(useFloorWeather.getState().idle.effects).toEqual(["rain"]);
+  setFloorWeather("idle", [], 0);
+  expect(useFloorWeather.getState().home).toEqual({ effects: ["wind"], gust: 1.5 });
+});
+
+test("the wiring: each overlay shares its own screen's effects, each floor moves and poses with its own and draws the umbrella and the towel", () => {
   const overlay = codeOnly(read("src/components/weather-effects.tsx"));
   // With Animations off the overlay draws nothing, so the floor gets nothing either.
-  expect(overlay).toContain('const publish = home && !forced && motion !== "off";');
-  expect(overlay).toContain('setHomeWeather(effectsKey ? (effectsKey.split(",") as WeatherEffect[]) : [], gust);');
-  expect(overlay).toContain("useEffect(() => (publish ? () => setHomeWeather([], 0) : undefined), [publish, setHomeWeather]);");
+  // Home's overlay for Home's floor, the screensaver's for the idle screen's (#282 follow-up).
+  expect(overlay).toContain('const floor = home ? "home" : "idle";');
+  expect(overlay).toContain('const publish = !forced && motion !== "off";');
+  expect(overlay).toContain('setFloorWeather(floor, effectsKey ? (effectsKey.split(",") as WeatherEffect[]) : [], gust);');
+  expect(overlay).toContain("useEffect(() => (publish ? () => setFloorWeather(floor, [], 0) : undefined), [publish, floor, setFloorWeather]);");
   // The publishing comes before any early return: hooks run every render.
-  expect(overlay.indexOf("setHomeWeather(effectsKey")).toBeLessThan(overlay.indexOf("if (effects.length === 0 && visitor) return"));
+  expect(overlay.indexOf("setFloorWeather(floor, effectsKey")).toBeLessThan(overlay.indexOf("if (effects.length === 0 && visitor) return"));
   const floorSrc = codeOnly(read("src/components/creatures-on-home.tsx"));
-  expect(floorSrc).toContain('() => (placement === "home" ? roamWeather(homeEffects, homeGust) : CALM),');
+  expect(floorSrc).toContain("const shown = useFloorWeather((s) => s[placement]);");
+  expect(floorSrc).toContain("const weather = useMemo(() => roamWeather(shown.effects, shown.gust), [shown]);");
   expect(floorSrc).toContain("platforms: platforms.current, weather: weatherRef.current }");
   expect(floorSrc).toContain("pose(r, now, size, weatherRef.current)");
-  expect(floorSrc).toContain('const wet = placement === "home" && (homeEffects.includes("rain") || homeEffects.includes("storm"));');
+  expect(floorSrc).toContain('const wet = shown.effects.includes("rain") || shown.effects.includes("storm");');
+  // The screensaver draws its overlay and its floor, so its creatures get its weather.
+  const saver = codeOnly(read("src/components/screensaver.tsx"));
+  expect(saver).toContain('<WeatherEffects placement="screensaver" enabled={weatherEffects} />');
+  expect(saver).toContain("<CreaturesOnIdle />");
   expect(floorSrc).toContain('umbrella={wet ? (stormy ? "storm" : "rain") : null}');
   expect(floorSrc).toContain('el.towel.style.opacity = why === "sun" && ready > 0 ? ready.toFixed(2) : "0";');
   expect(floorSrc).toContain('const shownMood = lying === "sleep" ? "sleepy" : lying === "sun" ? "happy"');

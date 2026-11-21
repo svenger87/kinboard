@@ -18,8 +18,8 @@ import { MINUTE_MS } from "@/lib/minute-clock";
 import { classicIsDrawn, effectiveStyle } from "@/lib/pocket-money/creatures";
 import { readLook } from "@/lib/pocket-money/creatures/look";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { CALM, placeRoamers, poke, pose, roamWeather, stepRoamers, type Platform, type RoamEvent, type Roamer } from "@/lib/creatures/roam";
-import { useHomeWeather } from "@/stores/home-weather";
+import { placeRoamers, poke, pose, roamWeather, stepRoamers, type Platform, type RoamEvent, type Roamer } from "@/lib/creatures/roam";
+import { useFloorWeather } from "@/stores/home-weather";
 import type { Creature, PocketMoneyAccount, Person } from "@/types/database";
 
 /**
@@ -43,7 +43,8 @@ import type { Creature, PocketMoneyAccount, Person } from "@/types/database";
  * The drawing's own ground shadow is hidden here: each creature gets one that
  * stays flat on the floor, smaller while it is in the air, longer lying down.
  *
- * On Home they react to the weather effects showing (stores/home-weather.ts):
+ * On Home and on the screensaver they react to the weather effects showing
+ * there (stores/home-weather.ts):
  * an umbrella in the child's colour in rain (shaking in a storm), a towel to
  * lie on now and then in the heat, leaning into the wind and pushed back by
  * it, shivering in the frost, hopping after the snow, walking slower in fog.
@@ -136,17 +137,14 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
   // What it last lay down for, so getting up from the towel takes the towel away.
   const lastLying = useRef(new Map<string, Lying>());
 
-  // Home's weather, as the overlay shows it; the idle screen's creatures keep calm.
-  const homeEffects = useHomeWeather((s) => s.effects);
-  const homeGust = useHomeWeather((s) => s.gust);
-  const weather = useMemo(
-    () => (placement === "home" ? roamWeather(homeEffects, homeGust) : CALM),
-    [placement, homeEffects, homeGust],
-  );
+  // The weather as this floor's own screen shows it: Home's overlay for Home,
+  // the screensaver's for the idle screen.
+  const shown = useFloorWeather((s) => s[placement]);
+  const weather = useMemo(() => roamWeather(shown.effects, shown.gust), [shown]);
   const weatherRef = useRef(weather);
   weatherRef.current = weather;
-  const wet = placement === "home" && (homeEffects.includes("rain") || homeEffects.includes("storm"));
-  const stormy = placement === "home" && homeEffects.includes("storm");
+  const wet = shown.effects.includes("rain") || shown.effects.includes("storm");
+  const stormy = shown.effects.includes("storm");
   const sleepingRef = useRef<ReadonlySet<string>>(new Set());
   sleepingRef.current = bedtimeNow ? new Set(cast.map((c) => c.person.id)) : new Set();
 
@@ -364,7 +362,7 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
       // On the idle screen a tap on a creature is for the creature, not a wake-up.
       data-no-wake={placement === "idle" ? "" : undefined}
       data-count={cast.length}
-      data-weather={placement === "home" ? homeEffects.join(",") : undefined}
+      data-weather={shown.effects.join(",")}
       aria-label={t("aria")}
       role="group"
     >

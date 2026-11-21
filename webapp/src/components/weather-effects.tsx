@@ -3,7 +3,7 @@
 import { forwardRef, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMotion } from "@/hooks/use-motion";
-import { useHomeWeather } from "@/stores/home-weather";
+import { useFloorWeather } from "@/stores/home-weather";
 import { useFestival } from "@/hooks/use-festival";
 import { useFamilyStore } from "@/stores/family-store";
 import { cheerCreatures } from "@/stores/creature-reactions";
@@ -140,17 +140,19 @@ export function WeatherEffects({
   // How hard the wind blows, against the family's threshold: 1 at it, up to 2.
   const windKmh = weather ? (system === "imperial" ? weather.windSpeed * 1.609344 : weather.windSpeed) : 0;
   const gust = effects.includes("wind") ? Math.min(2, Math.max(1, windKmh / Math.max(1, settings.windAtKmh))) : 0;
-  // Home's effects, for the creatures walking below them (stores/home-weather.ts);
-  // never the settings page's own preview, nor the screensaver's, and nothing
-  // with Animations off, when the overlay draws nothing either.
-  const publish = home && !forced && motion !== "off";
+  // What this screen shows, for the creatures walking below it
+  // (stores/home-weather.ts): Home's for Home's floor, the screensaver's for
+  // its bottom edge; never the settings page's own preview, and nothing with
+  // Animations off, when the overlay draws nothing either.
+  const floor = home ? "home" : "idle";
+  const publish = !forced && motion !== "off";
   const effectsKey = effects.join(",");
-  const setHomeWeather = useHomeWeather((s) => s.setHomeWeather);
+  const setFloorWeather = useFloorWeather((s) => s.setFloorWeather);
   useEffect(() => {
     if (!publish) return;
-    setHomeWeather(effectsKey ? (effectsKey.split(",") as WeatherEffect[]) : [], gust);
-  }, [publish, effectsKey, gust, setHomeWeather]);
-  useEffect(() => (publish ? () => setHomeWeather([], 0) : undefined), [publish, setHomeWeather]);
+    setFloorWeather(floor, effectsKey ? (effectsKey.split(",") as WeatherEffect[]) : [], gust);
+  }, [publish, floor, effectsKey, gust, setFloorWeather]);
+  useEffect(() => (publish ? () => setFloorWeather(floor, [], 0) : undefined), [publish, floor, setFloorWeather]);
   if (effects.length === 0 && visitor) return <FestivalVisitor placement={placement} />;
   if (effects.length === 0 || motion === "off") return null;
   const on = new Set(effects);
