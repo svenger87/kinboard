@@ -141,8 +141,9 @@ export function WeatherEffects({
   const windKmh = weather ? (system === "imperial" ? weather.windSpeed * 1.609344 : weather.windSpeed) : 0;
   const gust = effects.includes("wind") ? Math.min(2, Math.max(1, windKmh / Math.max(1, settings.windAtKmh))) : 0;
   // Home's effects, for the creatures walking below them (stores/home-weather.ts);
-  // never the settings page's own preview, nor the screensaver's.
-  const publish = home && !forced;
+  // never the settings page's own preview, nor the screensaver's, and nothing
+  // with Animations off, when the overlay draws nothing either.
+  const publish = home && !forced && motion !== "off";
   const effectsKey = effects.join(",");
   const setHomeWeather = useHomeWeather((s) => s.setHomeWeather);
   useEffect(() => {

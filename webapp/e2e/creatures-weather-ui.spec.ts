@@ -56,7 +56,7 @@ test.describe("creatures and the weather on Home", () => {
   test.use({ serviceWorkers: "block", viewport: { width: 1280, height: 800 } });
   test.describe.configure({ timeout: 240_000 });
 
-  test("umbrellas in rain, shaking in a storm, a towel in the heat, and nothing on a calm day", async ({ page, baseURL }) => {
+  test("umbrellas in rain, shaking in a storm, a towel in the heat (up with a tap), and nothing on a calm day", async ({ page, baseURL }) => {
     const familyName = `probe-family-creature-weather-${Date.now()}`;
     await page.context().addCookies([{ name: "NEXT_LOCALE", value: "en", url: baseURL ?? "http://localhost:3000" }]);
     await page.goto("/join", { waitUntil: "domcontentloaded" });
@@ -86,6 +86,25 @@ test.describe("creatures and the weather on Home", () => {
         .poll(async () => Number(await page.locator(`[data-testid="home-creature-towel"][data-person="${who}"]`).evaluate((el) => getComputedStyle(el).opacity)), { timeout: 5_000 })
         .toBeGreaterThan(0.5);
       await expect(sunning.locator(".home-creature-zzz")).toHaveCount(0);
+      // A tap: it gets up, and the towel rolls away as it does, not all at once.
+      const towel = page.locator(`[data-testid="home-creature-towel"][data-person="${who}"]`);
+      await sunning.locator("button").click();
+      const fading = await towel.evaluate(
+        (el) =>
+          new Promise<number[]>((done) => {
+            const seen: number[] = [];
+            const t0 = performance.now();
+            const tick = () => {
+              seen.push(Number(getComputedStyle(el).opacity));
+              if (performance.now() - t0 < 2500) requestAnimationFrame(tick);
+              else done(seen);
+            };
+            tick();
+          }),
+      );
+      expect(fading.some((o) => o > 0.05 && o < 0.95)).toBe(true);
+      expect(fading[fading.length - 1]).toBe(0);
+      await expect(page.locator(`[data-testid="home-creature"][data-person="${who}"]`)).not.toHaveAttribute("data-sun", "true");
 
       // Calm: the Preview over, nothing of it left.
       await page.evaluate(() => sessionStorage.removeItem("kinboard.weatherPreview"));

@@ -155,9 +155,14 @@ export const SUNBATHE_MS = 9000;
 export const FOG_PACE = 0.7;
 export const HEAT_PACE = 0.8;
 export const SNOW_HOPS = 2.5;
-/** Wind: how much one unit of wind speeds up a walk with it or slows one against it; how fast it pushes one standing still, px/s. */
+/**
+ * Wind: how much one unit of wind speeds up a walk with it or slows one
+ * against it; how fast it pushes one standing still, px/s, and for how long
+ * after it stops (then it braces).
+ */
 export const WIND_PACE = 0.35;
 export const WIND_PUSH_PX_PER_S = 9;
+export const WIND_PUSH_MS = 1500;
 /** The slowest a walk into the wind gets. */
 export const MIN_PACE = 0.25;
 
@@ -433,8 +438,8 @@ export function stepRoamers(
       case "idle":
       default: {
         if (r.state !== "idle") set(r, "idle", now, now + 1500);
-        // Standing in the wind on the floor: pushed back a little, downwind.
-        if (!stand && weather.wind > 0) r.x = Math.min(hi, r.x + (weather.wind * WIND_PUSH_PX_PER_S * dt) / 1000);
+        // Standing in the wind on the floor: pushed back a little, downwind, until it braces.
+        if (!stand && weather.wind > 0 && now - r.since < WIND_PUSH_MS) r.x = Math.min(hi, r.x + (weather.wind * WIND_PUSH_PX_PER_S * dt) / 1000);
         if (now < r.until) break;
         if (stand) {
           // Up on a card: look around, walk along it, hop, and after a while leave.
@@ -481,7 +486,10 @@ export function stepRoamers(
         } else if (roll < PLAY_CHANCE + HOP_CHANCE * weather.hops) {
           set(r, "hop", now, now + HOP_MS);
         } else {
-          r.target = lo + rng() * (hi - lo);
+          // In the wind, one on the downwind half walks back into it, so the
+          // pushes don't gather everyone at the right end of the floor.
+          const upwind = weather.wind > 0 && r.x > (lo + hi) / 2;
+          r.target = upwind ? lo + rng() * (r.x - lo) : lo + rng() * (hi - lo);
           set(r, "walk", now);
           // Now and then the walk is to the foot of a card, and up onto it.
           const cards = platforms.filter((q) => roomy(q, world.size));
@@ -501,7 +509,10 @@ export function stepRoamers(
   return { roamers, events };
 }
 
-/** A tap: an awake creature hops and sends up hearts; one asleep stays asleep, with a single heart. */
+/**
+ * A tap: an awake creature hops and sends up hearts; one asleep stays asleep,
+ * with a single heart; one on its towel gets up first.
+ */
 export function poke(input: readonly Roamer[], id: string, now: number): { roamers: Roamer[]; events: RoamEvent[] } {
   const roamers = input.map((r) => ({ ...r }));
   const r = roamers.find((x) => x.id === id);
@@ -509,6 +520,11 @@ export function poke(input: readonly Roamer[], id: string, now: number): { roame
   if (r.state === "asleep" || r.state === "toBed" || r.egg) return { roamers, events: [{ kind: "hearts", x: r.x, count: 1 }] };
   // In the air: it lands first; a heart on the way.
   if (r.state === "jump") return { roamers, events: [{ kind: "hearts", x: r.x, count: 1 }] };
+  // On its towel: up as at the end of its time there (the towel rolls away), no hop.
+  if (r.state === "sunbathe") {
+    set(r, "waking", now, now + WAKE_MS);
+    return { roamers, events: [{ kind: "hearts", x: r.x, count: 3 }] };
+  }
   // A tap cancels a walk to a card: the hop is right here.
   r.plan = null;
   if (r.partner) {
