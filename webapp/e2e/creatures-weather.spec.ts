@@ -5,10 +5,14 @@ import {
   CALM,
   FOG_PACE,
   SUNBATHE_MS,
+  WAKE_MS,
   WALK_PX_PER_S,
   WIND_LEAN_DEG,
+  WIND_PUSH_MS,
+  WIND_PUSH_PX_PER_S,
   bounds,
   placeRoamers,
+  poke,
   pose,
   roamWeather,
   stepRoamers,
@@ -88,12 +92,37 @@ test("wind: quicker walking with it (to the right), slower against it, and pushe
   expect(calmRight).toBeCloseTo((WALK_PX_PER_S * 2000) / 1000, -1);
   expect(walked(300, 900, windy)).toBeGreaterThan(calmRight * 1.4);
   expect(walked(900, 300, windy)).toBeLessThan(calmRight * 0.6);
-  // Standing: drifts downwind, and never off the floor.
-  const [, hi] = bounds(floor);
+  // Standing: pushed downwind for a moment, then it braces; never off the floor.
+  const [lo, hi] = bounds(floor);
+  const step = (WIND_PUSH_PX_PER_S * 2 * WIND_PUSH_MS) / 1000;
+  const braced = run([one("idle", 600, { until: Infinity })], { ...floor, weather: windy }, WIND_PUSH_MS + 500).roamers[0];
+  expect(braced.x).toBeGreaterThan(600 + step * 0.9);
+  expect(braced.x).toBeLessThan(600 + step * 1.1);
   const idle = run([one("idle", 600, { until: Infinity })], { ...floor, weather: windy }, 5000).roamers[0];
-  expect(idle.x).toBeGreaterThan(600 + 50);
+  expect(idle.x).toBe(braced.x);
   const edge = run([one("idle", hi - 2, { until: Infinity })], { ...floor, weather: windy }, 5000).roamers[0];
   expect(edge.x).toBe(hi);
+  // Walking off from the downwind half: back into the wind.
+  for (const seed of [1, 2, 3, 4, 5, 6]) {
+    const from = lo + (hi - lo) * 0.8;
+    const r = stepRoamers([one("idle", from)], { ...floor, now: 1000, weather: windy }, 33, seeded(seed)).roamers[0];
+    if (r.state === "walk") expect(r.target).toBeLessThan(from);
+  }
+});
+
+test("wind: over many minutes the creatures stay spread over the floor, not gathered at the right end", () => {
+  for (const width of [500, 1200, 1920]) {
+    const world = { width, size: Math.round(Math.min(72, Math.max(50, width / 18))), sleeping: new Set<string>() };
+    const [lo, hi] = bounds(world);
+    const start = placeRoamers(["a", "b", "c"].map((id) => ({ id, egg: false })), { ...world, now: 0 });
+    for (const seed of [1, 2, 3]) {
+      const { frames } = run(start, { ...world, weather: roamWeather(["wind"], 2) }, 600_000, seed);
+      const at = frames.slice(1800).flatMap((f) => f.map((r) => (r.x - lo) / (hi - lo)));
+      const mean = at.reduce((a, b) => a + b, 0) / at.length;
+      expect(mean, `width ${width}, seed ${seed}`).toBeLessThan(0.58);
+      expect(at.filter((x) => x > 0.85).length / at.length, `width ${width}, seed ${seed}`).toBeLessThan(0.2);
+    }
+  }
 });
 
 test("fog and heat: slower walking", () => {
@@ -128,6 +157,10 @@ test("heat: now and then one lies on its towel, gets up after a while; never an 
   expect(frames.some((f) => f.find((r) => r.id === "egg")!.state === "sunbathe")).toBe(false);
   // Calm: never.
   expect(run(start, floor, 120_000, 5).frames.some((f) => f.some((r) => r.state === "sunbathe"))).toBe(false);
+  // A tap on the towel: up first, as at the end of its time there, with hearts; no hop.
+  const tapped = poke([one("sunbathe", 500, { since: 0, until: 60_000 })], "a", 10_000);
+  expect(tapped.roamers[0]).toMatchObject({ state: "waking", since: 10_000, until: 10_000 + WAKE_MS });
+  expect(tapped.events).toEqual([{ kind: "hearts", x: 500, count: 3 }]);
   // Bedtime: off the towel and to bed.
   const sunbathing = one("sunbathe", 500, { until: Infinity });
   const night = run([sunbathing], { ...floor, weather: heat, sleeping: new Set(["a"]) }, 60_000).roamers[0];
@@ -152,7 +185,8 @@ test("the pose: leaning into the wind (to the left, whichever way it faces), shi
 
 test("the wiring: the overlay shares Home's effects, the floor moves and poses with them and draws the umbrella and the towel", () => {
   const overlay = codeOnly(read("src/components/weather-effects.tsx"));
-  expect(overlay).toContain("const publish = home && !forced;");
+  // With Animations off the overlay draws nothing, so the floor gets nothing either.
+  expect(overlay).toContain('const publish = home && !forced && motion !== "off";');
   expect(overlay).toContain('setHomeWeather(effectsKey ? (effectsKey.split(",") as WeatherEffect[]) : [], gust);');
   expect(overlay).toContain("useEffect(() => (publish ? () => setHomeWeather([], 0) : undefined), [publish, setHomeWeather]);");
   // The publishing comes before any early return: hooks run every render.
