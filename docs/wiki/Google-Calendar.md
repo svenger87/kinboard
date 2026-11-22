@@ -30,9 +30,8 @@ You need a project with the Google Calendar API enabled. The free tier is plenty
 2. Create a project named `kinboard` (or whatever).
 3. Enable the **Google Calendar API**: APIs & Services → Library → search "Google Calendar API" → Enable.
 4. Create OAuth credentials: APIs & Services → Credentials → Create Credentials → **OAuth client ID** → Application type **Web application**.
-5. Authorized redirect URI:
-   - `http://localhost:3001/api/google/callback` for local dev
-   - `https://<your-domain>/api/google/callback` for production (your Kinboard URL)
+5. **Authorized redirect URI:** open Kinboard → **Settings → Google Calendar**. The card *Redirect URI for Google Cloud* shows the exact address this install will send; copy it and paste it here unchanged. It is the address you opened Kinboard on plus `/api/google/callback`, e.g. `https://kinboard.example.com/api/google/callback`.
+   - Google accepts only **https with a domain name**, or **`http://localhost`**. A LAN address such as `http://192.168.1.20:3001` or `http://server.local:3001` is refused in Cloud Console. You only have to connect **once**, so either open Kinboard on the server itself at `http://localhost:3001` (or through an SSH tunnel: `ssh -L 3001:localhost:3001 you@server`, then `http://localhost:3001` on your own computer), register that address and connect there, or use your https address. After that every screen syncs, whatever address it uses.
 6. Save the **Client ID** and **Client secret**.
 
 ### 2. Add to webapp/docker/.env
@@ -40,8 +39,9 @@ You need a project with the Google Calendar API enabled. The free tier is plenty
 ```
 GOOGLE_CLIENT_ID=<paste from Cloud Console>
 GOOGLE_CLIENT_SECRET=<paste from Cloud Console>
-GOOGLE_REDIRECT_URI=https://<your-domain>/api/google/callback
 ```
+
+`GOOGLE_REDIRECT_URI` is optional: leave it out and the redirect URI follows the address you open Kinboard on. Set it only to pin one address for every screen (then the Settings card says so).
 
 Restart the webapp:
 
@@ -92,9 +92,9 @@ The OAuth tokens — stored server-side only in `integration_secrets`, not the `
 
 | Symptom | Likely cause |
 |---|---|
-| **"Connection failed"** in the OAuth popup | Redirect URI mismatch — must match exactly, including `http`/`https` and port |
+| **"Error 400: redirect_uri_mismatch"** on Google's page | The address registered in Cloud Console isn't the one Kinboard sent. Copy it from Settings → Google Calendar and paste it unchanged, including `http`/`https`, the port and no trailing slash. Before 1.17, Docker installs always sent `http://localhost:3000/api/google/callback` (#503). |
 | **No calendars listed** after connect | API not enabled in Cloud Console; or your account has zero calendars |
-| **`/api/google/callback` 500 error** | `GOOGLE_REDIRECT_URI` env var doesn't match the one in Cloud Console |
+| **Cloud Console refuses the redirect URI** | Google takes only https with a domain name, or `http://localhost`. Connect once from `http://localhost:<port>` (see step 5) or via your https address. |
 | **Auto-sync stops after 6 months** | Google's refresh tokens expire if unused. Click **Sync now** once to refresh, or revoke + reconnect |
 | **"Reconnect" banner appears, sync stopped** | Google rejected the stored authorization (`invalid_grant` — consent revoked, password changed, or the refresh token expired from long disuse). Click **Reconnect** in Settings → Google Calendar to re-authorize; the banner clears automatically on the next successful sync. |
 

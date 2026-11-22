@@ -114,6 +114,7 @@ export {
 // Google Calendar Hooks
 export {
   useGoogleConfigured,
+  useGoogleSetup,
   useGoogleCalendarStatus,
   useGoogleCalendars,
   useGoogleEvents,

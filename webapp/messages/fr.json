@@ -2345,7 +2345,13 @@
       "infoDescription": "La connexion à Google Agenda utilise OAuth 2.0 et ne stocke aucun mot de passe. Vous pouvez révoquer l'autorisation à tout moment dans les paramètres de votre compte Google.",
       "notConfiguredTitle": "Identifiants OAuth Google non configurés",
       "notConfiguredDescription": "Pour connecter un agenda Google, le serveur Kinboard auto-hébergé a besoin d'identifiants client OAuth provenant d'un projet Google Cloud. Sans eux, le bouton Connecter ne peut pas atteindre Google.",
-      "notConfiguredDocsLabel": "Guide d'installation"
+      "notConfiguredDocsLabel": "Guide d'installation",
+      "redirectHeading": "URI de redirection pour Google Cloud",
+      "redirectBody": "Dans Google Cloud Console → API et services → Identifiants → votre client OAuth, ajoutez cette adresse sous « URI de redirection autorisés », exactement comme affichée. Si elle diffère d’un seul caractère (http ou https, le port, une barre oblique finale), Google refuse la connexion avec « redirect_uri_mismatch ».",
+      "redirectCopy": "Copier",
+      "redirectCopied": "Copié",
+      "redirectFixed": "Défini par GOOGLE_REDIRECT_URI dans webapp/docker/.env. Supprimez-le pour utiliser l’adresse sur laquelle cet écran est ouvert.",
+      "redirectUnsupported": "Google n’accepte que les adresses https avec un nom de domaine, ou localhost : il refusera celle-ci. La connexion ne se fait qu’une fois : ouvrez Kinboard dans un navigateur sur le serveur lui-même à http://localhost avec le même port, enregistrez cette adresse et connectez-vous là, ou utilisez une adresse https. Ensuite, chaque écran de la famille se synchronise."
     },
     "vehicles": {
       "title": "Véhicules",

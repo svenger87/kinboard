@@ -2345,7 +2345,13 @@
       "infoDescription": "The connection to Google Calendar uses OAuth 2.0 and stores no passwords. You can revoke the permission at any time in your Google account settings.",
       "notConfiguredTitle": "Google OAuth credentials not set",
       "notConfiguredDescription": "To connect a Google Calendar, the self-hosted Kinboard server needs OAuth client credentials from a Google Cloud project. Without them the Connect button can't reach Google.",
-      "notConfiguredDocsLabel": "Setup walkthrough"
+      "notConfiguredDocsLabel": "Setup walkthrough",
+      "redirectHeading": "Redirect URI for Google Cloud",
+      "redirectBody": "In Google Cloud Console → APIs & Services → Credentials → your OAuth client, add this address under “Authorized redirect URIs”, exactly as shown. If it differs in any character (http or https, the port, a trailing slash), Google refuses the sign-in with “redirect_uri_mismatch”.",
+      "redirectCopy": "Copy",
+      "redirectCopied": "Copied",
+      "redirectFixed": "Set by GOOGLE_REDIRECT_URI in webapp/docker/.env. Remove it there to use the address this screen is opened on.",
+      "redirectUnsupported": "Google only accepts https addresses with a domain name, or localhost, so it will refuse this one. Connecting is needed only once: open Kinboard in a browser on the server itself at http://localhost with the same port, register that address and connect there, or use an https address. After that, every screen in the family syncs."
     },
     "vehicles": {
       "title": "Vehicles",

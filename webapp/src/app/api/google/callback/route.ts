@@ -3,11 +3,11 @@ import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { googleRedirectUri } from "@/lib/google-redirect";
 import { mergeReconnectedGoogleSettings } from "@/lib/google-calendar-reconcile";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "http://localhost:3000/api/google/callback";
 
 // GET: Handle OAuth callback from Google
 //
@@ -73,7 +73,8 @@ export async function GET(request: NextRequest) {
     const oauth2Client = new google.auth.OAuth2(
       GOOGLE_CLIENT_ID,
       GOOGLE_CLIENT_SECRET,
-      GOOGLE_REDIRECT_URI
+      // The same address both ways: Google refuses the token exchange otherwise.
+      googleRedirectUri(request.headers, request.nextUrl.origin),
     );
 
     // Exchange code for tokens

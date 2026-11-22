@@ -2345,7 +2345,13 @@
       "infoDescription": "与 Google 日历的连接使用 OAuth 2.0，不存储密码。你可以随时在 Google 账户设置中撤销权限。",
       "notConfiguredTitle": "未设置 Google OAuth 凭据",
       "notConfiguredDescription": "要连接 Google 日历，自托管的 Kinboard 服务器需要来自 Google Cloud 项目的 OAuth 客户端凭据。没有它们，连接按钮无法到达 Google。",
-      "notConfiguredDocsLabel": "设置指南"
+      "notConfiguredDocsLabel": "设置指南",
+      "redirectHeading": "Google Cloud 的重定向 URI",
+      "redirectBody": "在 Google Cloud Console → API 和服务 → 凭据 → 你的 OAuth 客户端中，将此地址完全照原样添加到“已获授权的重定向 URI”。只要有一个字符不同（http 或 https、端口、末尾的斜杠），Google 就会以“redirect_uri_mismatch”拒绝登录。",
+      "redirectCopy": "复制",
+      "redirectCopied": "已复制",
+      "redirectFixed": "由 webapp/docker/.env 中的 GOOGLE_REDIRECT_URI 设置。删除它即可使用当前屏幕所打开的地址。",
+      "redirectUnsupported": "Google 只接受带域名的 https 地址或 localhost，因此会拒绝此地址。只需连接一次：在服务器本机的浏览器中以 http://localhost 和相同端口打开 Kinboard，注册该地址并在那里连接，或使用 https 地址。之后，家庭中的每个屏幕都会同步。"
     },
     "vehicles": {
       "title": "车辆",
