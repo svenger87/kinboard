@@ -69,6 +69,22 @@ The text input at the top is a smart adder:
 
 Items appear instantly for everyone in the family thanks to real-time sync — a mom adding "milk" from her phone while shopping shows up on the kitchen wall in <1 s.
 
+### By barcode
+
+The barcode button (next to the microphone on the shopping list, left of the input on the phone page) adds a product by its barcode: the empty package in your hand goes straight on the list.
+
+- **Camera:** hold the barcode in front of it. Browsers allow the camera only on **https** addresses or **localhost**; on a plain-http LAN address (`http://192.168.1.20:3001`) the dialog says so and offers the photo instead.
+- **Photo:** take a picture of the barcode. Works on every address, plain http included.
+- **Type it:** the digits under the barcode. A wrong digit is caught by the check digit before anything is looked up.
+
+Each add leaves the scanner open for the next package. Retail barcodes are read: EAN-13, EAN-8, UPC-A and UPC-E. The phone's own barcode reader is used where it has one (Chrome and Edge on Android); Safari on iPhone and iPad and Firefox read it with [ZXing](https://github.com/zxing-js/library), loaded only then.
+
+**Where the product comes from.** First your family's own catalog, then [Open Food Facts](https://world.openfoodfacts.org), an open, worldwide, crowd-sourced product database (millions of products from well over 150 countries; best covered in Europe, good in North America, thinner elsewhere). Products that aren't food come from its sister databases: [Open Beauty Facts](https://world.openbeautyfacts.org) (shampoo, toothpaste), [Open Pet Food Facts](https://world.openpetfoodfacts.org) and [Open Products Facts](https://world.openproductsfacts.org) (everything else). Names come in the family's language where the database has one, else in the product's own; brand and size go into the item's note, and the category follows the product's.
+
+**When no database knows it** (a local bakery's bread, a store brand), you name it once. It goes on the list, and your family's catalog remembers the barcode, so the next scan finds it under that name. The dialog also links to Open Food Facts, should you want to add it there for everyone.
+
+The lookup is made by your Kinboard server and sends Open Food Facts only the barcode, nothing about your family. The product's picture is then loaded by the phone from Open Food Facts' image server, as for other catalog suggestions.
+
 ## Categories
 
 Items are grouped by category for supermarket-aisle order. The default categories:

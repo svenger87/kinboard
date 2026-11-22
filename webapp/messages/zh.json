@@ -229,6 +229,30 @@
       "idle": {
         "nextEvent": "下一个活动：在活动开始前一小时内显示。"
       }
+    },
+    "barcodeScanner": {
+      "open": "扫描条形码",
+      "title": "扫描条形码",
+      "description": "将条形码对准摄像头、拍下照片，或输入其数字。",
+      "added": "已添加：{name}。可以扫描下一个了。",
+      "cameraBlocked": "此页面不允许使用摄像头。请在浏览器的网站设置中允许，或改为拍照。",
+      "cameraUnavailable": "浏览器只允许在 https 地址或 localhost 上使用摄像头。这里可以用拍照。",
+      "photo": "拍下条形码",
+      "photoMissed": "照片中没有找到条形码。请靠近一点、拍清楚一些，或输入数字。",
+      "manualPlaceholder": "条形码下方的数字",
+      "lookUp": "查找",
+      "manualInvalid": "这不是有效的条形码。请检查数字。",
+      "looking": "正在查找 {code}…",
+      "sourceFamily": "来自你家庭自己的商品",
+      "sourceOpenFoodFacts": "来自 Open Food Facts",
+      "add": "加入清单",
+      "scanAnother": "扫描下一个",
+      "unknown": "还没有数据库收录 {code}。这是什么？",
+      "unknownNamePlaceholder": "商品名称",
+      "unknownRemembered": "下次你的家庭会以这个名称找到它。",
+      "contribute": "将它添加到 Open Food Facts，供所有人使用",
+      "lookupFailed": "查找失败。请检查网络连接后重试。",
+      "retry": "重试"
     }
   },
   "localeSwitcher": {

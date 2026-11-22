@@ -229,6 +229,30 @@
       "idle": {
         "nextEvent": "Nächster Termin: erscheint in der Stunde vor einem Termin."
       }
+    },
+    "barcodeScanner": {
+      "open": "Barcode scannen",
+      "title": "Barcode scannen",
+      "description": "Halte den Barcode vor die Kamera, fotografiere ihn oder tippe die Zahlen ein.",
+      "added": "Hinzugefügt: {name}. Bereit für den nächsten.",
+      "cameraBlocked": "Die Kamera ist für diese Seite nicht erlaubt. Erlaube sie in den Website-Einstellungen des Browsers oder mach stattdessen ein Foto.",
+      "cameraUnavailable": "Der Browser erlaubt die Kamera nur unter https-Adressen oder localhost. Ein Foto geht hier.",
+      "photo": "Barcode fotografieren",
+      "photoMissed": "Auf dem Foto wurde kein Barcode gefunden. Versuch es etwas näher und schärfer oder tippe die Zahlen ein.",
+      "manualPlaceholder": "Zahlen unter dem Barcode",
+      "lookUp": "Suchen",
+      "manualInvalid": "Das ist kein gültiger Barcode. Prüfe die Zahlen.",
+      "looking": "Suche {code}…",
+      "sourceFamily": "Aus den eigenen Produkten eurer Familie",
+      "sourceOpenFoodFacts": "Aus Open Food Facts",
+      "add": "Auf die Liste",
+      "scanAnother": "Nächsten scannen",
+      "unknown": "{code} kennt noch keine Datenbank. Was ist es?",
+      "unknownNamePlaceholder": "Name des Produkts",
+      "unknownRemembered": "Eure Familie findet es beim nächsten Mal unter diesem Namen.",
+      "contribute": "Bei Open Food Facts für alle eintragen",
+      "lookupFailed": "Die Suche hat nicht geklappt. Prüfe die Verbindung und versuch es noch einmal.",
+      "retry": "Noch einmal"
     }
   },
   "localeSwitcher": {

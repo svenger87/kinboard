@@ -126,8 +126,11 @@ const nextConfig = {
       // intercom card (#425). A frame only gets it when the page allows its origin
       // here *and* its own `allow` names it, and only a tab the household switched
       // on carries that (`frameAllow`); a page can't hand a frame a feature it is
-      // refused itself, which is why this is `*` rather than one origin.
-      { key: "Permissions-Policy", value: "camera=(), microphone=*, geolocation=(), interest-cohort=()" },
+      // refused itself, which is why this is `*` rather than one origin. The
+      // camera is Kinboard's own and no frame's: the shopping list's barcode
+      // scanner (components/shopping/barcode-scanner-dialog.tsx). With
+      // `camera=()` the browser refused it on every page, https included.
+      { key: "Permissions-Policy", value: "camera=(self), microphone=*, geolocation=(), interest-cohort=()" },
       // Clickjacking + a couple of cheap wins, none of which constrain scripts:
       // the dashboard cannot be framed, forms cannot be pointed elsewhere, and
       // <base> cannot be hijacked.

@@ -57,18 +57,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "not authenticated" }, { status: 401 });
     }
 
+    // Always the session's family, never a shared row (family_id NULL): the
+    // barcode scanner trusts what a family's catalog says a barcode is, so a
+    // row one family could write must never be one another family reads.
+    // Omitting family_id used to insert a shared row, and a name matching a
+    // shared row used to update it for everybody.
+    const ownFamily = auth.session.familyId;
+
     const supabase = await createAdminClient();
      
     const supabaseAny = supabase as any;
 
-    // Check if item already exists
+    // Check if the family already has it
     const normalizedName = name.toLowerCase().trim();
     const { data: existing } = await supabaseAny
       .from("item_catalog")
       .select("id, popularity")
       .eq("name_normalized", normalizedName)
-      .or(`family_id.eq.${family_id},family_id.is.null`)
-      .single();
+      .eq("family_id", ownFamily)
+      .limit(1)
+      .maybeSingle();
 
     if (existing) {
       // Update existing item with new data (category, image, etc.) and increment popularity
@@ -85,7 +93,8 @@ export async function POST(request: NextRequest) {
       await supabaseAny
         .from("item_catalog")
         .update(updateData)
-        .eq("id", existing.id);
+        .eq("id", existing.id)
+        .eq("family_id", ownFamily);
 
       return NextResponse.json({ id: existing.id, created: false, updated: true });
     }
@@ -94,7 +103,7 @@ export async function POST(request: NextRequest) {
     const { data: newItem, error } = await supabaseAny
       .from("item_catalog")
       .insert({
-        family_id: family_id || null,
+        family_id: ownFamily,
         name,
         name_normalized: normalizedName,
         barcode: barcode || null,

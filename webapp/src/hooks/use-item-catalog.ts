@@ -31,7 +31,6 @@ export interface BarcodeResult {
   source: "local" | "openfoodfacts";
   default_unit: string | null;
   quantity: string | null;
-  nutrition: Record<string, number> | null;
 }
 
 // Query keys
@@ -91,38 +90,21 @@ export function useCatalogSearch(query: string, options?: { enabled?: boolean })
   });
 }
 
+/** What a barcode lookup found: the product, or that nobody knows it. */
+export type BarcodeLookup = { status: "found"; product: BarcodeResult } | { status: "unknown"; barcode: string };
+
 /**
- * Hook to lookup a product by barcode
+ * A product by its barcode (api/catalog/barcode): the family's own catalog,
+ * then Open Food Facts and its sister databases, named in `lang` where they
+ * have it. For the shopping list's scanner, which asks once per scan.
  */
-export function useBarcodeLookup(barcode: string | null) {
-  const { family } = useFamilyStore();
-
-  return useQuery({
-    queryKey: catalogQueryKeys.barcode(family?.id ?? "", barcode ?? ""),
-    queryFn: async (): Promise<BarcodeResult | null> => {
-      if (!barcode || barcode.length < 8) {
-        return null;
-      }
-
-      const params = new URLSearchParams({
-        barcode,
-        family_id: requireFamilyId(family),
-      });
-
-      const response = await fetch(`/api/catalog/barcode?${params}`);
-      if (!response.ok) {
-        if (response.status === 404) {
-          return null;
-        }
-        throw new Error("Failed to lookup barcode");
-      }
-
-      const data = await response.json();
-      return data.product;
-    },
-    enabled: !!family?.id && !!barcode && barcode.length >= 8,
-    staleTime: 1000 * 60 * 60, // 1 hour (product data doesn't change often)
-  });
+export async function lookupBarcode(familyId: string, barcode: string, lang: string): Promise<BarcodeLookup> {
+  const params = new URLSearchParams({ barcode, family_id: familyId, lang });
+  const response = await fetch(`/api/catalog/barcode?${params}`);
+  if (response.status === 404) return { status: "unknown", barcode };
+  if (!response.ok) throw new Error(`barcode lookup failed: ${response.status}`);
+  const data = await response.json();
+  return { status: "found", product: data.product as BarcodeResult };
 }
 
 /**
