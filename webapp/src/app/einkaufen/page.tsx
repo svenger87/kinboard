@@ -15,8 +15,10 @@ import {
   ChevronLeft,
   RefreshCw,
   Trash2,
+  ScanBarcode,
 } from "lucide-react";
 import { toast } from "sonner";
+import { BarcodeScannerDialog, type ScannedItem } from "@/components/shopping/barcode-scanner-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -172,6 +174,28 @@ export default function EinkaufenPage() {
   const resetForm = () => {
     setInputValue("");
     setShowSuggestions(false);
+  };
+
+  // The barcode scanner: what it found goes on the list like a picked
+  // suggestion. It throws on failure so the scanner keeps the product up.
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const tScanner = useTranslations("components.barcodeScanner");
+  const handleScanned = async (item: ScannedItem) => {
+    try {
+      await createItem.mutateAsync({
+        name: item.name,
+        category: item.category,
+        quantity: null,
+        unit: null,
+        notes: item.notes,
+        image_url: item.image_url,
+        catalog_item_id: item.catalog_item_id,
+      });
+      triggerHaptic();
+    } catch (err) {
+      toast.error(t("toastAddFailed"));
+      throw err;
+    }
   };
 
   // Select a suggestion from catalog - directly adds the item
@@ -782,7 +806,20 @@ export default function EinkaufenPage() {
 
       {/* Fixed bottom input */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border p-4 safe-area-bottom">
-        <div className="relative">
+        <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() => setScannerOpen(true)}
+          className="size-14 shrink-0"
+          aria-label={tScanner("open")}
+          title={tScanner("open")}
+          data-testid="einkaufen-scan-barcode"
+        >
+          <ScanBarcode className="size-6" strokeWidth={1.75} />
+        </Button>
+        <div className="relative flex-1">
           <Input
             ref={inputRef}
             placeholder={t("inputPlaceholder")}
@@ -879,7 +916,10 @@ export default function EinkaufenPage() {
             )}
           </AnimatePresence>
         </div>
+        </div>
       </div>
+
+      <BarcodeScannerDialog open={scannerOpen} onOpenChange={setScannerOpen} onAdd={handleScanned} />
     </main>
   );
 }

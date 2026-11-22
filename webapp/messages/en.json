@@ -229,6 +229,30 @@
       "idle": {
         "nextEvent": "Next event: shows in the hour before an event."
       }
+    },
+    "barcodeScanner": {
+      "open": "Scan a barcode",
+      "title": "Scan a barcode",
+      "description": "Hold the barcode in front of the camera, take a photo of it, or type its numbers.",
+      "added": "Added: {name}. Ready for the next one.",
+      "cameraBlocked": "The camera isn't allowed for this page. Allow it in the browser's site settings, or take a photo instead.",
+      "cameraUnavailable": "The browser only allows the camera on https addresses or localhost. A photo works here.",
+      "photo": "Take a photo of the barcode",
+      "photoMissed": "No barcode found in that photo. Try a little closer and sharper, or type the numbers.",
+      "manualPlaceholder": "Numbers under the barcode",
+      "lookUp": "Look up",
+      "manualInvalid": "That isn't a valid barcode. Check the numbers.",
+      "looking": "Looking up {code}…",
+      "sourceFamily": "From your family's own products",
+      "sourceOpenFoodFacts": "From Open Food Facts",
+      "add": "Add to the list",
+      "scanAnother": "Scan another",
+      "unknown": "No database knows {code} yet. What is it?",
+      "unknownNamePlaceholder": "Name of the product",
+      "unknownRemembered": "Your family will find it under this name next time.",
+      "contribute": "Add it to Open Food Facts for everyone",
+      "lookupFailed": "The lookup didn't work. Check the connection and try again.",
+      "retry": "Try again"
     }
   },
   "localeSwitcher": {

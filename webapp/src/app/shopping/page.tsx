@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { BarcodeScannerDialog, type ScannedItem } from "@/components/shopping/barcode-scanner-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
 import { LOCALES } from "@/i18n/locales";
@@ -27,6 +28,7 @@ import {
   Pencil,
   Link2,
   Mic,
+  ScanBarcode,
   Smartphone,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -327,6 +329,35 @@ export default function ShoppingPage() {
     setShowSuggestions(false);
     // Re-focus input for rapid sequential additions
     setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  // The barcode scanner (components/shopping/barcode-scanner-dialog.tsx):
+  // what it found goes on the list the way a picked suggestion does, Bring!
+  // included. It throws on failure so the scanner keeps the product up.
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const tScanner = useTranslations("components.barcodeScanner");
+  const handleScanned = async (item: ScannedItem) => {
+    try {
+      await createItem.mutateAsync({
+        name: item.name,
+        category: item.category,
+        quantity: null,
+        unit: null,
+        notes: item.notes,
+        image_url: item.image_url,
+        catalog_item_id: item.catalog_item_id,
+      });
+    } catch (err) {
+      toast.error(t("toastAddFailed"));
+      throw err;
+    }
+    if (isBringConnected && isTwoWaySync && bringSettings?.selectedListId) {
+      try {
+        await bringAddItem.mutateAsync({ listId: bringSettings.selectedListId, itemName: item.name });
+      } catch (bringErr) {
+        console.error("Failed to add item to Bring!:", bringErr);
+      }
+    }
   };
 
   const handleAddItem = async () => {
@@ -954,6 +985,17 @@ export default function ShoppingPage() {
                     </AnimatePresence>
                   </div>
 
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setScannerOpen(true)}
+                    aria-label={tScanner("open")}
+                    title={tScanner("open")}
+                    data-testid="shopping-scan-barcode"
+                  >
+                    <ScanBarcode className="size-4" strokeWidth={1.75} />
+                  </Button>
                   {speechSupported && (
                     <Button
                       type="button"
@@ -1395,6 +1437,8 @@ export default function ShoppingPage() {
         </div>
 
       </main>
+
+      <BarcodeScannerDialog open={scannerOpen} onOpenChange={setScannerOpen} onAdd={handleScanned} />
 
       {/* Image Search Dialog */}
       <Dialog open={imageDialogOpen} onOpenChange={(open) => {

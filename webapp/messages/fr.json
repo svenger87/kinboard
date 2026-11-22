@@ -229,6 +229,30 @@
       "idle": {
         "nextEvent": "Prochain événement : s’affiche dans l’heure qui précède un événement."
       }
+    },
+    "barcodeScanner": {
+      "open": "Scanner un code-barres",
+      "title": "Scanner un code-barres",
+      "description": "Placez le code-barres devant la caméra, prenez-le en photo ou tapez ses chiffres.",
+      "added": "Ajouté : {name}. Prêt pour le suivant.",
+      "cameraBlocked": "La caméra n’est pas autorisée pour cette page. Autorisez-la dans les paramètres du site du navigateur, ou prenez une photo.",
+      "cameraUnavailable": "Le navigateur n’autorise la caméra que sur des adresses https ou localhost. Une photo fonctionne ici.",
+      "photo": "Prendre le code-barres en photo",
+      "photoMissed": "Aucun code-barres trouvé sur cette photo. Essayez un peu plus près et plus net, ou tapez les chiffres.",
+      "manualPlaceholder": "Chiffres sous le code-barres",
+      "lookUp": "Rechercher",
+      "manualInvalid": "Ce n’est pas un code-barres valide. Vérifiez les chiffres.",
+      "looking": "Recherche de {code}…",
+      "sourceFamily": "Parmi les produits de votre famille",
+      "sourceOpenFoodFacts": "Depuis Open Food Facts",
+      "add": "Ajouter à la liste",
+      "scanAnother": "Scanner un autre",
+      "unknown": "Aucune base ne connaît encore {code}. Qu’est-ce que c’est ?",
+      "unknownNamePlaceholder": "Nom du produit",
+      "unknownRemembered": "Votre famille le retrouvera sous ce nom la prochaine fois.",
+      "contribute": "L’ajouter à Open Food Facts pour tout le monde",
+      "lookupFailed": "La recherche a échoué. Vérifiez la connexion et réessayez.",
+      "retry": "Réessayer"
     }
   },
   "localeSwitcher": {

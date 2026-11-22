@@ -277,7 +277,7 @@ export {
 export {
   catalogQueryKeys,
   useCatalogSearch,
-  useBarcodeLookup,
+  lookupBarcode,
   useSaveToCatalog,
   useItemAutocomplete,
   useParseShoppingInput,
@@ -285,6 +285,7 @@ export {
   useDebounce,
   type CatalogSearchResult,
   type BarcodeResult,
+  type BarcodeLookup,
   type ParsedShoppingItem,
 } from "./use-item-catalog";
 
