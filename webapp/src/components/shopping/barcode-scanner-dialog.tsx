@@ -55,7 +55,8 @@ export function BarcodeScannerDialog({ open, onOpenChange, onAdd }: BarcodeScann
   const saveToCatalog = useSaveToCatalog();
 
   const [phase, setPhase] = useState<Phase>({ kind: "scanning" });
-  const [cameraState, setCameraState] = useState<"off" | "starting" | "on" | "blocked">("off");
+  // "blocked": the person or the browser refused it; "missing": this device has no usable camera.
+  const [cameraState, setCameraState] = useState<"off" | "starting" | "on" | "blocked" | "missing">("off");
   const [manual, setManual] = useState("");
   const [manualError, setManualError] = useState(false);
   const [photoMissed, setPhotoMissed] = useState(false);
@@ -75,7 +76,7 @@ export function BarcodeScannerDialog({ open, onOpenChange, onAdd }: BarcodeScann
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
-    setCameraState((s) => (s === "blocked" ? s : "off"));
+    setCameraState((s) => (s === "blocked" || s === "missing" ? s : "off"));
   }, []);
 
   const lookUp = useCallback(
@@ -128,8 +129,13 @@ export function BarcodeScannerDialog({ open, onOpenChange, onAdd }: BarcodeScann
         }
         setCameraState("on");
       })
-      .catch(() => {
-        if (!cancelled) setCameraState("blocked");
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // Refused (NotAllowedError, SecurityError) is something to change in the
+        // browser; no camera (NotFoundError, a wall screen or a desktop) or one
+        // in use elsewhere is not, and saying "not allowed" sent people looking.
+        const name = err instanceof DOMException ? err.name : "";
+        setCameraState(name === "NotAllowedError" || name === "SecurityError" ? "blocked" : "missing");
       });
     return () => {
       cancelled = true;
@@ -248,7 +254,7 @@ export function BarcodeScannerDialog({ open, onOpenChange, onAdd }: BarcodeScann
         )}
 
         {/* The camera stays mounted while the dialog is open, so a found product doesn't restart it. */}
-        {cameraState !== "blocked" && cameraAvailable() && (
+        {cameraState !== "blocked" && cameraState !== "missing" && cameraAvailable() && (
           <div className={`relative overflow-hidden rounded-lg bg-black ${scanning ? "" : "hidden"}`}>
             <video ref={videoRef} playsInline muted className="aspect-video w-full object-cover" data-testid="barcode-video" />
             {/* The aiming line. */}
@@ -261,9 +267,9 @@ export function BarcodeScannerDialog({ open, onOpenChange, onAdd }: BarcodeScann
           </div>
         )}
 
-        {scanning && (!cameraAvailable() || cameraState === "blocked") && (
+        {scanning && (!cameraAvailable() || cameraState === "blocked" || cameraState === "missing") && (
           <p className="text-xs text-muted-foreground" data-testid="barcode-no-camera">
-            {cameraState === "blocked" ? t("cameraBlocked") : t("cameraUnavailable")}
+            {cameraState === "blocked" ? t("cameraBlocked") : cameraState === "missing" ? t("cameraMissing") : t("cameraUnavailable")}
           </p>
         )}
 

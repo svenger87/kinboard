@@ -236,6 +236,7 @@
       "description": "Halte den Barcode vor die Kamera, fotografiere ihn oder tippe die Zahlen ein.",
       "added": "Hinzugefügt: {name}. Bereit für den nächsten.",
       "cameraBlocked": "Die Kamera ist für diese Seite nicht erlaubt. Erlaube sie in den Website-Einstellungen des Browsers oder mach stattdessen ein Foto.",
+      "cameraMissing": "Auf diesem Gerät wurde keine Kamera gefunden, oder eine andere App nutzt sie gerade. Ein Foto oder die Zahlen gehen.",
       "cameraUnavailable": "Der Browser erlaubt die Kamera nur unter https-Adressen oder localhost. Ein Foto geht hier.",
       "photo": "Barcode fotografieren",
       "photoMissed": "Auf dem Foto wurde kein Barcode gefunden. Versuch es etwas näher und schärfer oder tippe die Zahlen ein.",
