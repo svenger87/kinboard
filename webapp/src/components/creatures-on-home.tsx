@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CreatureAvatar, useParticles } from "@/components/pocket-money/creature-avatar";
 import { useCreatureBedtime, useCreatureMood, useFamilyTimeZone, useMinuteClock } from "@/hooks/use-creature-mood";
@@ -18,7 +18,7 @@ import { MINUTE_MS } from "@/lib/minute-clock";
 import { classicIsDrawn, effectiveStyle } from "@/lib/pocket-money/creatures";
 import { readLook } from "@/lib/pocket-money/creatures/look";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
-import { placeRoamers, poke, pose, roamWeather, stepRoamers, type Platform, type RoamEvent, type Roamer } from "@/lib/creatures/roam";
+import { placeRoamers, poke, pose, roamWeather, snowAfter, stepRoamers, type Platform, type RoamEvent, type Roamer } from "@/lib/creatures/roam";
 import { useFloorWeather } from "@/stores/home-weather";
 import type { Creature, PocketMoneyAccount, Person } from "@/types/database";
 
@@ -129,7 +129,7 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
   const castKey = cast.map((c) => `${c.person.id}:${c.tier === 1 ? "egg" : "up"}`).join(",");
 
   const roamers = useRef<Roamer[]>([]);
-  const elements = useRef(new Map<string, { outer: HTMLElement; inner: HTMLElement; shadow: HTMLElement; towel: HTMLElement }>());
+  const elements = useRef(new Map<string, { outer: HTMLElement; inner: HTMLElement; shadow: HTMLElement; towel: HTMLElement; snow: HTMLElement }>());
   const bursts = useRef(new Map<string, (count: number) => void>());
   // Who is lying down, and why: asleep at bedtime, or on a towel in the heat.
   const [lying, setLying] = useState<ReadonlyMap<string, Lying>>(new Map());
@@ -275,6 +275,15 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
         el.shadow.style.transform = `translate3d(${left}px, ${snap(-up)}px, 0) scaleX(${stretch.toFixed(3)})`;
         el.shadow.style.opacity = (1 - 0.6 * air).toFixed(2);
         el.towel.style.transform = `translate3d(${snap(r.x - size * 0.65)}px, ${snap(-up)}px, 0)`;
+        // The snow on its head: settling into a cap, gone in a puff when shaken off
+        // (a CSS transition), and not while it lies on its side.
+        const cover = ready > 0 ? 0 : r.snow ?? 0;
+        const capped = cover.toFixed(2);
+        if (el.snow.dataset.cover !== capped) {
+          el.snow.dataset.cover = capped;
+          el.snow.style.opacity = cover > 0 ? Math.min(1, cover * 2.5).toFixed(2) : "0";
+          el.snow.style.transform = `scale(${(0.3 + 0.7 * cover).toFixed(3)})`;
+        }
         if (el.outer.dataset.state !== r.state) el.outer.dataset.state = r.state;
         const dir = String(r.dir);
         if (el.outer.dataset.dir !== dir) el.outer.dataset.dir = dir;
@@ -311,12 +320,17 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
         roamers.current = next;
         if (events.length) show(events);
       } else {
-        // Standing still: only bedtime changes anything.
+        // Standing still: only bedtime changes anything, and the snow settles
+        // on them all the same (no motion in that, just a cap growing).
         roamers.current = roamers.current.map((r) => {
           const asleep = sleepingRef.current.has(r.id);
-          if (asleep && r.state !== "asleep") return { ...r, state: "asleep", since: now };
-          if (!asleep && r.state === "asleep") return { ...r, state: r.egg ? "egg" : "idle", since: now };
-          return r;
+          const snow = snowAfter(r, weatherRef.current, dt);
+          const next: Roamer = { ...r };
+          if (snow > 0) next.snow = snow;
+          else delete next.snow;
+          if (asleep && r.state !== "asleep") return { ...next, state: "asleep", since: now };
+          if (!asleep && r.state === "asleep") return { ...next, state: r.egg ? "egg" : "idle", since: now };
+          return next;
         });
       }
       draw(now);
@@ -377,8 +391,8 @@ function CreatureFloor({ kids, still, placement, dim = false }: FloorProps) {
             lying={lying.get(c.person.id) ?? false}
             still={still}
             umbrella={wet ? (stormy ? "storm" : "rain") : null}
-            register={(outer, inner, shadow, towel) => {
-              if (outer && inner && shadow && towel) elements.current.set(c.person.id, { outer, inner, shadow, towel });
+            register={(outer, inner, shadow, towel, snow) => {
+              if (outer && inner && shadow && towel && snow) elements.current.set(c.person.id, { outer, inner, shadow, towel, snow });
               else elements.current.delete(c.person.id);
             }}
             registerBurst={(fn) => {
@@ -412,7 +426,7 @@ function FloorCreature({
   still: boolean;
   /** Rain: an umbrella over it, in the child's colour; a storm shakes it. */
   umbrella: "rain" | "storm" | null;
-  register: (outer: HTMLElement | null, inner: HTMLElement | null, shadow: HTMLElement | null, towel: HTMLElement | null) => void;
+  register: (outer: HTMLElement | null, inner: HTMLElement | null, shadow: HTMLElement | null, towel: HTMLElement | null, snow: HTMLElement | null) => void;
   registerBurst: (fn: ((count: number) => void) | null) => void;
   onTap: () => void;
 }) {
@@ -426,13 +440,14 @@ function FloorCreature({
   const inner = useRef<HTMLDivElement>(null);
   const shadow = useRef<HTMLSpanElement>(null);
   const towel = useRef<HTMLSpanElement>(null);
+  const snow = useRef<HTMLSpanElement>(null);
   const { burst, layer } = useParticles();
   // A classic picture, as CreatureAvatar shows it: no moods, so it dozes instead of lying down.
   const picture = effectiveStyle(creature.species, creature.style) === "classic" && !classicIsDrawn(creature.species, creature.style);
 
   useEffect(() => {
-    register(outer.current, inner.current, shadow.current, towel.current);
-    return () => register(null, null, null, null);
+    register(outer.current, inner.current, shadow.current, towel.current, snow.current);
+    return () => register(null, null, null, null, null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
@@ -440,6 +455,49 @@ function FloorCreature({
     return () => registerBurst(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [burst, size]);
+
+  // Where the snow settles: the top of this drawing, whatever its species,
+  // stage and hat (measured once per look; a drawing is 200 units square). A
+  // classic picture, which can't be measured, gets the middle of its top.
+  const lookKey = JSON.stringify(look);
+  const [cap, setCap] = useState<{ left: number; top: number; width: number }>(() => ({
+    left: size * 0.5,
+    top: size * (picture ? 1 - PICTURE_SCALE + 0.06 : 0.12),
+    width: size * 0.42,
+  }));
+  useLayoutEffect(() => {
+    const svg = inner.current?.querySelector<SVGSVGElement>("svg.creature-svg");
+    if (!svg) {
+      setCap({ left: size * 0.5, top: size * (1 - PICTURE_SCALE + 0.06), width: size * 0.42 });
+      return;
+    }
+    try {
+      const box = svg.getBBox();
+      const k = size / 200;
+      const width = Math.min(size * 0.5, Math.max(size * 0.28, box.width * k * 0.45));
+      // Over the highest part of the drawing, not the middle of its outline:
+      // a lizard drawn on a diagonal has its head at one end. The parts that
+      // reach the top (within a few units) give the spot.
+      const parts = [...svg.querySelectorAll<SVGGraphicsElement>("path, ellipse, circle, rect, polygon")]
+        .map((el) => {
+          try {
+            return el.getBBox();
+          } catch {
+            return null;
+          }
+        })
+        .filter((b): b is DOMRect => !!b && b.width > 0 && b.height > 0);
+      const highest = parts.filter((b) => b.y <= box.y + 6);
+      const centre = highest.length > 0
+        ? highest.reduce((sum, b) => sum + b.x + b.width / 2, 0) / highest.length
+        : box.x + box.width / 2;
+      // A little below the very top: an antenna, a horn or ears poke up
+      // through the snow rather than carrying it.
+      setCap({ left: centre * k, top: box.y * k + size * 0.07, width });
+    } catch {
+      // Not laid out yet (hidden): the default spot will do.
+    }
+  }, [creature.species, creature.style, tier, lookKey, size, picture]);
 
   // Eyes closed only once lying down to sleep: walking to bed it is still
   // awake, and on its towel in the sun it is happy.
@@ -474,7 +532,7 @@ function FloorCreature({
         data-sun={lying === "sun" ? "true" : undefined}
         data-umbrella={umbrella ?? undefined}
       >
-        <div ref={inner} className="home-creature-body size-full" style={{ transformOrigin: "50% 100%" }}>
+        <div ref={inner} className="home-creature-body relative size-full" style={{ transformOrigin: "50% 100%" }}>
           <button
             type="button"
             className="pointer-events-auto flex size-full items-end justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50"
@@ -498,6 +556,28 @@ function FloorCreature({
               label=""
             />
           </button>
+          {/* Snow on its head (lib/creatures/roam.ts snowAfter): turned with the body. */}
+          <span
+            ref={snow}
+            className="home-creature-snow"
+            style={{
+              left: Math.round(cap.left - cap.width / 2),
+              top: Math.round(cap.top - cap.width * 0.3),
+              width: Math.round(cap.width),
+              height: Math.round(cap.width * 0.42),
+              opacity: 0,
+            }}
+            data-testid="home-creature-snow"
+            data-person={person.id}
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 60 25" width="100%" height="100%" overflow="visible">
+              <path d="M 1 23 Q 2 13 12 11 Q 17 2 28 5 Q 38 -1 46 8 Q 58 9 59 23 Q 30 26 1 23 Z" fill="#fbfdff" stroke="rgb(140 170 205 / 0.7)" strokeWidth="1.4" strokeLinejoin="round" />
+              <path d="M 6 21 Q 30 24 54 21" fill="none" stroke="rgb(150 185 220 / 0.55)" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="20" cy="12" r="1.6" fill="rgb(255 255 255 / 0.95)" />
+              <circle cx="40" cy="10" r="1.2" fill="rgb(255 255 255 / 0.95)" />
+            </svg>
+          </span>
         </div>
         {umbrella && <Umbrella color={person.color ?? "#56B6E8"} size={size} storm={umbrella === "storm"} />}
         {lying === "sleep" && (
