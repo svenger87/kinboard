@@ -25,6 +25,11 @@ test("a list shows whole rows that fit, then +n", async ({ page }) => {
   const visible = root.locator("[data-list-visible]");
   await expect(visible.getByTestId("list-row")).toHaveCount(shown);
   await expect(visible.getByTestId("list-more")).toHaveText(`+${more}`);
+  // Readable on the screensaver's dark photo: its own light colour, not the page's text colour.
+  const color = await visible.getByTestId("list-more").evaluate((el) => getComputedStyle(el).color);
+  const [r, g, bl, alpha = 1] = (color.match(/[\d.]+/g) ?? []).map(Number);
+  expect(Math.min(r, g, bl), color).toBeGreaterThan(240);
+  expect(alpha, color).toBeGreaterThanOrEqual(0.7);
   const b = (await box.boundingBox())!;
   expect(b.height).toBeCloseTo(300, 0);
   for (const child of await visible.locator("[data-testid]").all()) {
