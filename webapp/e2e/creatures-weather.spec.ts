@@ -5,12 +5,17 @@ import {
   CALM,
   FOG_PACE,
   SUNBATHE_MS,
+  SNOW_FILL_MS,
+  SNOW_MELT_MS,
+  SNOW_WALK_SHARE,
+  HOP_MS,
   WAKE_MS,
   WALK_PX_PER_S,
   WIND_LEAN_DEG,
   WIND_PUSH_MS,
   WIND_PUSH_PX_PER_S,
   bounds,
+  snowAfter,
   placeRoamers,
   poke,
   pose,
@@ -77,6 +82,8 @@ test("the effects showing, as what they do: wind from the gust, pace, hops, the 
   expect(roamWeather(["heat"], 0)).toMatchObject({ sunbathe: true });
   expect(roamWeather(["heat"], 0).pace).toBeLessThan(1);
   expect(roamWeather(["snow"], 0).hops).toBeGreaterThan(1);
+  expect(roamWeather(["snow"], 0)).toMatchObject({ snow: true });
+  expect(CALM.snow).toBe(false);
   expect(roamWeather(["freezing"], 0)).toMatchObject({ shiver: true });
 });
 
@@ -132,14 +139,46 @@ test("fog and heat: slower walking", () => {
   expect(walked(300, 900, roamWeather(["heat"], 0))).toBeLessThan(calm * 0.9);
 });
 
-test("snow: more hops, catching flakes", () => {
+test("snow: many more hops, catching flakes", () => {
   const start = placeRoamers([{ id: "a", egg: false }, { id: "b", egg: false }, { id: "c", egg: false }], { ...floor, now: 0 });
   const hops = (weather: World["weather"]) =>
     run(start, { ...floor, weather }, 180_000, 11).frames.reduce(
       (n, f, i, all) => n + f.filter((r, k) => r.state === "hop" && all[i - 1]?.[k]?.state !== "hop").length,
       0,
     );
-  expect(hops(roamWeather(["snow"], 0))).toBeGreaterThan(hops(CALM) * 1.5);
+  expect(hops(roamWeather(["snow"], 0))).toBeGreaterThan(hops(CALM) * 2.5);
+});
+
+test("snow settles on their heads: standing, slower walking, kept through a catching hop, thrown off by a jump, a game or a tap, melting after", () => {
+  const snow = roamWeather(["snow"], 0);
+  const stand = one("idle", 500, { until: Infinity });
+  expect(snowAfter(stand, snow, SNOW_FILL_MS / 2)).toBeCloseTo(0.5, 5);
+  expect(snowAfter(stand, snow, SNOW_FILL_MS * 2)).toBe(1);
+  expect(snowAfter(one("walk", 500, { target: 900 }), snow, SNOW_FILL_MS)).toBeCloseTo(SNOW_WALK_SHARE, 5);
+  // A hop on the spot keeps it; the big moves throw it off.
+  expect(snowAfter(one("hop", 500, { snow: 0.8 }), snow, 33)).toBeGreaterThan(0.8);
+  for (const state of ["jump", "play", "flee", "chase"] as const) expect(snowAfter(one(state, 500, { snow: 0.8 }), snow, 33), state).toBe(0);
+  // The snow over: it melts.
+  expect(snowAfter(one("idle", 500, { snow: 1 }), CALM, SNOW_MELT_MS / 2)).toBeCloseTo(0.5, 5);
+  expect(snowAfter(one("idle", 500, { snow: 1 }), CALM, SNOW_MELT_MS * 2)).toBe(0);
+  // A tap shakes it off.
+  expect(poke([one("idle", 500, { snow: 0.9 })], "a", 1000).roamers[0].snow).toBeUndefined();
+
+  // On the floor, alone in the snow (nobody to play with): a full cap within a minute, some of the time.
+  const alone = run([one("idle", 500)], { ...floor, weather: snow }, 60_000, 3).frames.map((f) => f[0].snow ?? 0);
+  expect(Math.max(...alone)).toBeGreaterThan(0.9);
+  // A dry day: no snow on anyone, not even as a zero.
+  const dry = run([one("idle", 500)], floor, 30_000, 3).frames;
+  expect(dry.every((f) => !("snow" in f[0]))).toBe(true);
+});
+
+test("snow: the head goes back through a catching hop, whichever way it faces", () => {
+  const snow = roamWeather(["snow"], 0);
+  for (const dir of [1, -1] as const) {
+    const hop = one("hop", 500, { dir, since: 0, until: HOP_MS });
+    expect(pose(hop, HOP_MS / 2, 80, snow).tilt, `dir ${dir}`).toBeLessThan(-10);
+    expect(pose(hop, HOP_MS / 2, 80, CALM).tilt).toBe(0);
+  }
 });
 
 test("heat: now and then one lies on its towel, gets up after a while; never an egg, and bedtime wins", () => {
@@ -217,6 +256,10 @@ test("the wiring: each overlay shares its own screen's effects, each floor moves
   expect(saver).toContain('<WeatherEffects placement="screensaver" enabled={weatherEffects} />');
   expect(saver).toContain("<CreaturesOnIdle />");
   expect(floorSrc).toContain('umbrella={wet ? (stormy ? "storm" : "rain") : null}');
+  // The snow cap follows r.snow, not while lying on its side, and settles with motion reduced too.
+  expect(floorSrc).toContain("const cover = ready > 0 ? 0 : r.snow ?? 0;");
+  expect(floorSrc).toContain("const snow = snowAfter(r, weatherRef.current, dt);");
+  expect(floorSrc).toContain('data-testid="home-creature-snow"');
   expect(floorSrc).toContain('el.towel.style.opacity = why === "sun" && ready > 0 ? ready.toFixed(2) : "0";');
   expect(floorSrc).toContain('const shownMood = lying === "sleep" ? "sleepy" : lying === "sun" ? "happy"');
   expect(floorSrc).toContain('{lying === "sleep" && (');

@@ -56,7 +56,7 @@ test.describe("creatures and the weather on Home", () => {
   test.use({ serviceWorkers: "block", viewport: { width: 1280, height: 800 } });
   test.describe.configure({ timeout: 240_000 });
 
-  test("umbrellas in rain, shaking in a storm, a towel in the heat (up with a tap), and nothing on a calm day", async ({ page, baseURL }) => {
+  test("umbrellas in rain, shaking in a storm, snow on their heads, a towel in the heat (up with a tap), and nothing on a calm day", async ({ page, baseURL }) => {
     const familyName = `probe-family-creature-weather-${Date.now()}`;
     await page.context().addCookies([{ name: "NEXT_LOCALE", value: "en", url: baseURL ?? "http://localhost:3000" }]);
     await page.goto("/join", { waitUntil: "domcontentloaded" });
@@ -75,6 +75,19 @@ test.describe("creatures and the weather on Home", () => {
       // A storm: the umbrellas shake.
       await preview(page, "storm");
       await expect(page.locator(".home-creature-umbrella-storm")).toHaveCount(kids.length);
+
+      // Snow: it settles on their heads, visibly, within half a minute.
+      await preview(page, "snow");
+      await expect(page.getByTestId("home-creature-umbrella")).toHaveCount(0);
+      await expect
+        .poll(
+          async () =>
+            Math.max(
+              ...(await page.getByTestId("home-creature-snow").evaluateAll((els) => els.map((el) => Number(getComputedStyle(el).opacity)))),
+            ),
+          { timeout: 30_000 },
+        )
+        .toBeGreaterThan(0.5);
 
       // The heat: no umbrellas; within a minute one lies on its towel, eyes open.
       await preview(page, "heat");

@@ -74,6 +74,8 @@ export interface Roamer {
   /** A walk that ends in a jump. */
   plan?: JumpPlan | null;
   jump?: Jump | null;
+  /** Snow on its head, 0 to 1: settles while it stands in the snow, shaken off by a hop. */
+  snow?: number;
 }
 
 export interface World {
@@ -106,9 +108,11 @@ export interface RoamWeather {
   sunbathe: boolean;
   /** Freezing: shivering while they stand. */
   shiver: boolean;
+  /** Snow: it settles on their heads, and they stop to catch flakes. */
+  snow: boolean;
 }
 
-export const CALM: RoamWeather = { wind: 0, pace: 1, hops: 1, sunbathe: false, shiver: false };
+export const CALM: RoamWeather = { wind: 0, pace: 1, hops: 1, sunbathe: false, shiver: false, snow: false };
 
 /** The weather effects showing (lib/weather-effects.ts) and the overlay's gust, as what they do to the creatures. */
 export function roamWeather(effects: readonly string[], gust: number): RoamWeather {
@@ -119,6 +123,7 @@ export function roamWeather(effects: readonly string[], gust: number): RoamWeath
     hops: on.has("snow") ? SNOW_HOPS : 1,
     sunbathe: on.has("heat"),
     shiver: on.has("freezing"),
+    snow: on.has("snow"),
   };
 }
 
@@ -155,6 +160,34 @@ export const SUNBATHE_MS = 9000;
 export const FOG_PACE = 0.7;
 export const HEAT_PACE = 0.8;
 export const SNOW_HOPS = 2.5;
+/**
+ * Snow: how long it takes to settle into a full cap on a creature standing
+ * still, ms (walking, it settles at SNOW_WALK_SHARE of that pace); how long a
+ * cap takes to melt once the snow stops; and the chance a creature that stops
+ * on the floor hops on the spot, head back, catching flakes.
+ */
+export const SNOW_FILL_MS = 12_000;
+export const SNOW_WALK_SHARE = 0.35;
+export const SNOW_MELT_MS = 10_000;
+export const SNOW_CATCH_CHANCE = 0.5;
+/** How far it leans its head back catching a flake, deg. */
+export const LOOK_UP_DEG = 14;
+
+/**
+ * States that shake the snow off: the big ones. A hop on the spot catching
+ * flakes keeps it (that is the snow's own hopping, and it would never settle
+ * otherwise); a jump, a game, a chase, or a tap (poke) throws it off.
+ */
+const SHAKES_SNOW: ReadonlySet<RoamState> = new Set(["jump", "play", "flee", "chase"]);
+
+/** The snow on a creature's head after `dt` ms: settling, shaken off, or melting. */
+export function snowAfter(r: Roamer, weather: RoamWeather, dt: number): number {
+  const was = r.snow ?? 0;
+  if (SHAKES_SNOW.has(r.state)) return 0;
+  if (!weather.snow) return was > 0 ? Math.max(0, was - dt / SNOW_MELT_MS) : 0;
+  const share = r.state === "walk" || r.state === "approach" || r.state === "toBed" ? SNOW_WALK_SHARE : 1;
+  return Math.min(1, was + (dt / SNOW_FILL_MS) * share);
+}
 /**
  * Wind: how much one unit of wind speeds up a walk with it or slows one
  * against it; how fast it pushes one standing still, px/s, and for how long
@@ -475,6 +508,12 @@ export function stepRoamers(
           set(r, "sunbathe", now, now + SUNBATHE_MS + rng() * SUNBATHE_MS * 0.6);
           break;
         }
+        // In the snow, often a hop on the spot first, head back, catching flakes
+        // (and shaking the snow off). Only in the snow: a calm day draws as before.
+        if (weather.snow && rng() < SNOW_CATCH_CHANCE) {
+          set(r, "hop", now, now + HOP_MS);
+          break;
+        }
         const friends = roamers.filter((o) => o !== r && !o.egg && !o.partner && free(o) && !world.sleeping.has(o.id));
         const roll = rng();
         if (friends.length > 0 && roll < PLAY_CHANCE) {
@@ -506,12 +545,19 @@ export function stepRoamers(
       }
     }
   });
+  // The snow on their heads, after whatever each did this step. Left out
+  // altogether while there is none, so a roamer on a dry day is as before.
+  for (const r of roamers) {
+    const cover = snowAfter(r, weather, dt);
+    if (cover > 0) r.snow = cover;
+    else delete r.snow;
+  }
   return { roamers, events };
 }
 
 /**
- * A tap: an awake creature hops and sends up hearts; one asleep stays asleep,
- * with a single heart; one on its towel gets up first.
+ * A tap: an awake creature hops and sends up hearts, shaking off any snow; one
+ * asleep stays asleep, with a single heart; one on its towel gets up first.
  */
 export function poke(input: readonly Roamer[], id: string, now: number): { roamers: Roamer[]; events: RoamEvent[] } {
   const roamers = input.map((r) => ({ ...r }));
@@ -525,8 +571,9 @@ export function poke(input: readonly Roamer[], id: string, now: number): { roame
     set(r, "waking", now, now + WAKE_MS);
     return { roamers, events: [{ kind: "hearts", x: r.x, count: 3 }] };
   }
-  // A tap cancels a walk to a card: the hop is right here.
+  // A tap cancels a walk to a card: the hop is right here. It shakes the snow off.
   r.plan = null;
+  delete r.snow;
   if (r.partner) {
     const p = roamers.find((x) => x.id === r.partner);
     if (p && p.partner === r.id) {
@@ -550,7 +597,23 @@ export function pose(r: Roamer, now: number, size: number, weather: RoamWeather 
   // The drawing turns inside scaleX(dir): a lean to the left is -dir.
   let tilt = p.tilt - r.dir * weather.wind * WIND_LEAN_DEG;
   if (weather.shiver && (r.state === "idle" || r.state === "egg" || r.state === "waking")) tilt += Math.sin(now / 28) * SHIVER_DEG;
+  if (weather.snow) tilt -= lookUp(r, now) * LOOK_UP_DEG;
   return { ...p, tilt };
+}
+
+/**
+ * In the snow, how far back its head is, 0 to 1: up through each hop, and
+ * now and then standing, as if a flake caught its eye. Inside the drawing's
+ * scaleX(dir), so a negative turn is back whichever way it faces.
+ */
+function lookUp(r: Roamer, now: number): number {
+  const t = now - r.since;
+  if (r.state === "hop") return t < HOP_MS ? Math.sin((Math.PI * t) / HOP_MS) : 0;
+  if (r.state === "idle") {
+    const k = t % 2600;
+    return k < 900 ? Math.sin((Math.PI * k) / 900) : 0;
+  }
+  return 0;
 }
 
 /** How far one unit of wind leans a creature, deg, and how far the frost shakes one, deg. */

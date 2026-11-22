@@ -1165,6 +1165,18 @@ html[data-screensaver] nav {
   transition: opacity 0.2s;
   pointer-events: none;
 }
+/* Snow settling on a creature's head (components/creatures-on-home.tsx): it
+   grows from the bottom, and a hop shakes it off in a quick puff. */
+.home-creature-snow {
+  position: absolute;
+  pointer-events: none;
+  transform-origin: 50% 100%;
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.25));
+}
+:root:not([data-motion="full"]) .home-creature-snow {
+  transition: none;
+}
 .home-creature-umbrella {
   position: absolute;
   overflow: visible;
