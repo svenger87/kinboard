@@ -3,6 +3,14 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 /**
+ * The "+n" line's own colour and size. Without them it took the page's text
+ * colour, a muted grey in the dark theme and dark grey in the light one, so
+ * on the screensaver's dark photo it could hardly be read, while the rows
+ * above it set their own light colours. Measured with the same class.
+ */
+export const LIST_MORE_CLASS = "text-[0.8em] font-medium text-white/75";
+
+/**
  * As many WHOLE entries as fit the box's height, then a "+n" line for the
  * rest, which is kept a line of room when not everything fits. All entries
  * are rendered in a hidden pass and measured, so entries of different heights
@@ -80,7 +88,11 @@ export function ListBox<T>({
         {items.slice(0, n).map((t) => (
           <div key={keyOf(t)}>{renderItem(t)}</div>
         ))}
-        {more > 0 && <div data-testid="list-more">{moreLabel(more)}</div>}
+        {more > 0 && (
+          <div data-testid="list-more" className={LIST_MORE_CLASS}>
+            {moreLabel(more)}
+          </div>
+        )}
       </div>
       {/* Hidden pass: every entry at its natural height, plus the "+n" line. */}
       <div
@@ -92,7 +104,7 @@ export function ListBox<T>({
           <div key={keyOf(t)}>{renderItem(t)}</div>
         ))}
       </div>
-      <div ref={moreRef} aria-hidden style={{ position: "absolute", left: 0, right: 0, top: 0, visibility: "hidden", pointerEvents: "none" }}>
+      <div ref={moreRef} aria-hidden className={LIST_MORE_CLASS} style={{ position: "absolute", left: 0, right: 0, top: 0, visibility: "hidden", pointerEvents: "none" }}>
         {moreLabel(items.length)}
       </div>
     </div>
