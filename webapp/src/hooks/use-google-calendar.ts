@@ -55,22 +55,48 @@ interface SyncResult {
   message: string;
 }
 
+export interface GoogleSetup {
+  /** GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set on the server. */
+  configured: boolean;
+  /** The redirect URI a Connect from this screen asks Google for: the one to register in Cloud Console. */
+  redirectUri: string | null;
+  /** It comes from GOOGLE_REDIRECT_URI rather than the address this screen is on. */
+  redirectFixed: boolean;
+  /** Google lets a web client register it (https on a public name, or localhost). */
+  redirectAccepted: boolean;
+}
+
+function useGoogleSetupQuery<T>(select: (setup: GoogleSetup) => T) {
+  return useQuery({
+    queryKey: ["google-configured"],
+    queryFn: async (): Promise<GoogleSetup> => {
+      const r = await fetch("/api/google/configured");
+      if (!r.ok) return { configured: false, redirectUri: null, redirectFixed: false, redirectAccepted: true };
+      const data = await r.json();
+      return {
+        configured: Boolean(data.configured),
+        redirectUri: typeof data.redirectUri === "string" ? data.redirectUri : null,
+        redirectFixed: Boolean(data.redirectFixed),
+        redirectAccepted: data.redirectAccepted !== false,
+      };
+    },
+    select,
+    staleTime: 60 * 60 * 1000, // env vars don't change while the app runs
+  });
+}
+
 // Hook to detect whether the server has GOOGLE_CLIENT_ID +
 // GOOGLE_CLIENT_SECRET set. Separate from useGoogleCalendarStatus
 // (which queries the family's stored OAuth tokens). Used by the
 // Google settings page to surface a setup-needed hint instead of
 // silently disabling the Connect button.
 export function useGoogleConfigured() {
-  return useQuery({
-    queryKey: ["google-configured"],
-    queryFn: async (): Promise<boolean> => {
-      const r = await fetch("/api/google/configured");
-      if (!r.ok) return false;
-      const data = await r.json();
-      return Boolean(data.configured);
-    },
-    staleTime: 60 * 60 * 1000, // env vars don't change while the app runs
-  });
+  return useGoogleSetupQuery((setup) => setup.configured);
+}
+
+/** The whole probe: configured, and the redirect URI to register in Cloud Console. */
+export function useGoogleSetup() {
+  return useGoogleSetupQuery((setup) => setup);
 }
 
 // Hook to get Google Calendar connection status

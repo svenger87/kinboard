@@ -2345,7 +2345,13 @@
       "infoDescription": "Die Verbindung zu Google Kalender erfolgt über OAuth 2.0 und speichert keine Passwörter. Du kannst die Berechtigung jederzeit in deinen Google-Einstellungen widerrufen.",
       "notConfiguredTitle": "Google-OAuth-Zugangsdaten fehlen",
       "notConfiguredDescription": "Um einen Google Kalender zu verbinden, braucht der selbst gehostete Kinboard-Server OAuth-Client-Zugangsdaten aus einem Google-Cloud-Projekt. Ohne sie kann der Verbinden-Button Google nicht erreichen.",
-      "notConfiguredDocsLabel": "Einrichtungsanleitung"
+      "notConfiguredDocsLabel": "Einrichtungsanleitung",
+      "redirectHeading": "Weiterleitungs-URI für Google Cloud",
+      "redirectBody": "In der Google Cloud Console unter APIs & Dienste → Anmeldedaten → dein OAuth-Client diese Adresse bei „Autorisierte Weiterleitungs-URIs“ eintragen, genau so wie hier. Weicht sie in einem Zeichen ab (http oder https, der Port, ein Schrägstrich am Ende), lehnt Google die Anmeldung mit „redirect_uri_mismatch“ ab.",
+      "redirectCopy": "Kopieren",
+      "redirectCopied": "Kopiert",
+      "redirectFixed": "Festgelegt durch GOOGLE_REDIRECT_URI in webapp/docker/.env. Dort entfernen, um die Adresse zu nutzen, unter der dieser Bildschirm geöffnet ist.",
+      "redirectUnsupported": "Google akzeptiert nur https-Adressen mit einem Domainnamen oder localhost und wird diese Adresse ablehnen. Verbinden muss man nur einmal: Kinboard in einem Browser auf dem Server selbst unter http://localhost mit demselben Port öffnen, diese Adresse eintragen und dort verbinden, oder eine https-Adresse nutzen. Danach synchronisiert jeder Bildschirm der Familie."
     },
     "vehicles": {
       "title": "Fahrzeuge",

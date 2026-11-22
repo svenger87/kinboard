@@ -311,6 +311,9 @@ services:
       IMMICH_API_KEY: ${IMMICH_API_KEY}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      # Optional: only to pin the redirect URI; unset, it follows the address
+      # the settings page is opened on (Settings -> Google Calendar shows it).
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
       CRON_SECRET: ${CRON_SECRET}
       PRESENCE_SENSOR_TOKEN: ${PRESENCE_SENSOR_TOKEN:-}
       # School holidays from the OpenHolidays API (RFC-014 §5). "off" turns

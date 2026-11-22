@@ -49,6 +49,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";
 import { IntegrationConfigHint } from "@/components/integration-config-hint";
+import { GoogleRedirectHint } from "@/components/settings/google-redirect-hint";
 import { toast } from "sonner";
 import {
   PersonMappingRule,
@@ -57,6 +58,7 @@ import {
 } from "@/lib/calendar-person-matcher";
 import {
   useGoogleConfigured,
+  useGoogleSetup,
   useGoogleCalendarStatus,
   useGoogleCalendars,
   useUpdateEnabledCalendars,
@@ -81,6 +83,7 @@ export default function GoogleSettingsPage() {
 
   // Query hooks
   const { data: googleConfigured } = useGoogleConfigured();
+  const { data: googleSetup } = useGoogleSetup();
   const isUnconfigured = googleConfigured === false;
   const { data: googleStatus, isLoading: statusLoading } = useGoogleCalendarStatus();
   const isConnected = !!googleStatus?.access_token;
@@ -335,6 +338,17 @@ export default function GoogleSettingsPage() {
             disconnectedBody={t("notConnectedDescription")}
             className="mb-6"
           />
+
+          {/* The address to register in Cloud Console, while there is a
+              connection to make: before the first one, and when Google wants
+              it made again. */}
+          {googleSetup?.redirectUri && (!isConnected || !!googleStatus?.needs_reauth) && (
+            <GoogleRedirectHint
+              redirectUri={googleSetup.redirectUri}
+              fixed={googleSetup.redirectFixed}
+              accepted={googleSetup.redirectAccepted}
+            />
+          )}
 
           {isConnected && (
             <>
