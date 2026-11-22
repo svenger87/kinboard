@@ -236,6 +236,7 @@
       "description": "Hold the barcode in front of the camera, take a photo of it, or type its numbers.",
       "added": "Added: {name}. Ready for the next one.",
       "cameraBlocked": "The camera isn't allowed for this page. Allow it in the browser's site settings, or take a photo instead.",
+      "cameraMissing": "No camera found on this device, or it's in use by another app. A photo or the numbers work.",
       "cameraUnavailable": "The browser only allows the camera on https addresses or localhost. A photo works here.",
       "photo": "Take a photo of the barcode",
       "photoMissed": "No barcode found in that photo. Try a little closer and sharper, or type the numbers.",

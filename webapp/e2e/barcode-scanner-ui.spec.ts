@@ -111,8 +111,8 @@ test.describe("the barcode scanner", () => {
     await page.getByTestId("einkaufen-scan-barcode").click();
     const dialog = page.getByTestId("barcode-scanner");
     await expect(dialog).toBeVisible();
-    // Headless: no camera to open, and the photo is offered instead.
-    await expect(dialog.getByTestId("barcode-no-camera")).toBeVisible({ timeout: 15_000 });
+    // Headless: no camera to open. It says so (not "not allowed", which it isn't) and offers the photo.
+    await expect(dialog.getByTestId("barcode-no-camera")).toHaveText(/No camera found on this device/, { timeout: 15_000 });
 
     // Typed: one digit off is caught before any lookup.
     const manual = dialog.getByTestId("barcode-manual");

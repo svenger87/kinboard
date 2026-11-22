@@ -236,6 +236,7 @@
       "description": "Placez le code-barres devant la caméra, prenez-le en photo ou tapez ses chiffres.",
       "added": "Ajouté : {name}. Prêt pour le suivant.",
       "cameraBlocked": "La caméra n’est pas autorisée pour cette page. Autorisez-la dans les paramètres du site du navigateur, ou prenez une photo.",
+      "cameraMissing": "Aucune caméra trouvée sur cet appareil, ou une autre application l’utilise. Une photo ou les chiffres fonctionnent.",
       "cameraUnavailable": "Le navigateur n’autorise la caméra que sur des adresses https ou localhost. Une photo fonctionne ici.",
       "photo": "Prendre le code-barres en photo",
       "photoMissed": "Aucun code-barres trouvé sur cette photo. Essayez un peu plus près et plus net, ou tapez les chiffres.",
