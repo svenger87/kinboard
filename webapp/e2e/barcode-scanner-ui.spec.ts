@@ -24,6 +24,8 @@ const DEVICE = "claude-barcode";
 const KNOWN = "4006381333931";
 // Restricted-circulation prefix 2: no database knows it (checked against all four).
 const UNKNOWN = "2999999999991";
+// A shared catalog row (family_id NULL) with a barcode: no family may read or change it.
+const SHARED = "2012345678903";
 
 function psql(sql: string): string {
   return execFileSync(
@@ -38,6 +40,7 @@ function purge() {
     DELETE FROM devices WHERE family_id = '${FAMILY}' OR hardware_id LIKE '%${DEVICE}%';
     DELETE FROM shopping_items WHERE family_id = '${FAMILY}';
     DELETE FROM item_catalog WHERE family_id = '${FAMILY}';
+    DELETE FROM item_catalog WHERE family_id IS NULL AND name_normalized LIKE 'claude barcode shared%';
     DELETE FROM families WHERE id = '${FAMILY}';`);
 }
 
@@ -45,7 +48,9 @@ test.beforeAll(() => {
   purge();
   psql(`INSERT INTO families (id, name, join_code, setup_completed) VALUES ('${FAMILY}', 'claude-barcode', '${JOIN_CODE}', true);
     INSERT INTO item_catalog (family_id, name, name_normalized, barcode, category, source)
-      VALUES ('${FAMILY}', 'claude Testmilch', 'claude testmilch', '${KNOWN}', 'milchprodukte', 'custom');`);
+      VALUES ('${FAMILY}', 'claude Testmilch', 'claude testmilch', '${KNOWN}', 'milchprodukte', 'custom');
+    INSERT INTO item_catalog (family_id, name, name_normalized, barcode, category, source)
+      VALUES (NULL, 'claude barcode shared', 'claude barcode shared', '${SHARED}', 'sonstiges', 'custom');`);
 });
 
 test.afterAll(() => {
@@ -144,5 +149,27 @@ test.describe("the barcode scanner", () => {
     await manual.fill(UNKNOWN);
     await manual.press("Enter");
     await expect(dialog.getByTestId("barcode-product-name")).toHaveText("claude Geheimsaft");
+    expect(psql(`SELECT count(*) FROM item_catalog WHERE family_id IS NULL AND barcode = '${UNKNOWN}'`)).toBe("0");
+  });
+
+  test("the catalog is the family's own: a shared row is neither read by the scanner nor changed by a save", async ({ page }) => {
+    await establishSession(page, JOIN_CODE, DEVICE);
+    await page.goto("/einkaufen", { waitUntil: "domcontentloaded" });
+    const lookup = await page.evaluate(async (code) => (await fetch(`/api/catalog/barcode?barcode=${code}&lang=en`)).status, SHARED);
+    // Not the shared row's name: the family doesn't know it, and neither does any database.
+    expect(lookup).toBe(404);
+    // A save naming the shared product, without family_id: the family gets its own row, the shared one stays as it was.
+    const saved = await page.evaluate(async () => {
+      const res = await fetch("/api/catalog/search", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "claude barcode shared", barcode: "4006381333931", category: "fleisch" }),
+      });
+      return res.status;
+    });
+    expect(saved).toBe(200);
+    expect(psql(`SELECT barcode || '|' || category FROM item_catalog WHERE family_id IS NULL AND name_normalized = 'claude barcode shared'`)).toBe(`${SHARED}|sonstiges`);
+    expect(psql(`SELECT count(*) FROM item_catalog WHERE family_id = '${FAMILY}' AND name_normalized = 'claude barcode shared'`)).toBe("1");
+    expect(psql(`SELECT count(*) FROM item_catalog WHERE family_id IS NULL AND name_normalized LIKE 'claude barcode shared%'`)).toBe("1");
   });
 });

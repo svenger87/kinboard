@@ -59,38 +59,37 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
-  // 1. The family's own catalog, and the shared one: the family's row wins.
-  if (familyId) {
-    try {
-      const supabase = await createAdminClient();
-       
-      const { data: rows } = await (supabase as any)
-        .from("item_catalog")
-        .select("id, family_id, name, barcode, image_url, thumbnail_url, category, default_unit")
-        .in("barcode", candidates)
-        .or(`family_id.eq.${familyId},family_id.is.null`)
-        .limit(5);
-      const list = (rows ?? []) as LocalCatalogRow[];
-      const rank = (r: LocalCatalogRow) => candidates.indexOf(r.barcode) * 2 + (r.family_id === familyId ? 0 : 1);
-      const item = [...list].sort((a, b) => rank(a) - rank(b))[0];
-      if (item) {
-        const product: ProductLookupResult = {
-          id: item.id,
-          name: item.name,
-          brand: null,
-          image_url: item.image_url,
-          thumbnail_url: item.thumbnail_url,
-          category: item.category,
-          barcode: item.barcode,
-          source: "local",
-          default_unit: item.default_unit,
-          quantity: null,
-        };
-        return NextResponse.json({ product, source: "local" });
-      }
-    } catch (error) {
-      console.error("Error checking local catalog:", error);
+  // 1. The family's own catalog: a product somebody in this family named.
+  // Only the family's own rows, never shared ones (family_id NULL): what a
+  // barcode is called must not be something another family could write.
+  try {
+    const supabase = await createAdminClient();
+     
+    const { data: rows } = await (supabase as any)
+      .from("item_catalog")
+      .select("id, family_id, name, barcode, image_url, thumbnail_url, category, default_unit")
+      .eq("family_id", auth.session.familyId)
+      .in("barcode", candidates)
+      .limit(5);
+    const list = (rows ?? []) as LocalCatalogRow[];
+    const item = [...list].sort((a, b) => candidates.indexOf(a.barcode) - candidates.indexOf(b.barcode))[0];
+    if (item) {
+      const product: ProductLookupResult = {
+        id: item.id,
+        name: item.name,
+        brand: null,
+        image_url: item.image_url,
+        thumbnail_url: item.thumbnail_url,
+        category: item.category,
+        barcode: item.barcode,
+        source: "local",
+        default_unit: item.default_unit,
+        quantity: null,
+      };
+      return NextResponse.json({ product, source: "local" });
     }
+  } catch (error) {
+    console.error("Error checking local catalog:", error);
   }
 
   // 2. Open Food Facts, then Open Beauty / Pet Food / Products Facts.

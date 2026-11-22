@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import { codeOnly } from "./source-helpers";
 import { barcodeCandidates, expandUpcE, isValidGtin, normalizeBarcode, parseBarcode } from "../src/lib/barcode/gtin";
 import {
   OPEN_FACTS_DATABASES,
@@ -104,4 +107,17 @@ test("the lookup asks the databases in turn: a miss or a failure moves on, the f
 
   const nowhere = (async () => new Response(JSON.stringify({ status: 0 }), { status: 404 })) as typeof fetch;
   expect(await lookupOpenFacts("2999999999991", "de", nowhere)).toBeNull();
+});
+
+test("the family's catalog is its own: the scanner reads only its rows, a save writes only its rows", () => {
+  const read = (file: string) => codeOnly(readFileSync(join(process.cwd(), file), "utf8"));
+  const lookup = read("src/app/api/catalog/barcode/route.ts");
+  expect(lookup).toContain('.eq("family_id", auth.session.familyId)');
+  expect(lookup).not.toContain("family_id.is.null");
+  const save = read("src/app/api/catalog/search/route.ts");
+  const post = save.slice(save.indexOf("export async function POST"));
+  expect(post).toContain("const ownFamily = auth.session.familyId;");
+  expect(post).not.toContain("family_id.is.null");
+  expect(post).not.toContain("family_id: family_id || null");
+  expect(post).toContain('.eq("id", existing.id)\n        .eq("family_id", ownFamily)');
 });
