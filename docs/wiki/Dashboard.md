@@ -74,6 +74,7 @@ The dashboard is what the [kiosk](Kiosk-Windows-11-Mele-4C) shows when it's idle
 ## Customization
 
 - **Hide individual widgets** in Settings → Widgets
+- **Arrange Home yourself** on a wall screen — place and size every widget, the clock block's pieces included, with a layout. See [Layouts → Home](Layouts#home)
 - **Re-theme** monthly themes auto-rotate; manual override in Settings → Theme
 - **Show seconds / 24h vs 12h** in Settings → Theme
 - **Light vs dark mode** in Settings → Theme
