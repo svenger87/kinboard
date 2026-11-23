@@ -2,12 +2,11 @@
 
 import { Fragment } from "react";
 import { useTranslations } from "next-intl";
-import { Clock } from "@/components/widgets/clock";
+import { HomeClockBlock } from "@/components/widgets/home-clock-block";
 import { Weather } from "@/components/widgets/weather";
 import { WeatherEffects } from "@/components/weather-effects";
 import { CreaturesOnHome } from "@/components/creatures-on-home";
 import { UpcomingEvents } from "@/components/widgets/upcoming-events";
-import { FamilyMembers } from "@/components/widgets/family-members";
 import { ScheduleWidget } from "@/components/widgets/schedule-widget";
 import { BirthdayWidget } from "@/components/widgets/birthday-widget";
 import { HolidayWidget } from "@/components/widgets/holiday-widget";
@@ -27,7 +26,6 @@ import { ShoppingWidget } from "@/components/widgets/shopping-widget";
 import { WasteCollectionWidget } from "@/components/widgets/waste-collection-widget";
 import { MealPlanWidget } from "@/components/widgets/meal-plan-widget";
 import { WeekOverviewWidget } from "@/components/widgets/week-overview-widget";
-import { TodayStrip } from "@/components/widgets/today-strip";
 import { FloatingLightsFab } from "@/components/floating-lights-fab";
 import { AttentionWidget } from "@/components/widgets/attention-widget";
 import { GettingStartedChecklist } from "@/components/getting-started-checklist";
@@ -186,33 +184,7 @@ export default function DashboardPage() {
         <ConnectivityBanner />
         <GettingStartedChecklist />
         <ShoppingInstallPrompt />
-        {/* Top Section - Clock.
-            `flex-1` used to let this block absorb all spare height, which is
-            right in portrait and wrong in landscape: on a 1920x1080 panel it
-            took 47% of the height (clock + five names + one event pill) and
-            pushed the second widget row off the bottom — scrollHeight 1754 vs
-            clientHeight 1080 (audit KB-01). Capping it at 38vh on short, wide
-            viewports keeps the hero dominant without letting it crowd out the
-            family information the dashboard exists to show. Portrait is
-            deliberately untouched: it already fits. */}
-        <section
-          className={`relative z-[1] flex items-center justify-center hero-block ${homeLayout === "compact" ? "flex-col portrait:md:grid portrait:md:grid-cols-2 portrait:md:gap-6 py-4" : "flex-1 flex-col"}`}
-          aria-label={t("ariaClock")}
-          // Where a festival's fireworks go up (RFC-020 §3.3): over the clock in here.
-          data-festival-anchor="clock"
-        >
-          <div className={homeLayout === "compact" ? "min-w-0 text-center" : "contents"}>
-            <Clock size={homeLayout === "compact" ? "lg" : "xl"} showDate showSeconds={showSeconds} showGreeting />
-          </div>
-          <div className={homeLayout === "compact" ? "min-w-0" : "contents"}>
-            <div className={homeLayout === "compact" ? "" : "mt-6 lg:mt-10"}>
-              <FamilyMembers className={homeLayout === "compact" ? "flex-wrap" : ""} />
-            </div>
-            <div className="mt-4 mb-4 w-full lg:mb-6">
-              <TodayStrip />
-            </div>
-          </div>
-        </section>
+        <HomeClockBlock layout={homeLayout} showSeconds={showSeconds} />
 
         {/* Widget grid — 2 columns on a portrait kiosk, up to 6 on a wide one.
             `max-w-7xl` capped this at 1280px regardless of panel size: on a
