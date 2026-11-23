@@ -6,7 +6,7 @@ import { CalendarClock, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CountdownForm, useCountdowns, type Countdown } from "@/components/widgets/countdown-widget";
-import { HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame, HomeRowGap, TARGET_H, TARGET_SQ } from "./list-shared";
+import { HOME_ROW_BUTTON, HomeEmptyLine, HomeList, HomeListFrame, TARGET_SQ } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
 
 const keyOf = (c: Countdown) => c.id;
@@ -26,10 +26,10 @@ export function CountdownHomeWidget({ editing }: HomeWidgetProps) {
   const renderItem = (entry: Countdown) => {
     const days = daysLeft(entry);
     return (
-      <HomeRowGap>
-        <div className={`${HOME_ROW} ${TARGET_H} pr-0`}>
+      <>
+        <div className={HOME_ROW_BUTTON}>
           <span className="text-[1.3em] leading-none" aria-hidden="true">{entry.icon}</span>
-          <span className="min-w-0 flex-1 break-words text-[0.9em] font-medium leading-snug">{entry.title}</span>
+          <span className="min-w-0 flex-1 break-words py-[0.3em] text-[0.9em] font-medium leading-snug">{entry.title}</span>
           <span className="flex flex-col items-center leading-none" aria-label={t("daysRemaining", { count: days })}>
             <span className="font-display text-[1.2em] tabular-nums">{days}</span>
             <span className="text-[0.6em] text-muted-foreground" aria-hidden="true">{t("daysUnit", { count: days })}</span>
@@ -38,7 +38,7 @@ export function CountdownHomeWidget({ editing }: HomeWidgetProps) {
             <Trash2 className="size-[0.9em]" />
           </Button>
         </div>
-      </HomeRowGap>
+      </>
     );
   };
 

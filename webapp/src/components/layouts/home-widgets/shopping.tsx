@@ -6,7 +6,7 @@ import { ShoppingCart } from "lucide-react";
 import { ChecklistItem } from "@/components/checklist-item";
 import { useShoppingItems } from "@/hooks";
 import { openShoppingItems, useTickShoppingItem } from "@/components/widgets/shopping-widget";
-import { CountBadge, HomeEmptyLine, HomeList, HomeListFrame, HomeRowGap, TARGET_H } from "./list-shared";
+import { CountBadge, HomeEmptyLine, HomeList, HomeListFrame, CHECK_ROW } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
 import type { ShoppingItem } from "@/types/database";
 
@@ -25,16 +25,16 @@ export function ShoppingHomeWidget({ editing }: HomeWidgetProps) {
   const open = useMemo(() => openShoppingItems(items), [items]);
 
   const renderItem = (it: Item) => (
-    <HomeRowGap>
+    <>
       <ChecklistItem
         checked={false}
         onCheckedChange={() => void tick(it.id)}
         compact
-        className={`${TARGET_H} gap-[0.5em] px-[0.6em] [&_label]:text-[0.9em] [&>span:last-child]:text-[0.8em]`}
+        className={`${CHECK_ROW} [&>span:last-child]:text-[0.8em]`}
         label={<span className="break-words leading-snug">{it.name}</span>}
         meta={it.quantity ? <span className="tabular-nums">{it.quantity}{it.unit ? ` ${it.unit}` : ""}</span> : undefined}
       />
-    </HomeRowGap>
+    </>
   );
 
   return (

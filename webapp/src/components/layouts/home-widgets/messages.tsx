@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { Check, MessageSquare, Plus, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ComposeMessage, useWaitingMessages } from "@/components/widgets/messages-widget";
-import { CountBadge, HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame, HomeRowGap, TARGET_H, TARGET_SQ } from "./list-shared";
+import { CountBadge, HOME_ROW_BUTTON, HomeEmptyLine, HomeList, HomeListFrame, TARGET_SQ } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
 
 type Message = ReturnType<typeof useWaitingMessages>["waiting"][number];
@@ -24,9 +24,9 @@ export function MessagesHomeWidget({ editing }: HomeWidgetProps) {
   const renderItem = (message: Message) => {
     const mine = isMine(message);
     return (
-      <HomeRowGap>
-        <div data-message-row className={`${HOME_ROW} ${TARGET_H} pr-0`}>
-          <div className="min-w-0 flex-1">
+      <>
+        <div data-message-row className={HOME_ROW_BUTTON}>
+          <div className="min-w-0 flex-1 py-[0.3em]">
             <p className="break-words text-[0.9em] leading-snug">{message.body}</p>
             {message.sender_label && (
               <p data-message-sender className="break-words text-[0.7em] text-muted-foreground">
@@ -45,7 +45,7 @@ export function MessagesHomeWidget({ editing }: HomeWidgetProps) {
             {mine ? <Undo2 className="size-[0.9em]" /> : <Check className="size-[0.9em]" />}
           </Button>
         </div>
-      </HomeRowGap>
+      </>
     );
   };
 

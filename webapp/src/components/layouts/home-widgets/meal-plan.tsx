@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { Clock, Utensils, UtensilsCrossed } from "lucide-react";
 import { MEAL_TYPE_COLORS, MEAL_TYPE_ICONS, usePrepTimeLabel, useTodayMeals } from "@/components/widgets/meal-plan-widget";
 import type { MealType } from "@/types/database";
-import { CountBadge, HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame, HomeRowGap } from "./list-shared";
+import { CountBadge, HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
 
 type Meal = ReturnType<typeof useTodayMeals>["todayMeals"][number];
@@ -24,7 +24,7 @@ export function MealPlanHomeWidget({ editing }: HomeWidgetProps) {
     const title = entry.recipe?.title || entry.note || mealTypeLabels[mealType];
     const prepTime = entry.recipe?.total_time_minutes;
     return (
-      <HomeRowGap>
+      <>
         <div className={HOME_ROW}>
           <span className="shrink-0 rounded-[0.4em] p-[0.3em]" style={{ backgroundColor: `${color}22`, color }}>
             <Icon className="size-[0.9em]" strokeWidth={1.75} aria-hidden="true" />
@@ -42,7 +42,7 @@ export function MealPlanHomeWidget({ editing }: HomeWidgetProps) {
             </p>
           </div>
         </div>
-      </HomeRowGap>
+      </>
     );
   };
 

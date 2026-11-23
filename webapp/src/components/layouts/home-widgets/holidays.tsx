@@ -7,7 +7,7 @@ import { CalendarHeart, TreePalm } from "lucide-react";
 import { useHolidayDay, useNextHolidays } from "@/components/widgets/holiday-widget";
 import { daysUntilHoliday } from "@/lib/holidays";
 import { holidayLabel } from "@/lib/holidays/label";
-import { HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame, HomeRowGap, TARGET_H } from "./list-shared";
+import { HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame, TARGET_H } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
 
 /** How far ahead the box looks: a year, so "+n" counts the holidays still to come this coming year. */
@@ -40,7 +40,7 @@ export function HolidaysHomeWidget({ editing }: HomeWidgetProps) {
     const isToday = h.daysUntil === 0;
     const isSoon = h.daysUntil > 0 && h.daysUntil <= 7;
     return (
-      <HomeRowGap>
+      <>
         <div className={`${HOME_ROW}${isToday ? " border-l-4 border-l-primary" : ""}`}>
           <span className="flex size-[1.6em] shrink-0 items-center justify-center rounded-[0.4em] bg-muted text-[0.9em] leading-none" aria-hidden="true">
             {h.emoji}
@@ -65,7 +65,7 @@ export function HolidaysHomeWidget({ editing }: HomeWidgetProps) {
             {isToday ? t("todayBadge") : t("daysSuffix", { count: h.daysUntil })}
           </span>
         </div>
-      </HomeRowGap>
+      </>
     );
   };
 

@@ -10,14 +10,14 @@ import { join } from "node:path";
  * fits two tasks, a task is still ticked off in one tap.
  *
  * Needs a running dev server (PLAYWRIGHT_BASE_URL) and the join code of a
- * throwaway family with data (HOME_LISTS_CODE): the tick-off test changes
- * it. HOME_LISTS_SHOTS=<dir> saves a screenshot of every combination.
+ * throwaway family with data (HOME_LISTS_CODE) and its screensaver off: the
+ * tick-off test changes it. HOME_LISTS_SHOTS=<dir> saves a screenshot of every combination.
  */
 const CODE = process.env.HOME_LISTS_CODE;
 const SHOTS = process.env.HOME_LISTS_SHOTS;
 test.skip(!process.env.PLAYWRIGHT_BASE_URL || !CODE, "needs PLAYWRIGHT_BASE_URL and HOME_LISTS_CODE");
 test.use({ serviceWorkers: "block", viewport: { width: 1080, height: 1920 } });
-test.describe.configure({ timeout: 180_000 });
+test.describe.configure({ timeout: 420_000 });
 
 const WIDGETS = ["tasks", "shopping", "mealPlan", "notes", "messages", "birthday", "holidays", "wasteCollection", "countdown"];
 /** Where "+n" and the title lead; messages and countdowns have no page. */
@@ -57,8 +57,12 @@ async function open(page: Page, query: string) {
   await page.goto(`/dev/home-lists?${query}`, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("home-lists")).toBeVisible({ timeout: 90_000 });
   // Every widget has measured: a list root with a count, or its empty line.
+  // The family has entries in every list: wait until each list has them, not its empty line.
   for (const w of query.includes("widgets=") ? new URLSearchParams(query).get("widgets")!.split(",") : WIDGETS) {
-    await expect(page.getByTestId(`home-widget-${w}`).locator("[data-list-shown]").first()).toBeAttached({ timeout: 60_000 });
+    const root = page.getByTestId(`home-widget-${w}`).locator("[data-list-shown]").first();
+    await expect
+      .poll(async () => Number(await root.getAttribute("data-list-shown").catch(() => 0)) + Number(await root.getAttribute("data-list-more").catch(() => 0)), { timeout: 60_000, message: `${w} never loaded` })
+      .toBeGreaterThan(0);
   }
   await page.waitForTimeout(800);
 }
@@ -136,8 +140,8 @@ test("a box that fits two tasks: one tap ticks one off, with the card's mutation
   await signIn(page, "light", browserName);
   // The smallest height (in steps) at which the tasks box shows exactly two.
   let h = 0;
-  for (let steps = 8; steps <= 16; steps++) {
-    await open(page, `widgets=tasks,shopping&w=12&h=${steps}&text=M`);
+  for (let steps = 8; steps <= 20; steps++) {
+    await open(page, `widgets=tasks,shopping&w=24&h=${steps}&text=M`);
     const shown = Number(await page.getByTestId("home-widget-tasks").locator("[data-list-shown]").first().getAttribute("data-list-shown"));
     if (shown === 2) {
       h = steps;

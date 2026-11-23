@@ -9,7 +9,7 @@ import { useHomeDataContext } from "@/components/layouts/home-data-context";
 import { birthdaysAhead, calculateUpcomingAge } from "@/components/widgets/birthday-widget";
 import { hasBirthYear } from "@/lib/birthday";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
-import { HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame, HomeRowGap } from "./list-shared";
+import { HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
 
 type Entry = ReturnType<typeof birthdaysAhead>[number];
@@ -27,7 +27,7 @@ export function BirthdayHomeWidget({ editing }: HomeWidgetProps) {
     const isToday = b.daysUntil === 0;
     const isSoon = b.daysUntil <= 7 && b.daysUntil > 0;
     return (
-      <HomeRowGap>
+      <>
         <div className={`${HOME_ROW}${isToday ? " border-l-4 border-l-primary" : ""}`}>
           {b.imageUrl ? (
             <PersonAvatar name={b.name} color={b.personColor ?? "hsl(var(--primary))"} avatarUrl={b.imageUrl} size="1.8em" />
@@ -51,7 +51,7 @@ export function BirthdayHomeWidget({ editing }: HomeWidgetProps) {
             {isToday ? t("todayBadge") : t("daysSuffix", { count: b.daysUntil })}
           </span>
         </div>
-      </HomeRowGap>
+      </>
     );
   };
 

@@ -7,7 +7,7 @@ import { useHomeDataContext } from "@/components/layouts/home-data-context";
 import { WASTE_PRESENTATION, useWasteDayLabel, useWasteLabels, wasteCollections } from "@/components/widgets/waste-collection-widget";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { personText, personTint } from "@/lib/person-color";
-import { HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame, HomeRowGap } from "./list-shared";
+import { HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
 
 type Entry = ReturnType<typeof wasteCollections>[number];
@@ -33,7 +33,7 @@ export function WasteCollectionHomeWidget({ editing }: HomeWidgetProps) {
     const urgent = e.daysUntil <= 1;
     const when = dayLabel(e.date, e.daysUntil);
     return (
-      <HomeRowGap>
+      <>
         <div
           className={HOME_ROW}
           style={urgent ? { borderLeft: `4px solid ${presentation.color}` } : undefined}
@@ -55,7 +55,7 @@ export function WasteCollectionHomeWidget({ editing }: HomeWidgetProps) {
             {urgent ? (e.daysUntil === 0 ? t("todayBadge") : t("tomorrowBadge")) : t("daysSuffix", { count: e.daysUntil })}
           </span>
         </div>
-      </HomeRowGap>
+      </>
     );
   };
 

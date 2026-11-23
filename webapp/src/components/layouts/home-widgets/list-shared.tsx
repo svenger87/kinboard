@@ -19,7 +19,12 @@ import { ListBox } from "@/components/layouts/list-box";
 /** A touch target's height: 48px at least, more when the text is larger. */
 export const TARGET_H = "min-h-[max(48px,2.4em)]";
 /** A square touch target (an icon button): 48px at least. */
-export const TARGET_SQ = "size-[max(48px,2.4em)] shrink-0";
+export const TARGET_SQ = "size-[max(48px,2.4em)] shrink-0 [&_svg]:size-[0.9em]";
+/**
+ * A checklist row (ChecklistItem): its text label, which fills the row and is
+ * what a tap lands on, is the 48px target itself, not the row around it.
+ */
+export const CHECK_ROW = "gap-[0.5em] px-[0.6em] [&>label]:min-h-[max(48px,2.4em)] [&_label]:text-[0.9em]";
 
 /**
  * The card of a Home list widget. The title row is a link to `href` (when the
@@ -77,7 +82,7 @@ export function HomeListFrame({
         )}
         {actions}
       </header>
-      <div className="min-h-0 flex-1 px-[0.5em] pb-[0.5em]">{children}</div>
+      <div className="min-h-0 flex-1 px-[0.5em] pb-[0.15em]">{children}</div>
     </section>
   );
 }
@@ -138,15 +143,13 @@ export function HomeList<T>({
   );
   return (
     <div className="size-full [&_[data-list-shown='0']_[data-testid=list-more]]:hidden">
-      <ListBox items={items} keyOf={keyOf} renderItem={renderItem} empty={empty} moreLabel={moreLabel} renderMore={renderMore} />
+      <ListBox items={items} keyOf={keyOf} renderItem={renderItem} empty={empty} moreLabel={moreLabel} renderMore={renderMore} gap={HOME_ROW_GAP} />
     </div>
   );
 }
 
-/** Room under each entry (ListBox's gap is in pixels; this follows the text size). */
-export function HomeRowGap({ children }: { children: ReactNode }) {
-  return <div className="pb-[0.35em]">{children}</div>;
-}
+/** Room between entries, in px (ListBox's gap). A gap after the last entry would cost a 48px row its place in a small box. */
+export const HOME_ROW_GAP = 6;
 
 /** A list with nothing in it. */
 export function HomeEmptyLine({ text }: { text: string }) {
@@ -155,3 +158,5 @@ export function HomeEmptyLine({ text }: { text: string }) {
 
 /** An entry's card, on the app's theme. */
 export const HOME_ROW = "flex items-center gap-[0.5em] rounded-[0.6em] border border-border bg-card px-[0.6em] py-[0.3em] elev-sm";
+/** An entry's card that ends in a 48px button: the button sets its height. */
+export const HOME_ROW_BUTTON = "flex items-center gap-[0.5em] rounded-[0.6em] border border-border bg-card pl-[0.6em] elev-sm";

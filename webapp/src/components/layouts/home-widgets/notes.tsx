@@ -10,7 +10,7 @@ import { useNotes } from "@/hooks";
 import { useNoteActions } from "@/components/widgets/notes-widget";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import type { Note } from "@/types/database";
-import { CountBadge, HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame, HomeRowGap, TARGET_H, TARGET_SQ } from "./list-shared";
+import { CountBadge, HOME_ROW_BUTTON, HomeEmptyLine, HomeList, HomeListFrame, TARGET_SQ } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
 
 const keyOf = (n: Note) => n.id;
@@ -38,9 +38,9 @@ export function NotesHomeWidget({ editing }: HomeWidgetProps) {
   };
 
   const renderItem = (note: Note) => (
-    <HomeRowGap>
-      <div className={`${HOME_ROW} ${TARGET_H} pr-0`}>
-        <div className="min-w-0 flex-1">
+    <>
+      <div className={HOME_ROW_BUTTON}>
+        <div className="min-w-0 flex-1 py-[0.3em]">
           {/* At most three lines: a long note is read on /notes. */}
           <p className="line-clamp-3 whitespace-pre-line break-words text-[0.9em] leading-snug">{note.content}</p>
           <p className="text-[0.65em] text-muted-foreground">
@@ -57,7 +57,7 @@ export function NotesHomeWidget({ editing }: HomeWidgetProps) {
           <Trash2 className="size-[0.9em] text-muted-foreground" />
         </Button>
       </div>
-    </HomeRowGap>
+    </>
   );
 
   const all = notes ?? [];

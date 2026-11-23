@@ -11,7 +11,7 @@ import { isOverdue, type TaskSection } from "@/lib/tasks-widget-groups";
 import { todayPerson } from "@/lib/todo-turns";
 import { toLocalDateKey } from "@/lib/local-date";
 import type { Todo } from "@/types/database";
-import { CountBadge, HomeEmptyLine, HomeList, HomeListFrame, HomeRowGap, TARGET_H } from "./list-shared";
+import { CountBadge, HomeEmptyLine, HomeList, HomeListFrame, CHECK_ROW } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
 
 interface Entry {
@@ -47,7 +47,7 @@ export function TasksHomeWidget({ editing }: HomeWidgetProps) {
     const person = people?.find((p) => p.id === todayPerson(todo, todayStr));
     const overdue = isOverdue(todo, todayStr);
     return (
-      <HomeRowGap>
+      <>
         {first && (
           <div className="mb-[0.2em] flex items-center gap-[0.5em]">
             <span className="text-[0.65em] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -61,7 +61,7 @@ export function TasksHomeWidget({ editing }: HomeWidgetProps) {
           onCheckedChange={() => toggle(todo)}
           compact
           color={person?.color}
-          className={`${TARGET_H} gap-[0.5em] px-[0.6em] [&_label]:text-[0.9em] [&>span:last-child]:text-[1em]`}
+          className={`${CHECK_ROW} [&>span:last-child]:text-[1em]`}
           label={
             <span className="flex min-w-0 flex-col">
               <span className="break-words leading-snug">
@@ -74,7 +74,7 @@ export function TasksHomeWidget({ editing }: HomeWidgetProps) {
           }
           meta={person ? <PersonAvatar name={person.name} color={person.color} avatarUrl={person.avatar_url} size="1.3em" /> : undefined}
         />
-      </HomeRowGap>
+      </>
     );
   };
 
