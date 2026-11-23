@@ -10,6 +10,7 @@ import {
   Cloud,
   CloudOff,
   Wind,
+  ArrowUp,
   Droplets,
   Thermometer,
   Sunrise,
@@ -45,6 +46,9 @@ import {
 } from "@/hooks";
 import { rainChanceShown } from "@/lib/rain-chance";
 import { weatherIcon } from "@/lib/weather-icon";
+import { todayRange } from "@/lib/weather-today";
+import { compassPoint, windArrowRotation } from "@/lib/wind-direction";
+import { aqiDotClass, isAqiLevel } from "@/lib/air-quality";
 
 const WeatherMap = dynamic(() => import("./weather-map"), {
   ssr: false,
@@ -243,6 +247,10 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
   const WeatherIcon = weatherIcon(currentWeather.conditionMain ?? currentWeather.condition, currentWeather.conditionIcon);
   const upcomingDays = forecast?.daily || [];
   const hourly = forecast?.hourly || [];
+  // The card's rules: today's range from the forecast, the compass point, AQI 1-5.
+  const range = todayRange(currentWeather.temp, forecast?.daily, currentWeather.timezoneOffset);
+  const wind = compassPoint(currentWeather.windDeg);
+  const aqi = isAqiLevel(currentWeather.airQuality) ? currentWeather.airQuality : undefined;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -274,11 +282,16 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                 <div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-5xl font-display font-light">{currentWeather.temp}°</span>
-                    <div className="text-sm text-muted-foreground">
-                      <span className="text-foreground/70">{currentWeather.high}°</span>
-                      {" / "}
-                      <span>{currentWeather.low}°</span>
-                    </div>
+                    {range && (
+                      <div className="text-sm text-muted-foreground tabular-nums whitespace-nowrap">
+                        <span className="sr-only">{t("highLowLabel", { high: range.high, low: range.low })}</span>
+                        <span aria-hidden="true">
+                          <span className="text-foreground/70">{range.high}°</span>
+                          {" / "}
+                          <span>{range.low}°</span>
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground">{currentWeather.condition}</p>
                 </div>
@@ -294,13 +307,33 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                   <span>{currentWeather.humidity}%</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                  <Wind className="size-4 text-muted-foreground" />
-                  <span>{currentWeather.windSpeed} {unitLabels.speed}</span>
+                  <Wind className="size-4 text-muted-foreground" aria-hidden="true" />
+                  <span aria-hidden="true">{currentWeather.windSpeed} {unitLabels.speed}</span>
+                  {wind && currentWeather.windDeg !== undefined && (
+                    <span className="flex items-center gap-0.5 text-muted-foreground" aria-hidden="true">
+                      <ArrowUp className="size-3.5" style={{ transform: `rotate(${windArrowRotation(currentWeather.windDeg)}deg)` }} />
+                      {t(`compass.${wind}`)}
+                    </span>
+                  )}
+                  <span className="sr-only">
+                    {wind
+                      ? t("windDirectionLabel", { value: currentWeather.windSpeed, unit: unitLabels.speed, direction: t(`windFrom.${wind}`) })
+                      : t("windLabel", { value: currentWeather.windSpeed, unit: unitLabels.speed })}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-muted-foreground">{t("visibility")}</span>
                   <span>{currentWeather.visibility} {unitLabels.distance}</span>
                 </div>
+                {/* Left out, not "unknown", when the provider gave no index
+                    (an older key, an outage). */}
+                {aqi && (
+                  <div className="col-span-2 flex items-center gap-2 text-sm" data-testid="weather-modal-aqi">
+                    <span className={`size-2.5 rounded-full ${aqiDotClass(aqi)}`} aria-hidden="true" />
+                    <span className="text-muted-foreground">{t("airQuality")}</span>
+                    <span>{t(`aqi.${aqi}`)}</span>
+                  </div>
+                )}
               </div>
 
               <SunArc

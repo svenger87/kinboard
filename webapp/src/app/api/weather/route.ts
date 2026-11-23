@@ -5,6 +5,7 @@ import {
   visibilityForDisplay,
 } from "@/lib/weather-units";
 import {
+  fetchAirQuality,
   fetchOpenWeather,
   mapCondition,
   openWeatherApiKey,
@@ -57,6 +58,11 @@ export async function GET(request: NextRequest) {
       throw err;
     }
 
+    // Air quality for the same place, by the coordinates the provider
+    // resolved: one more cached request (10 minutes, like the conditions),
+    // null when the key or the provider will not give it.
+    const airQuality = data.coord ? await fetchAirQuality(data.coord, apiKey) : null;
+
     // Transform to our format
     const weather = {
       temp: Math.round(data.main.temp),
@@ -67,6 +73,9 @@ export async function GET(request: NextRequest) {
       humidity: data.main.humidity,
       // m/s → km/h for metric; imperial already arrives as mph.
       windSpeed: windSpeedForDisplay(data.wind.speed, units),
+      // Where the wind comes from, degrees clockwise from north. Absent when
+      // the provider leaves it out (it does in calm air).
+      ...(typeof data.wind.deg === "number" ? { windDeg: data.wind.deg } : {}),
       location: data.name,
       high: Math.round(data.main.temp_max),
       low: Math.round(data.main.temp_min),
@@ -80,6 +89,8 @@ export async function GET(request: NextRequest) {
       // which is what drew the sun at the wrong point of its arc for any
       // board configured to a city in another zone.
       timezoneOffset: data.timezone,
+      // OpenWeatherMap's index, 1 (Good) to 5 (Very Poor); left out when unknown.
+      ...(airQuality !== null ? { airQuality } : {}),
       // Echoed back so the client labels the numbers with the system
       // they were actually produced in, even if the setting changed
       // while this response was in flight.

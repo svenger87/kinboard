@@ -3757,6 +3757,36 @@
     "loadingAria": "Wetter wird geladen",
     "errorTitle": "Wetter nicht verfügbar",
     "errorFallback": "Keine Daten",
+    "compass": {
+      "n": "N",
+      "ne": "NO",
+      "e": "O",
+      "se": "SO",
+      "s": "S",
+      "sw": "SW",
+      "w": "W",
+      "nw": "NW"
+    },
+    "windFrom": {
+      "n": "aus Nord",
+      "ne": "aus Nordost",
+      "e": "aus Ost",
+      "se": "aus Südost",
+      "s": "aus Süd",
+      "sw": "aus Südwest",
+      "w": "aus West",
+      "nw": "aus Nordwest"
+    },
+    "windDirectionLabel": "Wind {value} {unit} {direction}",
+    "airQuality": "Luftqualität",
+    "airQualityLabel": "Luftqualität: {level}",
+    "aqi": {
+      "1": "Gut",
+      "2": "Ordentlich",
+      "3": "Mäßig",
+      "4": "Schlecht",
+      "5": "Sehr schlecht"
+    },
     "errorRetrying": "Neuer Versuch in ein paar Minuten.",
     "errorLocationNotFound": "Der Wetter-Ort wurde nicht gefunden. Prüfe ihn in den Wetter-Einstellungen.",
     "errorLocationAction": "Wetter-Einstellungen",
