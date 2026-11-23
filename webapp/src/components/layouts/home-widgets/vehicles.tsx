@@ -12,7 +12,7 @@ import { formatReading, READING_DIGITS } from "@/plugins/vehicles/entity-read";
 import { readVehicle, type VehicleEntityConfig } from "@/plugins/vehicles/readings";
 import type { Vehicle } from "@/types/database";
 import type { HomeWidgetProps } from "./shared";
-import { BoxCard, SetUpBox, useShrinkStep } from "./rest-shared";
+import { BoxCard, CapFit, SetUpBox, useShrinkStep } from "./rest-shared";
 
 /** As the card: one car at a time, the next every eight seconds. */
 const ROTATE_INTERVAL_MS = 8000;
@@ -114,6 +114,7 @@ export function VehiclesHomeWidget({ box }: HomeWidgetProps) {
             )}
           </div>
         )}
+        <CapFit box={box} active={step === STEPS.length - 1} deps={[r.battery?.value]}>
         <div className="flex shrink-0 items-end justify-between gap-[0.6em]">
           <div className="min-w-0">
             <p className={`whitespace-nowrap text-[1.8em] font-bold leading-none tabular-nums ${batteryColor}`}>
@@ -139,6 +140,7 @@ export function VehiclesHomeWidget({ box }: HomeWidgetProps) {
             </div>
           )}
         </div>
+        </CapFit>
       </BoxCard>
     </Link>
   );

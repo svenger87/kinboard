@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useFitToBox } from "@/hooks/use-fit-to-box";
 import type { HomeLayoutItem } from "@/lib/layouts/types";
 
 /**
@@ -79,15 +80,41 @@ export function useShrinkStep(ref: RefObject<HTMLElement | null>, steps: number,
 }
 
 /** The box's text size in px (its font size, set by LayoutGrid from the item's S–XL); 16 until measured. */
-export function useEm(ref: RefObject<HTMLElement | null>, box: { width: number; height: number }): number {
+export function useEm(ref: RefObject<HTMLElement | null>): number {
   const [em, setEm] = useState(16);
+  // After every render: the element may mount only once data has arrived
+  // (a widget shows a placeholder first), and reading one style is cheap.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const px = parseFloat(getComputedStyle(el).fontSize);
     if (px > 0) setEm((prev) => (prev === px ? prev : px));
-  }, [ref, box.width, box.height]);
+  });
   return em;
+}
+
+/**
+ * The last resort of a fixed widget whose barest arrangement still does not
+ * fit (a figure at XL in a minimum box): its content drawn smaller, never
+ * larger than the box's text size. Off (`active` false) it changes nothing,
+ * so the arrangements are measured at the box's own size first.
+ */
+export function CapFit({ box, active, deps, children }: { box: { width: number; height: number }; active: boolean; deps: unknown[]; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const pad = boxPadding(box);
+  const fit = useFitToBox(ref, { width: box.width - 2 * pad, height: box.height - 2 * pad }, [active, ...deps]);
+  const [cap, setCap] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current?.parentElement;
+    if (el) setCap(parseFloat(getComputedStyle(el).fontSize) || null);
+  }, [box.width, box.height]);
+  const size = active && fit !== null && cap !== null ? Math.min(fit, cap) : undefined;
+  return (
+    <div ref={ref} className={active ? "w-fit max-w-none shrink-0" : "min-w-0"} style={size ? { fontSize: size } : undefined} data-cap-fit={active || undefined}>
+      {children}
+    </div>
+  );
 }
 
 /** The card's padding: it follows the box, not the text, so a small box keeps its room for content. */

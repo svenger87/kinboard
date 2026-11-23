@@ -19,14 +19,14 @@ import type { HomeWidgetProps } from "./shared";
 import { boxPadding, personIdOf, SetUpBox, useEm } from "./rest-shared";
 
 /** The creature beside the figure, in em of the fitted text, so it grows with it. */
-const CREATURE_EM = 2.6;
+const CREATURE_EM = 3;
 
 /**
  * One child's figure: their creature (or the piggy bank), the money or the
  * points to spend, and under it their name with the goal they save for or
  * the next allowance -- the card's row, drawn in em so the box can fit it.
  */
-function ChildValue({ child, name, fontPx }: { child: Child; name: string; fontPx: number }) {
+function ChildValue({ child, name, fontPx, lines }: { child: Child; name: string; fontPx: number; lines: boolean }) {
   const t = useTranslations("pocketMoney");
   const { personId, account, creature, stage, pointsMode, points, primary, progress, nextAllowance, ownedFor, festive, mood } =
     usePocketMoneyValue(child);
@@ -71,11 +71,13 @@ function ChildValue({ child, name, fontPx }: { child: Child; name: string; fontP
             account && formatCents(account.balance_cents, account.currency)
           )}
         </span>
-        <span className="whitespace-nowrap text-[0.6em] text-muted-foreground">
-          {name}
-          {sub ? ` · ${sub}` : ""}
-        </span>
-        {!pointsMode && primary && (
+        {lines && (
+          <span className="whitespace-nowrap text-[0.6em] text-muted-foreground">
+            {name}
+            {sub ? ` · ${sub}` : ""}
+          </span>
+        )}
+        {lines && !pointsMode && primary && (
           <span className="mt-[0.2em] block h-[0.2em] overflow-hidden rounded-full bg-primary/20">
             <span className="block h-full bg-primary" style={{ width: `${progress}%` }} />
           </span>
@@ -104,13 +106,16 @@ export function PocketMoneyHomeWidget({ item, box }: HomeWidgetProps) {
   const children = pinned ? all.filter((c) => c.personId === pinned) : all;
 
   const rootRef = useRef<HTMLAnchorElement>(null);
-  const em = useEm(rootRef, box);
+  const em = useEm(rootRef);
   const ref = useRef<HTMLDivElement>(null);
   const pad = boxPadding(box);
   const inner = { width: box.width - 2 * pad, height: box.height - 2 * pad };
   const wide = children.length > 1 && inner.width > inner.height * 2.5;
   const key = children.map((c) => `${c.personId}:${c.account?.balance_cents ?? ""}`).join();
-  const size = useFitToBox(ref, valueBox(inner, item.text), [key, wide]);
+  // The name and the goal or allowance under each figure only where each
+  // child has four lines of the box's text: a small box is the figure alone.
+  const lines = (wide ? inner.height : inner.height / Math.max(1, children.length)) >= 4 * em;
+  const size = useFitToBox(ref, valueBox(inner, item.text), [key, wide, lines]);
 
   if (!enabled) {
     return <SetUpBox box={box} icon={PiggyBank} title={t("pocketMoneyName")} description={t("pocketMoneyDisabled")} href="/settings/plugins" testId="home-pocket-money" />;
@@ -138,7 +143,7 @@ export function PocketMoneyHomeWidget({ item, box }: HomeWidgetProps) {
         data-fitted-content
       >
         {children.map((c) => (
-          <ChildValue key={c.personId} child={c} name={nameOf(c.personId)} fontPx={size ?? em} />
+          <ChildValue key={c.personId} child={c} name={nameOf(c.personId)} fontPx={size ?? em} lines={lines} />
         ))}
       </div>
     </Link>

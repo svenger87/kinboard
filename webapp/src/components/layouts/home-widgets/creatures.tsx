@@ -130,7 +130,7 @@ export function CreaturesHomeWidget({ box }: HomeWidgetProps) {
   const children = creatureChildren(people, creatures);
 
   const ref = useRef<HTMLDivElement>(null);
-  const em = useEm(ref, box);
+  const em = useEm(ref);
   const pad = boxPadding(box);
   const gap = GAP_EM * em;
   // A pixel short of the room, so rounding never tips a cell over the edge.

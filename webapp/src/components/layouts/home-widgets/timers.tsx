@@ -11,8 +11,9 @@ import { BoxCard, BoxHeader, TOUCH, useShrinkStep } from "./rest-shared";
 
 interface Step {
   header: boolean;
-  /** Timers shown; the rest are counted in a "+n" line. */
+  /** Timers shown; the rest are counted in a "+n" line while `more` is on. */
   timers: number;
+  more: boolean;
   presets: boolean;
 }
 
@@ -33,11 +34,15 @@ export function TimersHomeWidget({ box }: HomeWidgetProps) {
   const count = visible.length;
   const steps = useMemo<Step[]>(() => {
     const out: Step[] = [
-      { header: true, timers: count, presets: true },
-      { header: false, timers: count, presets: true },
+      { header: true, timers: count, more: true, presets: true },
+      { header: false, timers: count, more: true, presets: true },
     ];
-    for (let k = count - 1; k >= 1; k--) out.push({ header: false, timers: k, presets: true });
-    if (count > 0) out.push({ header: false, timers: 1, presets: false });
+    for (let k = count - 1; k >= 1; k--) out.push({ header: false, timers: k, more: true, presets: true });
+    if (count > 0) {
+      out.push({ header: false, timers: 1, more: true, presets: false });
+      // The first timer alone, with its buttons: what a box of one row is for.
+      out.push({ header: false, timers: 1, more: false, presets: false });
+    }
     return out;
   }, [count]);
 
@@ -71,7 +76,7 @@ export function TimersHomeWidget({ box }: HomeWidgetProps) {
         return (
           <div
             key={timer.id}
-            className={`flex shrink-0 items-center gap-[0.4em] rounded-xl border pl-[0.5em] ${
+            className={`flex shrink-0 items-center gap-1 rounded-xl border pl-2 ${
               state === "finished" ? "border-destructive bg-destructive/10" : "border-border"
             }`}
             data-testid="home-timer-row"
@@ -107,7 +112,7 @@ export function TimersHomeWidget({ box }: HomeWidgetProps) {
           </div>
         );
       })}
-      {more > 0 && (
+      {step.more && more > 0 && (
         <p className="shrink-0 text-[0.75em] font-medium text-muted-foreground" data-testid="box-more">
           {tl("more", { count: more })}
         </p>

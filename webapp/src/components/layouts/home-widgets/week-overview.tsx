@@ -49,7 +49,7 @@ export function WeekOverviewHomeWidget({ box }: HomeWidgetProps) {
   });
 
   const ref = useRef<HTMLDivElement>(null);
-  const em = useEm(ref, box);
+  const em = useEm(ref);
   const signature = weekDays.map((d) => `${d.totalItems}${d.publicHoliday ? "h" : ""}`).join() + `|${holidays.length}`;
   const step = useShrinkStep(ref, STEPS.length, [box.width, box.height, signature, isLoading, em]);
   const s = STEPS[step];
@@ -93,7 +93,8 @@ export function WeekOverviewHomeWidget({ box }: HomeWidgetProps) {
               <span
                 className={`max-w-full truncate text-[0.6em] font-medium uppercase tracking-wider ${day.isToday ? "text-primary" : "text-muted-foreground"}`}
               >
-                {day.dayName}
+                {/* The weekday even for today, whose column is marked already: "Today" does not fit a seventh of a small box. */}
+                {format(day.date, "EE", { locale: dateLocale })}
               </span>
             )}
             <span

@@ -21,7 +21,7 @@ export function PhotosHomeWidget({ box }: HomeWidgetProps) {
   const tp = useTranslations("photosViewer");
   const { enabled, photos, isLoading, screensaverOnly, safeIdx, photo, skip } = useRotatingPhoto();
   const ref = useRef<HTMLAnchorElement>(null);
-  const em = useEm(ref, box);
+  const em = useEm(ref);
 
   if (!enabled) {
     return <SetUpBox box={box} icon={Images} title={t("photosName")} description={t("photosDisabled")} href="/settings/plugins" testId="home-photos" />;

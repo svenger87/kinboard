@@ -9,13 +9,13 @@ import { useQuotes } from "@/hooks/use-stonks";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { ChangeIcon, changeColor, formatPercent, formatPrice } from "@/plugins/stonks/drivers/yahoo-finance";
 import type { HomeWidgetProps } from "./shared";
-import { BoxCard, SetUpBox, useShrinkStep } from "./rest-shared";
+import { BoxCard, CapFit, SetUpBox, useShrinkStep } from "./rest-shared";
 
 /** As the card: one ticker at a time, the next every eight seconds. */
 const ROTATE_INTERVAL_MS = 8000;
 
-/** Richest first: name, price and change; the price and change on one line; the price alone. */
-const STEPS = ["full", "row", "price"] as const;
+/** Richest first: name, price and change; the price and change; the price alone. */
+const STEPS = ["full", "figures", "price"] as const;
 
 /**
  * The stonks card in a box (RFC-022 §3.1, fixed): a ticker's name, its
@@ -61,6 +61,7 @@ export function StonksHomeWidget({ box }: HomeWidgetProps) {
             {!isPending && <p className="text-[0.7em] text-muted-foreground">{tYahoo("quoteUnavailable")}</p>}
           </div>
         ) : (
+          <CapFit box={box} active={step === STEPS.length - 1} deps={[quote.price]}>
           <div className="flex min-w-0 flex-col gap-[0.15em]">
             {s === "full" && (
               <div className="flex items-center justify-between gap-[0.4em]">
@@ -68,13 +69,14 @@ export function StonksHomeWidget({ box }: HomeWidgetProps) {
                 <ChangeIcon delta={quote.change} className={`size-[1em] shrink-0 ${changeColor(quote.change)}`} />
               </div>
             )}
-            <div className={`flex ${s === "full" ? "flex-col" : "items-baseline gap-[0.5em]"}`}>
+            <div className="flex flex-col">
               <p className="whitespace-nowrap text-[1.5em] font-bold leading-tight tabular-nums">{formatPrice(quote.price, quote.currency)}</p>
               {s !== "price" && (
                 <p className={`whitespace-nowrap text-[0.8em] tabular-nums ${changeColor(quote.change)}`}>{formatPercent(quote.changePercent)}</p>
               )}
             </div>
           </div>
+          </CapFit>
         )}
       </BoxCard>
     </Link>

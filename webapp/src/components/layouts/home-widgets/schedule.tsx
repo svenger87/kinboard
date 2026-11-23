@@ -169,9 +169,10 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
         )}
         <div className="flex min-w-0 items-center gap-[0.4em]">
           <Icon className="size-[1em] shrink-0" style={{ color }} aria-hidden="true" />
-          <p className={`min-w-0 flex-1 truncate font-medium ${step.detail === "compact" ? "" : "text-[1.15em]"}`}>{slot.subject}</p>
+          <p className={`min-w-0 truncate font-medium ${step.detail === "compact" ? "shrink-0 max-w-full" : "flex-1 text-[1.15em]"}`}>{slot.subject}</p>
           {step.detail === "compact" && (
-            <span className="shrink-0 text-[0.7em] tabular-nums text-muted-foreground">
+            // The subject first: the time gives way to it in a narrow box.
+            <span className="ml-auto min-w-0 truncate text-[0.7em] tabular-nums text-muted-foreground">
               {now ? t("remainingMinutes", { minutes: getRemainingMinutes(slot) }) : formatWallClock(slot.start)}
             </span>
           )}

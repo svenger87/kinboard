@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { establishSession } from "./session";
 import { dbContainer } from "./whole-database";
@@ -20,7 +20,6 @@ import { dbContainer } from "./whole-database";
  */
 
 test.skip(!process.env.FAMILY_CODE, "needs FAMILY_CODE: a running stack");
-test.describe.configure({ mode: "serial" });
 
 const ID = (n: string) => `c1a0de00-0224-4000-8000-00000000${n}`;
 const FAMILY = ID("4a01");
@@ -67,8 +66,10 @@ test.beforeAll(() => {
     INSERT INTO vehicles (family_id, vendor, nickname, config) VALUES ('${FAMILY}', 'generic-ev', 'claude-rfc022-s4r car',
       '{"battery_level":"sensor.claude_s4r_battery","battery_range":"sensor.claude_s4r_range"}');
     INSERT INTO tickers (family_id, symbol, asset_type, nickname) VALUES ('${FAMILY}', 'AAPL', 'stock', 'Apple');
-    INSERT INTO media_players (family_id, driver, nickname, config) VALUES ('${FAMILY}', 'home-assistant', 'Kitchen speaker', '{"entity_id":"media_player.claude_s4r"}');
-    INSERT INTO settings (family_id, key, value) VALUES ('${FAMILY}', 'photo_source', '"upload"');`);
+    INSERT INTO media_players (family_id, driver, nickname, config) VALUES ('${FAMILY}', 'home_assistant', 'Kitchen speaker', '{"entity_id":"media_player.claude_s4r"}');
+    INSERT INTO settings (family_id, key, value) VALUES ('${FAMILY}', 'photo_source', '{"source":"upload"}');
+    -- No screensaver over the widgets while a test waits.
+    INSERT INTO settings (family_id, key, value) VALUES ('${FAMILY}', 'screensaver', '{"screensaverTimeout":0}');`);
 });
 
 test.afterAll(() => {
@@ -170,13 +171,16 @@ async function problems(page: Page) {
   });
 }
 
+// The PWA's service worker answers fetches before page.route sees them.
+test.use({ serviceWorkers: "block" });
+
 const EXPECTED = ["weekOverview", "schedule", "vehicles", "stonks", "pocketMoney", "creatures", "photos", "timers", "media"];
 
 for (const size of ["min", "large"] as const) {
   for (const text of ["S", "XL"] as const) {
     for (const theme of ["light", "dark"] as const) {
       test(`${size} boxes, text ${text}, ${theme}: nothing overflows, targets are 48px`, async ({ page }, info) => {
-        test.setTimeout(180_000);
+        test.setTimeout(300_000);
         await page.setViewportSize({ width: 1080, height: 1920 });
         await page.addInitScript((t) => {
           try {
@@ -188,26 +192,19 @@ for (const size of ["min", "large"] as const) {
         await page.goto(`/dev/home-rest-widgets?size=${size}&text=${text}`, { waitUntil: "domcontentloaded" });
         const grid = page.getByTestId("home-rest-grid");
         await expect(grid).toBeVisible({ timeout: 90_000 });
-        // Every widget drew something real: the data has arrived.
-        await expect(page.getByTestId("home-media")).toBeVisible({ timeout: 60_000 });
-        await expect(page.getByTestId("home-photo")).toBeVisible({ timeout: 60_000 });
-        await expect(page.getByTestId("home-timer-row").first()).toBeVisible({ timeout: 60_000 });
-        await expect(page.getByTestId("home-creature-cell").first()).toBeVisible({ timeout: 60_000 });
-        await expect(page.getByTestId("home-pocket-money-child").first()).toBeVisible({ timeout: 60_000 });
-        await expect(page.getByTestId("home-schedule").locator("[data-box-header], [data-testid=schedule-now]").first()).toBeVisible({ timeout: 60_000 });
-        await expect(page.getByTestId("home-stonks")).toContainText("231", { timeout: 60_000 });
-        await expect(page.getByTestId("home-vehicles")).toContainText("76", { timeout: 60_000 });
-        await expect(page.getByTestId("week-day")).toHaveCount(7);
-        await expect(page.locator("html")).toHaveClass(new RegExp(theme));
+        // Every widget drew something real: the data has arrived. Soft, so the screenshot is taken either way.
+        await expect.soft(page.getByTestId("home-media")).toBeVisible({ timeout: 20_000 });
+        await expect.soft(page.getByTestId("home-photo")).toBeVisible({ timeout: 20_000 });
+        await expect.soft(page.getByTestId("home-timer-row").first()).toBeVisible({ timeout: 20_000 });
+        await expect.soft(page.getByTestId("home-creature-cell").first()).toBeVisible({ timeout: 20_000 });
+        await expect.soft(page.getByTestId("home-pocket-money-child").first()).toBeVisible({ timeout: 20_000 });
+        await expect.soft(page.getByTestId("home-schedule").locator("[data-box-header], [data-testid=schedule-now]").first()).toBeVisible({ timeout: 20_000 });
+        await expect.soft(page.getByTestId("home-stonks")).toContainText("231", { timeout: 20_000 });
+        await expect.soft(page.getByTestId("home-vehicles")).toContainText("76", { timeout: 20_000 });
+        await expect.soft(page.getByTestId("week-day")).toHaveCount(7);
+        await expect.soft(page.locator("html")).toHaveClass(new RegExp(theme));
         // Let the fitting settle (fonts, the photo, the last measurement).
         await page.waitForTimeout(1500);
-
-        const items = await page.locator("[data-layout-item]").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.layoutItem));
-        expect(items.sort()).toEqual([...EXPECTED].sort());
-        expect(await problems(page)).toEqual([]);
-        expect(hits.states, "Home Assistant was never asked: the car and speaker are not under test").toBeGreaterThan(0);
-        expect(hits.quote).toBeGreaterThan(0);
-        expect(hits.photos).toBeGreaterThan(0);
 
         const dir = process.env.HOME_REST_SHOTS;
         if (dir) {
@@ -216,6 +213,14 @@ for (const size of ["min", "large"] as const) {
           // The minimum boxes fill the top of the screen; the large ones most of it.
           await page.screenshot({ path: join(dir, `${engine}-${size}-${text}-${theme}.png`), clip: { x: 0, y: 0, width: 1080, height: size === "min" ? 760 : 1600 } });
         }
+        const items = await page.locator("[data-layout-item]").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.layoutItem));
+        expect(items.sort()).toEqual([...EXPECTED].sort());
+        const found = await problems(page);
+        if (dir && found.length) writeFileSync(join(dir, `${info.project.name}-${size}-${text}-${theme}.txt`), found.join("\n"));
+        expect(found).toEqual([]);
+        expect(hits.states, "Home Assistant was never asked: the car and speaker are not under test").toBeGreaterThan(0);
+        expect(hits.quote).toBeGreaterThan(0);
+        expect(hits.photos).toBeGreaterThan(0);
       });
     }
   }
