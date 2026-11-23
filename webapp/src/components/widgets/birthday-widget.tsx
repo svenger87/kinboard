@@ -19,15 +19,42 @@ import {
   getDaysUntilBirthday,
   hasBirthYear,
 } from "@/lib/birthday";
+import type { Birthday, Person } from "@/types/database";
 
 interface BirthdayWidgetProps {
   maxItems?: number;
   className?: string;
 }
 
-function calculateUpcomingAge(birthDate: Date): number {
+export function calculateUpcomingAge(birthDate: Date): number {
   const nextBirthday = getNextBirthday(birthDate);
   return nextBirthday.getFullYear() - birthDate.getFullYear();
+}
+
+/**
+ * Every birthday as the widget shows it, the next one first: its date, the
+ * days until it from `today` (a `useToday()` value) and its person's colour.
+ * Shared by the Home card and Home's birthdays box.
+ */
+export function birthdaysAhead(
+  birthdays: Birthday[] | null | undefined,
+  people: Person[] | null | undefined,
+  today: number,
+) {
+  return (birthdays || [])
+    .map((birthday) => {
+      const person = people?.find((p) => p.id === birthday.person_id);
+      const date = parseBirthdayDate(birthday.date);
+      return {
+        id: birthday.id,
+        name: birthday.name,
+        date,
+        daysUntil: getDaysUntilBirthday(date, new Date(today)),
+        personColor: person?.color,
+        imageUrl: birthday.image_url,
+      };
+    })
+    .sort((a, b) => a.daysUntil - b.daysUntil);
 }
 
 function BirthdayWidgetSkeleton() {
@@ -72,26 +99,11 @@ export function BirthdayWidget({
   // Re-render at midnight so daysUntil / "today" recompute without a reload.
   const today = useToday();
 
-  // Transform birthdays to display format with cached daysUntil
-  const displayBirthdays = useMemo(() => (birthdays || []).map((birthday) => {
-    const person = people?.find((p) => p.id === birthday.person_id);
-    const date = parseBirthdayDate(birthday.date);
-    return {
-      id: birthday.id,
-      name: birthday.name,
-      date,
-      daysUntil: getDaysUntilBirthday(date, new Date(today)),
-      personColor: person?.color,
-      imageUrl: birthday.image_url,
-    };
-  }), [birthdays, people, today]);
+  // Every birthday, the next one first, with its cached daysUntil
+  const displayBirthdays = useMemo(() => birthdaysAhead(birthdays, people, today), [birthdays, people, today]);
 
-  // Sort by days until birthday and take top items
-  const upcomingBirthdays = useMemo(() =>
-    [...displayBirthdays]
-      .sort((a, b) => a.daysUntil - b.daysUntil)
-      .slice(0, maxItems),
-    [displayBirthdays, maxItems]);
+  // Take the top items
+  const upcomingBirthdays = useMemo(() => displayBirthdays.slice(0, maxItems), [displayBirthdays, maxItems]);
 
   if (loadingBirthdays) {
     return <BirthdayWidgetSkeleton />;

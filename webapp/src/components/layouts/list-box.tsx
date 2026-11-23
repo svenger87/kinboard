@@ -17,7 +17,9 @@ export const LIST_MORE_CLASS = "text-[0.8em] font-medium text-white/75";
  * and wrapped text count correctly. Measured again when the box resizes and
  * when the items change. An empty list shows `empty` in the same box.
  *
- * `keyOf` gives each entry its React key.
+ * `keyOf` gives each entry its React key. `renderMore`, when given, draws
+ * the "+n" line instead of the plain text line (Home makes it a link to the
+ * widget's page, at least 48px tall); it is measured the same way.
  */
 export function ListBox<T>({
   items,
@@ -25,6 +27,7 @@ export function ListBox<T>({
   keyOf,
   empty,
   moreLabel,
+  renderMore,
   gap = 0,
 }: {
   items: T[];
@@ -32,6 +35,7 @@ export function ListBox<T>({
   keyOf: (t: T) => string;
   empty: ReactNode;
   moreLabel: (n: number) => string;
+  renderMore?: (n: number, label: string) => ReactNode;
   gap?: number;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -65,7 +69,7 @@ export function ListBox<T>({
     ro.observe(el);
     ro.observe(m);
     return () => ro.disconnect();
-  }, [items, gap, moreLabel]);
+  }, [items, gap, moreLabel, renderMore]);
 
   if (items.length === 0) {
     return (
@@ -89,8 +93,8 @@ export function ListBox<T>({
           <div key={keyOf(t)}>{renderItem(t)}</div>
         ))}
         {more > 0 && (
-          <div data-testid="list-more" className={LIST_MORE_CLASS}>
-            {moreLabel(more)}
+          <div data-testid="list-more" className={renderMore ? undefined : LIST_MORE_CLASS}>
+            {renderMore ? renderMore(more, moreLabel(more)) : moreLabel(more)}
           </div>
         )}
       </div>
@@ -104,8 +108,8 @@ export function ListBox<T>({
           <div key={keyOf(t)}>{renderItem(t)}</div>
         ))}
       </div>
-      <div ref={moreRef} aria-hidden className={LIST_MORE_CLASS} style={{ position: "absolute", left: 0, right: 0, top: 0, visibility: "hidden", pointerEvents: "none" }}>
-        {moreLabel(items.length)}
+      <div ref={moreRef} aria-hidden className={renderMore ? undefined : LIST_MORE_CLASS} style={{ position: "absolute", left: 0, right: 0, top: 0, visibility: "hidden", pointerEvents: "none" }}>
+        {renderMore ? renderMore(items.length, moreLabel(items.length)) : moreLabel(items.length)}
       </div>
     </div>
   );

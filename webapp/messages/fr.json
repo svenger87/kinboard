@@ -4818,6 +4818,7 @@
   "wasteCollectionWidget": {
     "loadingAria": "Chargement du calendrier des déchets",
     "title": "Calendrier des déchets",
+    "emptyState": "Aucune collecte dans les 14 prochains jours",
     "calendarTooltip": "Voir dans le calendrier",
     "today": "Aujourd'hui",
     "tomorrow": "Demain",

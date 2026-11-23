@@ -19,6 +19,33 @@ interface HolidayWidgetProps {
 }
 
 /**
+ * The next `count` holidays of the family's country (Settings -> Holidays),
+ * re-read at midnight so the countdown moves on without a reload. No region
+ * yet (a new family that skipped the wizard step): no holidays, rather than
+ * a country's that may not be theirs (RFC-014 §4.2). Shared by the Home card
+ * and Home's holidays box.
+ */
+export function useNextHolidays(count: number) {
+  const locale = useLocale();
+  // Re-render at midnight so the countdown moves on without a reload.
+  const today = useToday();
+  const { region, isLoading, isError } = useHolidayRegion();
+  const holidays = useMemo(
+    () => (region ? nextHolidays(region, new Date(today), count, locale) : []),
+    [region, today, count, locale],
+  );
+  return { today, region, isLoading, isError, holidays };
+}
+
+/** A holiday's day, "Mon, 27. Dec", in one piece. */
+export function useHolidayDay() {
+  const dateLocale = getDateFnsLocale(useLocale());
+  // Non-breaking spaces keep a date in one piece: when "Chômé le lun., 27. déc."
+  // has to wrap on a narrow card, it breaks before the date, not inside it.
+  return (date: Date) => format(date, "EEE, d. MMM", { locale: dateLocale }).replace(/ /g, "\u00a0");
+}
+
+/**
  * The next holidays for the family's country (Settings -> Holidays), each with
  * the days left. A palm tree marks the ones that are a day off -- and, for one
  * that falls on a weekend and is taken on a weekday instead, which weekday.
@@ -26,24 +53,11 @@ interface HolidayWidgetProps {
 export function HolidayWidget({ maxItems = 3, className = "" }: HolidayWidgetProps) {
   const t = useTranslations("holidayWidget");
   const tHolidays = useTranslations("holidays");
-  const locale = useLocale();
-  const dateLocale = getDateFnsLocale(locale);
-  // Re-render at midnight so the countdown moves on without a reload.
-  const today = useToday();
-  const { region, isLoading, isError } = useHolidayRegion();
-
-  // No region yet (a new family that skipped the wizard step): no holidays,
-  // rather than a country's that may not be theirs (RFC-014 §4.2).
-  const holidays = useMemo(
-    () => (region ? nextHolidays(region, new Date(today), maxItems, locale) : []),
-    [region, today, maxItems, locale],
-  );
+  const { today, region, isLoading, isError, holidays } = useNextHolidays(maxItems);
 
   const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const item = { hidden: { opacity: 0, x: -10 }, show: { opacity: 1, x: 0 } };
-  // Non-breaking spaces keep a date in one piece: when "Chômé le lun., 27. déc."
-  // has to wrap on a narrow card, it breaks before the date, not inside it.
-  const day = (date: Date) => format(date, "EEE, d. MMM", { locale: dateLocale }).replace(/ /g, "\u00a0");
+  const day = useHolidayDay();
 
   const headerRight = (
     <Link

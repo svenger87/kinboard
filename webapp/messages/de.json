@@ -4818,6 +4818,7 @@
   "wasteCollectionWidget": {
     "loadingAria": "Abfuhrtermine werden geladen",
     "title": "Abfuhrplan",
+    "emptyState": "Keine Abfuhr in den nächsten 14 Tagen",
     "calendarTooltip": "Im Kalender anzeigen",
     "today": "Heute",
     "tomorrow": "Morgen",

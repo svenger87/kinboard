@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { MessageSquare, Check, Undo2 } from "lucide-react";
 import { toast } from "sonner";
@@ -25,16 +25,16 @@ import {
 
 const MAX_BODY = 200;
 
-export function MessagesWidget() {
-  const t = useTranslations("messages");
+/**
+ * The messages still waiting on this screen, and who may end each: the
+ * sender withdraws, anybody else says "Got it". Shared by the Home card and
+ * Home's messages box.
+ */
+export function useWaitingMessages() {
   const { device } = useFamilyStore();
   const { data: messages = [] } = useMessages();
   const boardMessage = useBoardMessage();
-  const send = useSendMessage();
   const acknowledge = useAcknowledgeMessage();
-
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState("");
 
   // Whatever `useBoardMessage()` has put on the takeover panel is not also a
   // row down here — that includes a message raised by `?message=<id>` whose
@@ -46,6 +46,29 @@ export function MessagesWidget() {
   // sending and being told.
   const myDeviceId = device?.id ?? null;
   const waiting = messages.filter((m) => m.id !== boardMessage?.id);
+
+  // Your own message offers "Withdraw", not "Got it". Acknowledging
+  // your own would mean the feature could be satisfied without anybody
+  // in the house having seen anything — and it is also the only way a
+  // one-device household can ever end a message. RFC-005 §5.
+  // Not `=== (device?.id ?? null)`: that makes two unrelated nulls
+  // equal. A message whose sender device has been deleted has a null
+  // sender, and a screen whose store has not hydrated has no device id
+  // — and the row would then offer Withdraw to somebody who did not
+  // send it, hiding the acknowledgement from everyone. Same trap as in
+  // use-messages.ts, which carries the longer note.
+  const isMine = (message: { sender_device_id: string | null }) =>
+    myDeviceId !== null && message.sender_device_id === myDeviceId;
+
+  return { waiting, isMine, acknowledge: (id: string) => acknowledge.mutate(id) };
+}
+
+/** "Say something": the dialog that sends a message, opened by `trigger`. */
+export function ComposeMessage({ trigger }: { trigger: ReactNode }) {
+  const t = useTranslations("messages");
+  const send = useSendMessage();
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
 
   const submit = async () => {
     const body = draft.trim();
@@ -62,20 +85,47 @@ export function MessagesWidget() {
   };
 
   return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("compose")}</DialogTitle>
+        </DialogHeader>
+        <Input
+          autoFocus
+          value={draft}
+          maxLength={MAX_BODY}
+          placeholder={t("placeholder")}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void submit();
+          }}
+        />
+        <p className="text-xs text-muted-foreground">
+          {t("remaining", { count: MAX_BODY - draft.length })}
+        </p>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            {t("cancel")}
+          </Button>
+          <Button onClick={() => void submit()} disabled={!draft.trim() || send.isPending}>
+            {t("send")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function MessagesWidget() {
+  const t = useTranslations("messages");
+  const { waiting, isMine, acknowledge } = useWaitingMessages();
+
+  return (
     <WidgetCard title={t("title")} icon={MessageSquare}>
       <div className="flex flex-col gap-3">
         {waiting.map((message) => {
-          // Your own message offers "Withdraw", not "Got it". Acknowledging
-          // your own would mean the feature could be satisfied without anybody
-          // in the house having seen anything — and it is also the only way a
-          // one-device household can ever end a message. RFC-005 §5.
-          // Not `=== (device?.id ?? null)`: that makes two unrelated nulls
-          // equal. A message whose sender device has been deleted has a null
-          // sender, and a screen whose store has not hydrated has no device id
-          // — and the row would then offer Withdraw to somebody who did not
-          // send it, hiding the acknowledgement from everyone. Same trap as in
-          // use-messages.ts, which carries the longer note.
-          const mine = myDeviceId !== null && message.sender_device_id === myDeviceId;
+          const mine = isMine(message);
           return (
             <div
               key={message.id}
@@ -102,7 +152,7 @@ export function MessagesWidget() {
                 size="icon"
                 className="min-h-[44px] min-w-[44px]"
                 aria-label={mine ? t("withdraw") : t("gotIt")}
-                onClick={() => acknowledge.mutate(message.id)}
+                onClick={() => acknowledge(message.id)}
               >
                 {mine ? <Undo2 className="size-4" /> : <Check className="size-4" />}
               </Button>
@@ -114,39 +164,13 @@ export function MessagesWidget() {
           <p className="text-sm text-muted-foreground">{t("empty")}</p>
         )}
 
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
+        <ComposeMessage
+          trigger={
             <Button variant="outline" className="min-h-[44px]">
               {t("compose")}
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t("compose")}</DialogTitle>
-            </DialogHeader>
-            <Input
-              autoFocus
-              value={draft}
-              maxLength={MAX_BODY}
-              placeholder={t("placeholder")}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void submit();
-              }}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("remaining", { count: MAX_BODY - draft.length })}
-            </p>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>
-                {t("cancel")}
-              </Button>
-              <Button onClick={() => void submit()} disabled={!draft.trim() || send.isPending}>
-                {t("send")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          }
+        />
       </div>
     </WidgetCard>
   );

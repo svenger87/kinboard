@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useHomeEvents } from "@/hooks/use-home-data";
 import { WidgetCard } from "@/components/widget-card";
 import type { LucideIcon } from "lucide-react";
+import type { Event } from "@/types/database";
 import { useTimeFormat } from "@/hooks/use-time-format";
 
 // Waste bin types: keywords match against calendar event titles, and display
@@ -26,13 +27,82 @@ import { WASTE_TYPES, detectWasteType, type WasteTypeId } from "@/lib/waste-type
  * live in @/lib/waste-types, so the widget and the API cannot disagree about
  * whether Thursday is paper day.
  */
-const WASTE_PRESENTATION: Record<WasteTypeId, { icon: LucideIcon; color: string; bgColor: string }> = {
+export const WASTE_PRESENTATION: Record<WasteTypeId, { icon: LucideIcon; color: string; bgColor: string }> = {
   rest: { icon: Trash2, color: "#6b7280", bgColor: "#6b728015" },
   bio: { icon: Leaf, color: "#22c55e", bgColor: "#22c55e15" },
   paper: { icon: Newspaper, color: "#3b82f6", bgColor: "#3b82f615" },
   recyclable: { icon: Recycle, color: "#eab308", bgColor: "#eab30815" },
   packaging: { icon: Package, color: "#f97316", bgColor: "#f9731615" },
 };
+
+/**
+ * The next collection of each bin from Home's events, soonest first: one
+ * entry per bin type, today's or later. `today` is a `useToday()` value.
+ * Shared by the Home card and Home's waste collection box.
+ */
+export function wasteCollections(events: readonly Event[] | null | undefined, today: number) {
+  if (!events) return [];
+
+  const results: {
+    id: string;
+    title: string;
+    date: Date;
+    wasteType: (typeof WASTE_TYPES)[0];
+    daysUntil: number;
+  }[] = [];
+
+  for (const event of events) {
+    const wasteType = detectWasteType(event.title);
+    if (!wasteType) continue;
+
+    const date = new Date(event.start_at);
+    const daysUntil = differenceInCalendarDays(date, today);
+
+    // Only show future or today events
+    if (daysUntil >= 0) {
+      results.push({
+        id: event.id,
+        title: event.title,
+        date,
+        wasteType,
+        daysUntil,
+      });
+    }
+  }
+
+  // Sort by date, deduplicate by waste type (keep earliest)
+  results.sort((a, b) => a.date.getTime() - b.date.getTime());
+  const seen = new Set<string>();
+  return results.filter((r) => {
+    if (seen.has(r.wasteType.id)) return false;
+    seen.add(r.wasteType.id);
+    return true;
+  });
+}
+
+/** Each bin's name in the UI language. */
+export function useWasteLabels(): Record<WasteTypeId, string> {
+  const t = useTranslations("wasteCollectionWidget");
+  return {
+    rest: t("types.rest"),
+    bio: t("types.bio"),
+    paper: t("types.paper"),
+    recyclable: t("types.recyclable"),
+    packaging: t("types.packaging"),
+  };
+}
+
+/** "Today", "Tomorrow", "Thursday" or "Thu, 4. Dec": when a bin goes out. */
+export function useWasteDayLabel() {
+  const t = useTranslations("wasteCollectionWidget");
+  const dateLocale = getDateFnsLocale(useLocale());
+  return (date: Date, daysUntil: number) => {
+    if (isToday(date)) return t("today");
+    if (isTomorrow(date)) return t("tomorrow");
+    if (daysUntil <= 6) return format(date, "EEEE", { locale: dateLocale });
+    return format(date, "EEE, d. MMM", { locale: dateLocale });
+  };
+}
 
 function WasteCollectionSkeleton() {
   const t = useTranslations("wasteCollectionWidget");
@@ -63,15 +133,8 @@ export function WasteCollectionWidget({
 }: WasteCollectionWidgetProps) {
   const { formatTime } = useTimeFormat();
   const t = useTranslations("wasteCollectionWidget");
-  const locale = useLocale();
-  const dateLocale = getDateFnsLocale(locale);
-  const wasteLabels: Record<WasteTypeId, string> = {
-    rest: t("types.rest"),
-    bio: t("types.bio"),
-    paper: t("types.paper"),
-    recyclable: t("types.recyclable"),
-    packaging: t("types.packaging"),
-  };
+  const wasteLabels = useWasteLabels();
+  const formatDayLabel = useWasteDayLabel();
 
   // Look ahead 14 days for waste collection events: Home's shared events
   // window, the Events widget's request rather than one of its own. `today`
@@ -79,47 +142,7 @@ export function WasteCollectionWidget({
   const { today, data: events, isLoading } = useHomeEvents();
 
   // Filter and transform waste collection events
-  const wasteEvents = useMemo(() => {
-    if (!events) return [];
-
-    const results: {
-      id: string;
-      title: string;
-      date: Date;
-      wasteType: (typeof WASTE_TYPES)[0];
-      daysUntil: number;
-    }[] = [];
-
-    for (const event of events) {
-      const wasteType = detectWasteType(event.title);
-      if (!wasteType) continue;
-
-      const date = new Date(event.start_at);
-      const daysUntil = differenceInCalendarDays(date, today);
-
-      // Only show future or today events
-      if (daysUntil >= 0) {
-        results.push({
-          id: event.id,
-          title: event.title,
-          date,
-          wasteType,
-          daysUntil,
-        });
-      }
-    }
-
-    // Sort by date, deduplicate by waste type (keep earliest)
-    results.sort((a, b) => a.date.getTime() - b.date.getTime());
-    const seen = new Set<string>();
-    const unique = results.filter((r) => {
-      if (seen.has(r.wasteType.id)) return false;
-      seen.add(r.wasteType.id);
-      return true;
-    });
-
-    return unique.slice(0, maxItems);
-  }, [events, maxItems, today]);
+  const wasteEvents = useMemo(() => wasteCollections(events, today).slice(0, maxItems), [events, maxItems, today]);
 
   if (isLoading) {
     return <WasteCollectionSkeleton />;
@@ -129,13 +152,6 @@ export function WasteCollectionWidget({
   if (wasteEvents.length === 0) {
     return null;
   }
-
-  const formatDayLabel = (date: Date, daysUntil: number) => {
-    if (isToday(date)) return t("today");
-    if (isTomorrow(date)) return t("tomorrow");
-    if (daysUntil <= 6) return format(date, "EEEE", { locale: dateLocale });
-    return format(date, "EEE, d. MMM", { locale: dateLocale });
-  };
 
   return (
     <motion.div
