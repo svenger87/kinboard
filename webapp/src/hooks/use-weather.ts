@@ -203,7 +203,8 @@ export function useWeatherForecast(options: { enabled?: boolean } = {}) {
   });
 }
 
-export function useWeatherMapConfig() {
+/** `enabled: false` holds the request back: the weather dialog asks only while it is open. */
+export function useWeatherMapConfig(options: { enabled?: boolean } = {}) {
   const { data: location, isLoading: locationLoading } = useWeatherLocation();
   const weatherLocation = location || DEFAULT_LOCATION;
 
@@ -241,7 +242,7 @@ export function useWeatherMapConfig() {
 
       return response.json();
     },
-    enabled: !locationLoading,
+    enabled: !locationLoading && options.enabled !== false,
     staleTime: 60 * 60 * 1000, // 1 hour
     retry: 2,
   });
