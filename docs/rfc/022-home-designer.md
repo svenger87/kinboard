@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Proposed 2026-11-18 |
+| **Status** | Accepted 2026-11-23 (§7 decided as proposed) |
 | **Date** | 2026-11-18 |
 | **Depends on** | The layout designer for the screensaver (#478): the `layouts` table and its routes, assignment and defaults, the 48-column grid, `resolveLayout`, `LayoutGrid`/`ListBox`/`useFitToBox`, the editor and Settings → Layouts; the screen matrix (#476); each screen's reported size (#472) |
 | **Discussion** | #282 |
@@ -172,7 +172,11 @@ today, untouched, and the matrix's built-in Home shots must not change.
   its draft survives, but Safari can lose the first second of edits. Worth
   fixing before Home doubles the editor's use.
 
-## 7. To decide
+## 7. Decided
+
+Decided 2026-11-23, each as proposed below: a designed Home does not
+scroll; one widget per child; the compact/classic switch is hidden where a
+layout applies; built in the order of point 4.
 
 1. **Can a designed Home scroll?** Proposal: no. A layout is one screen; what
    does not fit shows "+n". A family that wants more makes the box bigger.
