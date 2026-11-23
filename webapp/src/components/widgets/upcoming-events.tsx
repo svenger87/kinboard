@@ -3,14 +3,15 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Calendar, ChevronRight } from "lucide-react";
-import { format, isToday, isTomorrow, addDays, endOfDay } from "date-fns";
+import { format, isToday, isTomorrow } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
-import { useEvents, useHolidayEntries, usePeople, useTodos, useToday } from "@/hooks";
+import { useHolidayEntries, usePeople, useTodos } from "@/hooks";
+import { useHomeEvents } from "@/hooks/use-home-data";
 import { eventTaskOccurrences } from "@/lib/task-events";
 import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib/holiday-entries";
 import { toLocalDateKey } from "@/lib/local-date";
@@ -63,22 +64,10 @@ export function UpcomingEvents({
   const tCalendar = useTranslations("calendar");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
-  // Re-render at midnight so the query window follows the day.
-  const today = useToday();
-
-  // Get events for today and the next 14 days - memoized to prevent infinite
-  // refetches, but keyed on the day: on a kiosk that runs for days an empty
-  // dependency list would keep asking for the window it was mounted with,
-  // which eventually lies entirely in the past.
-  const { startDate, endDate } = useMemo(() => {
-    const start = new Date(today); // useToday() is already start-of-day
-    return {
-      startDate: start.toISOString(),
-      endDate: endOfDay(addDays(start, 14)).toISOString(),
-    };
-  }, [today]);
-
-  const { data: events, isLoading, isError } = useEvents(startDate, endDate);
+  // Today and the next 14 days: Home's shared events window, keyed on the
+  // day so a kiosk that runs for days follows it. The bins and the week
+  // overview read the same request (hooks/use-home-data.ts).
+  const { today, startDate, endDate, data: events, isLoading, isError } = useHomeEvents();
   // Public and school holidays, behind the calendar's holiday switch; one a
   // holiday calendar already lists is not listed twice.
   const todayKey = toLocalDateKey(new Date(today));
