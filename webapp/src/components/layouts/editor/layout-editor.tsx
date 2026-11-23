@@ -38,7 +38,7 @@ import { withAlign, type Align } from "@/lib/layouts/align";
 import { ScreenPicker, type ScreenChoice } from "./screen-picker";
 import { CopyForSize, readCopyDropped, releaseCopyDropped } from "./copy-dialog";
 
-const LAYOUT_ERRORS: readonly string[] = ["unknown_widget", "out_of_bounds", "below_minimum", "overlap", "duplicate", "bad_text_size"];
+const LAYOUT_ERRORS: readonly string[] = ["unknown_widget", "out_of_bounds", "below_minimum", "overlap", "duplicate", "bad_text_size", "bad_person"];
 const WIDGET_KEYS = Object.keys(SAVER_WIDGETS) as SaverWidgetKey[];
 
 /** Where the arrow keys belong to the control under focus rather than to the canvas. */

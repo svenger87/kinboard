@@ -1,12 +1,13 @@
 /**
- * The screensaver widgets a family can place, with the smallest box each
+ * The widgets a family can place, per surface: the screensaver's below,
+ * Home's (HOME_WIDGETS, RFC-022) after them. The screensaver widgets, with the smallest box each
  * stays readable in and the box it starts with when dropped on the grid.
  * "list" widgets show more rows the taller they get, "value" widgets show
  * one thing, "fixed" widgets are drawn at one arrangement. Sizes are in
  * steps (four to a cell); the table lists them in cells.
  */
 import { GRID } from "./grid";
-import type { SaverWidgetKey } from "./types";
+import type { HomeWidgetKey, SaverWidgetKey, Surface, WidgetKeyOf } from "./types";
 
 export interface WidgetSpec {
   kind: "list" | "value" | "fixed";
@@ -42,11 +43,86 @@ export const SAVER_WIDGETS: Record<SaverWidgetKey, WidgetSpec> = {
 };
 
 /**
+ * How a Home widget fills a box it did not choose (RFC-022 §3.1): "list"
+ * shows more or fewer entries and ends in "+n", "value" grows with its box,
+ * "fixed" draws its own arrangement fitted to the box, and "value+fixed" is
+ * a value that adds a fixed part when the box is wide enough (the weather
+ * now, then its forecast row).
+ */
+export type HomeWidgetKind = WidgetSpec["kind"] | "value+fixed";
+
+export interface HomeWidgetSpec {
+  kind: HomeWidgetKind;
+  /** Smallest box, in steps. */
+  min: { w: number; h: number };
+  /** The box it is dropped with, in steps. */
+  box: { w: number; h: number };
+  /**
+   * One widget per child (`options.personId`, a person of the family). The
+   * same widget without a person is today's single card for all children.
+   */
+  perChild?: true;
+  /** Part of the block at the top of today's Home (RFC-022 §3.2). */
+  clockBlock?: true;
+}
+
+/** A Home widget's spec, given directly in steps: Home's minimums are not all whole cells. */
+const home = (kind: HomeWidgetKind, w: number, h: number, box: { w: number; h: number }, extra: Pick<HomeWidgetSpec, "perChild" | "clockBlock"> = {}): HomeWidgetSpec => ({
+  kind, min: { w, h }, box, ...extra,
+});
+
+/**
+ * Home's widgets, in steps (48 across, four to a cell). Every card stays
+ * usable at its minimum: a list fits its title and one 48px row, a fixed
+ * widget its smallest arrangement. A card's minimum width is at most 12
+ * steps (a quarter of the screen, a column of today's four), except the
+ * week overview, which needs its seven columns (24 steps, RFC-022 §3.1).
+ */
+export const HOME_WIDGETS: Record<HomeWidgetKey, HomeWidgetSpec> = {
+  // The clock block, taken apart. Dropped full width, as they sit today.
+  clock: home("value", 16, 4, { w: 48, h: 8 }, { clockBlock: true }),
+  date: home("value", 12, 2, { w: 48, h: 2 }, { clockBlock: true }),
+  greeting: home("value", 12, 2, { w: 48, h: 2 }, { clockBlock: true }),
+  familyMembers: home("fixed", 16, 3, { w: 48, h: 4 }, { clockBlock: true }),
+  todayStrip: home("list", 16, 2, { w: 48, h: 2 }, { clockBlock: true }),
+  // The cards of Settings -> Widgets.
+  weather: home("value+fixed", 8, 4, { w: 12, h: 8 }),
+  upcomingEvents: home("list", 12, 6, { w: 12, h: 12 }),
+  schedule: home("fixed", 12, 8, { w: 12, h: 12 }, { perChild: true }),
+  birthday: home("list", 12, 4, { w: 12, h: 8 }),
+  holidays: home("list", 12, 4, { w: 12, h: 8 }),
+  weekOverview: home("fixed", 24, 8, { w: 24, h: 12 }),
+  mealPlan: home("list", 12, 6, { w: 12, h: 12 }),
+  wasteCollection: home("list", 12, 4, { w: 12, h: 8 }),
+  notes: home("list", 12, 6, { w: 12, h: 12 }),
+  tasks: home("list", 12, 6, { w: 12, h: 12 }),
+  shopping: home("list", 12, 6, { w: 12, h: 12 }),
+  vehicles: home("fixed", 8, 4, { w: 12, h: 8 }),
+  stonks: home("fixed", 8, 4, { w: 12, h: 8 }),
+  pocketMoney: home("value", 8, 4, { w: 12, h: 8 }, { perChild: true }),
+  creatures: home("fixed", 12, 8, { w: 12, h: 12 }),
+  photos: home("fixed", 8, 8, { w: 12, h: 12 }),
+  timers: home("fixed", 12, 6, { w: 12, h: 8 }),
+  media: home("fixed", 12, 6, { w: 12, h: 8 }),
+  messages: home("list", 12, 6, { w: 12, h: 12 }),
+  countdown: home("list", 12, 4, { w: 12, h: 8 }),
+};
+
+/** The catalogue of a surface. */
+export function widgetsFor<S extends Surface>(surface: S): Record<WidgetKeyOf<S>, HomeWidgetSpec | WidgetSpec> {
+  return (surface === "home" ? HOME_WIDGETS : SAVER_WIDGETS) as Record<WidgetKeyOf<S>, HomeWidgetSpec | WidgetSpec>;
+}
+
+/**
  * The items whose widget this build knows. A layout saved by a newer version
  * (a widget added later, then a rollback) must not crash a kiosk or the
  * editor: the unknown ones are left out, the rest draw as saved.
  */
-export function knownWidgetItems<T extends { widget: string }>(items: readonly T[] | null | undefined): T[] {
+export function knownWidgetItems<T extends { widget: string }>(
+  items: readonly T[] | null | undefined,
+  surface: Surface = "screensaver",
+): T[] {
   if (!Array.isArray(items)) return [];
-  return items.filter((i) => !!i && typeof i.widget === "string" && Object.hasOwn(SAVER_WIDGETS, i.widget));
+  const known = widgetsFor(surface);
+  return items.filter((i) => !!i && typeof i.widget === "string" && Object.hasOwn(known, i.widget));
 }
