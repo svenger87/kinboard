@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Trash2, Recycle, Newspaper, Leaf, Package, ChevronRight } from "lucide-react";
-import { format, isToday, isTomorrow, addDays, endOfDay, differenceInCalendarDays } from "date-fns";
+import { format, isToday, isTomorrow, differenceInCalendarDays } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { personText, personTint } from "@/lib/person-color";
 import { useTranslations, useLocale } from "next-intl";
@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
-import { useEvents, useToday } from "@/hooks";
+import { useHomeEvents } from "@/hooks/use-home-data";
 import { WidgetCard } from "@/components/widget-card";
 import type { LucideIcon } from "lucide-react";
 import { useTimeFormat } from "@/hooks/use-time-format";
@@ -73,21 +73,10 @@ export function WasteCollectionWidget({
     packaging: t("types.packaging"),
   };
 
-  // Re-render at midnight so the query window and daysUntil follow the day.
-  const today = useToday();
-
-  // Look ahead 14 days for waste collection events — keyed on the day, since a
-  // kiosk left running would otherwise keep requesting the window it mounted
-  // with until the bin days it covers have all gone by.
-  const { startDate, endDate } = useMemo(() => {
-    const start = new Date(today); // useToday() is already start-of-day
-    return {
-      startDate: start.toISOString(),
-      endDate: endOfDay(addDays(start, 14)).toISOString(),
-    };
-  }, [today]);
-
-  const { data: events, isLoading } = useEvents(startDate, endDate);
+  // Look ahead 14 days for waste collection events: Home's shared events
+  // window, the Events widget's request rather than one of its own. `today`
+  // re-renders at midnight, so the window and daysUntil follow the day.
+  const { today, data: events, isLoading } = useHomeEvents();
 
   // Filter and transform waste collection events
   const wasteEvents = useMemo(() => {

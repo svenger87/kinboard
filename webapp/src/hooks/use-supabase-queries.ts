@@ -628,7 +628,7 @@ export function useQuickRejoin() {
 // PEOPLE HOOKS
 // ===================
 
-export function usePeople() {
+export function usePeople(options?: { enabled?: boolean }) {
   const supabase = createClient();
   const { family } = useFamilyStore();
 
@@ -644,7 +644,7 @@ export function usePeople() {
       if (error) throw error;
       return data as Person[];
     },
-    enabled: !!family?.id,
+    enabled: !!family?.id && (options?.enabled ?? true),
   });
 }
 
@@ -2113,7 +2113,7 @@ export function useUpsertSchedule() {
 // BIRTHDAYS HOOKS
 // ===================
 
-export function useBirthdays() {
+export function useBirthdays(options?: { enabled?: boolean }) {
   const supabase = createClient();
   const { family } = useFamilyStore();
 
@@ -2129,7 +2129,7 @@ export function useBirthdays() {
       if (error) throw error;
       return data as Birthday[];
     },
-    enabled: !!family?.id,
+    enabled: !!family?.id && (options?.enabled ?? true),
   });
 }
 

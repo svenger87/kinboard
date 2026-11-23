@@ -19,7 +19,8 @@ import {
 } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
-import { useEvents, useTodos, useBirthdays, useSetting, useHolidayEntries } from "@/hooks";
+import { useTodos, useBirthdays, useSetting, useHolidayEntries } from "@/hooks";
+import { useHomeEvents } from "@/hooks/use-home-data";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { toLocalDateKey } from "@/lib/local-date";
 import {
@@ -83,9 +84,12 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
   const weekEnd = addDays(today, 7);
 
   const startStr = format(today, "yyyy-MM-dd");
-  const endStr = format(weekEnd, "yyyy-MM-dd");
 
-  const { data: events, isLoading: loadingEvents } = useEvents(startStr, endStr);
+  // Home's shared events window (today and the next 14 days), the request
+  // the Events widget already makes. It used to ask for its own week here, a
+  // second request on load and a second refetch on every change to any event;
+  // the days below pick their events out of the fortnight themselves.
+  const { data: events, isLoading: loadingEvents } = useHomeEvents();
   const { data: todos, isLoading: loadingTodos } = useTodos();
   const { data: birthdays, isLoading: loadingBirthdays } = useBirthdays();
   const { data: calendarDisplay } = useSetting<CalendarDisplaySettings>(
