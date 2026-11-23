@@ -1313,7 +1313,11 @@
       "creaturesLabel": "小伙伴",
       "creaturesDescription": "每个孩子的伙伴并排显示，在任务被勾选完成时欢呼。点击一个伙伴查看该孩子的奖励",
       "creaturesPreview1": "🐉 Mia — 小龙宝宝 — ⭐ 42",
-      "creaturesPreview2": "仍在墙上；只在欢呼时移动"
+      "creaturesPreview2": "仍在墙上；只在欢呼时移动",
+      "layoutNote": {
+        "assigned": "{names} 使用设计的布局“{layout}”的主页{count, plural, one {} other {}}。",
+        "change": "在 <link>设置 → 布局</link> 中更改。以下设置适用于没有设计主页的屏幕。"
+      }
     },
     "navigation": {
       "title": "导航",
@@ -3333,7 +3337,7 @@
       },
       "editor": {
         "title": "布局",
-        "subtitle": "屏保 · 为 {width}×{height} 绘制",
+        "subtitle": "主页和屏保 · 为 {width}×{height} 绘制",
         "notFound": "此布局（已）不存在。",
         "loadFailed": "布局无法加载。",
         "tooSmall": "此布局的屏幕（{width}×{height}）对网格来说太小。",
@@ -3346,6 +3350,7 @@
         "reset": "重置",
         "resetTitle": "重置为内置排列？",
         "resetDescription": "该屏幕将获得其形状的今日标准屏保排列。你可以在离开页面之前撤销此操作。",
+        "resetDescriptionHome": "主页将获得此尺寸的今日标准排列。你可以在离开页面之前撤销此操作。",
         "resetConfirm": "重置",
         "resetCancel": "取消",
         "save": "保存",
@@ -3493,7 +3498,8 @@
           "cancel": "取消",
           "failed": "副本无法创建。请重试。",
           "pinRequired": "设置被锁定 — 输入 PIN 后重试。",
-          "dropped": "不适用于此尺寸：{names}"
+          "dropped": "不适用于此尺寸：{names}",
+          "droppedHome": "不在此尺寸的主页上：{names}"
         },
         "unused": {
           "text": "尚无屏幕显示此布局。仅保存并不会将其放到屏幕上。",
@@ -3507,7 +3513,43 @@
           "out_of_bounds": "未完成：一个小组件会离开屏幕。",
           "below_minimum": "未完成：一个小组件会小于其最小值。",
           "overlap": "未完成：一个小组件会与另一个重叠。"
-        }
+        },
+        "surface": {
+          "label": "哪个屏幕",
+          "home": "主页",
+          "screensaver": "屏保"
+        },
+        "homeWidgets": {
+          "clock": "时钟",
+          "date": "日期和周数",
+          "greeting": "问候语",
+          "familyMembers": "家庭成员",
+          "todayStrip": "今日一览",
+          "weather": "天气",
+          "upcomingEvents": "活动",
+          "schedule": "学校课程表",
+          "birthday": "生日",
+          "holidays": "节假日",
+          "weekOverview": "一周概览",
+          "mealPlan": "餐食",
+          "wasteCollection": "垃圾回收",
+          "notes": "笔记",
+          "tasks": "任务",
+          "shopping": "购物",
+          "vehicles": "车辆",
+          "stonks": "股票",
+          "pocketMoney": "零花钱",
+          "creatures": "小伙伴",
+          "photos": "照片",
+          "timers": "计时器",
+          "media": "媒体",
+          "messages": "消息",
+          "countdown": "倒计时"
+        },
+        "homeWidgetForChild": "{widget} · {name}",
+        "homeWidgetForEveryone": "{widget} · 所有孩子",
+        "homePlaceholder": "能在方框中绘制后会显示在这里",
+        "homeBuiltIn": "此布局还没有自己的主页：这是此尺寸下当前的主页。在你于此保存更改之前，屏幕会保留当前的主页。"
       }
     }
   },

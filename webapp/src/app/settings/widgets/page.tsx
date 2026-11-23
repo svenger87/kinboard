@@ -41,6 +41,7 @@ import { useHomeLayout } from "@/hooks/use-home-layout";
 import type { WidgetVisibility, ScheduleWidgetSettings, PocketMoneyWidgetSettings } from "@/types/widgets";
 import { useWidgetOrder, mergeWidgetOrder } from "@/hooks/use-widget-order";
 import { TimerPresetsEditor } from "@/components/settings/timer-presets-editor";
+import { HomeLayoutNote } from "@/components/layouts/home-layout-note";
 
 interface WidgetConfig {
   key: keyof WidgetVisibility;
@@ -161,6 +162,8 @@ export default function WidgetSettingsPage() {
         <p className="text-sm text-muted-foreground mb-6 px-1">
           {t("intro")}
         </p>
+
+        <HomeLayoutNote />
 
         <Card id="compact-home" data-setting="compact-home" className="mb-6 p-4">
           <div className="flex items-center justify-between gap-4">

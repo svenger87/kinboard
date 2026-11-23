@@ -7,7 +7,8 @@ import { builtInScreensaver } from "@/lib/layouts/built-in";
 import { fitItems } from "@/lib/layouts/rescale";
 import { validateItems } from "@/lib/layouts/validate";
 import { LAYOUT_GRID } from "@/lib/layouts/grid";
-import { fail, gridChanged, gridOk, notFound, parseName, readJson, sizeOk } from "@/lib/layouts/server";
+import { homeArea } from "@/lib/layouts/home-area";
+import { checkHomePeople, fail, gridChanged, gridOk, notFound, parseName, readJson, sizeOk } from "@/lib/layouts/server";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +31,12 @@ export async function GET(request: NextRequest) {
  *
  * A new layout of the family: empty, with the built-in screensaver, or a copy
  * of another of the family's layouts redrawn for the new size. A parent's
- * setting, behind the settings PIN. 201 { layout, dropped }: `dropped` lists
- * the ids of the copied items that did not fit the new size (empty otherwise).
+ * setting, behind the settings PIN. 201 { layout, dropped, droppedHome }:
+ * `dropped` lists the ids of the copied screensaver items that did not fit
+ * the new size, `droppedHome` those of Home (each empty otherwise). A copy
+ * redraws Home too, in the area its grid gets on each size (homeArea); a
+ * source whose Home is empty (the built-in) gives a copy with an empty Home.
+ * The built-in start leaves Home empty: the screen uses the built-in Home.
  * Without `grid: 48`, 409 grid_changed (lib/layouts/server.ts gridOk); a
  * source layout not on the grid is 409 grid_changed too.
  */
@@ -55,7 +60,9 @@ export async function POST(request: NextRequest) {
   const familyId = auth.session.familyId;
   const db = createAdminClient() as any;
   let screensaver: unknown[] = [];
+  let home: unknown[] = [];
   let dropped: string[] = [];
+  let droppedHome: string[] = [];
   if (from === "builtin") {
     // Checked like any saved layout before it is stored; the built-in
     // arrangement always passes (layouts-rules covers every preset), so a
@@ -70,7 +77,7 @@ export async function POST(request: NextRequest) {
     if (!UUID.test(from)) return notFound();
     const { data: src, error: srcErr } = await db
       .from("layouts")
-      .select("width, height, grid, screensaver")
+      .select("width, height, grid, home, screensaver")
       .eq("id", from)
       .eq("family_id", familyId)
       .maybeSingle();
@@ -80,13 +87,26 @@ export async function POST(request: NextRequest) {
     const fitted = fitItems(src.screensaver, { width: src.width, height: src.height }, { width: w, height: h });
     screensaver = fitted.items;
     dropped = fitted.dropped;
+    const fittedHome = fitItems(src.home, homeArea(src.width, src.height), homeArea(w, h), "home");
+    let homeItems = fittedHome.items;
+    droppedHome = fittedHome.dropped;
+    // A child's widget whose person has gone since (the recycle bin) is left
+    // out, as a save of the copy would refuse it.
+    for (;;) {
+      const people = await checkHomePeople(db, familyId, homeItems);
+      if (people.ok) break;
+      if (people.error === "db") return NextResponse.json({ error: people.message }, { status: 500 });
+      homeItems = homeItems.filter((i) => i.id !== people.itemId);
+      droppedHome.push(people.itemId);
+    }
+    home = homeItems;
   }
 
   const { data, error } = await db
     .from("layouts")
-    .insert({ family_id: familyId, name, width: w, height: h, grid: LAYOUT_GRID, screensaver })
+    .insert({ family_id: familyId, name, width: w, height: h, grid: LAYOUT_GRID, home, screensaver })
     .select("*")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ layout: data, dropped }, { status: 201 });
+  return NextResponse.json({ layout: data, dropped, droppedHome }, { status: 201 });
 }
