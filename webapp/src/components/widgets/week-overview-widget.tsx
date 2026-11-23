@@ -75,7 +75,22 @@ interface WeekOverviewWidgetProps {
   className?: string;
 }
 
-export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
+/** What the week overview reads, from Home's shared data when a designed Home hands it over (RFC-022). */
+export interface WeekOverviewSource {
+  events: ReturnType<typeof useHomeEvents>["data"];
+  todos: ReturnType<typeof useTodos>["data"];
+  birthdays: ReturnType<typeof useBirthdays>["data"];
+  isLoading: boolean;
+}
+
+/**
+ * The seven days the week overview shows, today first, with what each holds
+ * and the week's holidays. The card and the week overview in a designed
+ * Home's box (components/layouts/home-widgets/week-overview.tsx) both draw
+ * from this. Given `shared` (Home's data from HomeDataProvider), it reads the
+ * events, tasks and birthdays from there instead of asking for them.
+ */
+export function useWeekOverview(shared?: WeekOverviewSource) {
   const t = useTranslations("weekOverviewWidget");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
@@ -89,9 +104,15 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
   // the Events widget already makes. It used to ask for its own week here, a
   // second request on load and a second refetch on every change to any event;
   // the days below pick their events out of the fortnight themselves.
-  const { data: events, isLoading: loadingEvents } = useHomeEvents();
-  const { data: todos, isLoading: loadingTodos } = useTodos();
-  const { data: birthdays, isLoading: loadingBirthdays } = useBirthdays();
+  // The same query either way: a designed Home's shared data asks for this
+  // very window, so reading it here adds no request.
+  const own = !shared;
+  const ownEvents = useHomeEvents();
+  const ownTodos = useTodos({ enabled: own });
+  const ownBirthdays = useBirthdays({ enabled: own });
+  const events = shared ? shared.events : ownEvents.data;
+  const todos = shared ? shared.todos : ownTodos.data;
+  const birthdays = shared ? shared.birthdays : ownBirthdays.data;
   const { data: calendarDisplay } = useSetting<CalendarDisplaySettings>(
     SETTINGS_KEYS.calendarDisplay,
     DEFAULT_CALENDAR_DISPLAY,
@@ -101,7 +122,7 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
   // is not marked twice.
   const { entries: holidays } = useHolidayEntries(startStr, format(addDays(today, 6), "yyyy-MM-dd"), events, { eventList: true });
 
-  const isLoading = loadingEvents || loadingTodos || loadingBirthdays;
+  const isLoading = shared ? shared.isLoading : ownEvents.isLoading || ownTodos.isLoading || ownBirthdays.isLoading;
 
   // Build data for each of the 7 days
   const weekDays = useMemo(() => {
@@ -163,10 +184,6 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
     return days;
   }, [events, todos, birthdays, today, weekEnd, t, dateLocale, tasksAsEvents, holidays]);
 
-  if (isLoading) {
-    return <WeekOverviewSkeleton />;
-  }
-
   const totalWeekEvents = weekDays.reduce((acc, d) => acc + d.totalItems, 0);
   const weekHasHoliday = holidays.length > 0;
   // "Today", a weekday, or -- for a break -- the span it has left in the week.
@@ -177,6 +194,18 @@ export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
     return t("holidaySpan", { from: firstLabel, to: format(keyToDate(h.endKey), holidayEndPattern(locale), { locale: dateLocale }) });
   };
   const maxItems = Math.max(...weekDays.map((d) => d.totalItems), 1);
+
+  return { today, isLoading, weekDays, holidays, totalWeekEvents, weekHasHoliday, holidayDayLabel, maxItems };
+}
+
+export function WeekOverviewWidget({ className }: WeekOverviewWidgetProps) {
+  const t = useTranslations("weekOverviewWidget");
+  const dateLocale = getDateFnsLocale(useLocale());
+  const { isLoading, weekDays, holidays, totalWeekEvents, weekHasHoliday, holidayDayLabel, maxItems } = useWeekOverview();
+
+  if (isLoading) {
+    return <WeekOverviewSkeleton />;
+  }
 
   return (
     <Card className={`accent-border-top h-full ${className}`}>

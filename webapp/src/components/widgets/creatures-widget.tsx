@@ -110,6 +110,26 @@ export function CreaturesWidget() {
   );
 }
 
+/**
+ * What one child's cell shows: the creature's mood, stage and look, the
+ * stage's name, and the money it grows with (or false, for points). The
+ * card's cells and the creatures in a designed Home's box
+ * (components/layouts/home-widgets/creatures.tsx) both draw from this.
+ */
+export function useCreatureCell(person: Person, creature: Creature, account: PocketMoneyAccount | undefined, earned: number) {
+  const tPM = useTranslations("pocketMoney");
+  const mood = useCreatureMood(person.id);
+  const { ownedFor } = useOwnedItems();
+  const festive = useFestivalLook();
+  const pointThresholds = useGrowthPoints();
+  const stage = creatureStage({ creature, account, earnedPoints: earned, pointThresholds });
+  // During a festival, its outfit instead of the child's own item (RFC-020 §2.3).
+  const look = festive(readLook(creature.look, ownedFor(person.id)));
+  const stageName = tPM(`species.${creature.species}.tier${stage.tier}` as never);
+  const money = stage.mode === "money" && account;
+  return { mood, stage, look, stageName, money };
+}
+
 function CreatureCell({
   person,
   creature,
@@ -126,16 +146,7 @@ function CreatureCell({
   size: number;
 }) {
   const t = useTranslations("creaturesWidget");
-  const tPM = useTranslations("pocketMoney");
-  const mood = useCreatureMood(person.id);
-  const { ownedFor } = useOwnedItems();
-  const festive = useFestivalLook();
-  const pointThresholds = useGrowthPoints();
-  const stage = creatureStage({ creature, account, earnedPoints: earned, pointThresholds });
-  // During a festival, its outfit instead of the child's own item (RFC-020 §2.3).
-  const look = festive(readLook(creature.look, ownedFor(person.id)));
-  const stageName = tPM(`species.${creature.species}.tier${stage.tier}` as never);
-  const money = stage.mode === "money" && account;
+  const { mood, stage, look, stageName, money } = useCreatureCell(person, creature, account, earned);
 
   return (
     <li className="min-w-0">
@@ -167,7 +178,7 @@ function CreatureCell({
         </span>
         <span className="text-sm font-bold tabular-nums" data-testid="creature-balance">
           {money ? (
-            formatCents(account.balance_cents, account.currency)
+            formatCents(money.balance_cents, money.currency)
           ) : (
             <>
               <span aria-hidden="true">⭐ </span>
