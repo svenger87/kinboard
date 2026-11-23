@@ -1,3 +1,4 @@
+import { withSourceAddresses } from "@/lib/recipe-image-keep";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { SECRET_FIELDS, splitSecrets } from "@/lib/integration-secrets";
@@ -127,7 +128,7 @@ export async function GET(request: NextRequest) {
     const todo_point_awards = await fetchAll(db, (q, from, to) =>
       q.from("todo_point_awards").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
-    const shopping_items = await fetchAll(db, (q, from, to) =>
+    let shopping_items = await fetchAll(db, (q, from, to) =>
       q.from("shopping_items").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const subjects = await fetchAll(db, (q, from, to) =>
@@ -146,7 +147,7 @@ export async function GET(request: NextRequest) {
       q.from("notes").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
 
-    const recipes = await fetchAll(db, (q, from, to) =>
+    let recipes = await fetchAll(db, (q, from, to) =>
       q.from("recipes").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const recipeIds = recipes.map((r: Record<string, unknown>) => r.id as string);
@@ -173,7 +174,7 @@ export async function GET(request: NextRequest) {
     // family_id is nullable on item_catalog (global catalog rows have
     // family_id = NULL); .eq() never matches NULL, so this naturally
     // excludes the global rows and returns only family-owned entries.
-    const item_catalog = await fetchAll(db, (q, from, to) =>
+    let item_catalog = await fetchAll(db, (q, from, to) =>
       q.from("item_catalog").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
 
@@ -196,7 +197,7 @@ export async function GET(request: NextRequest) {
       q.from("pocket_money_accounts").select("*").eq("family_id", familyId).order("id").range(from, to)
     );
     const pocketMoneyAccountIds = pocket_money_accounts.map((a: Record<string, unknown>) => a.id as string);
-    const pocket_money_goals = await fetchAllByIds(db, "pocket_money_goals", "account_id", pocketMoneyAccountIds);
+    let pocket_money_goals = await fetchAllByIds(db, "pocket_money_goals", "account_id", pocketMoneyAccountIds);
     const pocket_money_transactions = await fetchAllByIds(db, "pocket_money_transactions", "account_id", pocketMoneyAccountIds);
     const pocket_money_withdrawal_requests = await fetchAllByIds(db, "pocket_money_withdrawal_requests", "account_id", pocketMoneyAccountIds);
     // Rewards bought with task points (migrations/070_point_rewards.sql).
@@ -237,6 +238,18 @@ export async function GET(request: NextRequest) {
     // why. Embedding the binaries would turn a photo library into a
     // multi-hundred-megabyte JSON file, so instead the export states plainly
     // what it references and leaves out.
+    // Pictures that were fetched from the web and kept here go into the
+    // backup under the address they came from (migration 093), as they
+    // always did: the file is not in this JSON, the address works anywhere.
+    const { data: keptRows } = await db.from("kept_images").select("local_url, source_url").eq("family_id", familyId);
+    const keptSources = new Map<string, string>(
+      ((keptRows ?? []) as { local_url: string; source_url: string }[]).map((row) => [row.local_url, row.source_url]),
+    );
+    recipes = withSourceAddresses(recipes, keptSources);
+    shopping_items = withSourceAddresses(shopping_items, keptSources);
+    item_catalog = withSourceAddresses(item_catalog, keptSources);
+    pocket_money_goals = withSourceAddresses(pocket_money_goals, keptSources);
+
     const storageObjects = collectStorageObjects({
       recipes,
       vehicles,

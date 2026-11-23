@@ -1,5 +1,6 @@
 "use client";
 
+import { useKeepRemoteImages } from "./use-keep-remote-images";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -1698,7 +1699,7 @@ export function useShoppingItems() {
   const supabase = createClient();
   const { family } = useFamilyStore();
 
-  return useQuery({
+  const result = useQuery({
     queryKey: queryKeys.shoppingItems(family?.id ?? ""),
     queryFn: async () => {
       const { data, error } = await supabase
@@ -1712,6 +1713,9 @@ export function useShoppingItems() {
     },
     enabled: !!family?.id,
   });
+  // Pictures taken from the web are brought onto this server in the background.
+  useKeepRemoteImages("shopping", result.data, ["shopping"]);
+  return result;
 }
 
 export function useCreateShoppingItem() {

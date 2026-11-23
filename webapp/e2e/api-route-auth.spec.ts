@@ -187,6 +187,10 @@ test("a route that still takes family_id checks it against the session", () => {
   // from the request: they either use the session's own family, or act on
   // nothing family-scoped at all.
   const NO_FAMILY_ID_IN_REQUEST = new Set([
+    // Keeping a web picture on this server: the regex matches the `family_id`
+    // column the row is read under and the local `familyId`, both from
+    // auth.session.familyId; the request carries a row id and a kind only.
+    "recipes/keep-image/route.ts",
     // Layouts (webapp/src/lib/layouts): the regex matches the `family_id`
     // column each query is scoped by and the local `familyId`, both from
     // auth.session.familyId; the requests carry layout and device ids only.
