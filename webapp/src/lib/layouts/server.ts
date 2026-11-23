@@ -1,11 +1,13 @@
 /**
  * What the layout routes share: reading a JSON body, checking a name, a size
  * and the grid marker, and the family's per-orientation defaults (a row of
- * `settings`).
+ * `settings`), and the check on Home's per-child widgets that needs the
+ * database: that each named person is one of the family's.
  */
 import { NextResponse } from "next/server";
 import { LAYOUT_GRID, gridFor } from "./grid";
-import type { LayoutDefaults } from "./types";
+import { personOf } from "./validate";
+import type { HomeLayoutItem, LayoutDefaults } from "./types";
 
 export const DEFAULTS_KEY = "layout_defaults";
 
@@ -51,4 +53,39 @@ export function readDefaults(value: unknown): LayoutDefaults {
   const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const id = (x: unknown) => (typeof x === "string" ? x : null);
   return { portrait: id(v.portrait), landscape: id(v.landscape) };
+}
+
+export type PeopleCheck =
+  | { ok: true }
+  | { ok: false; error: "bad_person"; itemId: string }
+  | { ok: false; error: "db"; message: string };
+
+/**
+ * Whether every Home item that names a person (`options.personId`, already
+ * shaped by validateItems) names one of this family's people who is not in
+ * the recycle bin. Run after validateItems(…, "home") and before a write:
+ * the route reads with the service role, so nothing else stops an id from
+ * another family. Answers the first item that fails, as validateItems does.
+ */
+export async function checkHomePeople(
+  /** The admin client, untyped as everywhere in the layout routes. */
+  db: any,
+  familyId: string,
+  items: readonly HomeLayoutItem[],
+): Promise<PeopleCheck> {
+  const wanted = [...new Set(items.flatMap((i) => personOf(i) ?? []))];
+  if (wanted.length === 0) return { ok: true };
+  const { data, error } = await db
+    .from("people")
+    .select("id")
+    .eq("family_id", familyId)
+    .is("deleted_at", null)
+    .in("id", wanted);
+  if (error) return { ok: false, error: "db", message: error.message };
+  const found = new Set(((data ?? []) as { id: string }[]).map((p) => p.id));
+  const bad = items.find((i) => {
+    const p = personOf(i);
+    return p !== undefined && !found.has(p);
+  });
+  return bad ? { ok: false, error: "bad_person", itemId: bad.id } : { ok: true };
 }

@@ -3366,6 +3366,7 @@
           "overlap": "{name} 与另一个小组件重叠。",
           "duplicate": "{name} 在屏幕上出现了两次。",
           "bad_text_size": "{name} 的文字大小未知。",
+          "bad_person": "{name} 指向的人不属于这个家庭。",
           "gridChanged": "Kinboard 已更新。重新加载页面以继续编辑。",
           "pinRequired": "设置被锁定 — 输入 PIN；你未保存的更改会保留。",
           "generic": "布局无法保存。请重试。"

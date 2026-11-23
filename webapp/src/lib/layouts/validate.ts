@@ -1,12 +1,14 @@
 /**
- * What a saved screensaver may contain. The server runs this on every save
- * and the designer runs it before offering one, so an arrangement the
- * screens could not draw never reaches the database. It takes `unknown`
- * because it is the check on the request body.
+ * What a saved arrangement may contain, per surface (Home or the
+ * screensaver). The server runs this on every save and the designer runs it
+ * before offering one, so an arrangement the screens could not draw never
+ * reaches the database. It takes `unknown` because it is the check on the
+ * request body. Whether a Home item's person belongs to the family needs the
+ * database and is checked on the server (checkHomePeople in server.ts).
  */
 import { gridFor, GRID } from "./grid";
-import { SAVER_WIDGETS } from "./widgets";
-import type { LayoutItem, SaverWidgetKey, TextSize } from "./types";
+import { HOME_WIDGETS, widgetsFor } from "./widgets";
+import type { HomeWidgetKey, LayoutItem, SaverWidgetKey, Surface, TextSize } from "./types";
 
 export type LayoutError =
   | "unknown_widget"
@@ -14,20 +16,38 @@ export type LayoutError =
   | "below_minimum"
   | "overlap"
   | "duplicate"
-  | "bad_text_size";
+  | "bad_text_size"
+  /** Home only: `options.personId` on a widget that is not per child, or not a person's id. */
+  | "bad_person";
 
-export type ValidateResult =
-  | { ok: true; items: LayoutItem[] }
+export type ValidateResult<K extends string = SaverWidgetKey> =
+  | { ok: true; items: LayoutItem<K>[] }
   | { ok: false; error: LayoutError; itemId?: string };
 
 const TEXT_SIZES: readonly string[] = ["S", "M", "L", "XL"];
-const fail = (error: LayoutError, itemId?: string): ValidateResult => ({ ok: false, error, itemId });
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const fail = (error: LayoutError, itemId?: string) => ({ ok: false as const, error, itemId });
 
-export function validateItems(items: unknown, width: number, height: number): ValidateResult {
+/** The person a Home item is for, or undefined for a widget shown for everyone. */
+export function personOf(item: Pick<LayoutItem<string>, "options">): string | undefined {
+  const p = item.options?.personId;
+  return typeof p === "string" ? p : undefined;
+}
+
+export function validateItems(items: unknown, width: number, height: number, surface?: "screensaver"): ValidateResult<SaverWidgetKey>;
+export function validateItems(items: unknown, width: number, height: number, surface: "home"): ValidateResult<HomeWidgetKey>;
+export function validateItems(items: unknown, width: number, height: number, surface: Surface): ValidateResult<SaverWidgetKey> | ValidateResult<HomeWidgetKey>;
+export function validateItems(
+  items: unknown,
+  width: number,
+  height: number,
+  surface: Surface = "screensaver",
+): ValidateResult<string> {
   const grid = gridFor(width, height);
   if (!grid || !Array.isArray(items)) return fail("out_of_bounds");
+  const catalogue: Record<string, { min: { w: number; h: number } }> = widgetsFor(surface);
 
-  const out: LayoutItem[] = [];
+  const out: LayoutItem<string>[] = [];
   const ids = new Set<string>();
   for (const raw of items) {
     if (!raw || typeof raw !== "object") return fail("out_of_bounds");
@@ -37,13 +57,13 @@ export function validateItems(items: unknown, width: number, height: number): Va
     // rescaleItems keys by id, so two items may not share one.
     if (ids.has(id)) return fail("duplicate", id);
     ids.add(id);
-    if (typeof r.widget !== "string" || !Object.hasOwn(SAVER_WIDGETS, r.widget)) return fail("unknown_widget", id);
+    if (typeof r.widget !== "string" || !Object.hasOwn(catalogue, r.widget)) return fail("unknown_widget", id);
     if (typeof r.text !== "string" || !TEXT_SIZES.includes(r.text)) return fail("bad_text_size", id);
     const { x, y, w, h } = r;
     if (![x, y, w, h].every(Number.isInteger)) return fail("out_of_bounds", id);
-    const item: LayoutItem = {
+    const item: LayoutItem<string> = {
       id,
-      widget: r.widget as SaverWidgetKey,
+      widget: r.widget,
       x: x as number,
       y: y as number,
       w: w as number,
@@ -52,6 +72,12 @@ export function validateItems(items: unknown, width: number, height: number): Va
     };
     if (r.options && typeof r.options === "object" && !Array.isArray(r.options)) {
       item.options = r.options as Record<string, unknown>;
+    }
+    if (surface === "home" && item.options && Object.hasOwn(item.options, "personId")) {
+      const p = item.options.personId;
+      if (!HOME_WIDGETS[item.widget as HomeWidgetKey].perChild || typeof p !== "string" || !UUID.test(p)) {
+        return fail("bad_person", id);
+      }
     }
     out.push(item);
   }
@@ -62,13 +88,16 @@ export function validateItems(items: unknown, width: number, height: number): Va
     }
   }
   for (const i of out) {
-    const { min } = SAVER_WIDGETS[i.widget];
+    const { min } = catalogue[i.widget];
     if (i.w < min.w || i.h < min.h) return fail("below_minimum", i.id);
   }
+  // Each widget once; on Home a per-child widget once per child (and once
+  // for everyone, without a person).
   const seen = new Set<string>();
   for (const i of out) {
-    if (seen.has(i.widget)) return fail("duplicate", i.id);
-    seen.add(i.widget);
+    const key = surface === "home" ? `${i.widget}\u0000${personOf(i) ?? ""}` : i.widget;
+    if (seen.has(key)) return fail("duplicate", i.id);
+    seen.add(key);
   }
   for (let a = 0; a < out.length; a++) {
     for (let b = a + 1; b < out.length; b++) {
