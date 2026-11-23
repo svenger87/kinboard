@@ -38,6 +38,7 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
 import { DEFAULT_WIDGET_VISIBILITY, DEFAULT_SCHEDULE_WIDGET_SETTINGS, DEFAULT_POCKET_MONEY_WIDGET_SETTINGS } from "@/types/widgets";
 import { useHomeLayout } from "@/hooks/use-home-layout";
+import { UnlessHomeLayout } from "@/components/layouts/designed-home";
 import type { WidgetVisibility, ScheduleWidgetSettings, PocketMoneyWidgetSettings } from "@/types/widgets";
 import { useWidgetOrder, mergeWidgetOrder } from "@/hooks/use-widget-order";
 import { TimerPresetsEditor } from "@/components/settings/timer-presets-editor";
@@ -162,6 +163,8 @@ export default function WidgetSettingsPage() {
           {t("intro")}
         </p>
 
+        {/* A screen with a designed Home has no compact/classic Home to switch (RFC-022 §7.3). */}
+        <UnlessHomeLayout>
         <Card id="compact-home" data-setting="compact-home" className="mb-6 p-4">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -171,6 +174,7 @@ export default function WidgetSettingsPage() {
             <Switch checked={homeLayout === "compact"} onCheckedChange={(checked) => setHomeLayout(checked ? "compact" : "classic")} aria-label={t("compactHomeLabel")} />
           </div>
         </Card>
+        </UnlessHomeLayout>
 
         {/* Widget Cards */}
         <p className="mb-3 text-sm text-muted-foreground">{t("reorderHint")}</p>
