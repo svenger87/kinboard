@@ -12,13 +12,20 @@ interface WeatherMapProps {
   layerName: string;
 }
 
-// Component to update map view when props change
+// Moves the map when the location or zoom it was given changes.
+//
+// On the two numbers, not the `center` array: the dialog builds a new array
+// on every render, so this ran on every render and threw away whatever the
+// viewer had done. Zoom in on your street, pick "Clouds", and the map jumped
+// back to the city at the starting zoom; the 10-minute weather refresh did
+// the same to a map someone was looking at.
 function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
+  const [lat, lon] = center;
 
   useEffect(() => {
-    map.setView(center, zoom);
-  }, [map, center, zoom]);
+    map.setView([lat, lon], zoom);
+  }, [map, lat, lon, zoom]);
 
   return null;
 }
