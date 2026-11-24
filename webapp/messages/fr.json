@@ -3491,7 +3491,10 @@
             "sameW": "Même largeur que le premier sélectionné",
             "sameH": "Même hauteur que le premier sélectionné",
             "distributeHint": "Répartir demande au moins trois widgets."
-          }
+          },
+          "belowMinimum": "Trop petit pour son contenu sur cet écran : il lui faut au moins {w} × {h} pas à cette taille de texte.",
+          "fit": "Ajuster",
+          "fitFailed": "Pas de place pour l’ajuster ici : libérez de la place en dessous ou choisissez une taille de texte plus petite."
         },
         "widgets": {
           "clock": "Horloge",

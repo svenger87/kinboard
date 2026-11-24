@@ -12,7 +12,8 @@ import { formatReading, READING_DIGITS } from "@/plugins/vehicles/entity-read";
 import { readVehicle, type VehicleEntityConfig } from "@/plugins/vehicles/readings";
 import type { Vehicle } from "@/types/database";
 import type { HomeWidgetProps } from "./shared";
-import { BoxCard, CapFit, SetUpBox, useShrinkStep } from "./rest-shared";
+import { HomeCard, HomeSetUp, HOME_CARD_CORNER } from "./frame";
+import { CapFit, useShrinkStep } from "./rest-shared";
 
 /** As the card: one car at a time, the next every eight seconds. */
 const ROTATE_INTERVAL_MS = 8000;
@@ -80,16 +81,14 @@ export function VehiclesHomeWidget({ box }: HomeWidgetProps) {
   const s = STEPS[step];
 
   if (!enabled) {
-    return <SetUpBox box={box} icon={Car} title={t("vehiclesName")} description={t("vehiclesDisabled")} href="/settings/plugins" testId="home-vehicles" />;
+    return <HomeSetUp icon={Car} title={t("vehiclesName")} description={t("vehiclesDisabled")} href="/settings/plugins" testId="home-vehicles" />;
   }
   if (!v) {
-    return <SetUpBox box={box} icon={Car} title={t("vehiclesName")} description={t("vehiclesEmpty")} href="/vehicles" testId="home-vehicles" />;
+    return <HomeSetUp icon={Car} title={t("vehiclesName")} description={t("vehiclesEmpty")} href="/vehicles" testId="home-vehicles" />;
   }
   if (!haConnected || !configured) {
     return (
-      <SetUpBox
-        box={box}
-        icon={Car}
+      <HomeSetUp icon={Car}
         title={v.nickname}
         description={tGeneric(haConnected ? "notConfigured" : "haNotConnected")}
         href="/vehicles"
@@ -103,8 +102,8 @@ export function VehiclesHomeWidget({ box }: HomeWidgetProps) {
   const image = v.image_url ?? (v.vendor === "tesla" ? "/images/tesla-model-y.png" : null);
 
   return (
-    <Link href="/vehicles" className="block size-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" data-testid="home-vehicles">
-      <BoxCard box={box} ref={ref} step={step} className="justify-center gap-[0.4em]">
+    <Link href="/vehicles" className={`block size-full ${HOME_CARD_CORNER} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`} data-testid="home-vehicles">
+      <HomeCard ref={ref} step={step} className="justify-center gap-[0.4em]">
         {s.image && (
           <div className="flex min-h-[3em] flex-1 items-center justify-center">
             {image ? (
@@ -117,23 +116,23 @@ export function VehiclesHomeWidget({ box }: HomeWidgetProps) {
         <CapFit box={box} active={step === STEPS.length - 1} deps={[r.battery?.value]}>
         <div className="flex shrink-0 items-end justify-between gap-[0.6em]">
           <div className="min-w-0">
-            <p className={`whitespace-nowrap text-[1.8em] font-bold leading-none tabular-nums ${batteryColor}`}>
+            <p className={`whitespace-nowrap home-display font-bold leading-none tabular-nums ${batteryColor}`}>
               {r.battery ? Math.round(r.battery.value) : "—"}
-              <span className="text-[0.5em] text-muted-foreground">%</span>
+              <span className="home-body text-muted-foreground">%</span>
             </p>
-            {s.name && <p className="truncate text-[0.7em] text-muted-foreground">{v.nickname}</p>}
+            {s.name && <p className="truncate home-meta text-muted-foreground">{v.nickname}</p>}
           </div>
           {s.side && (
             <div className="shrink-0 text-right">
               {r.charging ? (
                 <span className="flex items-center gap-[0.2em] whitespace-nowrap text-energy-grid">
                   <Zap className="size-[0.9em]" aria-hidden="true" />
-                  <span className="text-[0.85em] font-semibold">
+                  <span className="home-body font-semibold">
                     {formatReading(r.power, { digits: READING_DIGITS.power, locale: intlLocale })}
                   </span>
                 </span>
               ) : (
-                <span className="whitespace-nowrap text-[1.2em] font-semibold tabular-nums">
+                <span className="whitespace-nowrap home-value font-semibold tabular-nums">
                   {formatReading(r.range, { digits: READING_DIGITS.distance, locale: intlLocale })}
                 </span>
               )}
@@ -141,7 +140,7 @@ export function VehiclesHomeWidget({ box }: HomeWidgetProps) {
           )}
         </div>
         </CapFit>
-      </BoxCard>
+      </HomeCard>
     </Link>
   );
 }

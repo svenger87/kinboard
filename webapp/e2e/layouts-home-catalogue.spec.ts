@@ -3,6 +3,7 @@ import { validateItems } from "../src/lib/layouts/validate";
 import { builtInHome } from "../src/lib/layouts/built-in";
 import { gridFor } from "../src/lib/layouts/grid";
 import { HOME_WIDGETS, SAVER_WIDGETS, knownWidgetItems } from "../src/lib/layouts/widgets";
+import { HOME_REFERENCE, homeBox, homeComfort, homeMin } from "../src/lib/layouts/home-size";
 import { checkHomePeople } from "../src/lib/layouts/server";
 import { DEFAULT_WIDGET_ORDER, DEFAULT_WIDGET_VISIBILITY } from "../src/types/widgets";
 import type { HomeLayoutItem, HomeWidgetKey } from "../src/lib/layouts/types";
@@ -17,7 +18,7 @@ import type { HomeLayoutItem, HomeWidgetKey } from "../src/lib/layouts/types";
 const P1 = "11111111-1111-4111-8111-111111111111";
 const P2 = "22222222-2222-4222-8222-222222222222";
 const item = (o: Partial<HomeLayoutItem> & { id: string }): HomeLayoutItem => ({
-  widget: "tasks", x: 0, y: 0, w: 12, h: 12, text: "M", ...o,
+  widget: "tasks", x: 0, y: 0, w: 24, h: 16, text: "M", ...o,
 });
 const home = (items: unknown, w = 1080, h = 1920) => validateItems(items, w, h, "home");
 
@@ -49,27 +50,36 @@ test.describe("Home catalogue", () => {
   test("only the schedule and pocket money are per child", () =>
     expect(Object.entries(HOME_WIDGETS).filter(([, s]) => s.perChild).map(([k]) => k).sort()).toEqual(["pocketMoney", "schedule"]));
 
-  test("the week overview needs 24 steps of width; every other card fits a quarter (12)", () => {
-    expect(HOME_WIDGETS.weekOverview.min.w).toBe(24);
+  test("the week overview needs 24 steps of width; at M every other card fits a quarter of a landscape panel and half a portrait one", () => {
+    const { width, height } = HOME_REFERENCE;
+    for (const text of ["S", "M", "L", "XL"] as const) expect(homeMin("weekOverview", text, width, height).w).toBeGreaterThanOrEqual(24);
     for (const [k, s] of Object.entries(HOME_WIDGETS)) {
-      if (k !== "weekOverview" && !s.clockBlock) expect(s.min.w, k).toBeLessThanOrEqual(12);
+      if (k === "weekOverview" || s.clockBlock) continue;
+      expect(homeMin(k as HomeWidgetKey, "M", width, height).w, k).toBeLessThanOrEqual(12);
+      expect(homeMin(k as HomeWidgetKey, "M", 1080, 1847).w, k).toBeLessThanOrEqual(24);
     }
   });
 
-  test("every default box is at least the minimum and fits the grid's width", () => {
-    for (const [k, s] of Object.entries(HOME_WIDGETS)) {
-      expect(s.box.w, k).toBeGreaterThanOrEqual(s.min.w);
-      expect(s.box.h, k).toBeGreaterThanOrEqual(s.min.h);
-      expect(s.box.w, k).toBeLessThanOrEqual(48);
-      // Lists and fixed widgets fit at least a title and one 48px row: two steps at the smallest portrait grid.
-      expect(s.min.h, k).toBeGreaterThanOrEqual(2);
+  test("on every screen and text size, a default box is at least the minimum and fits the grid", () => {
+    for (const [w, h] of SIZES) {
+      const rows = gridFor(w, h)!.rows;
+      for (const text of ["S", "M", "L", "XL"] as const) {
+        for (const k of Object.keys(HOME_WIDGETS) as HomeWidgetKey[]) {
+          const min = homeMin(k, text, w, h);
+          const box = homeBox(k, text, w, h);
+          expect(box.w, `${k} ${text} ${w}x${h}`).toBeGreaterThanOrEqual(min.w);
+          expect(box.h, `${k} ${text} ${w}x${h}`).toBeGreaterThanOrEqual(min.h);
+          expect(box.w, `${k} ${text} ${w}x${h}`).toBeLessThanOrEqual(48);
+          expect(min.h, `${k} ${text} ${w}x${h}`).toBeLessThanOrEqual(rows);
+        }
+      }
     }
   });
 });
 
 test.describe("validateItems per surface", () => {
   test("Home accepts its widgets and returns them typed", () => {
-    const items = [item({ id: "a" }), item({ id: "b", widget: "clock", x: 12, w: 36, h: 8 })];
+    const items = [item({ id: "a" }), item({ id: "b", widget: "clock", x: 24, w: 24, h: 8 })];
     expect(home(items)).toEqual({ ok: true, items });
   });
   test("a screensaver-only widget is unknown on Home", () =>
@@ -80,21 +90,29 @@ test.describe("validateItems per surface", () => {
   });
   test("Home's minimums apply: week overview 23 wide is below its minimum", () =>
     expect(home([item({ id: "a", widget: "weekOverview", w: 23, h: 8 })])).toEqual({ ok: false, error: "below_minimum", itemId: "a" }));
-  test("the week overview at 24x8 is accepted", () =>
-    expect(home([item({ id: "a", widget: "weekOverview", w: 24, h: 8 })])).toMatchObject({ ok: true }));
+  test("the week overview at its minimum is accepted, a step lower is not", () => {
+    const min = homeMin("weekOverview", "M", 1080, 1920);
+    expect(home([item({ id: "a", widget: "weekOverview", ...min })])).toMatchObject({ ok: true });
+    expect(home([item({ id: "a", widget: "weekOverview", ...min, h: min.h - 1 })])).toMatchObject({ error: "below_minimum" });
+  });
+  test("a minimum follows the text size: a box fine at M is below it at XL", () => {
+    const min = homeMin("birthday", "M", 1080, 1920);
+    expect(home([item({ id: "a", widget: "birthday", ...min })])).toMatchObject({ ok: true });
+    expect(home([item({ id: "a", widget: "birthday", ...min, text: "XL" })])).toMatchObject({ error: "below_minimum" });
+  });
   test("one schedule per child, plus one for everyone", () =>
     expect(home([
       item({ id: "a", widget: "schedule", options: { personId: P1 } }),
-      item({ id: "b", widget: "schedule", x: 12, options: { personId: P2 } }),
-      item({ id: "c", widget: "schedule", x: 24 }),
+      item({ id: "b", widget: "schedule", x: 24, options: { personId: P2 } }),
+      item({ id: "c", widget: "schedule", y: 16 }),
     ])).toMatchObject({ ok: true }));
   test("the same child twice is a duplicate", () =>
     expect(home([
       item({ id: "a", widget: "pocketMoney", options: { personId: P1 } }),
-      item({ id: "b", widget: "pocketMoney", x: 12, options: { personId: P1 } }),
+      item({ id: "b", widget: "pocketMoney", x: 24, options: { personId: P1 } }),
     ])).toEqual({ ok: false, error: "duplicate", itemId: "b" }));
   test("two tasks are a duplicate", () =>
-    expect(home([item({ id: "a" }), item({ id: "b", x: 12 })])).toMatchObject({ error: "duplicate" }));
+    expect(home([item({ id: "a" }), item({ id: "b", x: 24 })])).toMatchObject({ error: "duplicate" }));
   test("a person on a widget that is not per child is refused", () =>
     expect(home([item({ id: "a", options: { personId: P1 } })])).toEqual({ ok: false, error: "bad_person", itemId: "a" }));
   for (const bad of ["", "p1", 7, null]) {
@@ -106,7 +124,7 @@ test.describe("validateItems per surface", () => {
     expect(validateItems([one], 1080, 1920)).toEqual({ ok: true, items: [one] });
   });
   test("Home keeps the shared rules: overlap and bounds", () => {
-    expect(home([item({ id: "a" }), item({ id: "b", widget: "notes", x: 11, y: 11 })])).toMatchObject({ error: "overlap", itemId: "b" });
+    expect(home([item({ id: "a" }), item({ id: "b", widget: "notes", x: 23, y: 15 })])).toMatchObject({ error: "overlap", itemId: "b" });
     expect(home([item({ id: "a", x: 40 })])).toMatchObject({ error: "out_of_bounds", itemId: "a" });
   });
   test("knownWidgetItems reads the surface's catalogue", () => {
@@ -118,21 +136,21 @@ test.describe("validateItems per surface", () => {
 });
 
 /**
- * Today's default Home's cards per screen. The same as before the list
- * minimums were measured, except 1024x768 (was 7): its second row of cards
- * (week overview, tasks, timers) needs 11 steps and has 8 left.
+ * Today's default Home's cards per screen (each size taken as the area Home
+ * gets). Minimums follow the pixels (home-size.ts): the clock block holds
+ * today's date, greeting, members with their names and strip on every
+ * screen, and every card has today's padding, so a portrait panel has fewer
+ * rows left for cards than when each piece was 2 steps (720x1280, 800x1280 and
+ * 600x1024: 5, was 8). Landscape panels keep their row of four. 800x600 has
+ * no row left for a card under its clock block: on a screen that small the
+ * old Home scrolled to reach its cards, and a designed Home never scrolls.
  */
 const DEFAULT_CARDS: Record<string, number> = {
-  "1080x1920": 8, "720x1280": 8, "800x1280": 8, "600x1024": 8, "1920x1080": 4, "1280x720": 4, "1280x800": 4,
-  "2560x1440": 4, "2552x1274": 4, "1024x768": 4, "800x600": 4, "3840x2160": 4,
+  "1080x1920": 8, "720x1280": 5, "800x1280": 5, "600x1024": 5, "1920x1080": 4, "1280x720": 4, "1280x800": 4, "2560x1440": 4, "2552x1274": 4, "1024x768": 4, "800x600": 0, "3840x2160": 7,
 };
-/**
- * Every widget switched on: [one card for all children, one per child]. Taller
- * list minimums fit fewer rows than before (1080x1920 was [20, 21]).
- */
+/** Every widget switched on: [one card for all children, one per child]. */
 const EVERY_CARDS: Record<string, [number, number]> = {
-  "1080x1920": [13, 13], "720x1280": [13, 13], "800x1280": [11, 11], "600x1024": [13, 11], "1920x1080": [4, 4], "1280x720": [4, 4],
-  "1280x800": [4, 4], "2560x1440": [4, 4], "2552x1274": [4, 4], "1024x768": [4, 7], "800x600": [4, 4], "3840x2160": [4, 4],
+  "1080x1920": [9, 9], "720x1280": [7, 7], "800x1280": [7, 7], "600x1024": [4, 6], "1920x1080": [4, 4], "1280x720": [4, 4], "1280x800": [4, 4], "2560x1440": [7, 7], "2552x1274": [7, 7], "1024x768": [4, 4], "800x600": [0, 0], "3840x2160": [7, 7],
 };
 
 test.describe("builtInHome", () => {
@@ -151,15 +169,19 @@ test.describe("builtInHome", () => {
         const rows = gridFor(w, h)!.rows;
         expect(Math.max(...items.map((i) => i.y + i.h))).toBeLessThanOrEqual(rows);
         // The cards it places, not just a valid layout: an empty card row is valid too.
-        const cards = items.length - 5;
-        if (label === "nothing but the clock block") expect(cards).toBe(0);
+        const cards = items.filter((i) => !HOME_WIDGETS[i.widget].clockBlock).length;
+        if (label === "nothing but the clock block" || DEFAULT_CARDS[`${w}x${h}`] === 0) expect(cards).toBe(0);
         else if (label === "defaults") expect(cards, "today's default cards").toBe(DEFAULT_CARDS[`${w}x${h}`]);
         else expect(cards, "every widget").toBe(EVERY_CARDS[`${w}x${h}`][label === "every widget" ? 0 : 1]);
         // A landscape screen of 24 rows keeps its row of four cards.
         if (label !== "nothing but the clock block" && w > h && gridFor(w, h)!.rows === 24) expect(cards).toBeGreaterThanOrEqual(4);
-        // The clock block is always there, full width, in today's order.
-        expect(items.slice(0, 5).map((i) => [i.widget, i.x, i.w])).toEqual(
-          ["clock", "date", "greeting", "familyMembers", "todayStrip"].map((k) => [k, 0, 48]));
+        // The clock block is always there, full width, in today's order; only
+        // the greeting may be left out, on a screen too short for a row of
+        // cards under the rest (1024x768).
+        const head = items.filter((i) => HOME_WIDGETS[i.widget].clockBlock);
+        const want = ["clock", "date", "greeting", "familyMembers", "todayStrip"].filter((k) => k !== "greeting" || head.some((i) => i.widget === k));
+        expect(head.map((i) => [i.widget, i.x, i.w])).toEqual(want.map((k) => [k, 0, 48]));
+        if (head.length === 4) expect(cards, "the greeting goes only to make room for cards").toBeGreaterThan(0);
       });
     }
   }
@@ -167,21 +189,22 @@ test.describe("builtInHome", () => {
   test("1080x1920: today's default Home, two columns, the clock block on top and the grid filled to the last row", () => {
     const items = builtInHome(1080, 1920);
     expect(items.map((i) => [i.widget, i.x, i.y, i.w, i.h])).toEqual([
-      ["clock", 0, 0, 48, 8],
-      ["date", 0, 8, 48, 2],
-      ["greeting", 0, 10, 48, 2],
-      ["familyMembers", 0, 12, 48, 4],
-      ["todayStrip", 0, 16, 48, 2],
-      // 70 steps for five rows of cards: 14 each.
-      ["weather", 0, 18, 24, 14],
-      ["upcomingEvents", 24, 18, 24, 14],
-      ["schedule", 0, 32, 24, 14],
-      ["weekOverview", 0, 46, 48, 14],
-      // Takes the hole beside the schedule that the week overview left.
-      ["mealPlan", 24, 32, 24, 14],
-      ["tasks", 0, 60, 24, 14],
-      ["timers", 24, 60, 24, 14],
-      ["messages", 0, 74, 24, 14],
+      // 21px steps: the date's week badge needs 48px (4 steps), the members
+      // with names and status lines 108px (7), the strip's "+n" 48px (4).
+      ["clock", 0, 0, 48, 12],
+      ["date", 0, 12, 48, 4],
+      ["greeting", 0, 16, 48, 3],
+      ["familyMembers", 0, 19, 48, 7],
+      ["todayStrip", 0, 26, 48, 4],
+      // The rest in rows of cards, the week overview across both columns.
+      ["weather", 0, 30, 24, 11],
+      ["upcomingEvents", 24, 30, 24, 11],
+      ["schedule", 0, 41, 24, 11],
+      ["weekOverview", 0, 52, 48, 11],
+      ["mealPlan", 24, 41, 24, 11],
+      ["tasks", 0, 63, 24, 14],
+      ["timers", 24, 63, 24, 14],
+      ["messages", 0, 77, 24, 11],
     ]);
     expect(gridFor(1080, 1920)!.rows).toBe(88);
   });
@@ -192,14 +215,17 @@ test.describe("builtInHome", () => {
     expect(cards.map((i) => [i.widget, i.x, i.w])).toEqual([
       ["weather", 0, 12], ["upcomingEvents", 12, 12], ["schedule", 24, 12], ["mealPlan", 36, 12],
     ]);
-    expect(new Set(cards.map((i) => i.h))).toEqual(new Set([11]));
+    expect(new Set(cards.map((i) => i.h))).toEqual(new Set([8]));
     expect(cards[0].y + cards[0].h).toBe(24);
   });
 
   test("spare rows go to the clock", () => {
     const items = builtInHome(1080, 1920, { visible: Object.fromEntries(Object.keys(ALL).map((k) => [k, false])) });
     expect(items).toHaveLength(5);
-    expect(items[0]).toMatchObject({ widget: "clock", h: 88 - 10 });
+    const rest = items.slice(1).reduce((n, i) => n + i.h, 0);
+    expect(items[0]).toMatchObject({ widget: "clock", h: 88 - rest });
+    // The other pieces as on today's Home (the members with names under their avatars).
+    for (const i of items.slice(1)) expect(i.h, i.widget).toBe(homeComfort(i.widget, "M", 1080, 1920).h);
   });
 
   test("follows the saved order and the switches; unknown and repeated keys are ignored", () => {

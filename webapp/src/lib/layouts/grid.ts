@@ -98,7 +98,7 @@ export function boxRect(
 }
 
 const TEXT_BASE = 0.0185; // of the short side: 20px at 1080, 13.3px at 720
-const TEXT_FACTOR: Record<TextSize, number> = { S: 0.8, M: 1, L: 1.3, XL: 1.7 };
+export const TEXT_FACTOR: Record<TextSize, number> = { S: 0.8, M: 1, L: 1.3, XL: 1.7 };
 
 export function textPx(size: TextSize, width: number, height: number): number {
   return TEXT_BASE * Math.min(width, height) * TEXT_FACTOR[size];

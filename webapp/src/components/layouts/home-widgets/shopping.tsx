@@ -6,8 +6,9 @@ import { ShoppingCart } from "lucide-react";
 import { ChecklistItem } from "@/components/checklist-item";
 import { useShoppingItems } from "@/hooks";
 import { openShoppingItems, useTickShoppingItem } from "@/components/widgets/shopping-widget";
-import { CountBadge, HomeEmptyLine, HomeList, HomeListFrame, CHECK_ROW } from "./list-shared";
+import { CountBadge, HomeEmptyLine, HomeList, CHECK_ROW } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
+import { HomeCard } from "./frame";
 import type { ShoppingItem } from "@/types/database";
 
 type Item = ShoppingItem;
@@ -30,7 +31,7 @@ export function ShoppingHomeWidget({ editing }: HomeWidgetProps) {
         checked={false}
         onCheckedChange={() => void tick(it.id)}
         compact
-        className={`${CHECK_ROW} [&>span:last-child]:text-[0.8em]`}
+        className={`${CHECK_ROW} [&>span:last-child]:home-body`}
         label={<span className="break-words leading-snug">{it.name}</span>}
         meta={it.quantity ? <span className="tabular-nums">{it.quantity}{it.unit ? ` ${it.unit}` : ""}</span> : undefined}
       />
@@ -38,7 +39,7 @@ export function ShoppingHomeWidget({ editing }: HomeWidgetProps) {
   );
 
   return (
-    <HomeListFrame
+    <HomeCard list
       testId="home-widget-shopping"
       icon={ShoppingCart}
       title={t("title")}
@@ -47,6 +48,6 @@ export function ShoppingHomeWidget({ editing }: HomeWidgetProps) {
       editing={editing}
     >
       <HomeList items={open} keyOf={keyOf} renderItem={renderItem} empty={<HomeEmptyLine text={t("emptyState")} />} href="/shopping" />
-    </HomeListFrame>
+    </HomeCard>
   );
 }

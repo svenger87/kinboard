@@ -31,7 +31,8 @@ import { builtInHome, builtInScreensaver } from "@/lib/layouts/built-in";
 import { GRID, LAYOUT_GRID, gridFor } from "@/lib/layouts/grid";
 import { homeArea } from "@/lib/layouts/home-area";
 import { alignItems, distribute, matchSize, moveBy, resizeBy, setBox, type ArrangeReason, type ArrangeResult, type Box } from "@/lib/layouts/arrange";
-import { rescaleItems } from "@/lib/layouts/rescale";
+import { fitItems, rescaleItems } from "@/lib/layouts/rescale";
+import type { SurfaceAt } from "@/lib/layouts/home-size";
 import { personOf, validateItems, type LayoutError } from "@/lib/layouts/validate";
 import { HOME_WIDGETS, SAVER_WIDGETS, knownWidgetItems } from "@/lib/layouts/widgets";
 import { useNameList } from "@/hooks/use-name-list";
@@ -195,6 +196,8 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
 
   // The face shown is drawn on its own area: the screen, or for Home the screen less the navigation bar.
   const area = surface === "home" ? homeSize : ownSize;
+  // What the commands check against: Home's minimums are the ones for this layout's area.
+  const on = useMemo<SurfaceAt>(() => (surface === "home" ? { surface: "home", ...homeSize } : "screensaver"), [surface, homeSize]);
   const ownGrid = useMemo(() => gridFor(area.width, area.height), [area.width, area.height]);
   const previewGrid = useMemo(() => {
     const p = surface === "home" ? homeArea(preview.width, preview.height) : preview;
@@ -331,18 +334,33 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const arrange = (command: ArrangeCommand) => {
     if (!ownGrid || selection.length < 2) return;
     const rows = ownGrid.rows;
-    if (command.kind === "align") apply(alignItems(items, selection, command.edge, rows, surface));
-    else if (command.kind === "distribute") apply(distribute(items, selection, command.axis, rows, surface));
-    else apply(matchSize(items, selection, command.dim, rows, surface));
+    if (command.kind === "align") apply(alignItems(items, selection, command.edge, rows, on));
+    else if (command.kind === "distribute") apply(distribute(items, selection, command.axis, rows, on));
+    else apply(matchSize(items, selection, command.dim, rows, on));
   };
 
   /** The selected box put at the numbers typed into the inspector: one change, or the reason it was not done (shown by the fields). */
   const placeBox = (box: Box): ArrangeReason | null => {
     if (!ownGrid || !selected) return null;
-    const result = setBox(items, selected.id, box, ownGrid.rows, surface);
+    const result = setBox(items, selected.id, box, ownGrid.rows, on);
     if (!result.ok) return result.reason;
     commit(result.items);
     return null;
+  };
+
+  /**
+   * Home's "Fit": every box under its minimum for this layout's area grown
+   * to it, what is below moved down and steps taken back from boxes with
+   * room to spare (fitItems, home-fit.ts); one change. False when it cannot.
+   */
+  const fitHome = (): boolean => {
+    if (surface !== "home") return false;
+    const fitted = fitItems(homeItems, homeSize, homeSize, "home");
+    if (fitted.dropped.length > 0) return false;
+    const checked = validateItems(fitted.items, homeSize.width, homeSize.height, "home");
+    if (!checked.ok) return false;
+    commit(fitted.items);
+    return true;
   };
 
   const setText = (text: TextSize) => {
@@ -392,11 +410,11 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       e.preventDefault();
       // A step, or with Shift a whole cell; Alt resizes instead of moving.
       const n = e.shiftKey ? GRID.STEPS_PER_CELL : 1;
-      apply((e.altKey ? resizeBy : moveBy)(items, selection, dir[0] * n, dir[1] * n, ownGrid.rows, surface));
+      apply((e.altKey ? resizeBy : moveBy)(items, selection, dir[0] * n, dir[1] * n, ownGrid.rows, on));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [editable, selection, items, ownGrid, undo, redo, remove, apply, surface]);
+  }, [editable, selection, items, ownGrid, undo, redo, remove, apply, on]);
 
   /** Shows the other face; the selection and a refused command's line belong to the face they were on. */
   const switchSurface = (next: Surface) => {
@@ -661,7 +679,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       <div className="grid gap-4 lg:grid-cols-[13rem_minmax(0,1fr)_16rem] lg:items-start">
         <EditorPalette
           key={surface}
-          surface={surface}
+          surface={on}
           entries={paletteEntries}
           items={items}
           rows={ownGrid.rows}
@@ -688,7 +706,19 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
             />
           </HomeDataProvider>
         </ScreensaverDataProvider>
-        <EditorInspector surface={surface} item={selected} count={selection.length} disabled={!editable} label={label} onText={setText} onAlign={setAlign} onRemove={remove} onArrange={arrange} onBox={placeBox} />
+        <EditorInspector
+          surface={on}
+          item={selected}
+          count={selection.length}
+          disabled={!editable}
+          label={label}
+          onText={setText}
+          onAlign={setAlign}
+          onRemove={remove}
+          onArrange={arrange}
+          onBox={placeBox}
+          onFit={surface === "home" ? fitHome : undefined}
+        />
       </div>
     </div>
   );

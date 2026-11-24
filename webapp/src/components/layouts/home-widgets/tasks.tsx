@@ -11,8 +11,9 @@ import { isOverdue, type TaskSection } from "@/lib/tasks-widget-groups";
 import { todayPerson } from "@/lib/todo-turns";
 import { toLocalDateKey } from "@/lib/local-date";
 import type { Todo } from "@/types/database";
-import { CountBadge, HomeEmptyLine, HomeList, HomeListFrame, CHECK_ROW } from "./list-shared";
+import { CountBadge, HomeEmptyLine, HomeList, CHECK_ROW } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
+import { HomeCard } from "./frame";
 
 interface Entry {
   todo: Todo;
@@ -50,7 +51,7 @@ export function TasksHomeWidget({ editing }: HomeWidgetProps) {
       <>
         {first && (
           <div className="mb-[0.2em] flex items-center gap-[0.5em]">
-            <span className="text-[0.65em] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="home-meta font-semibold uppercase tracking-wide text-muted-foreground">
               {section === "today" ? t("today") : t("upcoming")}
             </span>
             <div className="h-px flex-1 bg-border/40" />
@@ -61,15 +62,15 @@ export function TasksHomeWidget({ editing }: HomeWidgetProps) {
           onCheckedChange={() => toggle(todo)}
           compact
           color={person?.color}
-          className={`${CHECK_ROW} [&>span:last-child]:text-[1em]`}
+          className={`${CHECK_ROW} [&>span:last-child]:home-body`}
           label={
             <span className="flex min-w-0 flex-col">
               <span className="break-words leading-snug">
                 {todo.icon && <span className="mr-[0.35em]" aria-hidden="true">{todo.icon}</span>}
                 {todo.title}
-                {todo.points > 0 && <span className="ml-[0.5em] text-[0.8em] text-primary">⭐ {todo.points}</span>}
+                {todo.points > 0 && <span className="ml-[0.5em] home-body text-primary">⭐ {todo.points}</span>}
               </span>
-              {overdue && <span className="text-[0.75em] text-destructive">{t("overdue")}</span>}
+              {overdue && <span className="home-meta text-destructive">{t("overdue")}</span>}
             </span>
           }
           meta={person ? <PersonAvatar name={person.name} color={person.color} avatarUrl={person.avatar_url} size="1.3em" /> : undefined}
@@ -80,7 +81,7 @@ export function TasksHomeWidget({ editing }: HomeWidgetProps) {
 
   return (
     <>
-      <HomeListFrame
+      <HomeCard list
         testId="home-widget-tasks"
         icon={CheckSquare}
         title={t("title")}
@@ -89,7 +90,7 @@ export function TasksHomeWidget({ editing }: HomeWidgetProps) {
         editing={editing}
       >
         <HomeList items={entries} keyOf={keyOf} renderItem={renderItem} empty={<HomeEmptyLine text={t("emptyState")} />} href="/todos" />
-      </HomeListFrame>
+      </HomeCard>
       {picker}
     </>
   );

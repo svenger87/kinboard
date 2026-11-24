@@ -7,8 +7,9 @@ import { useHomeDataContext } from "@/components/layouts/home-data-context";
 import { WASTE_PRESENTATION, useWasteDayLabel, useWasteLabels, wasteCollections } from "@/components/widgets/waste-collection-widget";
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { personText, personTint } from "@/lib/person-color";
-import { HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame } from "./list-shared";
+import { HOME_ROW, HomeEmptyLine, HomeList } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
+import { HomeCard } from "./frame";
 
 type Entry = ReturnType<typeof wasteCollections>[number];
 
@@ -43,14 +44,14 @@ export function WasteCollectionHomeWidget({ editing }: HomeWidgetProps) {
             <Icon className="size-[0.9em]" strokeWidth={1.75} aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="break-words text-[0.9em] font-medium leading-snug">{labels[e.wasteType.id]}</p>
-            <p className="text-[0.7em] tabular-nums text-muted-foreground">
+            <p className="break-words home-body font-medium leading-snug">{labels[e.wasteType.id]}</p>
+            <p className="home-meta tabular-nums text-muted-foreground">
               {when}
               {e.date.getHours() > 0 && ` ${formatTime(e.date)}`}
             </p>
           </div>
           <span
-            className={`shrink-0 text-[0.7em] tabular-nums ${urgent ? "rounded-full bg-warning/15 px-[0.6em] py-[0.15em] font-semibold text-warning" : "text-muted-foreground"}`}
+            className={`shrink-0 home-meta tabular-nums ${urgent ? "rounded-full bg-warning/15 px-[0.6em] py-[0.15em] font-semibold text-warning" : "text-muted-foreground"}`}
           >
             {urgent ? (e.daysUntil === 0 ? t("todayBadge") : t("tomorrowBadge")) : t("daysSuffix", { count: e.daysUntil })}
           </span>
@@ -60,8 +61,8 @@ export function WasteCollectionHomeWidget({ editing }: HomeWidgetProps) {
   };
 
   return (
-    <HomeListFrame testId="home-widget-wasteCollection" icon={Trash2} title={t("title")} href="/calendar" editing={editing}>
+    <HomeCard list testId="home-widget-wasteCollection" icon={Trash2} title={t("title")} href="/calendar" editing={editing}>
       <HomeList items={entries} keyOf={keyOf} renderItem={renderItem} empty={<HomeEmptyLine text={t("emptyState")} />} href="/calendar" />
-    </HomeListFrame>
+    </HomeCard>
   );
 }

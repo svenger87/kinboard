@@ -8,6 +8,7 @@ import { REST_WIDGETS } from "@/components/layouts/home-widgets/rest";
 import { useHomeData } from "@/hooks/use-home-data";
 import { gridFor } from "@/lib/layouts/grid";
 import { HOME_WIDGETS } from "@/lib/layouts/widgets";
+import { homeMin } from "@/lib/layouts/home-size";
 import type { HomeLayoutItem, HomeWidgetKey, LayoutItem, TextSize } from "@/lib/layouts/types";
 
 /**
@@ -53,11 +54,11 @@ function Widgets() {
   const items = useMemo(
     () =>
       pack(
-        KEYS.map((key) => (large ? { key, w: 24, h: 14 } : { key, ...HOME_WIDGETS[key].min })),
+        KEYS.map((key) => (large ? { key, w: 24, h: 14 } : { key, ...homeMin(key, text, width, height) })),
         text,
         person,
       ),
-    [large, text, person],
+    [large, text, person, width, height],
   );
   return (
     <div style={{ width, height, position: "relative" }} className="bg-background text-foreground" data-testid="home-rest-grid">
@@ -66,6 +67,7 @@ function Widgets() {
           grid={grid}
           // LayoutGrid is typed for the screensaver's items; it reads only the box fields.
           items={items as unknown as LayoutItem[]}
+          surface="home"
           render={(item, box) => {
             const Widget = REST_WIDGETS[item.widget as HomeWidgetKey];
             return Widget ? <Widget item={item as unknown as HomeLayoutItem} box={box} editing={editing} /> : null;

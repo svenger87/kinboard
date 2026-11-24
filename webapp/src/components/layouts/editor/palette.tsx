@@ -5,7 +5,8 @@ import { Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { firstFreeBox } from "@/lib/layouts/place";
-import type { LayoutItem, Surface } from "@/lib/layouts/types";
+import { surfaceOf, type SurfaceAt } from "@/lib/layouts/home-size";
+import type { LayoutItem } from "@/lib/layouts/types";
 
 /** A placed box of either surface. */
 type Item = LayoutItem<string>;
@@ -37,7 +38,8 @@ export function EditorPalette({
   disabled,
   onAdd,
 }: {
-  surface?: Surface;
+  /** On Home with the layout's area: a widget's minimum and default box follow it (home-size.ts). */
+  surface?: SurfaceAt;
   entries: PaletteEntry[];
   items: Item[];
   rows: number;
@@ -47,7 +49,7 @@ export function EditorPalette({
   const t = useTranslations("settings.layouts.editor.palette");
 
   return (
-    <Card className="flex flex-col gap-3 p-4" data-testid="palette" data-surface={surface}>
+    <Card className="flex flex-col gap-3 p-4" data-testid="palette" data-surface={surfaceOf(surface)}>
       <h2 className="font-display text-sm font-semibold">{t("title")}</h2>
       {entries.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("allPlaced")}</p>

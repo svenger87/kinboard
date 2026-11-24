@@ -1,0 +1,16 @@
+[
+  {"id": "clock", "widget": "clock", "x": 0, "y": 0, "w": 48, "h": 9, "text": "M"},
+  {"id": "date", "widget": "date", "x": 0, "y": 9, "w": 48, "h": 2, "text": "M"},
+  {"id": "greeting", "widget": "greeting", "x": 0, "y": 11, "w": 48, "h": 2, "text": "M"},
+  {"id": "familyMembers", "widget": "familyMembers", "x": 0, "y": 13, "w": 48, "h": 4, "text": "M"},
+  {"id": "todayStrip", "widget": "todayStrip", "x": 0, "y": 17, "w": 48, "h": 2, "text": "M"},
+  {"id": "weather", "widget": "weather", "x": 0, "y": 19, "w": 24, "h": 16, "text": "M"},
+  {"id": "weekOverview", "widget": "weekOverview", "x": 24, "y": 19, "w": 24, "h": 16, "text": "M"},
+  {"id": "schedule", "widget": "schedule", "x": 0, "y": 35, "w": 24, "h": 18, "text": "M"},
+  {"id": "upcomingEvents", "widget": "upcomingEvents", "x": 24, "y": 35, "w": 24, "h": 18, "text": "M"},
+  {"id": "birthday", "widget": "birthday", "x": 0, "y": 53, "w": 14, "h": 18, "text": "S"},
+  {"id": "wasteCollection", "widget": "wasteCollection", "x": 14, "y": 53, "w": 17, "h": 18, "text": "S"},
+  {"id": "vehicles", "widget": "vehicles", "x": 31, "y": 53, "w": 17, "h": 18, "text": "L"},
+  {"id": "messages", "widget": "messages", "x": 0, "y": 71, "w": 24, "h": 13, "text": "M"},
+  {"id": "holidays", "widget": "holidays", "x": 24, "y": 71, "w": 24, "h": 13, "text": "S"}
+]

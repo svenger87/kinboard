@@ -7,8 +7,9 @@ import { CalendarHeart, TreePalm } from "lucide-react";
 import { useHolidayDay, useNextHolidays } from "@/components/widgets/holiday-widget";
 import { daysUntilHoliday } from "@/lib/holidays";
 import { holidayLabel } from "@/lib/holidays/label";
-import { HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame, TARGET_H } from "./list-shared";
+import { HOME_ROW, HomeEmptyLine, HomeList, TARGET_H } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
+import { HomeCard } from "./frame";
 
 /** How far ahead the box looks: a year, so "+n" counts the holidays still to come this coming year. */
 const DAYS_AHEAD = 365;
@@ -42,12 +43,12 @@ export function HolidaysHomeWidget({ editing }: HomeWidgetProps) {
     return (
       <>
         <div className={`${HOME_ROW}${isToday ? " border-l-4 border-l-primary" : ""}`}>
-          <span className="flex size-[1.6em] shrink-0 items-center justify-center rounded-[0.4em] bg-muted text-[0.9em] leading-none" aria-hidden="true">
+          <span className="flex size-[1.6em] shrink-0 items-center justify-center rounded-[0.4em] bg-muted home-body leading-none" aria-hidden="true">
             {h.emoji}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="hyphens-auto break-words text-[0.9em] font-medium leading-snug">{holidayLabel(h, tHolidays)}</p>
-            <p className="flex flex-wrap items-center gap-x-[0.4em] text-[0.7em] tabular-nums text-muted-foreground">
+            <p className="hyphens-auto break-words home-body font-medium leading-snug">{holidayLabel(h, tHolidays)}</p>
+            <p className="flex flex-wrap items-center gap-x-[0.4em] home-meta tabular-nums text-muted-foreground">
               <span className="whitespace-nowrap">{day(h.date)}</span>
               {h.dayOff && (
                 <span className="inline-flex min-w-0 items-start gap-[0.25em] text-success">
@@ -58,7 +59,7 @@ export function HolidaysHomeWidget({ editing }: HomeWidgetProps) {
             </p>
           </div>
           <span
-            className={`shrink-0 rounded-full px-[0.6em] py-[0.15em] text-[0.7em] font-semibold tabular-nums ${
+            className={`shrink-0 rounded-full px-[0.6em] py-[0.15em] home-meta font-semibold tabular-nums ${
               isToday ? "bg-primary text-primary-foreground" : isSoon ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"
             }`}
           >
@@ -73,7 +74,7 @@ export function HolidaysHomeWidget({ editing }: HomeWidgetProps) {
   // nothing about it, and must not ask a family that chose one to choose.
   const noRegion = region === null && !isLoading && !isError;
   const empty = noRegion ? (
-    <Link href="/settings/holidays" className={`${TARGET_H} flex items-center text-[0.8em] text-muted-foreground hover:text-foreground`}>
+    <Link href="/settings/holidays" className={`${TARGET_H} flex items-center home-body text-muted-foreground hover:text-foreground`}>
       {t("noRegion")}
     </Link>
   ) : (
@@ -81,8 +82,8 @@ export function HolidaysHomeWidget({ editing }: HomeWidgetProps) {
   );
 
   return (
-    <HomeListFrame testId="home-widget-holidays" icon={CalendarHeart} title={t("title")} href="/calendar" editing={editing}>
+    <HomeCard list testId="home-widget-holidays" icon={CalendarHeart} title={t("title")} href="/calendar" editing={editing}>
       <HomeList items={entries} keyOf={keyOf} renderItem={renderItem} empty={empty} href="/calendar" />
-    </HomeListFrame>
+    </HomeCard>
   );
 }

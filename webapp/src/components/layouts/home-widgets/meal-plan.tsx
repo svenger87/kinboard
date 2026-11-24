@@ -4,8 +4,9 @@ import { useTranslations } from "next-intl";
 import { Clock, Utensils, UtensilsCrossed } from "lucide-react";
 import { MEAL_TYPE_COLORS, MEAL_TYPE_ICONS, usePrepTimeLabel, useTodayMeals } from "@/components/widgets/meal-plan-widget";
 import type { MealType } from "@/types/database";
-import { CountBadge, HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame } from "./list-shared";
+import { CountBadge, HOME_ROW, HomeEmptyLine, HomeList } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
+import { HomeCard } from "./frame";
 
 type Meal = ReturnType<typeof useTodayMeals>["todayMeals"][number];
 
@@ -30,8 +31,8 @@ export function MealPlanHomeWidget({ editing }: HomeWidgetProps) {
             <Icon className="size-[0.9em]" strokeWidth={1.75} aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="break-words text-[0.9em] font-medium leading-snug">{title}</p>
-            <p className="flex flex-wrap items-center gap-x-[0.5em] text-[0.7em] text-muted-foreground">
+            <p className="break-words home-body font-medium leading-snug">{title}</p>
+            <p className="flex flex-wrap items-center gap-x-[0.5em] home-meta text-muted-foreground">
               <span>{mealTypeLabels[mealType]}</span>
               {prepTime ? (
                 <span className="flex items-center gap-[0.2em] tabular-nums">
@@ -47,7 +48,7 @@ export function MealPlanHomeWidget({ editing }: HomeWidgetProps) {
   };
 
   return (
-    <HomeListFrame
+    <HomeCard list
       testId="home-widget-mealPlan"
       icon={Utensils}
       title={t("title")}
@@ -56,6 +57,6 @@ export function MealPlanHomeWidget({ editing }: HomeWidgetProps) {
       editing={editing}
     >
       <HomeList items={todayMeals} keyOf={keyOf} renderItem={renderItem} empty={<HomeEmptyLine text={t("emptyTitle")} />} href="/meals" />
-    </HomeListFrame>
+    </HomeCard>
   );
 }

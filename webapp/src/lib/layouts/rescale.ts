@@ -12,14 +12,20 @@
 import { GRID, gridFor, type Grid } from "./grid";
 import { HOME_WIDGETS } from "./widgets";
 import { collides, personOf, validateItems } from "./validate";
-import { firstFreeSpot, growToward, specOf } from "./place";
+import { firstFreeSpot, growToward, minOf as minAt, specOf } from "./place";
+import { growToMinimums } from "./home-fit";
+import type { SurfaceAt } from "./home-size";
 import type { HomeLayoutItem, HomeWidgetKey, LayoutItem, SaverWidgetKey, Surface, WidgetKeyOf } from "./types";
 
 /** Any placed box, of either surface. */
 type Item = LayoutItem<string>;
 
-/** The smallest box of an item's widget on a surface; a key the surface lacks has none. */
-const minOf = (i: Item, surface: Surface) => specOf(i.widget, surface)?.min ?? { w: 1, h: 1 };
+/** Where a box goes: Home on the area of `grid` (its minimums depend on it), or the screensaver. */
+const at = (surface: Surface, grid: { width: number; height: number }): SurfaceAt =>
+  surface === "home" ? { surface: "home", width: grid.width, height: grid.height } : surface;
+
+/** The smallest box of an item's widget on a surface, on the grid it is going to; a key the surface lacks has none. */
+const minOf = (i: Item, surface: Surface, grid: { width: number; height: number }) => minAt(i, at(surface, grid));
 
 export function rescaleItems<T extends Item = LayoutItem>(
   items: T[],
@@ -44,7 +50,7 @@ export function rescaleItems<T extends Item = LayoutItem>(
   const scaled = items.map((i) => {
     const y = edge(i.y);
     const bottom = edge(i.y + i.h);
-    return { ...i, y, h: Math.max(minOf(i, surface).h, bottom - y) };
+    return { ...i, y, h: Math.max(minOf(i, surface, to).h, bottom - y) };
   });
 
   const placed = new Map<string, T>();
@@ -102,13 +108,16 @@ export function fitItems(
   const dropped: string[] = [];
   const wellFormed: Item[] = [];
   for (const raw of items) {
-    const one = validateItems([raw], from.width, from.height, surface);
+    // A box under today's minimum is kept, to be grown (Home) or held (rescaleItems) below.
+    const one = validateItems([raw], from.width, from.height, surface, { minimums: false });
     if (one.ok) wellFormed.push(one.items[0]);
     else if (raw && typeof raw === "object" && typeof (raw as { id?: unknown }).id === "string") dropped.push((raw as { id: string }).id);
   }
   const rescaled = rescaleItems(wellFormed, a, b, surface);
   dropped.push(...rescaled.dropped);
   let kept = rescaled.items;
+  // Home: boxes under their minimum on the new grid grow, pushing what is below them down (home-fit.ts).
+  if (surface === "home") kept = growToMinimums(kept, to.width, to.height).items;
   for (;;) {
     const checked = validateItems(kept, to.width, to.height, surface);
     if (checked.ok) {
@@ -163,7 +172,7 @@ function placeDropped(
   for (const item of ordered) {
     // A second copy of a widget already on the screen stays dropped.
     if (usedWidgets.has(onceKey(item, surface))) continue;
-    const spec = specOf(item.widget, surface);
+    const spec = specOf(item.widget, at(surface, to), item.text);
     const spot = spec && firstFreeSpot([...kept, ...placed], spec.min, rows);
     if (!spot) continue;
     placed.push({ ...item, ...spot });
@@ -171,7 +180,7 @@ function placeDropped(
   }
   for (let n = 0; n < placed.length; n++) {
     const others = [...kept, ...placed.filter((_, m) => m !== n)];
-    const box = specOf(placed[n].widget, surface)?.box ?? placed[n];
+    const box = specOf(placed[n].widget, at(surface, to), placed[n].text)?.box ?? placed[n];
     placed[n] = { ...placed[n], ...growToward(placed[n], box, others, rows) };
   }
   const items = [...kept, ...placed];

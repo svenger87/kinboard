@@ -10,8 +10,9 @@ import { useNotes } from "@/hooks";
 import { useNoteActions } from "@/components/widgets/notes-widget";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import type { Note } from "@/types/database";
-import { CountBadge, HOME_ROW_BUTTON, HomeEmptyLine, HomeList, HomeListFrame, TARGET_SQ } from "./list-shared";
+import { CountBadge, HOME_ROW_BUTTON, HomeEmptyLine, HomeList, TARGET_SQ } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
+import { HOME_DIALOG_INPUT, HomeCard } from "./frame";
 
 const keyOf = (n: Note) => n.id;
 
@@ -42,8 +43,8 @@ export function NotesHomeWidget({ editing }: HomeWidgetProps) {
       <div className={HOME_ROW_BUTTON}>
         <div className="min-w-0 flex-1 py-[0.3em]">
           {/* At most three lines: a long note is read on /notes. */}
-          <p className="line-clamp-3 whitespace-pre-line break-words text-[0.9em] leading-snug">{note.content}</p>
-          <p className="text-[0.65em] text-muted-foreground">
+          <p className="line-clamp-3 whitespace-pre-line break-words home-body leading-snug">{note.content}</p>
+          <p className="home-meta text-muted-foreground">
             {formatDistanceToNow(new Date(note.created_at), { addSuffix: true, locale: dateLocale })}
           </p>
         </div>
@@ -63,21 +64,21 @@ export function NotesHomeWidget({ editing }: HomeWidgetProps) {
   const all = notes ?? [];
   return (
     <>
-      <HomeListFrame
+      <HomeCard list
         testId="home-widget-notes"
         icon={StickyNote}
         title={t("title")}
         href="/notes"
         badge={<CountBadge count={all.length} />}
         editing={editing}
-        actions={
+        right={
           <Button variant="ghost" size="icon" className={TARGET_SQ} onClick={() => setAdding(true)} aria-label={t("newNoteAria")}>
             <Plus className="size-[1em] text-muted-foreground" />
           </Button>
         }
       >
         <HomeList items={all} keyOf={keyOf} renderItem={renderItem} empty={<HomeEmptyLine text={t("emptyAction")} />} href="/notes" />
-      </HomeListFrame>
+      </HomeCard>
       {deleteDialog}
       <Dialog open={adding} onOpenChange={(open) => { setAdding(open); if (!open) setDraft(""); }}>
         <DialogContent>
@@ -97,7 +98,7 @@ export function NotesHomeWidget({ editing }: HomeWidgetProps) {
             placeholder={t("writePlaceholder")}
             aria-label={t("newNoteInputAria")}
             rows={3}
-            className="min-h-[6rem] w-full resize-none rounded-md border border-input bg-background p-3 text-base"
+            className={`min-h-[6rem] w-full resize-none rounded-md border border-input bg-background p-3 ${HOME_DIALOG_INPUT}`}
           />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setAdding(false)}>{tCommon("cancel")}</Button>

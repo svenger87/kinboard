@@ -7,8 +7,8 @@ import { HomeDataProvider } from "@/components/layouts/home-data-context";
 import { LISTS_WIDGETS } from "@/components/layouts/home-widgets/lists";
 import { HOME_WIDGET_COMPONENTS } from "@/components/layouts/home-widgets";
 import { useHomeData } from "@/hooks/use-home-data";
-import { boxRect, gridFor, textPx } from "@/lib/layouts/grid";
-import { HOME_WIDGETS } from "@/lib/layouts/widgets";
+import { boxRect, gridFor } from "@/lib/layouts/grid";
+import { homeMin, homeTextPx } from "@/lib/layouts/home-size";
 import type { HomeLayoutItem, HomeWidgetKey, TextSize } from "@/lib/layouts/types";
 
 /**
@@ -19,9 +19,11 @@ import type { HomeLayoutItem, HomeWidgetKey, TextSize } from "@/lib/layouts/type
  * `text` (S, M, L, XL). The boxes flow left to right, four steps apart.
  *
  * `probe=1` measures minimums instead: for a Home area of `sw`x`sh` px (a
- * screen less its nav bar), each widget in `widgets` (any Home list widget)
- * is drawn at its minimum width and at every height from 2 to `max` steps,
- * one column per widget, each box at that screen's pixel size and text size.
+ * screen less its nav bar), each widget in `widgets` (any Home widget) is
+ * drawn at its minimum width (homeMin) and at every height from `from` (2)
+ * to `max` steps, one column per widget, each box at that screen's pixel
+ * size and Home's text size. `data-probe-min` marks the box at its minimum;
+ * `full=1` draws every box full width instead.
  * Needs a family session. Not served in production.
  */
 
@@ -38,7 +40,7 @@ function items(params: URLSearchParams): HomeLayoutItem[] {
   let y = 0;
   let rowH = 0;
   for (const widget of keys) {
-    const min = HOME_WIDGETS[widget].min;
+    const min = homeMin(widget, text, WIDTH, HEIGHT);
     const w = Number(params.get("w")) || (size === "large" ? 24 : min.w);
     const h = Number(params.get("h")) || (size === "large" ? 20 : min.h);
     if (x + w > 48) {
@@ -63,6 +65,7 @@ function Boxes() {
       <LayoutGrid
         grid={grid}
         items={layout}
+        surface="home"
         render={(item, box) => {
           const Widget = LISTS_WIDGETS[item.widget]!;
           return <Widget item={item} box={box} editing={params.get("editing") === "1"} />;
@@ -82,18 +85,21 @@ function Probe({ params }: { params: URLSearchParams }) {
   const max = Number(params.get("max")) || 20;
   const keys = (params.get("widgets") ?? "").split(",").filter((k) => k in HOME_WIDGET_COMPONENTS) as HomeWidgetKey[];
   if (!grid) return <p data-testid="probe-no-grid">no grid</p>;
-  const font = textPx(text, sw, sh);
+  const font = homeTextPx(text, sw, sh);
+  const from = Math.max(1, Number(params.get("from")) || 2);
   let left = 0;
   return (
     <HomeDataProvider value={data}>
       {keys.map((widget) => {
         const Widget = HOME_WIDGET_COMPONENTS[widget]!;
-        const w = HOME_WIDGETS[widget].min.w;
+        const min = homeMin(widget, text, sw, sh);
+        // `full=1`: full width, as the clock block's pieces sit.
+        const w = params.get("full") === "1" ? 48 : min.w;
         const width = Math.round(boxRect({ x: 0, y: 0, w, h: 2 }, grid).width);
         const x = left;
         left += width + 16;
         let top = 0;
-        return Array.from({ length: max - 1 }, (_, i) => i + 2).map((h) => {
+        return Array.from({ length: Math.max(0, max - from + 1) }, (_, i) => i + from).map((h) => {
           const height = Math.round(boxRect({ x: 0, y: 0, w, h }, grid).height);
           const y = top;
           top += height + 16;
@@ -103,7 +109,8 @@ function Probe({ params }: { params: URLSearchParams }) {
               key={item.id}
               data-probe={widget}
               data-probe-h={h}
-              style={{ position: "absolute", left: x, top: y, width, height, overflow: "hidden", fontSize: font }}
+              data-probe-min={h === min.h || undefined}
+              style={{ position: "absolute", left: x, top: y, width, height, overflow: "hidden", fontSize: font, ["--kb-em" as string]: `${font}px` }}
             >
               <Widget item={item} box={{ width, height }} />
             </div>

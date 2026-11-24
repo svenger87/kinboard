@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useState, type KeyboardEvent } from "react";
 import { useTranslations } from "next-intl";
 import {
   AlignCenterHorizontal,
@@ -21,10 +21,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { specOf } from "@/lib/layouts/place";
+import { surfaceOf, type SurfaceAt } from "@/lib/layouts/home-size";
 import { VALUE_FILL } from "@/lib/layouts/grid";
 import { autoAlign, storedAlign, type Align } from "@/lib/layouts/align";
 import type { AlignEdge, ArrangeReason, Box } from "@/lib/layouts/arrange";
-import type { LayoutItem, Surface, TextSize } from "@/lib/layouts/types";
+import type { LayoutItem, TextSize } from "@/lib/layouts/types";
 
 /** A placed box of either surface. */
 type Item = LayoutItem<string>;
@@ -168,8 +169,10 @@ export function EditorInspector({
   onRemove,
   onArrange,
   onBox,
+  onFit,
 }: {
-  surface?: Surface;
+  /** On Home with the layout's area: a widget's minimum follows it and the box's text size (home-size.ts). */
+  surface?: SurfaceAt;
   item: Item | null;
   count: number;
   disabled: boolean;
@@ -181,12 +184,25 @@ export function EditorInspector({
   onArrange: (command: ArrangeCommand) => void;
   /** The selected box put at these numbers: null when done, else why not. */
   onBox: (box: Box) => ArrangeReason | null;
+  /**
+   * Grows every box under its minimum to fit (the layout's "Fit"), moving
+   * what is below; false when there is no room to. Offered while the
+   * selected box is under its minimum.
+   */
+  onFit?: () => boolean;
 }) {
   const t = useTranslations("settings.layouts.editor.inspector");
-  const spec = item ? specOf(item.widget, surface) : undefined;
+  const plain = surfaceOf(surface);
+  const spec = item ? specOf(item.widget, surface, item.text) : undefined;
   const isValue = spec?.kind === "value";
   // Where a value sits across its box is a screensaver setting: Home's values fill theirs.
-  const canAlign = isValue && surface === "screensaver";
+  const canAlign = isValue && plain === "screensaver";
+  // A value that fills its box (the screensaver's, Home's clock) gets larger with the box, not the text size.
+  const fills = isValue && (plain === "screensaver" || item?.widget === "clock");
+  const below = !!item && !!spec && (item.w < spec.min.w || item.h < spec.min.h);
+  const [fitFailed, setFitFailed] = useState(false);
+  const selectedId = item?.id;
+  useEffect(() => setFitFailed(false), [selectedId]);
 
   return (
     <Card className="flex flex-col gap-4 p-4" data-testid="inspector">
@@ -228,6 +244,23 @@ export function EditorInspector({
       ) : (
         <>
           <h2 className="font-display text-base font-semibold" data-testid="inspector-title">{label(item)}</h2>
+          {below && (
+            <div className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3" data-testid="inspector-below-minimum">
+              <p className="text-xs text-destructive">{t("belowMinimum", { w: spec!.min.w, h: spec!.min.h })}</p>
+              {onFit && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={disabled}
+                  data-testid="inspector-fit"
+                  onClick={() => setFitFailed(!onFit())}
+                >
+                  {t("fit")}
+                </Button>
+              )}
+              {fitFailed && <p className="text-xs text-muted-foreground" data-testid="inspector-fit-failed">{t("fitFailed")}</p>}
+            </div>
+          )}
           <BoxFields key={item.id} item={item} min={spec?.min ?? { w: 1, h: 1 }} disabled={disabled} onBox={onBox} />
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium" id="inspector-text-size">
@@ -247,14 +280,14 @@ export function EditorInspector({
                   className="flex-1"
                   data-testid={`text-size-${s}`}
                   aria-label={t(`textSizes.${s}`)}
-                  // A value widget already fills its box at M: larger needs a larger box.
-                  disabled={isValue && VALUE_FILL[s] === 1 && s !== "M"}
+                  // A value widget that fills its box already does at M: larger needs a larger box.
+                  disabled={fills && VALUE_FILL[s] === 1 && s !== "M"}
                 >
                   {s}
                 </SegmentedControlItem>
               ))}
             </SegmentedControl>
-            {isValue && (
+            {fills && (
               <p className="text-xs text-muted-foreground" data-testid="inspector-fills-box">
                 {t("fillsBox")}
               </p>

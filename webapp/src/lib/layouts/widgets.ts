@@ -51,11 +51,33 @@ export const SAVER_WIDGETS: Record<SaverWidgetKey, WidgetSpec> = {
  */
 export type HomeWidgetKind = WidgetSpec["kind"] | "value+fixed";
 
+/**
+ * What a Home widget needs to be complete, in px, given its text size in px
+ * (`em`, the box's font size, homeTextPx). Touch targets are 48px whatever
+ * the text size (RFC-022 §3.3), so a need is ems of text with 48px floors,
+ * not a number of grid steps: a step is 1/48 of the layout's width, and the
+ * same steps are 38px on a 1920x1080 panel and 21px on the same panel
+ * turned to portrait, while the text follows the short side and stays put.
+ * home-size.ts turns a need into steps for a layout's own grid.
+ */
+export type HomeNeed = (em: number) => { w: number; h: number };
+
 export interface HomeWidgetSpec {
   kind: HomeWidgetKind;
-  /** Smallest box, in steps. */
-  min: { w: number; h: number };
-  /** The box it is dropped with, in steps. */
+  /** The smallest box, in px at a text size (see HomeNeed). */
+  need: HomeNeed;
+  /**
+   * The size it is drawn at on today's Home, when that is more than its
+   * smallest: the built-in Home starts it there (the members with names and
+   * status lines under their avatars; at the minimum they sit beside them).
+   */
+  comfort?: HomeNeed;
+  /**
+   * A floor in steps, whatever the pixels: the week overview spans two
+   * columns of today's Home (24 steps, RFC-022 §3.1).
+   */
+  floor?: { w: number; h: number };
+  /** The box it is dropped with, in steps, when that is more than its minimum. */
   box: { w: number; h: number };
   /**
    * One widget per child (`options.personId`, a person of the family). The
@@ -66,52 +88,105 @@ export interface HomeWidgetSpec {
   clockBlock?: true;
 }
 
-/** A Home widget's spec, given directly in steps: Home's minimums are not all whole cells. */
-const home = (kind: HomeWidgetKind, w: number, h: number, box: { w: number; h: number }, extra: Pick<HomeWidgetSpec, "perChild" | "clockBlock"> = {}): HomeWidgetSpec => ({
-  kind, min: { w, h }, box, ...extra,
-});
+/** A touch target's side on Home, whatever the text size (RFC-022 §3.3). */
+export const HOME_TARGET = 48;
+const T = HOME_TARGET;
+const target = (ems: number, em: number) => Math.max(T, ems * em);
 
 /**
- * Home's widgets, in steps (48 across, four to a cell). Every card stays
- * usable at its minimum: a fixed widget fits its smallest arrangement, and a
- * list its title, one entry and its "+n" (two entries for tasks and
- * shopping, which are ticked off there) at text XL on every landscape screen
- * of the matrix -- measured by e2e/home-list-widgets-ui.spec.ts, capped so
- * today's Home still fits its one row of cards on 1920x1080 (11 steps, and the
- * today strip's 2 in the block above it). A capped list shows less at XL. On a portrait
- * screen a list at its minimum and at XL shows its title and count only: the
- * box is too narrow for an entry at that size, and the title is its link. A card's minimum width is at most 12
- * steps (a quarter of the screen, a column of today's four), except the
- * week overview, which needs its seven columns (24 steps, RFC-022 §3.1).
+ * The card every Home widget is drawn in (home-widgets/frame.tsx), as
+ * today's Home card: 0.89em of padding all round, a title row as tall as
+ * its icon badge (2.23em, 40px at M), whose 48px target reaches 4px into
+ * the padding above and below, and 0.56em under it.
+ */
+const PAD = 0.89;
+const headerRow = (em: number) => Math.max(T - 8, 2.23 * em) + 0.56 * em;
+
+/**
+ * A list card: its title row, `entries` entries, the 48px "+n", the card's
+ * padding and border, and the 6px between rows (HOME_ROW_GAP). An entry is
+ * `entry` em tall at large text and a 48px row (and its 1px borders) plus
+ * `lead` em at small text, where its target sets its height and a heading
+ * or second line comes on top: the tallest entry the widget draws at the
+ * minimum width. Measured by e2e/home-list-widgets-ui.spec.ts on nine
+ * screens at S, M and XL (the first height that holds, less a step).
+ */
+const list = (entry: number, entries = 1, lead = 0): HomeNeed => (em) => ({
+  w: LIST_W * em,
+  h: 2 * PAD * em + 2 + headerRow(em) + entries * (Math.max(T + 2 + lead * em, entry * em) + 6) + target(1.3, em),
+});
+/** A list card's smallest width in em: a title with its count, an entry's text on two lines. */
+const LIST_W = 14;
+/**
+ * A fixed card: its arrangement at the text size, `w` by `h` em with its
+ * padding, and at least its title row with a line under it (its set-up
+ * prompt, a title and a hint); `minW` px across at least (a row of 48px
+ * buttons).
+ */
+const card = (w: number, h: number, minW = 0): HomeNeed => (em) => ({
+  w: Math.max(minW, w * em),
+  h: Math.max(h * em, 2 * PAD * em + 2 + headerRow(em) + target(1.2, em)),
+});
+
+const home = (
+  kind: HomeWidgetKind,
+  need: HomeNeed,
+  box: { w: number; h: number },
+  extra: Pick<HomeWidgetSpec, "perChild" | "clockBlock" | "floor" | "comfort"> = {},
+): HomeWidgetSpec => ({ kind, need, box, ...extra });
+
+/**
+ * Home's widgets. Minimums are what the content needs at the box's text
+ * size (HomeNeed), so the same widget gets about twice the steps on a
+ * portrait panel as on the same panel in landscape, and more at XL than at
+ * M. Every card stays usable at its minimum: a value at its text size, a
+ * fixed widget in its smallest arrangement without shrinking, a list its
+ * title, one entry and its "+n" (two entries for tasks and shopping, which
+ * are ticked off there). The clock block's pieces need what they had on
+ * the old Home: the date on one line with its week badge (a 48px target),
+ * the greeting's line, each member with avatar, name and status line, the
+ * today strip's row of pills. Measured on every screen of the matrix by
+ * e2e/home-list-widgets-ui.spec.ts and pinned by e2e/home-size.spec.ts.
+ * `box` is the size a widget is dropped with, in steps, where that is more
+ * than its minimum.
  */
 export const HOME_WIDGETS: Record<HomeWidgetKey, HomeWidgetSpec> = {
   // The clock block, taken apart. Dropped full width, as they sit today.
-  clock: home("value", 16, 4, { w: 48, h: 8 }, { clockBlock: true }),
-  date: home("value", 12, 2, { w: 48, h: 2 }, { clockBlock: true }),
-  greeting: home("value", 12, 2, { w: 48, h: 2 }, { clockBlock: true }),
-  familyMembers: home("fixed", 16, 3, { w: 48, h: 4 }, { clockBlock: true }),
-  todayStrip: home("list", 16, 2, { w: 48, h: 2 }, { clockBlock: true }),
+  // The clock fills its box; at its smallest the digits are 2.6em tall and the time a 48px button.
+  clock: home("value", (em) => ({ w: 6 * em, h: target(2.6, em) }), { w: 48, h: 8 }, { clockBlock: true }),
+  // One line: weekday, day and month at 0.9em, the week badge's 48px button beside it.
+  date: home("value", (em) => ({ w: 15 * em, h: target(1.4, em) }), { w: 48, h: 2 }, { clockBlock: true }),
+  // One line at 0.9em.
+  greeting: home("value", (em) => ({ w: 9 * em, h: 1.4 * em }), { w: 48, h: 2 }, { clockBlock: true }),
+  // Each member's avatar (3.5em, 48px at least) with name and status line: beside it at
+  // the minimum, under it as on today's Home (comfort).
+  familyMembers: home("fixed", (em) => ({ w: 24 * em, h: target(3.5, em) }), { w: 48, h: 4 }, {
+    clockBlock: true,
+    comfort: (em) => ({ w: 16 * em, h: target(3.5, em) + 2.6 * em }),
+  }),
+  // One row of pills, or the 48px "+n".
+  todayStrip: home("list", (em) => ({ w: 14 * em, h: target(2.1, em) }), { w: 48, h: 2 }, { clockBlock: true }),
   // The cards of Settings -> Widgets.
-  weather: home("value+fixed", 8, 4, { w: 12, h: 8 }),
-  upcomingEvents: home("list", 12, 9, { w: 12, h: 12 }),
-  schedule: home("fixed", 12, 8, { w: 12, h: 12 }, { perChild: true }),
-  birthday: home("list", 12, 10, { w: 12, h: 10 }),
-  holidays: home("list", 12, 10, { w: 12, h: 10 }),
-  weekOverview: home("fixed", 24, 8, { w: 24, h: 12 }),
-  mealPlan: home("list", 12, 10, { w: 12, h: 12 }),
-  wasteCollection: home("list", 12, 11, { w: 12, h: 11 }),
-  notes: home("list", 12, 11, { w: 12, h: 12 }),
-  tasks: home("list", 12, 11, { w: 12, h: 12 }),
-  shopping: home("list", 12, 10, { w: 12, h: 12 }),
-  vehicles: home("fixed", 8, 4, { w: 12, h: 8 }),
-  stonks: home("fixed", 8, 4, { w: 12, h: 8 }),
-  pocketMoney: home("value", 8, 4, { w: 12, h: 8 }, { perChild: true }),
-  creatures: home("fixed", 12, 8, { w: 12, h: 12 }),
-  photos: home("fixed", 8, 8, { w: 12, h: 12 }),
-  timers: home("fixed", 12, 6, { w: 12, h: 8 }),
-  media: home("fixed", 12, 6, { w: 12, h: 8 }),
-  messages: home("list", 12, 8, { w: 12, h: 12 }),
-  countdown: home("list", 12, 8, { w: 12, h: 8 }),
+  weather: home("value+fixed", card(9, 4.1), { w: 12, h: 8 }),
+  upcomingEvents: home("list", list(2.9, 1, 0.9), { w: 12, h: 12 }),
+  schedule: home("fixed", card(13.8, 9), { w: 12, h: 12 }, { perChild: true }),
+  birthday: home("list", list(3.3), { w: 12, h: 10 }),
+  holidays: home("list", list(3.3), { w: 12, h: 10 }),
+  weekOverview: home("fixed", card(18, 9), { w: 24, h: 12 }, { floor: { w: 24, h: 1 } }),
+  mealPlan: home("list", list(2.8), { w: 12, h: 12 }),
+  wasteCollection: home("list", list(5.1), { w: 12, h: 11 }),
+  notes: home("list", list(4.1, 1, 0.8), { w: 12, h: 12 }),
+  tasks: home("list", list(3, 2, 0.6), { w: 12, h: 12 }),
+  shopping: home("list", list(2.4, 2, 0.3), { w: 12, h: 12 }),
+  vehicles: home("fixed", card(9, 4.1), { w: 12, h: 8 }),
+  stonks: home("fixed", card(9, 4.1), { w: 12, h: 8 }),
+  pocketMoney: home("value", card(9, 5.2), { w: 12, h: 8 }, { perChild: true }),
+  creatures: home("fixed", card(13.8, 9), { w: 12, h: 12 }),
+  photos: home("fixed", card(9, 9), { w: 12, h: 12 }),
+  timers: home("fixed", card(20, 6.5, 320), { w: 12, h: 8 }),
+  media: home("fixed", card(13.8, 6.5), { w: 12, h: 8 }),
+  messages: home("list", list(2.5), { w: 12, h: 12 }),
+  countdown: home("list", list(1.9), { w: 12, h: 8 }),
 };
 
 /** The catalogue of a surface. */
