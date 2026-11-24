@@ -77,12 +77,18 @@ const spaceMono = localFont({
 // the picker's cards (and any future preview) can name it directly while
 // another style is remapping --font-display / --font-sans.
 
+// None of these faces is preloaded. Next.js preloads every local font a
+// root layout names, on every page, so without `preload: false` each device
+// would fetch all of them (about 5 MB, most of it the Chinese faces) whether
+// or not the family ever picks one. The browser fetches a face only when a
+// rule that uses it applies, i.e. once it has been picked.
 const fredoka = localFont({
   src: "../assets/fonts/fredoka/Fredoka-wght.woff2",
   weight: "300 700",
   style: "normal",
   variable: "--font-display-rounded",
   display: "swap",
+  preload: false,
   adjustFontFallback: false,
 });
 
@@ -92,6 +98,7 @@ const quicksand = localFont({
   style: "normal",
   variable: "--font-sans-rounded",
   display: "swap",
+  preload: false,
   adjustFontFallback: false,
 });
 
@@ -101,6 +108,7 @@ const interDisplay = localFont({
   style: "normal",
   variable: "--font-display-clean",
   display: "swap",
+  preload: false,
   adjustFontFallback: false,
 });
 
@@ -110,6 +118,7 @@ const interSans = localFont({
   style: "normal",
   variable: "--font-sans-clean",
   display: "swap",
+  preload: false,
   adjustFontFallback: false,
 });
 
@@ -119,6 +128,7 @@ const fraunces = localFont({
   style: "normal",
   variable: "--font-display-serif",
   display: "swap",
+  preload: false,
   adjustFontFallback: false,
 });
 
@@ -128,6 +138,7 @@ const bricolageGrotesqueClassic = localFont({
   style: "normal",
   variable: "--font-display-classic",
   display: "swap",
+  preload: false,
   adjustFontFallback: false,
   fallback: ["Bricolage Grotesque Fallback"],
 });
@@ -138,6 +149,7 @@ const hankenGroteskClassic = localFont({
   style: "normal",
   variable: "--font-sans-classic",
   display: "swap",
+  preload: false,
   adjustFontFallback: false,
   fallback: ["Hanken Grotesk Fallback"],
 });
@@ -164,6 +176,7 @@ const notoSansSC = localFont({
   style: "normal",
   variable: "--font-cjk-noto-sans",
   display: "swap",
+  preload: false,
   adjustFontFallback: false,
 });
 
@@ -173,6 +186,7 @@ const notoSerifSC = localFont({
   style: "normal",
   variable: "--font-cjk-noto-serif",
   display: "swap",
+  preload: false,
   adjustFontFallback: false,
 });
 
@@ -182,6 +196,7 @@ const zcoolKuaile = localFont({
   style: "normal",
   variable: "--font-cjk-zcool-kuaile",
   display: "swap",
+  preload: false,
   adjustFontFallback: false,
 });
 
