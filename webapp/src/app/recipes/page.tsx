@@ -660,6 +660,8 @@ function RecipeCard({
               <img
                 src={recipe.image_url}
                 alt={recipe.title}
+                loading="lazy"
+                decoding="async"
                 className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
             ) : (

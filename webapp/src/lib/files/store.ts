@@ -20,7 +20,8 @@ import { Readable } from "node:stream";
  */
 
 /** Buckets anyone may read by URL — what storage-api's public buckets were. */
-export const PUBLIC_BUCKETS = ["recipe-images", "vehicle-images", "goal-images", "device-images"] as const;
+// shopping-images holds kept copies of pictures that shopping items took from the web (lib/recipe-image-keep.ts).
+export const PUBLIC_BUCKETS = ["recipe-images", "vehicle-images", "goal-images", "device-images", "shopping-images"] as const;
 /** Buckets read only through a signed URL (lib/files/signed.ts). */
 export const PRIVATE_BUCKETS = ["family-photos"] as const;
 

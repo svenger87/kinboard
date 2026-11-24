@@ -1,5 +1,6 @@
 "use client";
 
+import { useKeepRemoteImages } from "./use-keep-remote-images";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useFamilyStore } from "@/stores/family-store";
@@ -90,7 +91,7 @@ export function useRecipes(options?: { favorites?: boolean }) {
   const supabase = createClient();
   const { family } = useFamilyStore();
 
-  return useQuery({
+  const result = useQuery({
     queryKey: options?.favorites
       ? recipeQueryKeys.favorites(family?.id ?? "")
       : recipeQueryKeys.all(family?.id ?? ""),
@@ -118,6 +119,9 @@ export function useRecipes(options?: { favorites?: boolean }) {
     },
     enabled: !!family?.id,
   });
+  // Pictures still on someone else's server are brought onto ours in the background.
+  useKeepRemoteImages("recipe", result.data, ["recipes"]);
+  return result;
 }
 
 // Fetch a single recipe with all details
@@ -125,7 +129,7 @@ export function useRecipe(recipeId: string | null) {
   const supabase = createClient();
   const { family } = useFamilyStore();
 
-  return useQuery({
+  const result = useQuery({
     queryKey: recipeQueryKeys.detail(family?.id ?? "", recipeId ?? ""),
     queryFn: async (): Promise<RecipeWithIngredients | null> => {
       if (!recipeId) return null;
@@ -149,6 +153,8 @@ export function useRecipe(recipeId: string | null) {
     },
     enabled: !!family?.id && !!recipeId,
   });
+  useKeepRemoteImages("recipe", result.data ? [result.data] : null, ["recipes"]);
+  return result;
 }
 
 // Search recipes

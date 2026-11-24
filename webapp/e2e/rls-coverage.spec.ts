@@ -88,7 +88,11 @@ test("every family-scoped table is under row-level security", () => {
   //   authenticated (realtime needs it), in
   //   migrations/058_assistant_actions.sql — verified below. A screen's token
   //   must never be able to UPDATE a request into "approved" past the PIN.
+  // - kept_images: RLS on with no policy, and REVOKE ALL from PUBLIC, anon and
+  //   authenticated in migrations/093_kept_images.sql: only the service role
+  //   reaches it. recipe-image-keep.spec.ts pins those statements.
   const coveredElsewhere = new Set([
+    "kept_images",
     "context_rules", "attention_items",
     "integration_tokens", "integration_clients",
     "integration_idempotency", "domain_events",
