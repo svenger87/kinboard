@@ -46,6 +46,23 @@
  *   layout    a screen at least 600px wide (with 6 rows) that shows the
  *             built-in screensaver, or a narrower one that shows the layout
  *
+ * The home-layout view (opt-in, RFC-022) does the same for Home: on every
+ * screen a layout whose Home is builtInHome(w, h) (lib/layouts/built-in.ts)
+ * for that screen's grid area (the screen less the navigation bar, measured
+ * on the built-in Home first), created through the API and assigned to the
+ * matrix device, which is not a kiosk: an assigned layout applies to any
+ * screen at least 600px wide. Narrower screens get a layout too and must keep
+ * the built-in Home. Its checks are the saver-layout ones measured against the
+ * grid area instead of the whole screen, plus:
+ *
+ *   overflow  the page taller than the screen (a designed Home never scrolls)
+ *   touch     a tap target inside a box smaller than 48px either way
+ *   layout    the designed Home missing on a screen that holds a grid, or
+ *             shown on one under 600px wide
+ *
+ * The views home, saver and saver-large never assign a layout, so their shots
+ * are the built-in Home and screensavers whatever this view does.
+ *
  * Output: one PNG per shot, report.json, and index.html, a contact sheet
  * with every shot and its findings side by side.
  *
@@ -65,6 +82,7 @@
  *   node scripts/screen-matrix.mjs --base http://localhost:3157 --code DEMO01
  *   node scripts/screen-matrix.mjs --only portrait-1080 --locales de --views saver-large
  *   node scripts/screen-matrix.mjs --code DEMO01 --views saver,saver-large,saver-layout
+ *   node scripts/screen-matrix.mjs --code DEMO01 --views home,home-layout
  *
  * Options:
  *   --base URL        the app (default http://localhost:3157)
@@ -72,7 +90,7 @@
  *   --out DIR         output (default e2e/screen-matrix)
  *   --only a,b        screen ids to run (default all)
  *   --locales a,b     de,en,fr by default
- *   --views a,b       home,saver,saver-large by default; saver-layout on request
+ *   --views a,b       home,saver,saver-large by default; saver-layout and home-layout on request
  *   --pin PIN         the family's settings PIN, if it has one (or $KINBOARD_SETTINGS_PIN)
  *   --db CONTAINER    database container (default $KINBOARD_DB_CONTAINER or kbfresh-db)
  *   --strict          exit 1 when any shot has a finding
@@ -81,6 +99,10 @@ import { chromium, request as pwRequest } from "playwright";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+// The app's own TypeScript, for the built-in Home (home-layout view): jiti is
+// already installed (eslint and tailwind load their configs with it).
+import createJiti from "jiti";
 
 // ---------------------------------------------------------------- options
 
@@ -121,7 +143,7 @@ const SCREENS = [
   { id: "desktop-1440", label: "Desktop 2560×1440", width: 2560, height: 1440, scale: 1 },
 ];
 const VIEWS = ["home", "saver", "saver-large"];
-const ALL_VIEWS = [...VIEWS, "saver-layout"];
+const ALL_VIEWS = [...VIEWS, "saver-layout", "home-layout"];
 const LOCALES = ["de", "en", "fr"];
 
 const screens = SCREENS.filter((s) => list("only", null)?.includes(s.id) ?? true);
@@ -376,12 +398,64 @@ const layoutShots = (screen, fx) =>
     ? [["saver-layout", fx.portrait], ["saver-layout-min", fx.min]]
     : [["saver-layout", fx.landscape]];
 
+/**
+ * The designed Home's root (components/layouts/designed-home.tsx); its boxes
+ * are LayoutGrid's [data-layout-item], and the root covers the grid area.
+ * TODO(RFC-022 step 5, feat/rfc022-designed-home): confirm the test id once
+ * step 5 lands.
+ */
+const DESIGNED_HOME = "[data-testid=designed-home]";
+
+/**
+ * A designed Home renders only once every Home widget has a component in a
+ * box (missingHomeWidgets() is empty), or in the e2e test mode. This is where
+ * the matrix would open that gate for its own browser context.
+ * TODO(RFC-022 step 5, feat/rfc022-designed-home): step 5 defines the
+ * test-only bypass; switch it on here with exactly its mechanism. Until then
+ * nothing is done, so before every widget exists the view reports "layout:
+ * expected the designed Home" on each screen that holds a grid.
+ */
+async function allowDesignedHome(_ctx) {
+  return false;
+}
+
+/** The app's layout code (TypeScript), loaded on first use. */
+let layoutLib = null;
+function layoutCode() {
+  if (!layoutLib) {
+    const jiti = createJiti(fileURLToPath(import.meta.url));
+    layoutLib = {
+      ...jiti("../src/lib/layouts/built-in.ts"),
+      ...jiti("../src/lib/layouts/grid.ts"),
+      ...jiti("../src/lib/layouts/validate.ts"),
+    };
+  }
+  return layoutLib;
+}
+
+/**
+ * The size a Home layout is drawn for on a screen: its grid area. A screen
+ * whose area holds no grid (under 600px wide, or too few rows) gets the
+ * built-in Home whatever is assigned; it is given a layout of its orientation
+ * all the same, so the shot proves it is not drawn.
+ */
+function homeLayoutSize(screen, navHeight) {
+  const area = { width: screen.width, height: screen.height - navHeight };
+  if (layoutCode().gridFor(area.width, area.height)) return { ...area, holds: true };
+  return { ...(screen.height > screen.width ? { width: 1080, height: 1848 } : { width: 1920, height: 1008 }), holds: false };
+}
+
+/** Home layouts made this run, by size: the same size is shared by every locale. */
+const homeLayouts = new Map();
+
 // ---------------------------------------------------------------- measuring
 
 /** Runs in the page: boxes and findings for the current view. */
-function measure({ view, edge, tolerance }) {
+function measure({ view, edge, tolerance, homeRoot }) {
   const W = innerWidth;
   const H = innerHeight;
+  // home-layout is measured as Home when the screen draws the built-in one.
+  const homeView = view === "home" || view === "home-layout";
   const box = (el) => {
     const r = el.getBoundingClientRect();
     return { x: r.left, y: r.top, w: r.width, h: r.height, right: r.right, bottom: r.bottom };
@@ -397,13 +471,19 @@ function measure({ view, edge, tolerance }) {
   if (doc.scrollWidth > W + 1) findings.push({ kind: "overflow", text: `page ${doc.scrollWidth - W}px wider than the screen` });
 
   // A designed screensaver, when the view asked for one and the screen draws it.
-  const layoutRoot = view.startsWith("saver-layout") ? document.querySelector("[data-testid=designed-screensaver]") : null;
+  const layoutRoot = view.startsWith("saver-layout") ? document.querySelector("[data-testid=designed-screensaver]")
+    : view === "home-layout" ? document.querySelector(homeRoot) : null;
+  const designedHome = !!layoutRoot && view === "home-layout";
   let blocks = [];
-  if (layoutRoot) {
+  if (designedHome) {
+    // Per-child widgets share a widget key; the item id tells them apart.
+    blocks = [...layoutRoot.querySelectorAll("[data-layout-item]")].filter(visible).map((el) => ({ name: el.dataset.layoutId || el.dataset.layoutItem, el }));
+    if (doc.scrollHeight > H + 1) findings.push({ kind: "overflow", text: `Home scrolls: the page is ${doc.scrollHeight - H}px taller than the screen` });
+  } else if (layoutRoot) {
     blocks = [...layoutRoot.querySelectorAll("[data-layout-item]")].filter(visible).map((el) => ({ name: el.dataset.layoutItem, el }));
     const saver = layoutRoot.closest(".fixed");
     if (saver && saver.scrollHeight > H + 1) findings.push({ kind: "overflow", text: `screensaver ${saver.scrollHeight - H}px taller than the screen` });
-  } else if (view === "home") {
+  } else if (homeView) {
     const grid = document.querySelector(".festival-grid");
     blocks = grid ? [...grid.children].filter((el) => visible(el) && getComputedStyle(el).position !== "fixed").map((el, i) => ({ name: el.querySelector("h2,h3,[data-widget]")?.textContent?.trim()?.slice(0, 24) || `widget ${i + 1}`, el })) : [];
     const hero = document.querySelector(".hero-block");
@@ -416,7 +496,7 @@ function measure({ view, edge, tolerance }) {
   const boxes = blocks.map((b) => ({ name: b.name, ...box(b.el) }));
 
   for (const b of boxes) {
-    if (b.x < -1 || b.right > W + 1 || (view !== "home" && (b.y < -1 || b.bottom > H + 1))) {
+    if (b.x < -1 || b.right > W + 1 || ((!homeView || designedHome) && (b.y < -1 || b.bottom > H + 1))) {
       findings.push({ kind: "offscreen", text: `${b.name} reaches past the screen (${Math.round(b.x)},${Math.round(b.y)} → ${Math.round(b.right)},${Math.round(b.bottom)})` });
     }
   }
@@ -435,11 +515,17 @@ function measure({ view, edge, tolerance }) {
   if (layoutRoot) {
     // The screen's grid, as lib/layouts/grid.ts computes it: 12 cells across,
     // 24px gaps between boxes, positions in quarter-cell steps (48 columns).
+    // A designed Home's grid covers its root (the screen less the navigation
+    // bar), and its cell is also limited by the area's height, as gridFor()
+    // does; the screensaver's covers the screen.
     const GAP = 24, COLS = 12;
-    const cell = Math.floor((W - 2 * edge - (COLS - 1) * GAP) / COLS);
-    const rows = Math.floor((H - 2 * edge + GAP) / (cell + GAP));
-    const ox = edge + (W - 2 * edge - (COLS * cell + (COLS - 1) * GAP)) / 2;
-    const oy = edge + (H - 2 * edge - (rows * cell + (rows - 1) * GAP)) / 2;
+    const ar = designedHome ? layoutRoot.getBoundingClientRect() : null;
+    const area = ar ? { left: ar.left, top: ar.top, w: ar.width, h: ar.height } : { left: 0, top: 0, w: W, h: H };
+    let cell = Math.floor((area.w - 2 * edge - (COLS - 1) * GAP) / COLS);
+    if (designedHome) cell = Math.min(cell, Math.floor((area.h - 2 * edge - 5 * GAP) / 6));
+    const rows = Math.floor((area.h - 2 * edge + GAP) / (cell + GAP));
+    const ox = area.left + edge + (area.w - 2 * edge - (COLS * cell + (COLS - 1) * GAP)) / 2;
+    const oy = area.top + edge + (area.h - 2 * edge - (rows * cell + (rows - 1) * GAP)) / 2;
     const step = (cell + GAP) / 4;
     const onGrid = (v) => Math.abs(v - Math.round(v)) * step <= tolerance;
     for (const b of boxes) {
@@ -448,10 +534,10 @@ function measure({ view, edge, tolerance }) {
     }
     if (boxes.length) {
       const outer = {
-        left: Math.min(...boxes.map((b) => b.x)),
-        top: Math.min(...boxes.map((b) => b.y)),
-        right: W - Math.max(...boxes.map((b) => b.right)),
-        bottom: H - Math.max(...boxes.map((b) => b.bottom)),
+        left: Math.min(...boxes.map((b) => b.x)) - area.left,
+        top: Math.min(...boxes.map((b) => b.y)) - area.top,
+        right: area.left + area.w - Math.max(...boxes.map((b) => b.right)),
+        bottom: area.top + area.h - Math.max(...boxes.map((b) => b.bottom)),
       };
       edges.outer = Object.fromEntries(Object.entries(outer).map(([k, v]) => [k, Math.round(v)]));
       edges.grid = { cell, rows, x: Math.round(ox), y: Math.round(oy) };
@@ -487,8 +573,27 @@ function measure({ view, edge, tolerance }) {
         if (more > 0 && !(plus && visible(plus))) findings.push({ kind: "list", text: `${b.name}: ${more} entries left out without a "+n"` });
         if (more > 0 && shown < 2) findings.push({ kind: "list", text: `${b.name}: ${shown} entr${shown === 1 ? "y" : "ies"} shown of ${shown + more}` });
       }
+      // Home is touched: every tap target in a box stays at least 48px
+      // (RFC-022 §3.3). A target inside another (a checkbox in its row's
+      // button) counts as the outer one.
+      if (designedHome) {
+        const TARGET = 'a[href], button, input:not([type=hidden]), select, textarea, [role=button], [role=checkbox], [role=link], [role=switch], [tabindex]:not([tabindex="-1"])';
+        const small = [...el.querySelectorAll(TARGET)].filter((t) => {
+          if (!visible(t)) return false;
+          const outer = t.parentElement?.closest(TARGET);
+          if (outer && el.contains(outer)) return false;
+          const tr = t.getBoundingClientRect();
+          return tr.width < 48 - tolerance || tr.height < 48 - tolerance;
+        });
+        if (small.length) {
+          const t = small[0];
+          const tr = t.getBoundingClientRect();
+          const label = (t.getAttribute("aria-label") || t.textContent || "").trim().slice(0, 24);
+          findings.push({ kind: "touch", text: `${b.name}: ${small.length} tap target(s) under 48px, e.g. ${t.tagName.toLowerCase()} "${label}" ${Math.round(tr.width)}×${Math.round(tr.height)}px` });
+        }
+      }
     }
-  } else if (view !== "home") {
+  } else if (!homeView) {
     for (const b of boxes) {
       const d = { left: b.x, right: W - b.right, top: b.y, bottom: H - b.bottom };
       // Only the sides it sits against: within a quarter of the screen, with
@@ -520,7 +625,7 @@ function measure({ view, edge, tolerance }) {
 
   // Text cut off without an ellipsis.
   let ellipsis = 0;
-  const scope = view === "home" ? document.querySelector("main") ?? document.body : layoutRoot ?? document.querySelector("[data-saver-block]")?.closest(".fixed") ?? document.body;
+  const scope = homeView && !designedHome ? document.querySelector("main") ?? document.body : layoutRoot ?? document.querySelector("[data-saver-block]")?.closest(".fixed") ?? document.body;
   for (const el of scope.querySelectorAll("p, span, h1, h2, h3, h4, a, button, li, div")) {
     if (el.children.length > 0 || !el.textContent?.trim() || !visible(el)) continue;
     // Screen-reader-only text is 1px wide on purpose.
@@ -601,32 +706,78 @@ try {
       const cell = Math.floor((screen.width - 2 * EDGE - 11 * 24) / 12);
       const holdsLayout = screen.width >= 600 && Math.floor((screen.height - 2 * EDGE + 24) / (cell + 24)) >= 6;
       let unlocked = false;
+      const unlock = async () => {
+        if (!PIN || unlocked) return;
+        const res = await page.request.post(`${BASE}/api/pin`, { data: { family_id: family, action: "verify", pin: PIN } });
+        if (!res.ok()) throw new Error(`the PIN was not accepted: ${res.status()}`);
+        unlocked = true;
+      };
       let assigned = null;
       const assign = async (layoutId) => {
         if (assigned === layoutId) return;
-        if (PIN && !unlocked) {
-          const res = await page.request.post(`${BASE}/api/pin`, { data: { family_id: family, action: "verify", pin: PIN } });
-          if (!res.ok()) throw new Error(`the PIN was not accepted: ${res.status()}`);
-          unlocked = true;
-        }
+        await unlock();
         const res = await page.request.put(`${BASE}/api/devices/${joined.device.id}/layout`, { data: { layout_id: layoutId } });
         if (!res.ok()) throw new Error(`assigning a layout failed: ${res.status()} ${await res.text()}`);
         assigned = layoutId;
       };
 
+      /**
+       * home-layout: the built-in Home first, without a layout, to measure the
+       * navigation bar; then a layout whose Home is builtInHome for the grid
+       * area (made once per size, as a parent would through the API). Until
+       * PATCH accepts `home` (RFC-022 step 6) it is written to the row directly.
+       */
+      const homeLayoutFor = async () => {
+        await assign(null);
+        await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
+        await page.waitForSelector(".festival-grid", { timeout: 60_000 });
+        const navHeight = await page.evaluate(() => Math.max(0, ...[...document.querySelectorAll("nav")].map((el) => {
+          const r = el.getBoundingClientRect();
+          const fixedAtBottom = getComputedStyle(el).position === "fixed" && r.height > 0 && r.bottom >= innerHeight - 1 && r.width >= innerWidth / 2;
+          return fixedAtBottom ? Math.ceil(innerHeight - r.top) : 0;
+        })));
+        const size = homeLayoutSize(screen, navHeight);
+        const key = `${size.width}x${size.height}`;
+        if (!homeLayouts.has(key)) {
+          const { builtInHome, validateItems } = layoutCode();
+          const checked = validateItems(builtInHome(size.width, size.height), size.width, size.height, "home");
+          if (!checked.ok) throw new Error(`builtInHome(${key}) is not a valid Home: ${checked.error} ${checked.itemId ?? ""}`);
+          await unlock();
+          const made = await page.request.post(`${BASE}/api/layouts`, { data: { grid: 48, name: `matrix-Home ${key}`, width: size.width, height: size.height } });
+          if (made.status() !== 201) throw new Error(`home-layout: creating ${key} failed: ${made.status()} ${await made.text()}`);
+          const layout = (await made.json()).layout;
+          const patched = await page.request.patch(`${BASE}/api/layouts/${layout.id}`, { data: { grid: 48, home: checked.items, updated_at: layout.updated_at } });
+          if (patched.status() === 400 && (await patched.json().catch(() => ({}))).error === "bad_body") {
+            psql(`UPDATE layouts SET home = ${q(JSON.stringify(checked.items))}::jsonb WHERE id = ${q(layout.id)} AND family_id = ${q(family)}`);
+          } else if (patched.status() !== 200) {
+            throw new Error(`home-layout: saving the Home of ${key} failed: ${patched.status()} ${await patched.text()}`);
+          }
+          homeLayouts.set(key, layout.id);
+        }
+        return { layoutId: homeLayouts.get(key), holds: size.holds, navHeight };
+      };
+      await allowDesignedHome(ctx);
+
       const shots = views.flatMap((view) => (view === "saver-layout" ? layoutShots(screen, fixtures) : [[view, null]]));
-      for (const [view, layoutId] of shots) {
-        const saver = view !== "home";
-        const wantLayout = !!layoutId && holdsLayout;
+      for (const [view, fixedLayoutId] of shots) {
+        const homeLayout = view === "home-layout";
+        const saver = view !== "home" && !homeLayout;
         psql(`UPDATE devices SET is_kiosk = ${saver} WHERE hardware_id = ${q(hw)}`);
         await session(saver);
+        const saverSetting = { ...saverBase, screensaverTimeout: saver ? 2 : 0, largeDetails: view === "saver-large" };
+        // The measuring load of home-layout runs with the screensaver off as well.
+        if (homeLayout) putSaver(saverSetting);
+        const home = homeLayout ? await homeLayoutFor() : null;
+        const layoutId = home ? home.layoutId : fixedLayoutId;
+        const wantLayout = home ? home.holds : !!layoutId && holdsLayout;
         await assign(layoutId);
-        putSaver({ ...saverBase, screensaverTimeout: saver ? 2 : 0, largeDetails: view === "saver-large" });
+        putSaver(saverSetting);
         failed = [];
         await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
         const file = `${screen.id}__${locale}__${view}.png`;
         try {
-          await page.waitForSelector(!saver ? ".festival-grid" : wantLayout ? "[data-layout-item=clock]" : "[data-saver-block=clock]", { timeout: 60_000 });
+          // A designed Home or the built-in: which one appeared is checked below.
+          await page.waitForSelector(homeLayout ? `${DESIGNED_HOME} [data-layout-item], .festival-grid` : !saver ? ".festival-grid" : wantLayout ? "[data-layout-item=clock]" : "[data-saver-block=clock]", { timeout: 60_000 });
         } catch {
           // Recorded, not fatal: the rest of the matrix still runs.
           await page.screenshot({ path: join(OUT, file) });
@@ -639,8 +790,16 @@ try {
         await page.waitForLoadState("networkidle").catch(() => {});
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(2500);
-        const m = await page.evaluate(measure, { view, edge: EDGE, tolerance: TOLERANCE });
-        if (layoutId) {
+        const m = await page.evaluate(measure, { view, edge: EDGE, tolerance: TOLERANCE, homeRoot: DESIGNED_HOME });
+        if (home) {
+          m.edges.nav = home.navHeight;
+          const shown = await page.evaluate((root) => ({
+            layout: document.querySelectorAll(`${root} [data-layout-item]`).length,
+            builtIn: document.querySelectorAll(".festival-grid").length,
+          }), DESIGNED_HOME);
+          if (wantLayout && (shown.builtIn > 0 || shown.layout === 0)) m.findings.push({ kind: "layout", text: `expected the designed Home, found ${shown.layout} layout boxes and ${shown.builtIn} built-in grid(s)` });
+          if (!wantLayout && shown.layout > 0) m.findings.push({ kind: "layout", text: `a screen under 600px wide or without a grid shows the designed Home (${shown.layout} boxes)` });
+        } else if (layoutId) {
           const shown = await page.evaluate(() => ({
             layout: document.querySelectorAll("[data-layout-item]").length,
             builtIn: document.querySelectorAll("[data-saver-block]").length,

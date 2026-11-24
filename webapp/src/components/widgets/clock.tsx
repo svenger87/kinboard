@@ -72,7 +72,11 @@ export function withClock<P extends object>(
   return WithClock;
 }
 
-export type ClockSize = "sm" | "md" | "lg" | "xl";
+/**
+ * The built-in Home's fixed sizes, or "box": the digits at 1em, for a widget
+ * that sets the font size itself to fit its box (RFC-022 step 4).
+ */
+export type ClockSize = "sm" | "md" | "lg" | "xl" | "box";
 
 export interface ClockTimeProps {
   /** Show the seconds after the minutes (the family's clock setting). */
@@ -85,6 +89,7 @@ const sizeClasses = {
   md: "text-6xl",
   lg: "text-8xl",
   xl: "text-kiosk-hero",
+  box: "text-[1em] leading-none",
 };
 
 const secondsSizeClasses = {
@@ -92,6 +97,7 @@ const secondsSizeClasses = {
   md: "text-3xl",
   lg: "text-4xl",
   xl: "text-5xl",
+  box: "text-[0.45em]",
 };
 
 function ClockTimeFace({ showSeconds = false, size = "xl", now }: ClockTimeProps & { now: ClockNow }) {
@@ -145,7 +151,7 @@ function ClockTimeFace({ showSeconds = false, size = "xl", now }: ClockTimeProps
             </span>
             {showSeconds && (
               <>
-                <span className="font-display font-extralight text-muted-foreground/40 mx-1 clock-colon">
+                <span className={`font-display font-extralight text-muted-foreground/40 mx-1 clock-colon${size === "box" ? ` ${secondsSizeClasses.box}` : ""}`}>
                   :
                 </span>
                 <span

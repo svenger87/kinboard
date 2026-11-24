@@ -45,7 +45,7 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { DEFAULT_SCHEDULE_WIDGET_SETTINGS, type ScheduleWidgetSettings } from "@/types/widgets";
 import { useTimeFormat } from "@/hooks/use-time-format";
 
-interface TimeSlot {
+export interface TimeSlot {
   period: number;
   start: string;
   end: string;
@@ -79,11 +79,11 @@ const SUBJECT_CONFIG: Record<string, { color: string; icon: LucideIcon }> = {
   default: { color: "#6b7280", icon: GraduationCap },
 };
 
-function getSubjectColor(subject: string): string {
+export function getSubjectColor(subject: string): string {
   return SUBJECT_CONFIG[subject]?.color || SUBJECT_CONFIG.default.color;
 }
 
-function getSubjectIcon(subject: string): LucideIcon {
+export function getSubjectIcon(subject: string): LucideIcon {
   return SUBJECT_CONFIG[subject]?.icon || SUBJECT_CONFIG.default.icon;
 }
 
@@ -99,7 +99,7 @@ function getCurrentPeriod(schedule: TimeSlot[]): number | null {
   return null;
 }
 
-function getPeriodProgress(slot: TimeSlot): number {
+export function getPeriodProgress(slot: TimeSlot): number {
   const now = new Date();
   const [startH, startM] = slot.start.split(":").map(Number);
   const [endH, endM] = slot.end.split(":").map(Number);
@@ -111,7 +111,7 @@ function getPeriodProgress(slot: TimeSlot): number {
   return Math.min(100, Math.max(0, ((nowMinutes - startMinutes) / total) * 100));
 }
 
-function getRemainingMinutes(slot: TimeSlot): number {
+export function getRemainingMinutes(slot: TimeSlot): number {
   const now = new Date();
   const [endH, endM] = slot.end.split(":").map(Number);
   const endMinutes = endH * 60 + endM;
@@ -154,19 +154,29 @@ function ScheduleWidgetSkeleton() {
   );
 }
 
-export function ScheduleWidget({
-  personId: propPersonId,
-  className = "",
-}: ScheduleWidgetProps) {
-  // Period times are stored as "HH:MM" and were printed raw, so they stayed
-  // 24-hour whatever Settings → Design said (issue #244). Same renderer the
-  // weather widget uses for sunrise and sunset.
-  const { formatWallClock } = useTimeFormat();
+/** What the schedule reads in common with Home: the family's people, from HomeDataProvider in a designed Home (RFC-022). */
+export interface ScheduleSource {
+  people: ReturnType<typeof usePeople>["data"];
+  isLoading: boolean;
+}
+
+/**
+ * One child's school day as the schedule card shows it: whose it is, the
+ * lessons of today (or, in the evening, of the next school day), the one
+ * running now and the next, or why there is no school. The card and the
+ * schedule in a designed Home's box (components/layouts/home-widgets/
+ * schedule.tsx) both draw from this. Without `propPersonId` it is the
+ * selected child's, else the first child's; `shared` hands over Home's
+ * people instead of asking for them.
+ */
+export function useScheduleDay(propPersonId: string | undefined, shared?: ScheduleSource) {
   const t = useTranslations("scheduleWidget");
   const locale = useLocale();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
-  const { data: people, isLoading: loadingPeople } = usePeople();
+  const ownPeople = usePeople({ enabled: !shared });
+  const people = shared ? shared.people : ownPeople.data;
+  const loadingPeople = shared ? shared.isLoading : ownPeople.isLoading;
 
   // Get all children for the selector
   const children = people?.filter((p) => p.is_child) || [];
@@ -194,31 +204,8 @@ export function ScheduleWidget({
   }, []);
 
   // Waiting for the holidays too: lessons first and a day off a moment later
-  // would flash a timetable nobody has today.
-  if (loadingSchedules || loadingPeople || loadingBreaks) {
-    return <ScheduleWidgetSkeleton />;
-  }
-
-  // No child configured
-  if (!personId) {
-    return (
-      // Deliberately NOT h-full. An unconfigured widget was taking a full grid
-      // cell in prime position on the wall, and because a taller neighbour set
-      // the row height it also left a ~500x230px hole beside it (audit KB-06).
-      // A compact card states the same thing and lets the grid pack around it.
-      <Card className={`accent-border-top ${className}`}>
-        <CardContent className="flex items-center gap-3 p-4">
-          <span className="icon-badge shrink-0">
-            <GraduationCap className="size-5" strokeWidth={1.75} />
-          </span>
-          <div className="min-w-0">
-            <p className="font-display text-base font-semibold leading-tight">{t("title")}</p>
-            <p className="text-xs text-muted-foreground">{t("noChildTitle")}</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // would flash a timetable nobody has today (the card shows its skeleton).
+  const loading = loadingSchedules || loadingPeople || loadingBreaks;
 
   // day_of_week is JavaScript's: 0 = Sunday … 6 = Saturday.
   const nowTime = `${currentTime.getHours().toString().padStart(2, "0")}:${currentTime.getMinutes().toString().padStart(2, "0")}`;
@@ -270,6 +257,81 @@ export function ScheduleWidget({
   const dayOff = next ? null : today.school_day ? null : today;
   const isWeekend = dayOff?.reason === "weekend";
   const noScheduleToday = todaySchedule.length === 0;
+
+  return {
+    loading,
+    personId,
+    children,
+    setSelectedChildId,
+    person,
+    personName,
+    personColor,
+    equalSize: widgetSettings?.equalSize ?? false,
+    next,
+    nextLabel,
+    todaySchedule,
+    currentSlot,
+    nextPeriod,
+    schoolOver,
+    dayOff,
+    isWeekend,
+    noScheduleToday,
+  };
+}
+
+export function ScheduleWidget({
+  personId: propPersonId,
+  className = "",
+}: ScheduleWidgetProps) {
+  // Period times are stored as "HH:MM" and were printed raw, so they stayed
+  // 24-hour whatever Settings → Design said (issue #244). Same renderer the
+  // weather widget uses for sunrise and sunset.
+  const { formatWallClock } = useTimeFormat();
+  const t = useTranslations("scheduleWidget");
+  const {
+    loading,
+    personId,
+    children,
+    setSelectedChildId,
+    person,
+    personName,
+    personColor,
+    equalSize,
+    next,
+    nextLabel,
+    todaySchedule,
+    currentSlot,
+    nextPeriod,
+    schoolOver,
+    dayOff,
+    isWeekend,
+    noScheduleToday,
+  } = useScheduleDay(propPersonId);
+
+  if (loading) {
+    return <ScheduleWidgetSkeleton />;
+  }
+
+  // No child configured
+  if (!personId) {
+    return (
+      // Deliberately NOT h-full. An unconfigured widget was taking a full grid
+      // cell in prime position on the wall, and because a taller neighbour set
+      // the row height it also left a ~500x230px hole beside it (audit KB-06).
+      // A compact card states the same thing and lets the grid pack around it.
+      <Card className={`accent-border-top ${className}`}>
+        <CardContent className="flex items-center gap-3 p-4">
+          <span className="icon-badge shrink-0">
+            <GraduationCap className="size-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <p className="font-display text-base font-semibold leading-tight">{t("title")}</p>
+            <p className="text-xs text-muted-foreground">{t("noChildTitle")}</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <TooltipProvider>
@@ -372,7 +434,7 @@ export function ScheduleWidget({
               <GraduationCap className="size-8 mx-auto mb-2 text-primary/20" />
               <p className="text-muted-foreground text-sm">{t("noScheduleToday")}</p>
             </div>
-          ) : (widgetSettings?.equalSize ?? false) || next ? (
+          ) : equalSize || next ? (
             <div className="space-y-2">
               {todaySchedule.map((slot) => {
                 const SubjectIcon = getSubjectIcon(slot.subject);

@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { AlertTriangle, Eye, Grid3x3, Loader2, MonitorPlay, Redo2, RefreshCw, RotateCcw, Save, Undo2 } from "lucide-react";
+import { AlertTriangle, Eye, Grid3x3, Home, Info, Loader2, MonitorPlay, Redo2, RefreshCw, RotateCcw, Save, Undo2 } from "lucide-react";
 import { previewScreensaver } from "@/lib/screensaver-gate";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,20 +20,25 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ScreensaverDataProvider, useScreensaverDataValue } from "@/components/layouts/screensaver-data-context";
+import { HomeDataProvider } from "@/components/layouts/home-data-context";
 import { useScreensaverData } from "@/hooks/use-screensaver-data";
+import { useHomeData } from "@/hooks/use-home-data";
+import { usePeople } from "@/hooks/use-supabase-queries";
 import { useLayoutHistory } from "@/hooks/use-layout-history";
 import { LayoutRequestError, useSaveLayout } from "@/hooks/use-layouts";
-import { builtInScreensaver } from "@/lib/layouts/built-in";
+import { homeDataNeeds } from "@/lib/home-data";
+import { builtInHome, builtInScreensaver } from "@/lib/layouts/built-in";
 import { GRID, LAYOUT_GRID, gridFor } from "@/lib/layouts/grid";
+import { homeArea } from "@/lib/layouts/home-area";
 import { alignItems, distribute, matchSize, moveBy, resizeBy, setBox, type ArrangeReason, type ArrangeResult, type Box } from "@/lib/layouts/arrange";
 import { rescaleItems } from "@/lib/layouts/rescale";
-import { validateItems, type LayoutError } from "@/lib/layouts/validate";
-import { SAVER_WIDGETS, knownWidgetItems } from "@/lib/layouts/widgets";
+import { personOf, validateItems, type LayoutError } from "@/lib/layouts/validate";
+import { HOME_WIDGETS, SAVER_WIDGETS, knownWidgetItems } from "@/lib/layouts/widgets";
 import { useNameList } from "@/hooks/use-name-list";
-import type { Layout, LayoutItem, SaverWidgetKey, TextSize } from "@/lib/layouts/types";
+import type { HomeLayoutItem, HomeWidgetKey, Layout, LayoutItem, SaverWidgetKey, Surface, TextSize } from "@/lib/layouts/types";
 import { EditorCanvas } from "./canvas";
 import { GRID_DISPLAYS, useGridDisplay, type GridDisplay } from "./grid-overlay";
-import { EditorPalette } from "./palette";
+import { EditorPalette, type PaletteEntry } from "./palette";
 import { EditorInspector, type ArrangeCommand } from "./inspector";
 import { withAlign, type Align } from "@/lib/layouts/align";
 import { ScreenPicker, type ScreenChoice } from "./screen-picker";
@@ -40,6 +46,14 @@ import { CopyForSize, readCopyDropped, releaseCopyDropped } from "./copy-dialog"
 
 const LAYOUT_ERRORS: readonly string[] = ["unknown_widget", "out_of_bounds", "below_minimum", "overlap", "duplicate", "bad_text_size", "bad_person"];
 const WIDGET_KEYS = Object.keys(SAVER_WIDGETS) as SaverWidgetKey[];
+const HOME_KEYS = Object.keys(HOME_WIDGETS) as HomeWidgetKey[];
+const SURFACES: readonly Surface[] = ["home", "screensaver"];
+
+/** A placed box of either surface. */
+type Item = LayoutItem<string>;
+
+/** "Each widget once" on a surface: on Home a per-child widget once per child. */
+const placedKey = (widget: string, personId: string | undefined) => `${widget}\u0000${personId ?? ""}`;
 
 /** Where the arrow keys belong to the control under focus rather than to the canvas. */
 const OWN_ARROWS = "input, textarea, select, [contenteditable='true'], [role='group'], [role='radiogroup'], [role='listbox'], [role='menu'], [role='slider']";
@@ -61,7 +75,10 @@ const REFUSED_MS = 4000;
  * even though migration 087 kept the stamp it was made on.
  */
 interface Draft {
+  /** The screensaver's items (the name from before Home could be edited). */
   items: LayoutItem[];
+  /** Home's items, only when Home has unsaved changes. */
+  home?: HomeLayoutItem[];
   stamp: string;
 }
 const draftKey = (id: string) => `kinboard_layout_draft:${LAYOUT_GRID}:${id}`;
@@ -75,7 +92,8 @@ function readDraft(id: string): Draft | null {
     const raw = sessionStorage.getItem(draftKey(id));
     if (!raw) return null;
     const d = JSON.parse(raw) as Partial<Draft>;
-    return Array.isArray(d.items) && typeof d.stamp === "string" ? { items: d.items, stamp: d.stamp } : null;
+    if (!Array.isArray(d.items) || typeof d.stamp !== "string") return null;
+    return { items: d.items, stamp: d.stamp, ...(Array.isArray(d.home) ? { home: d.home } : {}) };
   } catch {
     return null;
   }
@@ -91,25 +109,60 @@ function writeDraft(id: string, draft: Draft | null): void {
 }
 
 /**
- * The editor of one layout's screensaver: the palette, the canvas with the
- * real widgets and the family's data, the inspector, and undo, reset and
- * save. Changes stay in the page until saved; the save carries the stamp the
- * page loaded, so someone else's change in between is not overwritten.
+ * The editor of one layout, both of its faces: a Home | Screensaver switch
+ * at the top, then for the face shown the palette, the canvas with the real
+ * widgets and the family's data, the inspector, and undo, reset and save.
+ * Changes stay in the page until saved; the save carries the stamp the page
+ * loaded, so someone else's change in between is not overwritten.
+ *
+ * Each face keeps its own undo history: undo only ever changes what is on
+ * the canvas, never the face out of sight. One save sends both faces' unsaved
+ * changes in one request, under the one stamp. Home is drawn on the area its
+ * grid gets (homeArea: the screen less the navigation bar); a layout whose
+ * Home is empty starts its Home tab from today's Home for that area
+ * (builtInHome), and stays on the built-in until a change there is saved.
  */
 export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: () => Promise<void> }) {
   const t = useTranslations("settings.layouts.editor");
   const tw = useTranslations("settings.layouts.editor.widgets");
+  const th = useTranslations("settings.layouts.editor.homeWidgets");
   const names = useMemo(
     () => Object.fromEntries(WIDGET_KEYS.map((k) => [k, tw(k)])) as Record<SaverWidgetKey, string>,
     [tw],
   );
+  const homeNames = useMemo(
+    () => Object.fromEntries(HOME_KEYS.map((k) => [k, th(k)])) as Record<HomeWidgetKey, string>,
+    [th],
+  );
+  const { data: people } = usePeople();
+  const children = useMemo(() => (people ?? []).filter((p) => p.is_child), [people]);
+
+  const [surface, setSurface] = useState<Surface>("screensaver");
+  const ownSize = useMemo(() => ({ width: layout.width, height: layout.height }), [layout.width, layout.height]);
+  const homeSize = useMemo(() => homeArea(layout.width, layout.height), [layout.width, layout.height]);
 
   // Only widgets this build knows: a key from a newer version is left out rather than crash the editor.
   const [baseline, setBaseline] = useState<LayoutItem[]>(() => knownWidgetItems(layout.screensaver));
+  // Home as saved, or today's Home for this size while the layout has none of its own.
+  const [homeDesigned, setHomeDesigned] = useState(() => knownWidgetItems(layout.home, "home").length > 0);
+  const [homeBaseline, setHomeBaseline] = useState<HomeLayoutItem[]>(() => {
+    const own = knownWidgetItems(layout.home, "home");
+    if (own.length > 0) return own;
+    const area = homeArea(layout.width, layout.height);
+    return gridFor(area.width, area.height) ? builtInHome(area.width, area.height) : [];
+  });
   const listNames = useNameList();
   const [stamp, setStamp] = useState(layout.updated_at);
-  const history = useLayoutHistory(baseline);
-  const { items, set, undo: undoHistory, redo: redoHistory, canUndo, canRedo, dirty } = history;
+  const saverHistory = useLayoutHistory(baseline);
+  const homeHistory = useLayoutHistory<HomeLayoutItem>(homeBaseline);
+  // The face on screen; its items are typed loosely, as either face's.
+  const history = (surface === "home" ? homeHistory : saverHistory) as unknown as ReturnType<typeof useLayoutHistory<Item>>;
+  const { items, set, undo: undoHistory, redo: redoHistory, canUndo, canRedo } = history;
+  const saverItems = saverHistory.items;
+  const homeItems = homeHistory.items;
+  const setSaverItems = saverHistory.set;
+  const setHomeItems = homeHistory.set;
+  const dirty = saverHistory.dirty || homeHistory.dirty;
   // In the order they were selected: the first is the one commands on several boxes go by.
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   // Why the last keyboard command changed nothing; `at` restarts the timer when the same reason comes again.
@@ -126,29 +179,35 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const [draft] = useState(() => {
     const d = readDraft(layout.id);
     if (!d) return null;
-    return { items: d.items, restorable: d.stamp === layout.updated_at };
+    return { items: d.items, home: d.home, restorable: d.stamp === layout.updated_at };
   });
   // What a copy for this size left behind, shown once when the copy opens.
   const [copyDropped] = useState(() => readCopyDropped(layout.id));
   useEffect(() => () => releaseCopyDropped(layout.id), [layout.id]);
-  const ownSize = useMemo(() => ({ width: layout.width, height: layout.height }), [layout.width, layout.height]);
   const [notice, setNotice] = useState<"restored" | "lost" | null>(draft ? (draft.restorable ? "restored" : "lost") : null);
   const saveLayout = useSaveLayout();
 
   // The editor needs the screensaver's data for the widgets, not its photos;
   // the hook still runs its photo rotation here (see the task report).
   const data = useScreensaverDataValue(useScreensaverData());
+  // Home's shared data, for the Home widgets on the canvas: only what they read, and nothing while the screensaver is shown.
+  const homeData = useHomeData(homeDataNeeds(surface === "home" ? homeItems.map((i) => i.widget) : []));
 
-  const ownGrid = useMemo(() => gridFor(layout.width, layout.height), [layout.width, layout.height]);
-  const previewGrid = useMemo(() => gridFor(preview.width, preview.height) ?? ownGrid, [preview.width, preview.height, ownGrid]);
+  // The face shown is drawn on its own area: the screen, or for Home the screen less the navigation bar.
+  const area = surface === "home" ? homeSize : ownSize;
+  const ownGrid = useMemo(() => gridFor(area.width, area.height), [area.width, area.height]);
+  const previewGrid = useMemo(() => {
+    const p = surface === "home" ? homeArea(preview.width, preview.height) : preview;
+    return gridFor(p.width, p.height) ?? ownGrid;
+  }, [surface, preview, ownGrid]);
   // Every screen has 48 step columns, so one with the layout's number of
   // rows shows the same grid and can be edited; any other is a preview of
   // the rescaled arrangement, which is not what gets saved.
   const editable = !!ownGrid && !!previewGrid && previewGrid.rows === ownGrid.rows;
   const shown = useMemo(() => {
     if (!ownGrid || !previewGrid || editable) return { items, dropped: [] as string[] };
-    return rescaleItems(items, ownGrid, previewGrid);
-  }, [items, ownGrid, previewGrid, editable]);
+    return rescaleItems(items, ownGrid, previewGrid, surface);
+  }, [items, ownGrid, previewGrid, editable, surface]);
 
   // Only boxes still there (an undo may have taken one away), and none on a preview.
   const selection = useMemo(
@@ -156,28 +215,77 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
     [editable, selectedIds, items],
   );
   const selected = selection.length === 1 ? (items.find((i) => i.id === selection[0]) ?? null) : null;
+  const personName = useCallback((id: string) => (people ?? []).find((p) => p.id === id)?.name ?? "?", [people]);
+  /** A box's name: the widget's, and on Home a child's widget with the child's name. */
+  const labelFor = useCallback(
+    (on: Surface, item: Pick<Item, "widget" | "options">) => {
+      if (on === "screensaver") return names[item.widget as SaverWidgetKey] ?? item.widget;
+      const base = homeNames[item.widget as HomeWidgetKey] ?? item.widget;
+      const person = personOf(item);
+      return person ? t("homeWidgetForChild", { widget: base, name: personName(person) }) : base;
+    },
+    [names, homeNames, personName, t],
+  );
+  const label = useCallback((item: Item) => labelFor(surface, item), [labelFor, surface]);
+  /** The name of the box an error is about: looked up on the face shown first, then on the other. */
   const nameOf = useCallback(
     (itemId?: string) => {
-      const item = items.find((i) => i.id === itemId);
-      return item ? names[item.widget] : (itemId ?? "");
+      const here = items.find((i) => i.id === itemId);
+      if (here) return labelFor(surface, here);
+      const other = surface === "home" ? "screensaver" : "home";
+      const there = (other === "home" ? homeItems : saverItems).find((i) => i.id === itemId);
+      return there ? labelFor(other, there) : (itemId ?? "");
     },
-    [items, names],
+    [items, surface, homeItems, saverItems, labelFor],
   );
+
+  /** What the palette offers on the face shown: the widgets not placed yet, on Home a child's widget once per child. */
+  const paletteEntries = useMemo((): PaletteEntry[] => {
+    const placed = new Set(items.map((i) => placedKey(i.widget, surface === "home" ? personOf(i) : undefined)));
+    const ids = new Set(items.map((i) => i.id));
+    const entries: PaletteEntry[] =
+      surface === "screensaver"
+        ? WIDGET_KEYS.map((widget) => ({ id: widget, widget, label: names[widget] }))
+        : HOME_KEYS.flatMap((widget): PaletteEntry[] => {
+            const base = homeNames[widget];
+            if (!HOME_WIDGETS[widget].perChild || children.length === 0) return [{ id: widget, widget, label: base }];
+            return [
+              { id: widget, widget, label: t("homeWidgetForEveryone", { widget: base }) },
+              ...children.map((c) => ({
+                id: `${widget}:${c.id}`,
+                widget,
+                label: t("homeWidgetForChild", { widget: base, name: c.name }),
+                options: { personId: c.id },
+              })),
+            ];
+          });
+    return entries
+      .filter((e) => !placed.has(placedKey(e.widget, personOf(e))))
+      .map((e) => {
+        // An id already taken by another box (a layout saved with other ids) gets a suffix.
+        let id = e.id;
+        for (let n = 2; ids.has(id); n++) id = `${e.id}-${n}`;
+        return { ...e, id };
+      });
+  }, [items, surface, names, homeNames, children, t]);
 
   // A draft made on the copy just loaded comes back as the present (one undo
   // returns to the saved copy); one made on an older copy is dropped.
   useEffect(() => {
     if (!draft) return;
-    if (draft.restorable) set(knownWidgetItems(draft.items));
-    else writeDraft(layout.id, null);
-  }, [draft, layout.id, set]);
+    if (draft.restorable) {
+      setSaverItems(knownWidgetItems(draft.items));
+      if (draft.home) setHomeItems(knownWidgetItems(draft.home, "home"));
+    } else writeDraft(layout.id, null);
+  }, [draft, layout.id, setSaverItems, setHomeItems]);
 
+  const homeDirty = homeHistory.dirty;
   useEffect(() => {
-    writeDraft(layout.id, dirty ? { items, stamp } : null);
-  }, [layout.id, dirty, items, stamp]);
+    writeDraft(layout.id, dirty ? { items: saverItems, ...(homeDirty ? { home: homeItems } : {}), stamp } : null);
+  }, [layout.id, dirty, saverItems, homeDirty, homeItems, stamp]);
 
   const commit = useCallback(
-    (next: LayoutItem[]) => {
+    (next: Item[]) => {
       setError(null);
       setRefused(null);
       set(next);
@@ -187,7 +295,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
 
   /** A command's result: applied, or nothing changes and the toolbar says why. */
   const apply = useCallback(
-    (result: ArrangeResult) => {
+    (result: ArrangeResult<Item>) => {
       if (result.ok) commit(result.items);
       else setRefused({ reason: result.reason, at: Date.now() });
     },
@@ -223,15 +331,15 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   const arrange = (command: ArrangeCommand) => {
     if (!ownGrid || selection.length < 2) return;
     const rows = ownGrid.rows;
-    if (command.kind === "align") apply(alignItems(items, selection, command.edge, rows));
-    else if (command.kind === "distribute") apply(distribute(items, selection, command.axis, rows));
-    else apply(matchSize(items, selection, command.dim, rows));
+    if (command.kind === "align") apply(alignItems(items, selection, command.edge, rows, surface));
+    else if (command.kind === "distribute") apply(distribute(items, selection, command.axis, rows, surface));
+    else apply(matchSize(items, selection, command.dim, rows, surface));
   };
 
   /** The selected box put at the numbers typed into the inspector: one change, or the reason it was not done (shown by the fields). */
   const placeBox = (box: Box): ArrangeReason | null => {
     if (!ownGrid || !selected) return null;
-    const result = setBox(items, selected.id, box, ownGrid.rows);
+    const result = setBox(items, selected.id, box, ownGrid.rows, surface);
     if (!result.ok) return result.reason;
     commit(result.items);
     return null;
@@ -242,7 +350,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
   };
 
   const setAlign = (align: Align | null) => {
-    if (selected) commit(items.map((i) => (i.id === selected.id ? withAlign(i, align) : i)));
+    if (selected) commit(items.map((i) => (i.id === selected.id ? (withAlign(i as LayoutItem, align) as Item) : i)));
   };
 
   // Leaving with unsaved changes asks first.
@@ -284,25 +392,59 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       e.preventDefault();
       // A step, or with Shift a whole cell; Alt resizes instead of moving.
       const n = e.shiftKey ? GRID.STEPS_PER_CELL : 1;
-      apply((e.altKey ? resizeBy : moveBy)(items, selection, dir[0] * n, dir[1] * n, ownGrid.rows));
+      apply((e.altKey ? resizeBy : moveBy)(items, selection, dir[0] * n, dir[1] * n, ownGrid.rows, surface));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [editable, selection, items, ownGrid, undo, redo, remove, apply]);
+  }, [editable, selection, items, ownGrid, undo, redo, remove, apply, surface]);
 
-  /** Saves the items; true when they were saved. */
+  /** Shows the other face; the selection and a refused command's line belong to the face they were on. */
+  const switchSurface = (next: Surface) => {
+    if (next === surface) return;
+    setSelectedIds([]);
+    setRefused(null);
+    setSurface(next);
+  };
+
+  /**
+   * Saves both faces' unsaved changes in one request (a face without changes
+   * is not sent); true when they were saved. A face the check refuses is
+   * brought on screen with the reason.
+   */
   const save = async (): Promise<boolean> => {
     setError(null);
-    const sent = items;
-    const checked = validateItems(sent, layout.width, layout.height);
-    if (!checked.ok) {
-      setError(t(`errors.${checked.error}`, { name: nameOf(checked.itemId) }));
+    const sendSaver = saverHistory.dirty;
+    const sendHome = homeHistory.dirty;
+    const sentSaver = saverItems;
+    const sentHome = homeItems;
+    const refuse = (on: Surface, error: LayoutError, itemId?: string) => {
+      const list: Item[] = on === "home" ? sentHome : sentSaver;
+      const item = list.find((i) => i.id === itemId);
+      if (on !== surface) switchSurface(on);
+      setError(t(`errors.${error}`, { name: item ? labelFor(on, item) : (itemId ?? "") }));
       return false;
+    };
+    if (sendSaver) {
+      const checked = validateItems(sentSaver, layout.width, layout.height);
+      if (!checked.ok) return refuse("screensaver", checked.error, checked.itemId);
+    }
+    if (sendHome) {
+      const checked = validateItems(sentHome, homeSize.width, homeSize.height, "home");
+      if (!checked.ok) return refuse("home", checked.error, checked.itemId);
     }
     try {
-      const saved = await saveLayout.mutateAsync({ id: layout.id, screensaver: sent, updated_at: stamp });
+      const saved = await saveLayout.mutateAsync({
+        id: layout.id,
+        ...(sendSaver ? { screensaver: sentSaver } : {}),
+        ...(sendHome ? { home: sentHome } : {}),
+        updated_at: stamp,
+      });
       setStamp(saved.updated_at);
-      setBaseline(sent);
+      if (sendSaver) setBaseline(sentSaver);
+      if (sendHome) {
+        setHomeBaseline(sentHome);
+        setHomeDesigned(sentHome.length > 0);
+      }
       setNotice(null);
       toast.success(t("saved"));
       return true;
@@ -337,21 +479,56 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
     }
   };
 
+  const surfaceSwitch = (
+    <SegmentedControl
+      value={surface}
+      onValueChange={(v) => v && switchSurface(v as Surface)}
+      aria-label={t("surface.label")}
+      data-testid="editor-surface"
+      className="w-auto"
+    >
+      {SURFACES.map((s) => (
+        <SegmentedControlItem key={s} value={s} className="gap-2 px-3" data-testid={`editor-surface-${s}`}>
+          {s === "home" ? <Home className="size-4" aria-hidden="true" /> : <MonitorPlay className="size-4" aria-hidden="true" />}
+          {t(`surface.${s}`)}
+        </SegmentedControlItem>
+      ))}
+    </SegmentedControl>
+  );
+
   if (!ownGrid) {
-    return <p className="text-sm text-destructive">{t("tooSmall", { width: layout.width, height: layout.height })}</p>;
+    const tooSmall = <p className="text-sm text-destructive">{t("tooSmall", { width: area.width, height: area.height })}</p>;
+    // The screen itself has no grid: neither face can be edited.
+    if (!gridFor(layout.width, layout.height)) return tooSmall;
+    return (
+      <div className="flex flex-col gap-4" data-testid="layout-editor" data-surface={surface} data-dirty={dirty}>
+        {surfaceSwitch}
+        {tooSmall}
+      </div>
+    );
   }
 
+  const copyDroppedSaver = copyDropped.filter((w) => !w.startsWith("home:"));
+  const copyDroppedHome = copyDropped.flatMap((w) => {
+    if (!w.startsWith("home:")) return [];
+    const [widget, personId] = w.slice("home:".length).split(":");
+    return [labelFor("home", personId ? { widget, options: { personId } } : { widget })];
+  });
+
   return (
-    <div className="flex flex-col gap-4" data-testid="layout-editor" data-dirty={dirty}>
+    <div className="flex flex-col gap-4" data-testid="layout-editor" data-surface={surface} data-dirty={dirty}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
+          {/* In the toolbar's row, not a row of its own: the canvas keeps the height it had. */}
+          {surfaceSwitch}
           <ScreenPicker own={ownSize} value={preview} onChange={setPreview} />
           {(preview.width !== layout.width || preview.height !== layout.height) && (
             <CopyForSize
               layout={layout}
               size={preview}
               dirty={dirty}
-              items={items}
+              items={saverItems}
+              homeItems={homeItems}
               onSave={save}
               onDiscard={() => writeDraft(layout.id, null)}
             />
@@ -380,17 +557,19 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
             </SelectContent>
           </Select>
           {/* The arrangement as it is now, saved or not, as this screen's screensaver until the next touch (#282). */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => previewScreensaver({ width: layout.width, height: layout.height, items })}
-            data-testid="editor-preview-screensaver"
-            title={t("previewScreensaverHint")}
-          >
-            <MonitorPlay className="size-4" aria-hidden="true" />
-            {t("previewScreensaver")}
-          </Button>
+          {surface === "screensaver" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => previewScreensaver({ width: layout.width, height: layout.height, items: saverItems })}
+              data-testid="editor-preview-screensaver"
+              title={t("previewScreensaverHint")}
+            >
+              <MonitorPlay className="size-4" aria-hidden="true" />
+              {t("previewScreensaver")}
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="gap-2" onClick={undo} disabled={!canUndo} data-testid="editor-undo" title={t("undoHint")}>
             <Undo2 className="size-4" aria-hidden="true" />
             {t("undo")}
@@ -409,7 +588,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>{t("resetTitle")}</AlertDialogTitle>
-                <AlertDialogDescription>{t("resetDescription")}</AlertDialogDescription>
+                <AlertDialogDescription>{t(surface === "home" ? "resetDescriptionHome" : "resetDescription")}</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>{t("resetCancel")}</AlertDialogCancel>
@@ -417,7 +596,7 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
                   data-testid="editor-reset-confirm"
                   onClick={() => {
                     setSelectedIds([]);
-                    commit(builtInScreensaver(layout.width, layout.height));
+                    commit(surface === "home" ? builtInHome(homeSize.width, homeSize.height) : builtInScreensaver(layout.width, layout.height));
                   }}
                 >
                   {t("resetConfirm")}
@@ -433,8 +612,15 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       </div>
 
       {copyDropped.length > 0 && (
-        <div role="status" data-testid="editor-copy-dropped" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
-          {t("copy.dropped", { names: listNames(copyDropped.map((w) => (w in names ? names[w as SaverWidgetKey] : w))) })}
+        <div role="status" data-testid="editor-copy-dropped" className="flex flex-col gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+          {copyDroppedSaver.length > 0 && <span>{t("copy.dropped", { names: listNames(copyDroppedSaver.map((w) => (w in names ? names[w as SaverWidgetKey] : w))) })}</span>}
+          {copyDroppedHome.length > 0 && <span data-testid="editor-copy-dropped-home">{t("copy.droppedHome", { names: listNames(copyDroppedHome) })}</span>}
+        </div>
+      )}
+      {surface === "home" && !homeDesigned && !homeHistory.dirty && (
+        <div role="note" data-testid="editor-home-builtin" className="flex items-start gap-3 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm">
+          <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          {t("homeBuiltIn")}
         </div>
       )}
       {notice && (
@@ -473,20 +659,36 @@ export function LayoutEditor({ layout, onReload }: { layout: Layout; onReload: (
       )}
 
       <div className="grid gap-4 lg:grid-cols-[13rem_minmax(0,1fr)_16rem] lg:items-start">
-        <EditorPalette items={items} rows={ownGrid.rows} disabled={!editable} names={names} onAdd={(item) => { commit([...items, item]); setSelectedIds([item.id]); }} />
+        <EditorPalette
+          key={surface}
+          surface={surface}
+          entries={paletteEntries}
+          items={items}
+          rows={ownGrid.rows}
+          disabled={!editable}
+          onAdd={(item) => {
+            commit([...items, item]);
+            setSelectedIds([item.id]);
+          }}
+        />
+        {/* Both providers, whichever face is shown: a widget reads only its own. */}
         <ScreensaverDataProvider value={data}>
-          <EditorCanvas
-            grid={previewGrid!}
-            items={shown.items}
-            editable={editable}
-            display={gridDisplay}
-            selectedIds={selection}
-            names={names}
-            onSelect={setSelectedIds}
-            onCommit={commit}
-          />
+          <HomeDataProvider value={homeData}>
+            <EditorCanvas
+              key={surface}
+              surface={surface}
+              grid={previewGrid!}
+              items={shown.items}
+              editable={editable}
+              display={gridDisplay}
+              selectedIds={selection}
+              label={label}
+              onSelect={setSelectedIds}
+              onCommit={commit}
+            />
+          </HomeDataProvider>
         </ScreensaverDataProvider>
-        <EditorInspector item={selected} count={selection.length} disabled={!editable} names={names} onText={setText} onAlign={setAlign} onRemove={remove} onArrange={arrange} onBox={placeBox} />
+        <EditorInspector surface={surface} item={selected} count={selection.length} disabled={!editable} label={label} onText={setText} onAlign={setAlign} onRemove={remove} onArrange={arrange} onBox={placeBox} />
       </div>
     </div>
   );

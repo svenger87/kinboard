@@ -4,18 +4,29 @@
  * change: scaled by the ratio of whole-cell rows, held at the widget's
  * minimum, and pushed down past whatever they now collide with. What no longer fits is returned as dropped rather
  * than squeezed below readable, so the designer can tell the family.
+ *
+ * Per surface, the screensaver when left out: the minimums held are the
+ * widgets' on that surface (Home's from HOME_WIDGETS). For Home, `from` and
+ * `to` are the areas Home's grid gets (homeArea), not the screens.
  */
 import { GRID, gridFor, type Grid } from "./grid";
-import { SAVER_WIDGETS } from "./widgets";
-import { collides, validateItems } from "./validate";
-import { firstFreeSpot, growToward } from "./place";
-import type { LayoutItem, SaverWidgetKey } from "./types";
+import { HOME_WIDGETS } from "./widgets";
+import { collides, personOf, validateItems } from "./validate";
+import { firstFreeSpot, growToward, specOf } from "./place";
+import type { HomeLayoutItem, HomeWidgetKey, LayoutItem, SaverWidgetKey, Surface, WidgetKeyOf } from "./types";
 
-export function rescaleItems(
-  items: LayoutItem[],
+/** Any placed box, of either surface. */
+type Item = LayoutItem<string>;
+
+/** The smallest box of an item's widget on a surface; a key the surface lacks has none. */
+const minOf = (i: Item, surface: Surface) => specOf(i.widget, surface)?.min ?? { w: 1, h: 1 };
+
+export function rescaleItems<T extends Item = LayoutItem>(
+  items: T[],
   from: Grid,
   to: Grid,
-): { items: LayoutItem[]; dropped: string[] } {
+  surface: Surface = "screensaver",
+): { items: T[]; dropped: string[] } {
   if (from.cellRows === to.cellRows) return { items, dropped: [] };
   const ratio = to.cellRows / from.cellRows;
 
@@ -33,10 +44,10 @@ export function rescaleItems(
   const scaled = items.map((i) => {
     const y = edge(i.y);
     const bottom = edge(i.y + i.h);
-    return { ...i, y, h: Math.max(SAVER_WIDGETS[i.widget].min.h, bottom - y) };
+    return { ...i, y, h: Math.max(minOf(i, surface).h, bottom - y) };
   });
 
-  const placed = new Map<string, LayoutItem>();
+  const placed = new Map<string, T>();
   const dropped: string[] = [];
   const reading = [...scaled].sort((a, b) => a.y - b.y || a.x - b.x);
   for (const i of reading) {
@@ -66,7 +77,20 @@ export function fitItems(
   items: unknown,
   from: { width: number; height: number },
   to: { width: number; height: number },
-): { items: LayoutItem[]; dropped: string[] } {
+  surface?: "screensaver",
+): { items: LayoutItem[]; dropped: string[] };
+export function fitItems(
+  items: unknown,
+  from: { width: number; height: number },
+  to: { width: number; height: number },
+  surface: "home",
+): { items: HomeLayoutItem[]; dropped: string[] };
+export function fitItems(
+  items: unknown,
+  from: { width: number; height: number },
+  to: { width: number; height: number },
+  surface: Surface = "screensaver",
+): { items: Item[]; dropped: string[] } {
   const a = gridFor(from.width, from.height);
   const b = gridFor(to.width, to.height);
   const ids = Array.isArray(items)
@@ -76,19 +100,19 @@ export function fitItems(
 
   // Only well-formed items can be rescaled; the rest are dropped up front.
   const dropped: string[] = [];
-  const wellFormed: LayoutItem[] = [];
+  const wellFormed: Item[] = [];
   for (const raw of items) {
-    const one = validateItems([raw], from.width, from.height);
+    const one = validateItems([raw], from.width, from.height, surface);
     if (one.ok) wellFormed.push(one.items[0]);
     else if (raw && typeof raw === "object" && typeof (raw as { id?: unknown }).id === "string") dropped.push((raw as { id: string }).id);
   }
-  const rescaled = rescaleItems(wellFormed, a, b);
+  const rescaled = rescaleItems(wellFormed, a, b, surface);
   dropped.push(...rescaled.dropped);
   let kept = rescaled.items;
   for (;;) {
-    const checked = validateItems(kept, to.width, to.height);
+    const checked = validateItems(kept, to.width, to.height, surface);
     if (checked.ok) {
-      kept = checked.items;
+      kept = checked.items as Item[];
       break;
     }
     const bad = checked.itemId;
@@ -100,14 +124,21 @@ export function fitItems(
     dropped.push(bad);
     kept = kept.filter((i) => i.id !== bad);
   }
-  return placeDropped(kept, wellFormed.filter((i) => dropped.includes(i.id)), dropped, b.rows, to);
+  return placeDropped(kept, wellFormed.filter((i) => dropped.includes(i.id)), dropped, b.rows, to, surface);
 }
 
 /** The order dropped widgets get the free cells in: the clock first, the least missed last. */
-const REPLACE_ORDER: SaverWidgetKey[] = [
-  "clock", "date", "events", "weatherNow", "news", "birthdays", "forecast",
-  "nextEvent", "lessons", "holidays", "energy", "vehicles", "photoCount",
-];
+const REPLACE_ORDER: { [S in Surface]: readonly WidgetKeyOf<S>[] } = {
+  screensaver: [
+    "clock", "date", "events", "weatherNow", "news", "birthdays", "forecast",
+    "nextEvent", "lessons", "holidays", "energy", "vehicles", "photoCount",
+  ] satisfies SaverWidgetKey[],
+  // Home: the clock block as it stands today, then the cards in the catalogue's order.
+  home: Object.keys(HOME_WIDGETS) as HomeWidgetKey[],
+};
+
+/** Which widget an item is, for "each widget once": on Home a per-child widget once per child. */
+const onceKey = (i: Item, surface: Surface) => (surface === "home" ? `${i.widget}\u0000${personOf(i) ?? ""}` : i.widget);
 
 /**
  * Gives dropped widgets the free cells that are left: in REPLACE_ORDER, each
@@ -117,32 +148,36 @@ const REPLACE_ORDER: SaverWidgetKey[] = [
  * text sizes are the original items'.
  */
 function placeDropped(
-  kept: LayoutItem[],
-  candidates: LayoutItem[],
+  kept: Item[],
+  candidates: Item[],
   dropped: string[],
   rows: number,
   to: { width: number; height: number },
-): { items: LayoutItem[]; dropped: string[] } {
-  const rank = (i: LayoutItem) => REPLACE_ORDER.indexOf(i.widget);
-  const usedWidgets = new Set(kept.map((i) => i.widget));
+  surface: Surface,
+): { items: Item[]; dropped: string[] } {
+  const order: readonly string[] = REPLACE_ORDER[surface];
+  const rank = (i: Item) => order.indexOf(i.widget);
+  const usedWidgets = new Set(kept.map((i) => onceKey(i, surface)));
   const ordered = [...candidates].sort((a, b) => rank(a) - rank(b));
-  const placed: LayoutItem[] = [];
+  const placed: Item[] = [];
   for (const item of ordered) {
     // A second copy of a widget already on the screen stays dropped.
-    if (usedWidgets.has(item.widget)) continue;
-    const spot = firstFreeSpot([...kept, ...placed], SAVER_WIDGETS[item.widget].min, rows);
+    if (usedWidgets.has(onceKey(item, surface))) continue;
+    const spec = specOf(item.widget, surface);
+    const spot = spec && firstFreeSpot([...kept, ...placed], spec.min, rows);
     if (!spot) continue;
     placed.push({ ...item, ...spot });
-    usedWidgets.add(item.widget);
+    usedWidgets.add(onceKey(item, surface));
   }
   for (let n = 0; n < placed.length; n++) {
     const others = [...kept, ...placed.filter((_, m) => m !== n)];
-    placed[n] = { ...placed[n], ...growToward(placed[n], SAVER_WIDGETS[placed[n].widget].box, others, rows) };
+    const box = specOf(placed[n].widget, surface)?.box ?? placed[n];
+    placed[n] = { ...placed[n], ...growToward(placed[n], box, others, rows) };
   }
   const items = [...kept, ...placed];
-  const checked = validateItems(items, to.width, to.height);
+  const checked = validateItems(items, to.width, to.height, surface);
   // Cannot fail (each box was placed on free cells at or above its minimum); kept as the last word.
   if (!checked.ok) return { items: kept, dropped };
   const back = new Set(placed.map((i) => i.id));
-  return { items: checked.items, dropped: dropped.filter((id) => !back.has(id)) };
+  return { items: checked.items as Item[], dropped: dropped.filter((id) => !back.has(id)) };
 }

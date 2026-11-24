@@ -1313,7 +1313,11 @@
       "creaturesLabel": "Créatures",
       "creaturesDescription": "Les créatures de tous les enfants côte à côte, qui applaudissent quand une tâche est cochée. Touchez-en une pour les récompenses de l'enfant",
       "creaturesPreview1": "🐉 Mia — Bébé dragon — ⭐ 42",
-      "creaturesPreview2": "Immobile au mur, ne bouge que pour applaudir"
+      "creaturesPreview2": "Immobile au mur, ne bouge que pour applaudir",
+      "layoutNote": {
+        "assigned": "{names} {count, plural, one {utilise} other {utilisent}} l’accueil de la disposition conçue « {layout} ».",
+        "change": "Modifiez-la sous <link>Paramètres → Dispositions</link>. Les réglages ci-dessous s’appliquent aux écrans sans accueil conçu."
+      }
     },
     "navigation": {
       "title": "Navigation",
@@ -3360,7 +3364,7 @@
       },
       "editor": {
         "title": "Disposition",
-        "subtitle": "Économiseur d’écran · conçu pour {width}×{height}",
+        "subtitle": "Accueil et économiseur d’écran · conçu pour {width}×{height}",
         "notFound": "Cette disposition n’existe pas (ou plus).",
         "loadFailed": "Les dispositions n’ont pas pu être chargées.",
         "tooSmall": "L’écran de cette disposition ({width}×{height}) est trop petit pour la grille.",
@@ -3373,6 +3377,7 @@
         "reset": "Réinitialiser",
         "resetTitle": "Revenir à la disposition standard ?",
         "resetDescription": "L’écran reprend la disposition standard actuelle de l’économiseur pour son format. Vous pouvez l’annuler tant que vous restez sur la page.",
+        "resetDescriptionHome": "L’accueil reprend la disposition standard actuelle pour cette taille. Vous pouvez l’annuler tant que vous restez sur la page.",
         "resetConfirm": "Réinitialiser",
         "resetCancel": "Annuler",
         "save": "Enregistrer",
@@ -3520,7 +3525,8 @@
           "cancel": "Annuler",
           "failed": "La copie n’a pas pu être créée. Veuillez réessayer.",
           "pinRequired": "Les réglages ont été verrouillés — saisissez le code PIN et réessayez.",
-          "dropped": "Pas sur cette taille : {names}"
+          "dropped": "Pas sur cette taille : {names}",
+          "droppedHome": "Pas sur l’accueil de cette taille : {names}"
         },
         "unused": {
           "text": "Aucun écran n’affiche encore cette disposition. L’enregistrer ne suffit pas à l’appliquer à un écran.",
@@ -3534,7 +3540,43 @@
           "out_of_bounds": "Non appliqué : un widget sortirait de l’écran.",
           "below_minimum": "Non appliqué : un widget serait plus petit que son minimum.",
           "overlap": "Non appliqué : un widget en chevaucherait un autre."
-        }
+        },
+        "surface": {
+          "label": "Quel écran",
+          "home": "Accueil",
+          "screensaver": "Économiseur d’écran"
+        },
+        "homeWidgets": {
+          "clock": "Horloge",
+          "date": "Date et semaine",
+          "greeting": "Salutation",
+          "familyMembers": "Membres de la famille",
+          "todayStrip": "Bandeau du jour",
+          "weather": "Météo",
+          "upcomingEvents": "Événements",
+          "schedule": "Emploi du temps scolaire",
+          "birthday": "Anniversaires",
+          "holidays": "Jours fériés",
+          "weekOverview": "Aperçu de la semaine",
+          "mealPlan": "Repas",
+          "wasteCollection": "Collecte des déchets",
+          "notes": "Notes",
+          "tasks": "Tâches",
+          "shopping": "Courses",
+          "vehicles": "Véhicules",
+          "stonks": "Actions",
+          "pocketMoney": "Argent de poche",
+          "creatures": "Créatures",
+          "photos": "Photos",
+          "timers": "Minuteurs",
+          "media": "Média",
+          "messages": "Messages",
+          "countdown": "Compte à rebours"
+        },
+        "homeWidgetForChild": "{widget} · {name}",
+        "homeWidgetForEveryone": "{widget} · tous les enfants",
+        "homePlaceholder": "Apparaîtra ici dès qu’il pourra être dessiné dans un cadre",
+        "homeBuiltIn": "Cette disposition n’a pas encore d’accueil à elle : voici l’accueil actuel pour cette taille. Les écrans gardent l’accueil actuel jusqu’à ce que vous enregistriez une modification ici."
       }
     }
   },

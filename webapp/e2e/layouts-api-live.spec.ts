@@ -161,7 +161,8 @@ test("PATCH: a valid change, a stale stamp, an overlap, unknown keys", async () 
   expect(junk.status()).toBe(400);
   expect((await junk.json()).error).toBe("bad_body");
 
-  const unk = await api.patch(`/api/layouts/${layoutId}`, { data: { grid: 48, home: [], updated_at: fresh } });
+  // The size is fixed once a layout exists (`home` is editable since RFC-022; layouts-home-api-live covers it).
+  const unk = await api.patch(`/api/layouts/${layoutId}`, { data: { grid: 48, width: 1920, updated_at: fresh } });
   expect(unk.status()).toBe(400);
   expect((await unk.json()).error).toBe("bad_body");
   updatedAt = fresh;

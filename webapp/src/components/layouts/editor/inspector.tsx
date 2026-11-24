@@ -20,11 +20,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
-import { SAVER_WIDGETS } from "@/lib/layouts/widgets";
+import { specOf } from "@/lib/layouts/place";
 import { VALUE_FILL } from "@/lib/layouts/grid";
 import { autoAlign, storedAlign, type Align } from "@/lib/layouts/align";
 import type { AlignEdge, ArrangeReason, Box } from "@/lib/layouts/arrange";
-import type { LayoutItem, SaverWidgetKey, TextSize } from "@/lib/layouts/types";
+import type { LayoutItem, Surface, TextSize } from "@/lib/layouts/types";
+
+/** A placed box of either surface. */
+type Item = LayoutItem<string>;
 
 const TEXT_SIZES: TextSize[] = ["S", "M", "L", "XL"];
 
@@ -61,10 +64,13 @@ type Field = (typeof FIELDS)[number];
  */
 function BoxFields({
   item,
+  min,
   disabled,
   onBox,
 }: {
-  item: LayoutItem;
+  item: Item;
+  /** The widget's smallest box on its surface, in steps. */
+  min: { w: number; h: number };
   disabled: boolean;
   onBox: (box: Box) => ArrangeReason | null;
 }) {
@@ -140,7 +146,7 @@ function BoxFields({
         </p>
       )}
       <p className="text-xs text-muted-foreground" data-testid="inspector-min">
-        {t("min", { w: SAVER_WIDGETS[item.widget].min.w, h: SAVER_WIDGETS[item.widget].min.h })}
+        {t("min", { w: min.w, h: min.h })}
       </p>
     </fieldset>
   );
@@ -152,20 +158,23 @@ function BoxFields({
  * line them up: align, distribute (three or more) and same size.
  */
 export function EditorInspector({
+  surface = "screensaver",
   item,
   count,
   disabled,
-  names,
+  label,
   onText,
   onAlign,
   onRemove,
   onArrange,
   onBox,
 }: {
-  item: LayoutItem | null;
+  surface?: Surface;
+  item: Item | null;
   count: number;
   disabled: boolean;
-  names: Record<SaverWidgetKey, string>;
+  /** A box's name, as the palette and the canvas give it. */
+  label: (item: Item) => string;
   onText: (text: TextSize) => void;
   onAlign: (align: Align | null) => void;
   onRemove: () => void;
@@ -174,7 +183,10 @@ export function EditorInspector({
   onBox: (box: Box) => ArrangeReason | null;
 }) {
   const t = useTranslations("settings.layouts.editor.inspector");
-  const isValue = !!item && SAVER_WIDGETS[item.widget]?.kind === "value";
+  const spec = item ? specOf(item.widget, surface) : undefined;
+  const isValue = spec?.kind === "value";
+  // Where a value sits across its box is a screensaver setting: Home's values fill theirs.
+  const canAlign = isValue && surface === "screensaver";
 
   return (
     <Card className="flex flex-col gap-4 p-4" data-testid="inspector">
@@ -215,8 +227,8 @@ export function EditorInspector({
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
         <>
-          <h2 className="font-display text-base font-semibold">{names[item.widget]}</h2>
-          <BoxFields key={item.id} item={item} disabled={disabled} onBox={onBox} />
+          <h2 className="font-display text-base font-semibold" data-testid="inspector-title">{label(item)}</h2>
+          <BoxFields key={item.id} item={item} min={spec?.min ?? { w: 1, h: 1 }} disabled={disabled} onBox={onBox} />
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium" id="inspector-text-size">
               {t("textSize")}
@@ -248,7 +260,7 @@ export function EditorInspector({
               </p>
             )}
           </div>
-          {isValue && item && (
+          {canAlign && item && (
             <div className="flex flex-col gap-2">
               <span className="text-sm font-medium" id="inspector-align">
                 {t("align")}

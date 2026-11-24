@@ -25,22 +25,18 @@ import { PluginDiscoverCard } from "./plugin-discover-card";
  */
 const ROTATE_INTERVAL_MS = 20_000;
 
-export function PhotosWidget() {
-  const t = useTranslations("dashboard.pluginDiscover");
-  const tp = useTranslations("photosViewer");
+/**
+ * The photo the widget shows: a handful from the library, the next every
+ * twenty seconds, and `skip` for one that fails to load. The card and the
+ * photo in a designed Home's box (components/layouts/home-widgets/photos.tsx)
+ * both draw from this.
+ */
+export function useRotatingPhoto() {
   const enabled = useIsPluginEnabled("photos");
   // A handful is plenty to rotate through, and asking for the whole library to
   // show one picture would make every dashboard load pay for the viewer.
   const { photos, isLoading, screensaverOnly } = usePhotoLibrary(12);
   const [activeIdx, setActiveIdx] = useState(0);
-  // Only the uploaded library reports dimensions; for the other four sources
-  // the browser measures the image when it loads.
-  //
-  // Stored with the id of the photo it was measured from, not on its own: a
-  // bare number would still be the portrait's 0.75 when the next photo — a
-  // landscape one, from a source that reports no size — first renders, and
-  // that photo would be letterboxed until its own onLoad corrected it.
-  const [measured, setMeasured] = useState<{ id: string; aspect: number | null } | null>(null);
 
   useEffect(() => {
     if (photos.length <= 1) return;
@@ -49,6 +45,25 @@ export function PhotosWidget() {
     }, ROTATE_INTERVAL_MS);
     return () => clearInterval(id);
   }, [photos.length]);
+
+  const safeIdx = activeIdx >= photos.length ? 0 : photos.length ? activeIdx : 0;
+  const photo = photos[safeIdx];
+  const skip = () => setActiveIdx((i) => (photos.length > 1 ? (i + 1) % photos.length : i));
+  return { enabled, photos, isLoading, screensaverOnly, safeIdx, photo, skip };
+}
+
+export function PhotosWidget() {
+  const t = useTranslations("dashboard.pluginDiscover");
+  const tp = useTranslations("photosViewer");
+  const { enabled, photos, isLoading, screensaverOnly, safeIdx, photo, skip } = useRotatingPhoto();
+  // Only the uploaded library reports dimensions; for the other four sources
+  // the browser measures the image when it loads.
+  //
+  // Stored with the id of the photo it was measured from, not on its own: a
+  // bare number would still be the portrait's 0.75 when the next photo — a
+  // landscape one, from a source that reports no size — first renders, and
+  // that photo would be letterboxed until its own onLoad corrected it.
+  const [measured, setMeasured] = useState<{ id: string; aspect: number | null } | null>(null);
 
   if (!enabled) {
     return (
@@ -101,8 +116,6 @@ export function PhotosWidget() {
     );
   }
 
-  const safeIdx = activeIdx >= photos.length ? 0 : photos.length ? activeIdx : 0;
-  const photo = photos[safeIdx];
   if (!photo) return null;
 
   // The card keeps its 4:3 shape rather than following the photo. A tile that
@@ -138,7 +151,7 @@ export function PhotosWidget() {
               const img = event.currentTarget;
               setMeasured({ id: photo.id, aspect: aspectOf(img.naturalWidth, img.naturalHeight) });
             }}
-            onError={() => setActiveIdx((i) => (photos.length > 1 ? (i + 1) % photos.length : i))}
+            onError={skip}
           />
         </AnimatePresence>
 

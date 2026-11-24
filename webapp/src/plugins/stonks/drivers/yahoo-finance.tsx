@@ -17,7 +17,7 @@ import type { StonksDriver } from "./types";
 
 const TIMEFRAMES: Timeframe[] = ["1d", "1w", "1m", "3m", "1y", "max"];
 
-function formatPrice(n: number, currency: string | null): string {
+export function formatPrice(n: number, currency: string | null): string {
   const normalized = currency?.toUpperCase() ?? null;
   try {
     return new Intl.NumberFormat(undefined, {
@@ -32,17 +32,17 @@ function formatPrice(n: number, currency: string | null): string {
   }
 }
 
-function formatPercent(n: number): string {
+export function formatPercent(n: number): string {
   return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
 }
 
-function changeColor(delta: number): string {
+export function changeColor(delta: number): string {
   if (delta > 0) return "text-success";
   if (delta < 0) return "text-destructive";
   return "text-muted-foreground";
 }
 
-function ChangeIcon({ delta, className }: { delta: number; className?: string }) {
+export function ChangeIcon({ delta, className }: { delta: number; className?: string }) {
   if (delta > 0) return <TrendingUp className={className} />;
   if (delta < 0) return <TrendingDown className={className} />;
   return <Minus className={className} />;

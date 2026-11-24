@@ -15,10 +15,18 @@ import { useServerClockOffset } from "@/hooks/use-server-clock";
 import { useToneReady } from "@/hooks/use-tone-ready";
 import { useFamilyStore } from "@/stores/family-store";
 
-const mmss = (s: number) =>
+export const mmss = (s: number) =>
   `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-export function TimerWidget() {
+/**
+ * The timers and what a screen does with them: the ones still showing, each
+ * one's state against the server's clock, the presets, starting, pausing and
+ * dismissing (each saying so when it fails), and whether the alarm can sound.
+ * The card and the timers in a designed Home's box
+ * (components/layouts/home-widgets/timers.tsx) both draw from this; the one
+ * clock ticks only while something counts.
+ */
+export function useTimerControls() {
   const t = useTranslations("timers");
   const { data: timers = [] } = useTimers();
   const start = useStartTimer();
@@ -82,6 +90,13 @@ export function TimerWidget() {
     [timers, serverNow],
   );
   const soundOff = (device?.is_kiosk ?? false) && !toneReady && visible.length > 0;
+
+  return { presets, handlePreset, togglePause, dismiss, serverNow, visible, soundOff };
+}
+
+export function TimerWidget() {
+  const t = useTranslations("timers");
+  const { presets, handlePreset, togglePause, dismiss, serverNow, visible, soundOff } = useTimerControls();
 
   return (
     <WidgetCard

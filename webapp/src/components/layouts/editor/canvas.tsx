@@ -5,13 +5,32 @@ import ReactGridLayout, { type EventCallback, type Layout as GridLayout } from "
 import { getCompactor, setTransform, type PositionStrategy } from "react-grid-layout/core";
 import "react-grid-layout/css/styles.css";
 import { GRID, boxRect, textPx, type Grid } from "@/lib/layouts/grid";
-import { SAVER_WIDGETS } from "@/lib/layouts/widgets";
+import { specOf } from "@/lib/layouts/place";
 import { checkItems, type Box } from "@/lib/layouts/arrange";
 import { guidesFor, snapDrop, type Guides } from "@/lib/layouts/guides";
-import type { LayoutItem, SaverWidgetKey } from "@/lib/layouts/types";
+import type { HomeLayoutItem, HomeWidgetKey, LayoutItem, SaverWidgetKey, Surface } from "@/lib/layouts/types";
 import { SAVER_WIDGET_COMPONENTS } from "@/components/layouts/saver-widgets";
+import { HOME_WIDGET_COMPONENTS } from "@/components/layouts/home-widgets";
 import { GridOverlay, type GridDisplay } from "./grid-overlay";
 import { GuideLines } from "./guide-lines";
+import { HomeWidgetPlaceholder } from "./home-placeholder";
+
+/** A placed box of either surface. */
+type Item = LayoutItem<string>;
+
+/**
+ * One box's content: the screensaver's widget, or Home's through
+ * HOME_WIDGET_COMPONENTS, and for a Home widget without a component in a
+ * box yet a labelled placeholder of the same size.
+ */
+function BoxContent({ surface, item, box, label }: { surface: Surface; item: Item; box: { width: number; height: number }; label: string }) {
+  if (surface === "home") {
+    const Widget = HOME_WIDGET_COMPONENTS[item.widget as HomeWidgetKey];
+    return Widget ? <Widget item={item as HomeLayoutItem} box={box} editing /> : <HomeWidgetPlaceholder label={label} widget={item.widget} />;
+  }
+  const Widget = SAVER_WIDGET_COMPONENTS[item.widget as SaverWidgetKey];
+  return <Widget item={item as LayoutItem} box={box} editing />;
+}
 
 /** No compaction, and a move or resize onto another widget is refused rather than pushing it. */
 const COMPACTOR = getCompactor(null, false, true);
@@ -113,23 +132,27 @@ const intersects = (a: Rect, b: Rect) =>
  * (Option) held at the drop, the box stays where it was let go.
  */
 export function EditorCanvas({
+  surface = "screensaver",
   grid,
   items,
   editable,
   display,
   selectedIds,
-  names,
+  label,
   onSelect,
   onCommit,
 }: {
+  /** Which face of the layout: Home draws on the app's own background, the screensaver on its dark one. */
+  surface?: Surface;
   grid: Grid;
-  items: LayoutItem[];
+  items: Item[];
   editable: boolean;
   display: GridDisplay;
   selectedIds: string[];
-  names: Record<SaverWidgetKey, string>;
+  /** A box's name, for its accessible label (and a Home placeholder's title). */
+  label: (item: Item) => string;
   onSelect: (ids: string[]) => void;
-  onCommit: (items: LayoutItem[]) => void;
+  onCommit: (items: Item[]) => void;
 }) {
   const { ref, navRef, scale } = useFitScale(grid.width, grid.height);
   const strategy = useMemo(() => scaledStrategy(scale || 1), [scale]);
@@ -142,14 +165,14 @@ export function EditorCanvas({
         y: i.y,
         w: i.w,
         h: i.h,
-        minW: SAVER_WIDGETS[i.widget].min.w,
-        minH: SAVER_WIDGETS[i.widget].min.h,
+        minW: specOf(i.widget, surface)?.min.w ?? 1,
+        minH: specOf(i.widget, surface)?.min.h ?? 1,
       })),
-    [items],
+    [items, surface],
   );
 
   const toItems = useCallback(
-    (next: GridLayout): LayoutItem[] => {
+    (next: GridLayout): Item[] => {
       const byId = new Map(next.map((l) => [l.i, l]));
       return items.map((i) => {
         const l = byId.get(i.id);
@@ -199,7 +222,7 @@ export function EditorCanvas({
       const box = boxOf(dropped);
       const snapped = snap(box, next.filter((l) => l.i !== dropped.i).map(boxOf));
       if (!sameBox(snapped, box)) {
-        const result = checkItems(toItems(next.map((l) => (l.i === dropped.i ? { ...l, ...snapped } : l))), [dropped.i], grid.rows);
+        const result = checkItems(toItems(next.map((l) => (l.i === dropped.i ? { ...l, ...snapped } : l))), [dropped.i], grid.rows, surface);
         if (result.ok) return onCommit(result.items);
       }
     }
@@ -283,7 +306,7 @@ export function EditorCanvas({
 
   // Each item sets --kb-handle (its corner's size, in the screen's own pixels); the corner reads it.
   const zoom = scale || 1;
-  const fontSize = (i: LayoutItem) => textPx(i.text, grid.width, grid.height);
+  const fontSize = (i: Item) => textPx(i.text, grid.width, grid.height);
 
   return (
     <div ref={ref} className="relative w-full min-w-0">
@@ -296,18 +319,19 @@ export function EditorCanvas({
           data-scale={scale}
           data-width={grid.width}
           data-height={grid.height}
+          data-surface={surface}
           className="relative mx-auto overflow-hidden rounded-xl elev-lg ring-1 ring-border"
           style={{ width: grid.width * scale, height: grid.height * scale }}
         >
           <div
             ref={screenRef}
-            className="kb-editor-screen absolute left-0 top-0 text-white"
+            className={`kb-editor-screen absolute left-0 top-0 ${surface === "home" ? "bg-background text-foreground" : "text-white"}`}
             style={{
               width: grid.width,
               height: grid.height,
               transform: `scale(${scale})`,
               transformOrigin: "0 0",
-              background: "linear-gradient(160deg, #23272f 0%, #12151a 100%)",
+              background: surface === "home" ? undefined : "linear-gradient(160deg, #23272f 0%, #12151a 100%)",
             }}
             onMouseDown={pressCanvas}
           >
@@ -356,7 +380,6 @@ export function EditorCanvas({
               onResizeStop={resizeStop}
             >
               {items.map((item) => {
-                const Widget = SAVER_WIDGET_COMPONENTS[item.widget];
                 const rect = boxRect(item, grid);
                 const box = { width: Math.round(rect.width), height: Math.round(rect.height) };
                 const selected = selectedIds.includes(item.id);
@@ -365,12 +388,13 @@ export function EditorCanvas({
                   <div
                     key={item.id}
                     data-editor-item={item.widget}
+                    data-item-id={item.id}
                     data-box={`${item.x},${item.y},${item.w},${item.h}`}
                     data-text={item.text}
                     data-selected={selected}
                     role="button"
                     tabIndex={editable ? 0 : -1}
-                    aria-label={names[item.widget]}
+                    aria-label={label(item)}
                     aria-pressed={selected}
                     onFocus={() => {
                       if (editable && !pointerFocus.current && !selectedIds.includes(item.id)) onSelect([item.id]);
@@ -395,12 +419,12 @@ export function EditorCanvas({
                         boxShadow: selected
                           ? `0 0 0 ${3 / (scale || 1)}px hsl(var(--primary))`
                           : editable
-                            ? `0 0 0 ${1 / (scale || 1)}px rgba(255,255,255,0.25)`
+                            ? `0 0 0 ${1 / (scale || 1)}px ${surface === "home" ? "hsl(var(--border))" : "rgba(255,255,255,0.25)"}`
                             : undefined,
                       }}
                     >
                       <div className="pointer-events-none size-full overflow-hidden">
-                        <Widget item={item} box={box} editing />
+                        <BoxContent surface={surface} item={item} box={box} label={label(item)} />
                       </div>
                     </div>
                   </div>
