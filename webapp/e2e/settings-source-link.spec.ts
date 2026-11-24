@@ -21,11 +21,13 @@ test("the link has a name in every language, in the same words as the rest of th
 
 test("Settings links to the source code beside the version, in a new tab", async ({ page }) => {
   test.skip(!familyCode, "Set FAMILY_CODE for the local stack");
+  // A dev server compiles /settings on its first visit, which alone can take most of a minute.
+  test.setTimeout(150_000);
   await establishSession(page, familyCode!, DEVICE);
   await page.goto("/settings", { waitUntil: "domcontentloaded" });
 
   const link = page.getByTestId("settings-source-code");
-  await expect(link).toBeVisible({ timeout: 60_000 });
+  await expect(link).toBeVisible({ timeout: 120_000 });
   await expect(link).toHaveText("Source code");
   await expect(link).toHaveAttribute("href", REPO);
   await expect(link).toHaveAttribute("target", "_blank");
