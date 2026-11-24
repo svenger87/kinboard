@@ -141,40 +141,6 @@ for (const theme of ["light", "dark"] as const) {
   }
 }
 
-test("a box that fits two tasks: one tap ticks one off, with the card's mutation", async ({ page, browserName }) => {
-  await signIn(page, "light", browserName);
-  // The smallest height (in steps) at which the tasks box shows exactly two.
-  let h = 0;
-  for (let steps = 8; steps <= 20; steps++) {
-    await open(page, `widgets=tasks,shopping&w=24&h=${steps}&text=M`);
-    const shown = Number(await page.getByTestId("home-widget-tasks").locator("[data-list-shown]").first().getAttribute("data-list-shown"));
-    if (shown === 2) {
-      h = steps;
-      break;
-    }
-  }
-  expect(h, "no height shows exactly two tasks").toBeGreaterThan(0);
-  if (SHOTS) await page.screenshot({ path: join(SHOTS, `${browserName}-two-rows-before.png`), clip: { x: 0, y: 0, width: 1080, height: 400 } });
-
-  for (const widget of ["tasks", "shopping"]) {
-    const section = page.getByTestId(`home-widget-${widget}`);
-    const root = section.locator("[data-list-shown]").first();
-    const total = Number(await root.getAttribute("data-list-shown")) + Number(await root.getAttribute("data-list-more"));
-    const first = root.locator("[data-list-visible] > div").first();
-    const label = (await first.innerText()).split("\n").map((l) => l.trim()).filter((l) => l && !/^(today|upcoming)$/i.test(l))[0];
-    const table = widget === "tasks" ? "todos" : "shopping_items";
-    const write = page.waitForResponse((r) => r.url().includes(`/rest/v1/${table}`) && r.request().method() === "PATCH");
-    const b = (await first.boundingBox())!;
-    expect(b.height).toBeGreaterThanOrEqual(47.5);
-    // One tap on the row's text, not the little box: the whole row is the target.
-    await first.locator("label").last().click();
-    expect((await write).ok(), `${widget}: the tick was not saved`).toBe(true);
-    await expect(section.getByText(label, { exact: true })).toHaveCount(0, { timeout: 15_000 });
-    await expect.poll(async () => Number(await root.getAttribute("data-list-shown")) + Number(await root.getAttribute("data-list-more"))).toBe(total - 1);
-  }
-  if (SHOTS) await page.screenshot({ path: join(SHOTS, `${browserName}-two-rows-after.png`), clip: { x: 0, y: 0, width: 1080, height: 400 } });
-});
-
 test("dialogs open over the page, not inside the box", async ({ page, browserName }) => {
   await signIn(page, "dark", browserName);
   await open(page, "widgets=notes,countdown,messages&size=min&text=M");
@@ -285,4 +251,39 @@ test("every list's minimum holds its entries and \"+n\" at text XL on every scre
       }
     }
   }
+});
+
+// Last: it ticks entries off, and the measurements above need the family as seeded.
+test("a box that fits two tasks: one tap ticks one off, with the card's mutation", async ({ page, browserName }) => {
+  await signIn(page, "light", browserName);
+  // The smallest height (in steps) at which the tasks box shows exactly two.
+  let h = 0;
+  for (let steps = 8; steps <= 20; steps++) {
+    await open(page, `widgets=tasks,shopping&w=24&h=${steps}&text=M`);
+    const shown = Number(await page.getByTestId("home-widget-tasks").locator("[data-list-shown]").first().getAttribute("data-list-shown"));
+    if (shown === 2) {
+      h = steps;
+      break;
+    }
+  }
+  expect(h, "no height shows exactly two tasks").toBeGreaterThan(0);
+  if (SHOTS) await page.screenshot({ path: join(SHOTS, `${browserName}-two-rows-before.png`), clip: { x: 0, y: 0, width: 1080, height: 400 } });
+
+  for (const widget of ["tasks", "shopping"]) {
+    const section = page.getByTestId(`home-widget-${widget}`);
+    const root = section.locator("[data-list-shown]").first();
+    const total = Number(await root.getAttribute("data-list-shown")) + Number(await root.getAttribute("data-list-more"));
+    const first = root.locator("[data-list-visible] > div").first();
+    const label = (await first.innerText()).split("\n").map((l) => l.trim()).filter((l) => l && !/^(today|upcoming)$/i.test(l))[0];
+    const table = widget === "tasks" ? "todos" : "shopping_items";
+    const write = page.waitForResponse((r) => r.url().includes(`/rest/v1/${table}`) && r.request().method() === "PATCH");
+    const b = (await first.boundingBox())!;
+    expect(b.height).toBeGreaterThanOrEqual(47.5);
+    // One tap on the row's text, not the little box: the whole row is the target.
+    await first.locator("label").last().click();
+    expect((await write).ok(), `${widget}: the tick was not saved`).toBe(true);
+    await expect(section.getByText(label, { exact: true })).toHaveCount(0, { timeout: 15_000 });
+    await expect.poll(async () => Number(await root.getAttribute("data-list-shown")) + Number(await root.getAttribute("data-list-more"))).toBe(total - 1);
+  }
+  if (SHOTS) await page.screenshot({ path: join(SHOTS, `${browserName}-two-rows-after.png`), clip: { x: 0, y: 0, width: 1080, height: 400 } });
 });
