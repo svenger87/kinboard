@@ -19,7 +19,7 @@ const CODE = process.env.HOME_LISTS_CODE;
 const SHOTS = process.env.HOME_LISTS_SHOTS;
 test.skip(!process.env.PLAYWRIGHT_BASE_URL || !CODE, "needs PLAYWRIGHT_BASE_URL and HOME_LISTS_CODE");
 test.use({ serviceWorkers: "block", viewport: { width: 1080, height: 1920 } });
-test.describe.configure({ timeout: 420_000 });
+test.describe.configure({ timeout: 900_000 });
 
 const WIDGETS = ["tasks", "shopping", "mealPlan", "notes", "messages", "birthday", "holidays", "wasteCollection", "countdown"];
 /** Where "+n" and the title lead; messages and countdowns have no page. */
@@ -71,52 +71,55 @@ async function open(page: Page, query: string) {
 
 /** Every visible entry, "+n" and target of one widget, checked against its box. */
 async function checkWidget(page: Page, widget: string) {
-  const section = page.getByTestId(`home-widget-${widget}`);
-  const box = (await section.boundingBox())!;
-  const root = section.locator("[data-list-shown]").first();
-  const shown = Number(await root.getAttribute("data-list-shown"));
-  const more = Number(await root.getAttribute("data-list-more"));
-  const visible = root.locator("[data-list-visible]");
-  const rows = visible.locator(":scope > div:not([data-testid=list-more])");
-  if (await visible.count()) await expect(rows).toHaveCount(shown);
-
+  // Measured in one pass in the page: on a busy machine a locator call per target took minutes.
+  const r = await page.getByTestId(`home-widget-${widget}`).evaluate((section) => {
+    const rect = (el: Element) => el.getBoundingClientRect();
+    const box = rect(section);
+    const root = section.querySelector<HTMLElement>("[data-list-shown]")!;
+    const shown = Number(root.dataset.listShown);
+    const more = Number(root.dataset.listMore);
+    const visible = root.querySelector("[data-list-visible]");
+    const rows = visible ? [...visible.children].filter((c) => (c as HTMLElement).dataset.testid !== "list-more") : [];
+    const moreLine = visible?.querySelector<HTMLElement>("[data-testid=list-more]") ?? null;
+    const moreShown = !!moreLine && moreLine.checkVisibility();
+    const seen = (el: Element) => (el as HTMLElement).checkVisibility({ visibilityProperty: true }) && rect(el).height > 0;
+    const targets = [...section.querySelectorAll("a, button, [data-list-visible] label")]
+      .filter(seen)
+      // A checkbox's own label sits inside the row's label, which is the target.
+      .filter((el) => !(el.tagName === "LABEL" && el.querySelector("input")))
+      .map((el) => ({ what: `${el.tagName} ${(el.textContent ?? "").trim().slice(0, 30)}`, w: rect(el).width, h: rect(el).height }));
+    return {
+      shown,
+      more,
+      rowCount: rows.length,
+      rowsPastBottom: rows.filter((row) => rect(row).bottom > box.bottom + 0.5).length,
+      moreShown,
+      moreText: moreLine?.textContent ?? "",
+      morePastBottom: moreShown ? rect(moreLine!).bottom > box.bottom + 0.5 : false,
+      moreHref: moreLine?.querySelector("a")?.getAttribute("href") ?? null,
+      titleHref: section.querySelector("[data-home-list-title]")?.getAttribute("href") ?? null,
+      targets,
+    };
+  });
+  expect(r.rowCount, `${widget}: rows drawn`).toBe(r.shown);
   // Whole entries only: nothing drawn past the box's bottom edge.
-  for (const row of await rows.all()) {
-    const r = (await row.boundingBox())!;
-    expect(r.y + r.height, `${widget}: an entry runs past its box`).toBeLessThanOrEqual(box.y + box.height + 0.5);
-  }
+  expect(r.rowsPastBottom, `${widget}: an entry runs past its box`).toBe(0);
   // "+n" is the rest, and leads to the widget's page (when shown at all).
-  const moreLine = visible.getByTestId("list-more");
-  if (more > 0 && shown > 0) {
-    await expect(moreLine).toBeVisible();
-    await expect(moreLine).toContainText(`+${more}`);
-    const m = (await moreLine.boundingBox())!;
-    expect(m.y + m.height, `${widget}: "+n" runs past its box`).toBeLessThanOrEqual(box.y + box.height + 0.5);
-    const href = await moreLine.locator("a").getAttribute("href").catch(() => null);
-    expect(href, `${widget}: "+n" link`).toBe(PAGES[widget]);
+  if (r.more > 0 && r.shown > 0) {
+    expect(r.moreShown, `${widget}: "+n" shown`).toBe(true);
+    expect(r.moreText).toContain(`+${r.more}`);
+    expect(r.morePastBottom, `${widget}: "+n" runs past its box`).toBe(false);
+    expect(r.moreHref, `${widget}: "+n" link`).toBe(PAGES[widget]);
   } else {
-    await expect(moreLine).toBeHidden();
+    expect(r.moreShown, `${widget}: "+n" hidden`).toBe(false);
   }
-  const title = section.locator("[data-home-list-title]");
-  expect(await title.getAttribute("href"), `${widget}: title link`).toBe(PAGES[widget]);
-
+  expect(r.titleHref, `${widget}: title link`).toBe(PAGES[widget]);
   // Touch targets: 48px at least, whatever the text size.
-  const targets = section.locator("a:visible, button:visible, [data-list-visible] label:visible");
-  const sizes: { what: string; w: number; h: number }[] = [];
-  for (const t of await targets.all()) {
-    const b = await t.boundingBox();
-    if (!b) continue;
-    // A checkbox's own label sits inside the row's label, which is the target.
-    if (await t.evaluate((el) => el.tagName === "LABEL" && !!el.querySelector("input"))) continue;
-    // The row's text label fills the row's height; its width is the row's.
-    const tag = await t.evaluate((el) => el.tagName);
-    sizes.push({ what: `${tag} ${(await t.innerText()).slice(0, 30)}`, w: b.width, h: b.height });
-  }
-  for (const s of sizes) {
+  for (const s of r.targets) {
     expect(s.h, `${widget}: ${s.what} is ${s.h}px tall`).toBeGreaterThanOrEqual(47.5);
     expect(s.w, `${widget}: ${s.what} is ${s.w}px wide`).toBeGreaterThanOrEqual(47.5);
   }
-  return { shown, more, targets: sizes.length, minTarget: Math.min(...sizes.map((s) => Math.min(s.w, s.h))) };
+  return { shown: r.shown, more: r.more, targets: r.targets.length, minTarget: Math.min(...r.targets.map((s) => Math.min(s.w, s.h))) };
 }
 
 for (const theme of ["light", "dark"] as const) {
