@@ -63,3 +63,20 @@ test("on the screensaver the effects keep its order, and Home's stop underneath"
   expect(fx).toContain('const covered = () => placement === "home" && document.documentElement.hasAttribute("data-screensaver");');
   expect(fx).toContain('if (placement === "home") screensaver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-screensaver"] });');
 });
+
+test("the weather surfaces pair their fill with a border, so the card survives a black backdrop", () => {
+  const strip = read("src/components/screensaver-weather.tsx");
+  // The surfaces' fill is the screensaver's shared panel fill
+  // (.screensaver-panel — Settings -> Screensaver -> Panel opacity),
+  // never a bare translucent black: on the black pillarbox beside a
+  // portrait photo a black fill is invisible at any opacity, and the
+  // wide forecast strip — anchored top right — straddles the photo's
+  // edge, so its card visibly ended mid-widget. Every surface (the
+  // strip, the scaled strip for layout boxes, the now chip in both
+  // sizes) pairs the fill with the hairline border instead. The border
+  // takes the Panel text colour (.panel-fg-border), so a light panel
+  // gets a dark hairline rather than a white one.
+  const paired = strip.match(/screensaver-panel border panel-fg-border/g) ?? [];
+  expect(paired.length).toBe(4);
+  expect(strip).not.toContain("bg-black/");
+});

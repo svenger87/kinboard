@@ -32,12 +32,12 @@ export type ScreensaverBirthday = ScreensaverData["upcomingBirthdays"][number];
 export const pick = (scale: RowScale, normal: string, large: string, box: string) =>
   scale === "box" ? box : scale === "large" ? large : normal;
 
-/** The card a row sits on. */
+/** The card a row sits on: the screensaver's shared panel fill (.screensaver-panel). */
 export const rowCard = (scale: RowScale, align: "center" | "start" = "center") =>
   `flex ${align === "start" ? "items-start" : "items-center"} ${
     scale === "box"
-      ? "gap-[0.5em] bg-black/40 rounded-[0.5em] px-[0.75em] py-[0.4em] gpu-blur"
-      : "gap-2 landscape:lg:gap-3 bg-black/40 rounded-lg px-3 py-1.5 landscape:lg:px-4 landscape:lg:py-2 gpu-blur"
+      ? "gap-[0.5em] screensaver-panel rounded-[0.5em] px-[0.75em] py-[0.4em] gpu-blur"
+      : "gap-2 landscape:lg:gap-3 screensaver-panel rounded-lg px-3 py-1.5 landscape:lg:px-4 landscape:lg:py-2 gpu-blur"
   }`;
 
 /** "Today, 14:00", "Tomorrow", "Fri, 9:30": when an event in the list starts. */
@@ -121,9 +121,9 @@ export function EventRow({ event, when, scale }: { event: ScreensaverEvent; when
           aria-hidden="true"
         >
           {event.holiday === "school" ? (
-            <GraduationCap className={`${box ? "size-[0.8em]" : "size-4"} text-amber-300`} />
+            <GraduationCap className={`${box ? "size-[0.8em]" : "size-4"} panel-amber`} />
           ) : (
-            <Calendar className={`${box ? "size-[0.8em]" : "size-4"} text-amber-300`} />
+            <Calendar className={`${box ? "size-[0.8em]" : "size-4"} panel-amber`} />
           )}
         </div>
       ) : event.personName ? (
@@ -144,11 +144,11 @@ export function EventRow({ event, when, scale }: { event: ScreensaverEvent; when
         {/* A holiday's name wraps, two lines at most, rather
             than being cut: it is the whole of the row. */}
         <p
-          className={`text-white font-medium ${event.holiday ? "line-clamp-2 break-words" : "truncate"} ${pick(scale, "text-sm", "text-xl", "text-[1em] leading-[1.4]")}`}
+          className={`panel-fg font-medium ${event.holiday ? "line-clamp-2 break-words" : "truncate"} ${pick(scale, "text-sm", "text-xl", "text-[1em] leading-[1.4]")}`}
         >
           {event.title}
         </p>
-        <div className={`flex items-center ${box ? "gap-[0.4em]" : "gap-2"} text-white/50 ${pick(scale, "text-xs", "text-base", "text-[0.8em] leading-[1.5]")}`}>
+        <div className={`flex items-center ${box ? "gap-[0.4em]" : "gap-2"} panel-fg-50 ${pick(scale, "text-xs", "text-base", "text-[0.8em] leading-[1.5]")}`}>
           <span>
             {when}
             {event.until && ` · ${t("holidayUntil", { date: event.until })}`}
@@ -179,7 +179,7 @@ export function BirthdayRow({ birthday, scale }: { birthday: ScreensaverBirthday
             ? "#ec4899"
             : birthday.personColor
               ? `${birthday.personColor}30`
-              : "rgba(255,255,255,0.1)",
+              : "rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.1)",
         }}
       >
         <Cake
@@ -187,18 +187,18 @@ export function BirthdayRow({ birthday, scale }: { birthday: ScreensaverBirthday
           style={{
             color: birthday.daysUntil === 0
               ? "white"
-              : birthday.personColor || "rgba(255,255,255,0.7)"
+              : birthday.personColor || "rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.7)"
           }}
         />
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`text-white font-medium truncate ${pick(scale, "text-sm", "text-xl", "text-[1em] leading-[1.4]")}`}>
+        <p className={`panel-fg font-medium truncate ${pick(scale, "text-sm", "text-xl", "text-[1em] leading-[1.4]")}`}>
           {/* No birth year stored means no age to announce - see hasBirthYear. */}
           {hasBirthYear(birthday.date)
             ? t("birthdayTurns", { name: birthday.name, age: calculateUpcomingAge(birthday.date) })
             : birthday.name}
         </p>
-        <p className={`text-white/50 ${pick(scale, "text-xs", "text-base", "text-[0.8em] leading-[1.5]")}`}>
+        <p className={`panel-fg-50 ${pick(scale, "text-xs", "text-base", "text-[0.8em] leading-[1.5]")}`}>
           {format(birthday.date, locale === "de" ? "d. MMMM" : "MMMM d", { locale: getDateFnsLocale(locale) })}
         </p>
       </div>
@@ -208,7 +208,7 @@ export function BirthdayRow({ birthday, scale }: { birthday: ScreensaverBirthday
             ? "bg-pink-500 text-white"
             : birthday.daysUntil <= 7
             ? "bg-warning/20 text-warning"
-            : "bg-white/10 text-white/70"
+            : "panel-fg-fill panel-fg-70"
         }`}
       >
         {birthday.daysUntil === 0
@@ -239,7 +239,7 @@ export function NewsCard({
   const content = (
     <>
       {item.image && (
-        <div className={`${box ? "size-[3.2em] rounded-[0.3em]" : "size-16 rounded-md"} overflow-hidden shrink-0 bg-white/10`}>
+        <div className={`${box ? "size-[3.2em] rounded-[0.3em]" : "size-16 rounded-md"} overflow-hidden shrink-0 panel-fg-fill`}>
           <img
             src={item.image}
             alt=""
@@ -255,7 +255,7 @@ export function NewsCard({
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <p className={`text-white ${box ? "text-[1em]" : "text-sm"} font-medium leading-snug line-clamp-2 group-hover:text-white/90`}>
+        <p className={`panel-fg panel-fg-hover ${box ? "text-[1em]" : "text-sm"} font-medium leading-snug line-clamp-2`}>
           {item.title}
         </p>
         <div className={`flex items-center ${box ? "gap-[0.4em] mt-[0.2em]" : "gap-2 mt-1"}`}>
@@ -264,7 +264,7 @@ export function NewsCard({
               {item.category}
             </span>
           )}
-          <span className={`${box ? "text-[0.8em]" : "text-xs"} text-white/40`}>
+          <span className={`${box ? "text-[0.8em]" : "text-xs"} panel-fg-40`}>
             {time}
           </span>
         </div>
@@ -272,8 +272,8 @@ export function NewsCard({
     </>
   );
   const card = box
-    ? "w-full flex gap-[0.6em] bg-black/50 rounded-[0.5em] p-[0.4em] text-left group gpu-blur"
-    : "w-full flex gap-3 bg-black/50 rounded-lg p-2 hover:bg-black/60 transition-colors text-left group gpu-blur";
+    ? "w-full flex gap-[0.6em] screensaver-panel rounded-[0.5em] p-[0.4em] text-left group gpu-blur"
+    : "w-full flex gap-3 screensaver-panel rounded-lg p-2 screensaver-panel-hover transition-colors text-left group gpu-blur";
   if (!onSelect) return <div className={card}>{content}</div>;
   return (
     <button
@@ -311,8 +311,8 @@ function Stat({
         <Icon className={`${box ? "size-[1.25em]" : "size-5"} ${color}`} />
       </div>
       <div>
-        <p className={`text-white/60 ${box ? "text-[0.75em]" : "text-xs"}`}>{label}</p>
-        <p className="text-white font-medium">{children}</p>
+        <p className={`panel-fg-60 ${box ? "text-[0.75em]" : "text-xs"}`}>{label}</p>
+        <p className="panel-fg font-medium">{children}</p>
       </div>
     </div>
   );
@@ -375,7 +375,7 @@ export function TeslaRows({
       {teslaBattery !== null && (
         <Stat icon={Car} tint="bg-blue-500/20" color="text-blue-400" label="Tesla" scale={scale}>
           {Math.round(teslaBattery)}%
-          {teslaRange !== null && <span className={`text-white/50 ${box ? "text-[0.75em] ml-[0.4em]" : "text-xs ml-1.5"}`}>· {Math.round(teslaRange)} km</span>}
+          {teslaRange !== null && <span className={`panel-fg-50 ${box ? "text-[0.75em] ml-[0.4em]" : "text-xs ml-1.5"}`}>· {Math.round(teslaRange)} km</span>}
         </Stat>
       )}
 

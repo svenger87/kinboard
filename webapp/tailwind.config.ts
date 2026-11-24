@@ -138,8 +138,12 @@ const config: Config = {
   		// boxShadow removed: these `shadow-elev-*` tokens duplicated the
   		// `.elev-*` utilities in globals.css, hard-coded the Salbei shadow tint
   		// instead of following --shadow-rgb, and had zero usages (audit KB-28).
+  		// --font-cjk heads both stacks (globals.css): the family's picked
+  		// Chinese face in a Chinese UI, an empty slot otherwise. Browsers
+  		// take CJK glyphs from it per character, ahead of the Latin face.
   		fontFamily: {
   			sans: [
+  				'var(--font-cjk)',
   				'var(--font-sans)',
   				'system-ui',
   				'sans-serif'
@@ -149,6 +153,7 @@ const config: Config = {
   				'monospace'
   			],
   			display: [
+  				'var(--font-cjk)',
   				'var(--font-display)',
   				'system-ui',
   				'sans-serif'

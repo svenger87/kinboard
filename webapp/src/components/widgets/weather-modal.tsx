@@ -281,7 +281,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                 </div>
                 <div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-display font-light">{currentWeather.temp}°</span>
+                    <span className="text-5xl font-sans font-light">{currentWeather.temp}°</span>
                     {range && (
                       <div className="text-sm text-muted-foreground tabular-nums whitespace-nowrap">
                         <span className="sr-only">{t("highLowLabel", { high: range.high, low: range.low })}</span>

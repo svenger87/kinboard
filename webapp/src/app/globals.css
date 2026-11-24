@@ -32,6 +32,51 @@
   size-adjust: 137.28%;
 }
 
+/* Font styles (Settings → Design → Font style, lib/font-style.ts): the
+   family's choice lands on <body data-font-style> (hooks/use-font-style.ts)
+   and these rules point the two type variables at the picked pair. The
+   per-style variables come from src/app/fonts.ts. The attribute selector
+   outranks the fonts' own variable classes on <body>; everything below
+   inherits the remapped variables. Mono stays Space Mono in every style. */
+body[data-font-style="rounded"] {
+  --font-display: var(--font-display-rounded);
+  --font-sans: var(--font-sans-rounded);
+}
+
+body[data-font-style="clean"] {
+  --font-display: var(--font-display-clean);
+  --font-sans: var(--font-sans-clean);
+}
+
+body[data-font-style="serif"] {
+  --font-display: var(--font-display-serif);
+}
+
+/* Chinese font styles (Settings → Design → Font style in a Chinese UI,
+   lib/font-style-cjk.ts): tailwind.config.ts puts var(--font-cjk) at the
+   head of the display and text stacks. The default names a family that
+   does not exist — the slot is empty on purpose, so per-character
+   fallback passes straight to the Latin face and then the device, as it
+   did before this picker. A picked face (hooks/use-font-style.ts lands
+   it on <body data-font-style-cjk>, Chinese UI only) heads both stacks;
+   its subset carries no Latin glyphs, so Latin words and numbers still
+   fall through to the font-style pairing behind it. */
+body {
+  --font-cjk: "Kinboard CJK System";
+}
+
+body[data-font-style-cjk="noto-sans"] {
+  --font-cjk: var(--font-cjk-noto-sans);
+}
+
+body[data-font-style-cjk="noto-serif"] {
+  --font-cjk: var(--font-cjk-noto-serif);
+}
+
+body[data-font-style-cjk="zcool-kuaile"] {
+  --font-cjk: var(--font-cjk-zcool-kuaile);
+}
+
 /* Centered dialogs are portals, outside page shells that provide safe-area
    padding. Keep their panels clear of notches and home indicators, including
    short landscape viewports. The custom-property fallbacks let layout tests
@@ -797,6 +842,64 @@
 .gpu-blur {
   /* Previously had will-change, transform, backface-visibility - removed for ARM compatibility */
 }
+
+/* The screensaver's panels — the weather strip and chips, the event,
+   birthday and lesson rows, the news cards, the energy
+   card, a designed layout's widget boxes — share one fill, so they read
+   as one family over a photo. Its colour and opacity are the family's
+   Panel colour and Panel opacity settings (Settings -> Screensaver),
+   which the screensaver root publishes as --screensaver-panel-rgb and
+   --screensaver-overlay-opacity; the fallbacks are the settings' own
+   defaults, for the layout-box preview page, which draws these blocks
+   outside a screensaver. A panel's border and rounding stay its own —
+   this is only the fill. The writing on the panels follows the Panel
+   text colour the same way: the .panel-fg* classes below read
+   --screensaver-panel-fg-rgb at the strengths the panels always used,
+   so one choice recolours every level of the writing at once. */
+.screensaver-panel {
+  background-color: rgb(var(--screensaver-panel-rgb, 0 0 0) / var(--screensaver-overlay-opacity, 0.7));
+  color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255));
+}
+
+/* The news card's hover: one step deeper than the panel fill (the old
+   bg-black/50 -> /60 step), never past solid. */
+.screensaver-panel-hover:hover {
+  background-color: rgb(var(--screensaver-panel-rgb, 0 0 0) / min(1, calc(var(--screensaver-overlay-opacity, 0.7) + 0.1)));
+}
+
+/* The writing on a panel, at the strengths the panels use it: the text
+   colour full, then stepped down for labels, times and captions. */
+.panel-fg { color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255)); }
+.panel-fg-90 { color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.9); }
+.panel-fg-80 { color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.8); }
+.panel-fg-70 { color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.7); }
+.panel-fg-60 { color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.6); }
+.panel-fg-55 { color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.55); }
+.panel-fg-50 { color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.5); }
+.panel-fg-40 { color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.4); }
+
+/* The news headline steps down one strength when its card is hovered,
+   against the hover's deeper fill. */
+.group:hover .panel-fg-hover { color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.9); }
+
+/* Panel furniture in the text colour: chips and image placeholders at a
+   tenth of it, the weather strip's divider at 15%. */
+.panel-fg-fill { background-color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.1); }
+.panel-fg-line { background-color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.15); }
+
+/* The hairline borders that hold a panel together on a backdrop its fill
+   disappears into (the weather fix): the text colour at 15%, and at a
+   tenth for the energy card's inner divider. */
+.panel-fg-border { border-color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.15); }
+.panel-fg-border-soft { border-color: rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.1); }
+
+/* The accents inside the panels: the rain figure that stands out, and
+   the amber of a holiday icon, a lessons "bring" line.
+   The root publishes deep versions when the writing is black —
+   the light ones vanish on a light panel (SCREENSAVER_PANEL_ACCENT_RGB
+   and SCREENSAVER_PANEL_AMBER_RGB in src/types/screensaver.ts). */
+.panel-accent { color: rgb(var(--screensaver-panel-accent-rgb, 125 211 252)); }
+.panel-amber { color: rgb(var(--screensaver-panel-amber-rgb, 252 211 77)); }
 
 /* No photo source configured means DEFAULT_PHOTOS is empty and there is
    literally nothing to draw, so the canvas was flat black — a ~1100x850px void

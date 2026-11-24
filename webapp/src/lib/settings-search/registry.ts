@@ -238,6 +238,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   ...sectionsOf(theme, [
     { anchor: "monthly-theme", labelKey: "settings.theme.monthlyThemeHeading" },
     { anchor: "palette", labelKey: "settings.theme.paletteHeading" },
+    { anchor: "font-style", labelKey: "settings.theme.fontStyleHeading" },
     { anchor: "appearance", labelKey: "settings.theme.appearanceHeading" },
     { anchor: "animations", labelKey: "settings.theme.motionLabel", descriptionKey: "settings.theme.motionHint" },
     { anchor: "festivals", labelKey: "settings.theme.festivalsLabel", descriptionKey: "settings.theme.festivalsHint" },
@@ -248,6 +249,9 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     { anchor: "forecast", labelKey: "settings.screensaver.showForecastLabel", descriptionKey: "settings.screensaver.showForecastDescription" },
     { anchor: "lessons", labelKey: "settings.screensaver.showLessonsLabel", descriptionKey: "settings.screensaver.showLessonsDescription" },
     { anchor: "preview", labelKey: "settings.screensaver.previewLabel", descriptionKey: "settings.screensaver.previewDescription" },
+    { anchor: "panel-opacity", labelKey: "settings.screensaver.panelOpacityLabel", descriptionKey: "settings.screensaver.panelOpacityDescription" },
+    { anchor: "panel-color", labelKey: "settings.screensaver.panelColorLabel", descriptionKey: "settings.screensaver.panelColorDescription" },
+    { anchor: "panel-text-color", labelKey: "settings.screensaver.panelTextColorLabel", descriptionKey: "settings.screensaver.panelTextColorDescription" },
     { anchor: "weather-effects", labelKey: "settings.screensaver.weatherEffectsLabel" },
     { anchor: "night", labelKey: "settings.screensaver.nightLabel" },
     { anchor: "timeout", labelKey: "settings.screensaver.timeoutHeading" },

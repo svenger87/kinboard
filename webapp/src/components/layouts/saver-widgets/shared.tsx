@@ -97,7 +97,7 @@ export function FittedCard({ box, deps, children }: { box: { width: number; heig
   return (
     <div
       ref={root}
-      className="flex size-full items-center justify-center overflow-hidden rounded-[0.75em] bg-black/50 gpu-blur"
+      className="flex size-full items-center justify-center overflow-hidden rounded-[0.75em] screensaver-panel gpu-blur"
       style={{ padding: pad }}
       data-fills-box
       data-wide={wide}

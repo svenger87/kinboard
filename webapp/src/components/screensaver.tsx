@@ -8,9 +8,18 @@ import { useActiveLayout } from "@/hooks/use-active-layout";
 import type { PreviewLayout } from "@/lib/screensaver-gate";
 import { ScreensaverDataProvider, useScreensaverDataValue } from "@/components/layouts/screensaver-data-context";
 import { BirthdayRow, EnergyRows, EventRow, NewsCard, SectionLabel, TeslaRows, useEventWhen, useNewsTime } from "@/components/screensaver-rows";
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties } from "react";
 import { type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
+import {
+  SCREENSAVER_PANEL_ACCENT_RGB,
+  SCREENSAVER_PANEL_AMBER_RGB,
+  SCREENSAVER_PANEL_RGB,
+  SCREENSAVER_PANEL_TEXT_RGB,
+  screensaverOverlayOpacity,
+  screensaverPanelColor,
+  screensaverPanelTextColor,
+} from "@/types/screensaver";
 import { NewsArticleSheet } from "@/components/news-article-sheet";
 import { Cake, Calendar, Newspaper, X, ExternalLink, BookOpen, Clock } from "lucide-react";
 import { choosePhotoFit, aspectOf } from "@/lib/photo-fit";
@@ -167,6 +176,18 @@ export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) 
   const showForecast = screensaverSettings.showForecast ?? false;
   const showLessons = screensaverSettings.showLessons ?? false;
   const weatherEffects = screensaverSettings.weatherEffects ?? false;
+  // Every dark panel in here shares one fill (.screensaver-panel); its
+  // opacity is the family's Panel opacity setting, published to the
+  // panels as a CSS variable on the root below, so the weather, the
+  // events and the news all move together.
+  const overlayOpacity = screensaverOverlayOpacity(screensaverSettings.overlayOpacity);
+  // The panels' colour and the colour of the writing on them (Panel
+  // colour / Panel text colour) ride along the same way: the root below
+  // publishes the triplets, and the panels' .panel-fg* classes read
+  // them. The writing colour derives from the panel colour until the
+  // family picks one itself.
+  const panelColor = screensaverPanelColor(screensaverSettings.panelColor);
+  const panelTextColor = screensaverPanelTextColor(screensaverSettings.panelTextColor, panelColor);
 
 
 
@@ -334,6 +355,15 @@ export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) 
         className={`fixed inset-0 z-[100] screensaver-fade-in ${
           currentBlobUrl ? "bg-black" : "screensaver-canvas-empty"
         }`}
+        style={
+          {
+            "--screensaver-overlay-opacity": overlayOpacity / 100,
+            "--screensaver-panel-rgb": SCREENSAVER_PANEL_RGB[panelColor],
+            "--screensaver-panel-fg-rgb": SCREENSAVER_PANEL_TEXT_RGB[panelTextColor],
+            "--screensaver-panel-accent-rgb": SCREENSAVER_PANEL_ACCENT_RGB[panelTextColor],
+            "--screensaver-panel-amber-rgb": SCREENSAVER_PANEL_AMBER_RGB[panelTextColor],
+          } as CSSProperties
+        }
       >
         {/* Background Photo - Only render current and previous for performance */}
         <div className="absolute inset-0">
@@ -426,14 +456,14 @@ export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) 
             className="screensaver-slide-down"
             style={{ animationDelay: "0.9s" }}
           >
-            <div className="bg-black/50 rounded-xl p-4 flex flex-col gap-3 gpu-blur">
+            <div className="screensaver-panel rounded-xl p-4 flex flex-col gap-3 gpu-blur">
               {showEnergyWidget && (
                 <EnergyRows solarPower={solarPower} batterySoc={batterySoc} gridPower={gridPower} scale="normal" />
               )}
 
               {/* Divider between energy and Tesla */}
               {showEnergyWidget && showTeslaWidget && (
-                <div className="border-t border-white/10" />
+                <div className="border-t panel-fg-border-soft" />
               )}
 
               {showTeslaWidget && (
