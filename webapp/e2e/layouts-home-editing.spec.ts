@@ -4,7 +4,7 @@ import { alignItems, checkItems, moveBy, resizeBy, setBox } from "../src/lib/lay
 import { fitItems, rescaleItems } from "../src/lib/layouts/rescale";
 import { builtInHome, builtInScreensaver } from "../src/lib/layouts/built-in";
 import { gridFor } from "../src/lib/layouts/grid";
-import { HOME_NAV_BAR, homeArea } from "../src/lib/layouts/home-area";
+import { homeArea } from "../src/lib/layouts/home-area";
 import { validateItems } from "../src/lib/layouts/validate";
 import { HOME_WIDGETS, SAVER_WIDGETS } from "../src/lib/layouts/widgets";
 import type { HomeLayoutItem, HomeWidgetKey, LayoutItem } from "../src/lib/layouts/types";
@@ -25,9 +25,15 @@ const rows = gridFor(area.width, area.height)!.rows;
 const hi = (o: Partial<HomeLayoutItem> & { id: string; widget: HomeWidgetKey }): HomeLayoutItem => ({ x: 0, y: 0, w: 12, h: 12, text: "M", ...o });
 
 test("Home's grid is the screen less the navigation bar", () => {
-  expect(homeArea(1080, 1920)).toEqual({ width: 1080, height: 1920 - HOME_NAV_BAR });
+  // However tall the bar is at a width, Home keeps the width and loses some height.
+  for (const [w, h] of [[1080, 1920], [1920, 1080], [800, 1280], [720, 1280], [600, 1024]] as const) {
+    const a = homeArea(w, h);
+    expect(a.width, `${w}x${h}`).toBe(w);
+    expect(a.height, `${w}x${h}`).toBeLessThan(h);
+  }
   // 1920x1080: the bar costs no row of cells there (24 steps either way); 1080x1920 loses one.
-  expect(gridFor(1920, 1080 - HOME_NAV_BAR)!.rows).toBe(24);
+  const wide = homeArea(1920, 1080);
+  expect(gridFor(wide.width, wide.height)!.rows).toBe(24);
   expect(rows).toBeLessThan(gridFor(1080, 1920)!.rows);
 });
 

@@ -132,6 +132,7 @@ test.afterAll(async () => {
 });
 
 test("the switch shows Home, starting from today's Home with a labelled tile per widget not drawn in a box yet", async ({ browser }) => {
+  test.setTimeout(120_000);
   const page = await openEditor(browser);
   // The screensaver is the face shown first, as before.
   await expect(page.getByTestId("layout-editor")).toHaveAttribute("data-surface", "screensaver");
@@ -148,13 +149,26 @@ test("the switch shows Home, starting from today's Home with a labelled tile per
   }
   // A widget with no component in a box yet draws as a tile named after it;
   // one with a component draws itself. Either way each box shows something.
-  const tiles = page.locator("[data-testid=home-placeholder]");
-  for (const i of expected) {
-    const tile = page.locator(`[data-item-id="${i.id}"] [data-testid=home-placeholder]`);
-    if ((await tile.count()) > 0) await expect(tile).toHaveAttribute("data-widget", i.widget);
-    else await expect(page.locator(`[data-item-id="${i.id}"] [data-editor-box] > div`), i.id).not.toBeEmpty();
+  // Read in one go: one round trip per box made this test slow enough to time out on a loaded machine.
+  const drawn = await page.locator("[data-editor-item]").evaluateAll((els) =>
+    els.map((el) => {
+      const tile = el.querySelector("[data-testid=home-placeholder]");
+      const content = el.querySelector("[data-editor-box] > div");
+      return {
+        id: el.getAttribute("data-item-id"),
+        widget: el.getAttribute("data-editor-item"),
+        tile: tile ? { widget: tile.getAttribute("data-widget"), text: tile.textContent?.trim() ?? "" } : null,
+        filled: !!content && content.childElementCount > 0,
+      };
+    }),
+  );
+  for (const d of drawn) {
+    expect(d.filled, `${d.id} draws something`).toBe(true);
+    if (d.tile) {
+      expect(d.tile.widget, d.id ?? "").toBe(d.widget);
+      expect(d.tile.text, d.id ?? "").not.toBe("");
+    }
   }
-  if ((await tiles.count()) > 0) await expect(tiles.first()).not.toHaveText("");
   const week = page.locator(`[data-item-id="weekOverview"] [data-testid=home-placeholder]`);
   if ((await week.count()) > 0) await expect(week).toContainText("Week overview");
   // Opening Home changes nothing.
