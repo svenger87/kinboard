@@ -51,6 +51,10 @@ function HomeTodayStripFace({ editing, now }: HomeWidgetProps & { now: ClockNow 
   const measuring = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLSpanElement>(null);
   const [shown, setShown] = useState<number | null>(null);
+  // Whether the box is tall enough for the 48px "+n": a strip at its 2-step
+  // minimum is flatter than that on most screens, and shows nothing rather
+  // than a link cut in half.
+  const [moreFits, setMoreFits] = useState(true);
 
   useLayoutEffect(() => {
     const el = root.current;
@@ -65,9 +69,11 @@ function HomeTodayStripFace({ editing, now }: HomeWidgetProps & { now: ClockNow 
       const moreW = moreRef.current?.offsetWidth ?? 0;
       const rowH = Math.max(moreRef.current?.offsetHeight ?? 0, ...nodes.map((n) => n.offsetHeight));
       const rows = Math.floor((height + gap) / (rowH + gap));
-      // A box too flat for a row of pills shows only "+n" (48px, always room for it at the minimum).
+      // A box too flat for a row of pills shows only "+n", when it has room for that.
       const n = rows > 0 ? pillsThatFit(widths, moreW, width, rows, gap) : 0;
       setShown((prev) => (prev === n ? prev : n));
+      const fitsMore = height >= (moreRef.current?.offsetHeight ?? 0);
+      setMoreFits((prev) => (prev === fitsMore ? prev : fitsMore));
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -106,7 +112,7 @@ function HomeTodayStripFace({ editing, now }: HomeWidgetProps & { now: ClockNow 
           {pills.slice(0, n).map((p) => (
             <TodayStripPill key={p.id} time={p.time} title={p.title} color={p.color} className={PILL} />
           ))}
-          {more > 0 && (
+          {more > 0 && moreFits && (
             <Link href="/calendar" data-testid="list-more" data-home-list-more className={MORE}>
               <span>{moreLabel(more)}</span>
               <ChevronRight className="size-[1em]" aria-hidden="true" />

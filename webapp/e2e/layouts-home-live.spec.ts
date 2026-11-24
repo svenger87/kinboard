@@ -11,10 +11,11 @@ import type { HomeLayoutItem } from "../src/lib/layouts/types";
  * SQL, as the routes do not take `home` yet; in a family of its own, removed
  * afterwards.
  *
- * Until every Home widget has a component in a box, a designed Home is shut
- * (§7.4). The specs that need one open it with the dev server's test mode
- * (HOME_LAYOUT_TEST_KEY), which a production build ignores, so they skip
- * against one; the specs that hold today's Home unchanged run everywhere.
+ * A designed Home was shut until every Home widget had a component in a box
+ * (§7.4); with the list widgets it has, and the gate is open: the first test
+ * checks that without the dev server's test mode. The others still turn the
+ * test mode on (HOME_LAYOUT_TEST_KEY, ignored by a production build, so they
+ * skip against one).
  */
 
 test.skip(!process.env.FAMILY_CODE, "needs FAMILY_CODE and a running stack");
@@ -163,15 +164,14 @@ test.afterAll(async () => {
   expect(psql(`SELECT count(*) FROM devices WHERE hardware_id LIKE '${P}%'`)).toBe("0");
 });
 
-test("with the gate shut, a kiosk with a designed Home still gets today's Home", async ({ browser }) => {
+test("with every widget placeable the gate is open: a kiosk draws its designed Home without the test mode", async ({ browser }) => {
   const { ctx, page } = await open(browser, "kiosk", { testMode: false });
-  // The server's HTML is always today's Home: only once the client has
-  // decided (hydrated) does "still today's Home" say anything.
-  await expect(page.locator("html[data-home-layouts=off]")).toHaveCount(1, { timeout: 45_000 });
-  await expectBuiltIn(page);
-  // And stays there, past the time a layout would have taken to load.
-  await page.waitForTimeout(5000);
-  await expectBuiltIn(page);
+  // Decided on the client (after hydration), and decided "on" by the gate itself.
+  await expect(page.locator("html[data-home-layouts=on]")).toHaveCount(1, { timeout: 45_000 });
+  await expect(page.getByTestId("designed-home")).toBeVisible({ timeout: 45_000 });
+  // Every widget has its component: no box draws the test mode's placeholder.
+  await expect(page.locator("[data-home-widget-missing]")).toHaveCount(0);
+  for (const item of ITEMS) await expect(page.locator(`[data-layout-id=${item.id}] > *`).first()).toBeVisible();
   await ctx.close();
 });
 

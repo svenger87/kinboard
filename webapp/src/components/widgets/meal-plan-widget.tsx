@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   UtensilsCrossed,
@@ -17,21 +17,21 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WidgetCard } from "@/components/widget-card";
 import Link from "next/link";
-import { useMealPlan, getWeekStart, useWeekStart } from "@/hooks";
+import { useMealPlan, getWeekStart, useWeekStart, useToday } from "@/hooks";
 import type { MealType } from "@/types/database";
 
 interface MealPlanWidgetProps {
   className?: string;
 }
 
-const MEAL_TYPE_ICONS: Record<MealType, typeof Coffee> = {
+export const MEAL_TYPE_ICONS: Record<MealType, typeof Coffee> = {
   breakfast: Coffee,
   lunch: UtensilsCrossed,
   dinner: Sunset,
   snack: Cookie,
 };
 
-const MEAL_TYPE_COLORS: Record<MealType, string> = {
+export const MEAL_TYPE_COLORS: Record<MealType, string> = {
   breakfast: "#f59e0b",
   lunch: "#3b82f6",
   dinner: "#8b5cf6",
@@ -65,8 +65,12 @@ function toLocalDateString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-export function MealPlanWidget({ className = "" }: MealPlanWidgetProps) {
-  const t = useTranslations("mealPlanWidget");
+/**
+ * Today's meals in the order of the day, re-read when the day rolls over (a
+ * kiosk stays on past midnight), with the meal types' names. Shared by the
+ * Home card and Home's meal plan box.
+ */
+export function useTodayMeals() {
   const tMealType = useTranslations("meals.mealType");
   const mealTypeLabels: Record<MealType, string> = {
     breakfast: tMealType("breakfast"),
@@ -75,20 +79,13 @@ export function MealPlanWidget({ className = "" }: MealPlanWidgetProps) {
     snack: tMealType("snack"),
   };
 
-  // Recompute "today" every minute so a kiosk display stays correct past midnight
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const today = useMemo(() => toLocalDateString(now), [now]);
+  const now = useToday();
+  const today = useMemo(() => toLocalDateString(new Date(now)), [now]);
   const { weekStartsOn } = useWeekStart();
-  const weekStart = useMemo(() => getWeekStart(now, weekStartsOn), [now, weekStartsOn]);
+  const weekStart = useMemo(() => getWeekStart(new Date(now), weekStartsOn), [now, weekStartsOn]);
 
   const { data, isLoading, isError } = useMealPlan(weekStart);
 
-  // Filter entries for today
   const todayMeals = useMemo(() => {
     if (!data?.entries) return [];
     return data.entries
@@ -99,6 +96,24 @@ export function MealPlanWidget({ className = "" }: MealPlanWidgetProps) {
         return orderA - orderB;
       });
   }, [data, today]);
+
+  return { todayMeals, mealTypeLabels, isLoading, isError };
+}
+
+/** "25 min", "1 h 30 min", "2 h": a recipe's total time. */
+export function usePrepTimeLabel() {
+  const t = useTranslations("mealPlanWidget");
+  return (minutes: number): string => {
+    if (minutes < 60) return t("timeMinutes", { count: minutes });
+    if (minutes % 60 > 0) return t("timeHoursMinutes", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
+    return t("timeHoursOnly", { hours: Math.floor(minutes / 60) });
+  };
+}
+
+export function MealPlanWidget({ className = "" }: MealPlanWidgetProps) {
+  const t = useTranslations("mealPlanWidget");
+  const { todayMeals, mealTypeLabels, isLoading, isError } = useTodayMeals();
+  const prepTimeLabel = usePrepTimeLabel();
 
   if (isLoading) {
     return <MealPlanWidgetSkeleton />;
@@ -185,14 +200,7 @@ export function MealPlanWidget({ className = "" }: MealPlanWidgetProps) {
                       {prepTime && (
                         <span className="flex items-center gap-0.5 tabular-nums">
                           <Clock className="size-2.5" />
-                          {prepTime < 60
-                            ? t("timeMinutes", { count: prepTime })
-                            : prepTime % 60 > 0
-                              ? t("timeHoursMinutes", {
-                                  hours: Math.floor(prepTime / 60),
-                                  minutes: prepTime % 60,
-                                })
-                              : t("timeHoursOnly", { hours: Math.floor(prepTime / 60) })}
+                          {prepTimeLabel(prepTime)}
                         </span>
                       )}
                     </div>

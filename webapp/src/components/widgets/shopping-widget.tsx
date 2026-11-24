@@ -18,6 +18,24 @@ interface ShoppingWidgetProps {
   className?: string;
 }
 
+/** What is still to buy: the items not ticked off. */
+export function openShoppingItems<T extends { checked: boolean | null }>(items: T[] | null | undefined): T[] {
+  return (items || []).filter((i) => !i.checked);
+}
+
+/** Ticking an item off from Home, in one tap; says so when it fails. */
+export function useTickShoppingItem() {
+  const t = useTranslations("shoppingWidget");
+  const updateItem = useUpdateShoppingItem();
+  return async (id: string) => {
+    try {
+      await updateItem.mutateAsync({ id, checked: true });
+    } catch {
+      toast.error(t("toastUpdateFailed"));
+    }
+  };
+}
+
 function ShoppingWidgetSkeleton() {
   const t = useTranslations("shoppingWidget");
   return (
@@ -35,22 +53,11 @@ function ShoppingWidgetSkeleton() {
 export function ShoppingWidget({ maxItems = 4, className = "" }: ShoppingWidgetProps) {
   const t = useTranslations("shoppingWidget");
   const { data: items, isLoading, isError } = useShoppingItems();
-  const updateItem = useUpdateShoppingItem();
+  const handleToggle = useTickShoppingItem();
 
-  const openItems = useMemo(
-    () => (items || []).filter((i) => !i.checked),
-    [items]
-  );
+  const openItems = useMemo(() => openShoppingItems(items), [items]);
   const displayItems = openItems.slice(0, maxItems);
   const totalOpen = openItems.length;
-
-  const handleToggle = async (id: string) => {
-    try {
-      await updateItem.mutateAsync({ id, checked: true });
-    } catch {
-      toast.error(t("toastUpdateFailed"));
-    }
-  };
 
   if (isLoading) {
     return <ShoppingWidgetSkeleton />;

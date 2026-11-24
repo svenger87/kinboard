@@ -4931,6 +4931,7 @@
   "wasteCollectionWidget": {
     "loadingAria": "正在加载垃圾回收日程",
     "title": "垃圾回收日程",
+    "emptyState": "未来 14 天没有垃圾回收",
     "calendarTooltip": "在日历中查看",
     "today": "今天",
     "tomorrow": "明天",

@@ -19,7 +19,7 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { useTodoPoints } from "@/hooks/use-todo-points";
 import { usePointTotals } from "@/hooks/use-point-rewards";
 import { toast } from "sonner";
-import type { Todo } from "@/types/database";
+import type { Person, Todo } from "@/types/database";
 import { WidgetCard } from "@/components/widget-card";
 import { ChecklistItem } from "@/components/checklist-item";
 import { isTodoOpen } from "@/lib/todo-recurrence";
@@ -32,6 +32,77 @@ import { asksWhoDidIt } from "@/lib/done-by";
 interface TasksWidgetProps {
   maxItems?: number;
   className?: string;
+}
+
+/**
+ * The open tasks the widget lists: today's first, then the upcoming ones
+ * (lib/tasks-widget-groups.ts). A recurring chore ticked off today is not
+ * outstanding, even though its row stays `completed: false` so it can come
+ * round again. Shared by the Home card and Home's tasks box.
+ */
+export function openWidgetTasks(todos: Todo[] | null | undefined, todayStr: string) {
+  if (!todos) return [];
+  return widgetTasks(todos.filter((t) => isTodoOpen(t)), todayStr);
+}
+
+/**
+ * Ticking a task off from Home, in one tap: a recurring task records the
+ * day, a one-off is completed. A task worth points asks "Who did it?" first
+ * (lib/done-by.ts) and waits for the answer; `picker` is that dialog, to be
+ * rendered once beside the list (it opens over the page, not in the card).
+ */
+export function useTaskTick(people: Person[] | null | undefined, todayStr: string) {
+  const t = useTranslations("tasksWidget");
+  const updateTodo = useUpdateTodo();
+  const [pickingFor, setPickingFor] = useState<Todo | null>(null);
+
+  const completeTask = async (todo: Todo, doneBy: string | null) => {
+    try {
+      if (todo.recurrence && todo.recurrence !== "once") {
+        await updateTodo.mutateAsync({
+          id: todo.id,
+          last_completed: new Date().toISOString(),
+          last_completed_day: toLocalDateKey(),
+          ...(doneBy ? { done_by: doneBy } : {}),
+        });
+        toast.success(t("toastDoneRecurring"));
+      } else {
+        await updateTodo.mutateAsync({
+          id: todo.id,
+          completed: true,
+          ...(doneBy ? { done_by: doneBy } : {}),
+        });
+        toast.success(t("toastDoneOneTime"));
+      }
+    } catch (err) {
+      // A task taking turns cannot be ticked before its first day.
+      toast.error((err as { hint?: string })?.hint === "no_open_turn" ? t("toastNoTurnOpen") : t("toastUpdateFailed"));
+    }
+  };
+
+  const toggle = (todo: Todo) => {
+    if (asksWhoDidIt(todo, people ?? [])) {
+      setPickingFor(todo);
+      return;
+    }
+    void completeTask(todo, null);
+  };
+
+  const picker = (
+    <DoneByPicker
+      task={pickingFor}
+      people={people ?? []}
+      expectedId={pickingFor ? todayPerson(pickingFor, todayStr) : null}
+      onPick={(personId) => {
+        const todo = pickingFor;
+        setPickingFor(null);
+        if (todo) void completeTask(todo, personId);
+      }}
+      onCancel={() => setPickingFor(null)}
+    />
+  );
+
+  return { toggle, picker };
 }
 
 function TasksWidgetSkeleton() {
@@ -61,7 +132,6 @@ export function TasksWidget({
   const { data: pointAwards = [] } = useTodoPoints();
   // What each child can still spend, as on the tasks page (discussion #349).
   const { totalsFor: pointTotalsFor } = usePointTotals();
-  const updateTodo = useUpdateTodo();
   const { data: taskDisplay } = useSetting<{ large: boolean }>(SETTINGS_KEYS.taskDisplay, { large: false });
   // The day rolls over on a kiosk that stays on: what is "today", and which
   // repeating tasks have come round again, follow it.
@@ -70,10 +140,7 @@ export function TasksWidget({
 
   // Today's tasks first, then the upcoming ones (lib/tasks-widget-groups.ts).
   const openTodos = useMemo(() => {
-    if (!todos) return [];
-    // A recurring chore ticked off today is not outstanding, even though
-    // its row stays `completed: false` so it can come round again.
-    return widgetTasks(todos.filter((t) => isTodoOpen(t)), todayStr);
+    return openWidgetTasks(todos, todayStr);
     // isTodoOpen reads the clock, so the day is a dependency: at midnight the
     // repeating tasks done yesterday are open again.
   }, [todos, todayStr]);
@@ -81,41 +148,7 @@ export function TasksWidget({
   const displayTodos = openTodos.slice(0, maxItems);
   const totalOpen = openTodos.length;
 
-  // "Who did it?" for a task worth points (lib/done-by.ts): the tick waits
-  // for the answer, and the points go to whoever is picked.
-  const [pickingFor, setPickingFor] = useState<Todo | null>(null);
-
-  const handleToggle = (todo: Todo) => {
-    if (asksWhoDidIt(todo, people ?? [])) {
-      setPickingFor(todo);
-      return;
-    }
-    void completeTask(todo, null);
-  };
-
-  const completeTask = async (todo: Todo, doneBy: string | null) => {
-    try {
-      if (todo.recurrence && todo.recurrence !== "once") {
-        await updateTodo.mutateAsync({
-          id: todo.id,
-          last_completed: new Date().toISOString(),
-          last_completed_day: toLocalDateKey(),
-          ...(doneBy ? { done_by: doneBy } : {}),
-        });
-        toast.success(t("toastDoneRecurring"));
-      } else {
-        await updateTodo.mutateAsync({
-          id: todo.id,
-          completed: true,
-          ...(doneBy ? { done_by: doneBy } : {}),
-        });
-        toast.success(t("toastDoneOneTime"));
-      }
-    } catch (err) {
-      // A task taking turns cannot be ticked before its first day.
-      toast.error((err as { hint?: string })?.hint === "no_open_turn" ? t("toastNoTurnOpen") : t("toastUpdateFailed"));
-    }
-  };
+  const { toggle: handleToggle, picker } = useTaskTick(people, todayStr);
 
   const getPersonName = (personId: string | null) => {
     if (!personId || !people) return null;
@@ -246,17 +279,7 @@ export function TasksWidget({
           </Link>
         )}
       </WidgetCard>
-      <DoneByPicker
-        task={pickingFor}
-        people={people ?? []}
-        expectedId={pickingFor ? todayPerson(pickingFor, todayStr) : null}
-        onPick={(personId) => {
-          const todo = pickingFor;
-          setPickingFor(null);
-          if (todo) void completeTask(todo, personId);
-        }}
-        onCancel={() => setPickingFor(null)}
-      />
+      {picker}
     </motion.div>
   );
 }

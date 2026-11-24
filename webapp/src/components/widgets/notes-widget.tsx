@@ -42,6 +42,72 @@ interface NotesWidgetProps {
   className?: string;
 }
 
+/**
+ * Adding and deleting a note from Home: the toasts, and the confirmation a
+ * delete asks for first. `deleteDialog` is that confirmation, rendered once
+ * beside the list (it opens over the page, not in the card); set
+ * `deleteNoteId` to ask it. `addNote` resolves true when the note was saved.
+ */
+export function useNoteActions() {
+  const t = useTranslations("notesWidget");
+  const tCommon = useTranslations("common");
+  const createNote = useCreateNote();
+  const deleteNote = useDeleteNote();
+  const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
+
+  const addNote = async (content: string): Promise<boolean> => {
+    if (!content.trim()) return false;
+    try {
+      await createNote.mutateAsync({ content: content.trim() });
+      toast.success(t("toastCreated"));
+      return true;
+    } catch {
+      toast.error(t("toastCreateFailed"));
+      return false;
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteNoteId) return;
+    try {
+      await deleteNote.mutateAsync(deleteNoteId);
+      toast.success(t("toastDeleted"));
+    } catch {
+      toast.error(t("toastDeleteFailed"));
+    } finally {
+      setDeleteNoteId(null);
+    }
+  };
+
+  const deleteDialog = (
+    <AlertDialog open={!!deleteNoteId} onOpenChange={(open) => { if (!open) setDeleteNoteId(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("deleteDialogDescription")}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={handleConfirmDelete}
+            disabled={deleteNote.isPending}
+          >
+            {deleteNote.isPending ? (
+              <Loader2 className="size-4 animate-spin mr-2" />
+            ) : null}
+            {tCommon("delete")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
+  return { createNote, deleteNote, addNote, deleteNoteId, setDeleteNoteId, deleteDialog };
+}
+
 function NotesWidgetSkeleton() {
   const t = useTranslations("notesWidget");
   return (
@@ -70,14 +136,12 @@ export function NotesWidget({
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
   const { data: notes, isLoading, isError } = useNotes();
-  const createNote = useCreateNote();
-  const deleteNote = useDeleteNote();
+  const { createNote, deleteNote, addNote, deleteNoteId, setDeleteNoteId, deleteDialog } = useNoteActions();
 
   const [isAdding, setIsAdding] = useState(false);
   const [newContent, setNewContent] = useState("");
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -87,26 +151,9 @@ export function NotesWidget({
   }, [isAdding]);
 
   const handleAdd = async () => {
-    if (!newContent.trim()) return;
-    try {
-      await createNote.mutateAsync({ content: newContent.trim() });
+    if (await addNote(newContent)) {
       setNewContent("");
       setIsAdding(false);
-      toast.success(t("toastCreated"));
-    } catch {
-      toast.error(t("toastCreateFailed"));
-    }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteNoteId) return;
-    try {
-      await deleteNote.mutateAsync(deleteNoteId);
-      toast.success(t("toastDeleted"));
-    } catch {
-      toast.error(t("toastDeleteFailed"));
-    } finally {
-      setDeleteNoteId(null);
     }
   };
 
@@ -335,29 +382,7 @@ export function NotesWidget({
       </motion.div>
 
       {/* Delete confirmation dialog */}
-      <AlertDialog open={!!deleteNoteId} onOpenChange={(open) => { if (!open) setDeleteNoteId(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("deleteDialogTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("deleteDialogDescription")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleConfirmDelete}
-              disabled={deleteNote.isPending}
-            >
-              {deleteNote.isPending ? (
-                <Loader2 className="size-4 animate-spin mr-2" />
-              ) : null}
-              {tCommon("delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {deleteDialog}
     </TooltipProvider>
   );
 }

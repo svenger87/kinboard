@@ -4931,6 +4931,7 @@
   "wasteCollectionWidget": {
     "loadingAria": "Loading waste schedule",
     "title": "Waste schedule",
+    "emptyState": "No collections in the next 14 days",
     "calendarTooltip": "View in calendar",
     "today": "Today",
     "tomorrow": "Tomorrow",
