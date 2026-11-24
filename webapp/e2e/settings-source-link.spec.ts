@@ -19,8 +19,13 @@ test("the link has a name in every language, in the same words as the rest of th
   }
 });
 
+// The skip sits on the describe, not inside the test: the `page` fixture
+// launches a browser before a test body runs, so a skip in the body still
+// fails on a runner without one (CI's stack-free Specs job).
+test.describe("against a running stack", () => {
+test.skip(!familyCode, "Set FAMILY_CODE for the local stack");
+
 test("Settings links to the source code beside the version, in a new tab", async ({ page }) => {
-  test.skip(!familyCode, "Set FAMILY_CODE for the local stack");
   // A dev server compiles /settings on its first visit, which alone can take most of a minute.
   test.setTimeout(150_000);
   await establishSession(page, familyCode!, DEVICE);
@@ -36,4 +41,5 @@ test("Settings links to the source code beside the version, in a new tab", async
   // On the same line as the version, not somewhere else on the page.
   const line = link.locator("xpath=..");
   await expect(line).toContainText("Kinboard v");
+});
 });
