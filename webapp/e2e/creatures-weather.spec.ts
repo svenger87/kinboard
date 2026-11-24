@@ -253,7 +253,7 @@ test("the wiring: each overlay shares its own screen's effects, each floor moves
   expect(floorSrc).toContain('const wet = shown.effects.includes("rain") || shown.effects.includes("storm");');
   // The screensaver draws its overlay and its floor, so its creatures get its weather.
   const saver = codeOnly(read("src/components/screensaver.tsx"));
-  expect(saver).toContain('<WeatherEffects placement="screensaver" enabled={weatherEffects} />');
+  expect(saver).toContain('<WeatherEffects placement="screensaver" enabled={weatherEffects} onPhoto={Boolean(currentBlobUrl)} />');
   expect(saver).toContain("<CreaturesOnIdle />");
   expect(floorSrc).toContain('umbrella={wet ? (stormy ? "storm" : "rain") : null}');
   // The snow cap follows r.snow, not while lying on its side, and settles with motion reduced too.

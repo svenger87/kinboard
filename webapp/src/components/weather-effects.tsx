@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMotion } from "@/hooks/use-motion";
 import { useFloorWeather } from "@/stores/home-weather";
@@ -19,9 +19,11 @@ import {
   PREVIEW_MS,
   activeEffects,
   currentSlot,
+  effectPalette,
   normalizeWeatherEffects,
   parsePreview,
   type EffectIntensity,
+  type EffectPalette,
   type WeatherEffect,
 } from "@/lib/weather-effects";
 
@@ -54,6 +56,11 @@ import {
  * sit above the photo and below the clock (absolute, in the screensaver's
  * order, no z-index), and Home's loop under the screensaver stops drawing.
  *
+ * What is drawn on a canvas takes its colours from the backdrop
+ * (effectPalette): near-white on the dark theme or over a screensaver photo, a
+ * cool blue-grey on a light theme, where white frost, rain and wind vanished.
+ * It follows the app's `dark` class on <html> and redraws when it changes.
+ *
  * During a festival (RFC-020) its visitor joins the same scene: one loop,
  * one clock and one wind for the weather behind the widgets and the visitor
  * in front of them (EffectsCanvas). With no festival on, nothing here
@@ -65,11 +72,14 @@ export function WeatherEffects({
   preview: forced,
   placement = "home",
   enabled,
+  onPhoto = false,
 }: {
   preview?: WeatherEffect[];
   placement?: Placement;
   /** The screensaver's own switch; on Home the weather settings' `enabled` decides. */
   enabled?: boolean;
+  /** Drawn over a photo (the screensaver's): a dark backdrop, whatever the theme. */
+  onPhoto?: boolean;
 } = {}) {
   // Re-read every minute: a change made on another screen reaches this one.
   const { data: stored } = useSetting<unknown>(SETTINGS_KEYS.weatherEffects, DEFAULT_WEATHER_EFFECTS, { refetchInterval: 60_000 });
@@ -93,6 +103,7 @@ export function WeatherEffects({
   const [preview, setPreview] = useState<WeatherEffect[]>([]);
   const motion = useMotion();
   const reducedMotion = motion !== "full";
+  const dark = useDarkTheme() || onPhoto;
 
   useEffect(() => {
     // `?weather-preview=` is Home's; the screensaver shows the real weather.
@@ -167,6 +178,8 @@ export function WeatherEffects({
   const layer = home ? "fixed" : "absolute";
   const behind = home ? "z-[5]" : "";
   const above = home ? "z-20" : "";
+  // The haze is a CSS layer: a grey of its own on a light backdrop (globals.css).
+  const fogTone = dark ? "" : " weather-fog-light";
 
   return (
     <>
@@ -178,7 +191,7 @@ export function WeatherEffects({
         />
       )}
       {on.has("fog") && (
-        <div className={`weather-fog pointer-events-none ${layer} inset-0 ${behind}`} style={{ opacity: 0.5 * strength }} />
+        <div className={`weather-fog${fogTone} pointer-events-none ${layer} inset-0 ${behind}`} style={{ opacity: 0.5 * strength }} />
       )}
       {!reducedMotion && (moving.length > 0 || flying) && (
         <EffectsCanvas
@@ -192,9 +205,10 @@ export function WeatherEffects({
           light={{ fog: on.has("fog"), storm: on.has("storm") }}
           tapRef={tapRef}
           placement={placement}
+          dark={dark}
         />
       )}
-      {on.has("freezing") && <FrostCanvas strength={strength} className={`${layer} ${above}`} />}
+      {on.has("freezing") && <FrostCanvas strength={strength} dark={dark} className={`${layer} ${above}`} />}
       {on.has("heat") && (
         <div className={`weather-heat pointer-events-none ${layer} inset-0 ${above}`} style={{ opacity: strength }} />
       )}
@@ -301,6 +315,22 @@ function StormGlow({ strength, className }: { strength: number; className: strin
   );
 }
 
+/* ---------------------------------------------------------------- backdrop */
+
+// The app's theme is a class on <html> (next-themes, attribute="class"). The
+// server and the first client render assume the dark theme, the default.
+const subscribeTheme = (onChange: () => void) => {
+  const watch = new MutationObserver(onChange);
+  watch.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  return () => watch.disconnect();
+};
+const isDarkTheme = () => document.documentElement.classList.contains("dark");
+
+/** Whether the app shows its dark theme now; follows a switch, by hand or by the clock. */
+function useDarkTheme(): boolean {
+  return useSyncExternalStore(subscribeTheme, isDarkTheme, () => true);
+}
+
 /* ---------------------------------------------------------------- sprites */
 
 function sprite(w: number, h: number, paint: (ctx: CanvasRenderingContext2D) => void): HTMLCanvasElement {
@@ -313,15 +343,15 @@ function sprite(w: number, h: number, paint: (ctx: CanvasRenderingContext2D) => 
 }
 
 /** A six-armed flake with side branches; three designs. */
-function flakeSprite(radius: number, design: number): HTMLCanvasElement {
+function flakeSprite(radius: number, design: number, colours: EffectPalette): HTMLCanvasElement {
   const pad = 4;
   const size = radius * 2 + pad * 2;
   return sprite(size, size, (ctx) => {
     ctx.translate(size / 2, size / 2);
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.95)";
+    ctx.strokeStyle = colours.flake;
     ctx.lineCap = "round";
     ctx.lineWidth = Math.max(1, radius / 7);
-    ctx.shadowColor = "rgba(40, 70, 110, 0.45)";
+    ctx.shadowColor = colours.flakeShadow;
     ctx.shadowBlur = 2;
     const branches = design === 0 ? [[0.45, 0.32], [0.72, 0.2]] : design === 1 ? [[0.35, 0.22], [0.55, 0.3], [0.78, 0.16]] : [[0.6, 0.34]];
     for (let k = 0; k < 6; k++) {
@@ -369,11 +399,11 @@ function glowSprite(radius: number, rgb: string, alpha: number): HTMLCanvasEleme
 }
 
 /** A raindrop streak, clear at the top and brightest at the tip. */
-function dropSprite(length: number, width: number, alpha: number): HTMLCanvasElement {
+function dropSprite(length: number, width: number, alpha: number, colours: EffectPalette): HTMLCanvasElement {
   return sprite(width + 2, length, (ctx) => {
     const g = ctx.createLinearGradient(0, 0, 0, length);
-    g.addColorStop(0, "rgba(190, 215, 240, 0)");
-    g.addColorStop(1, `rgba(215, 235, 255, ${alpha})`);
+    g.addColorStop(0, `rgba(${colours.dropTop}, 0)`);
+    g.addColorStop(1, `rgba(${colours.dropTip}, ${alpha})`);
     ctx.strokeStyle = g;
     ctx.lineWidth = width;
     ctx.lineCap = "round";
@@ -446,6 +476,7 @@ function weatherLayer(
   intensity: EffectIntensity,
   gust: number,
   dpr: number,
+  colours: EffectPalette,
 ) {
   const has = new Set(effects);
   const share = intensity === "normal" ? 1 : 0.6;
@@ -466,12 +497,12 @@ function weatherLayer(
   const heavy = has.has("storm");
 
   // Sprites, drawn once.
-  const flakes = [0, 1, 2].flatMap((d) => [flakeSprite(6, d), flakeSprite(9, d), flakeSprite(13, d)]);
-  const speck = glowSprite(4, "255, 255, 255", 0.9);
-  const nearDrop = dropSprite(34, 1.8, 0.75);
-  const farDrop = dropSprite(18, 1.1, 0.45);
+  const flakes = [0, 1, 2].flatMap((d) => [flakeSprite(6, d, colours), flakeSprite(9, d, colours), flakeSprite(13, d, colours)]);
+  const speck = glowSprite(4, colours.speck, 0.9);
+  const nearDrop = dropSprite(34, 1.8, 0.75, colours);
+  const farDrop = dropSprite(18, 1.1, 0.45, colours);
   const leaves = ["rgb(214, 132, 40)", "rgb(176, 72, 38)", "rgb(196, 160, 52)", "rgb(140, 120, 50)"].map((c) => leafSprite(12, c));
-  const mist = glowSprite(160, "215, 220, 228", 0.5);
+  const mist = glowSprite(160, colours.mist, 0.5);
   const shimmer = glowSprite(6, "255, 205, 130", 0.9);
   const sun = glowSprite(300, "255, 200, 120", 0.6);
   const flare = glowSprite(40, "255, 220, 160", 0.35);
@@ -588,9 +619,9 @@ function weatherLayer(
         break;
       case "gust": {
         const g = ctx.createLinearGradient(p.x - p.size, 0, p.x, 0);
-        g.addColorStop(0, "rgba(225, 232, 240, 0)");
-        g.addColorStop(0.6, `rgba(225, 232, 240, ${p.alpha})`);
-        g.addColorStop(1, "rgba(225, 232, 240, 0)");
+        g.addColorStop(0, `rgba(${colours.gust}, 0)`);
+        g.addColorStop(0.6, `rgba(${colours.gust}, ${p.alpha})`);
+        g.addColorStop(1, `rgba(${colours.gust}, 0)`);
         ctx.globalAlpha = 1;
         ctx.strokeStyle = g;
         ctx.lineWidth = 2;
@@ -679,7 +710,7 @@ function weatherLayer(
         continue;
       }
       ctx.globalAlpha = (1 - k) * 0.55;
-      ctx.strokeStyle = "rgb(205, 225, 245)";
+      ctx.strokeStyle = colours.splash;
       ctx.beginPath();
       ctx.ellipse(s.x, s.y, s.size * (0.4 + k), s.size * 0.3 * (0.4 + k), 0, 0, Math.PI * 2);
       ctx.stroke();
@@ -771,6 +802,7 @@ function EffectsCanvas({
   light = { fog: false, storm: false },
   tapRef,
   placement = "home",
+  dark = true,
 }: {
   effects: Moving[];
   intensity: EffectIntensity;
@@ -785,6 +817,8 @@ function EffectsCanvas({
   light?: { fog: boolean; storm: boolean };
   tapRef?: RefObject<HTMLButtonElement | null>;
   placement?: Placement;
+  /** A dark backdrop (effectPalette); the sprites are drawn again when it changes. */
+  dark?: boolean;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const frontRef = useRef<HTMLCanvasElement>(null);
@@ -802,7 +836,7 @@ function EffectsCanvas({
     const fctx = front?.getContext("2d") ?? null;
     const button = tapRef?.current ?? null;
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    const weather = canvas && ctx && effects.length > 0 ? weatherLayer(canvas, ctx, effects, intensity, gust, dpr) : null;
+    const weather = canvas && ctx && effects.length > 0 ? weatherLayer(canvas, ctx, effects, intensity, gust, dpr, effectPalette(dark)) : null;
     const flies = Boolean(visitor && spec && front && fctx);
     if (!weather && !flies) return;
 
@@ -1020,7 +1054,7 @@ function EffectsCanvas({
     };
     // `key` stands for `effects`, which is a new array on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, intensity, gust, visitor, visitorAt, spec, preview, fog, storm, familyId, placement]);
+  }, [key, intensity, gust, visitor, visitorAt, spec, preview, fog, storm, familyId, placement, dark]);
 
   const layer = placement === "home" ? "fixed" : "absolute";
   return (
@@ -1051,16 +1085,18 @@ function EffectsCanvas({
 
 /**
  * Frost growing in from the edges: an icy rim and branching crystals, thickest
- * in the corners, drawn once (and again on a resize). Above the widgets, but
- * only at the edges.
+ * in the corners, drawn once (and again on a resize, or when the theme
+ * changes). Above the widgets, but only at the edges. Near-white on a dark
+ * backdrop, a cool blue-grey with a white halo on a light one (effectPalette).
  */
-function FrostCanvas({ strength, className }: { strength: number; className: string }) {
+function FrostCanvas({ strength, className, dark }: { strength: number; className: string; dark: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
     const rand = (a: number, b: number) => a + Math.random() * (b - a);
+    const colours = effectPalette(dark);
     const paint = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const w = window.innerWidth;
@@ -1072,9 +1108,9 @@ function FrostCanvas({ strength, className }: { strength: number; className: str
 
       // The icy rim: clear in the middle, frosted towards every edge.
       const rim = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.hypot(w, h) / 2);
-      rim.addColorStop(0, "rgba(215, 235, 255, 0)");
-      rim.addColorStop(0.6, "rgba(215, 235, 255, 0.10)");
-      rim.addColorStop(1, "rgba(225, 242, 255, 0.45)");
+      rim.addColorStop(0, colours.frostRim[0]);
+      rim.addColorStop(0.6, colours.frostRim[1]);
+      rim.addColorStop(1, colours.frostRim[2]);
       ctx.fillStyle = rim;
       ctx.fillRect(0, 0, w, h);
 
@@ -1099,9 +1135,9 @@ function FrostCanvas({ strength, className }: { strength: number; className: str
           grow(bx, by, angle + Math.PI / 3, side, depth - 1);
         }
       };
-      ctx.strokeStyle = "rgb(240, 248, 255)";
+      ctx.strokeStyle = colours.frostCrystal;
       ctx.lineCap = "round";
-      ctx.shadowColor = "rgba(190, 220, 255, 0.8)";
+      ctx.shadowColor = colours.frostGlow;
       ctx.shadowBlur = 4;
       const seed = (x: number, y: number, inward: number, len: number) => grow(x, y, inward + rand(-0.35, 0.35), len, 2);
       for (let x = rand(20, 60); x < w; x += rand(70, 140)) {
@@ -1122,7 +1158,7 @@ function FrostCanvas({ strength, className }: { strength: number; className: str
     paint();
     window.addEventListener("resize", paint);
     return () => window.removeEventListener("resize", paint);
-  }, []);
+  }, [dark]);
   return (
     <canvas
       ref={ref}

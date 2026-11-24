@@ -442,7 +442,7 @@ test("the idle screen: the same floor, its own switch, off unless switched on; a
   expect(saver).toContain("<CreaturesOnIdle dim />");
   // Under everything that reads: after the photo and the visitor, before the news.
   const floor = saver.indexOf("<CreaturesOnIdle />");
-  expect(floor).toBeGreaterThan(saver.indexOf('<WeatherEffects placement="screensaver" enabled={weatherEffects} />'));
+  expect(floor).toBeGreaterThan(saver.indexOf('<WeatherEffects placement="screensaver" enabled={weatherEffects} onPhoto={Boolean(currentBlobUrl)} />'));
   expect(floor).toBeLessThan(saver.indexOf('ref={newsListRef}'));
   // The clock and the events stand on the floor, not behind it.
   expect(saver.match(/bottom-\[calc\(3rem\+var\(--idle-creature-floor,0px\)\)\]/g)?.length).toBe(3);

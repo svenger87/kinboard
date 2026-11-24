@@ -37,7 +37,7 @@ test("the screensaver shows the strip and the effects from its own switches", ()
   expect(saver).toContain("const weatherEffects = screensaverSettings.weatherEffects ?? false;");
   expect(saver).toContain("<ScreensaverWeather weather={weather} showForecast={showForecast} large={largeDetails} />");
   // The effects sit above the photo and below everything that reads.
-  const effects = saver.indexOf('<WeatherEffects placement="screensaver" enabled={weatherEffects} />');
+  const effects = saver.indexOf('<WeatherEffects placement="screensaver" enabled={weatherEffects} onPhoto={Boolean(currentBlobUrl)} />');
   expect(effects).toBeGreaterThan(saver.indexOf("screensaver-photo-in"));
   expect(effects).toBeLessThan(saver.indexOf("ref={newsListRef}"));
   expect(effects).toBeLessThan(saver.indexOf("<ScreensaverWeather"));
