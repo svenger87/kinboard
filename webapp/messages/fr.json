@@ -3768,6 +3768,36 @@
     "loadingAria": "Chargement de la météo",
     "errorTitle": "Météo non disponible",
     "errorFallback": "Aucune donnée",
+    "compass": {
+      "n": "N",
+      "ne": "NE",
+      "e": "E",
+      "se": "SE",
+      "s": "S",
+      "sw": "SO",
+      "w": "O",
+      "nw": "NO"
+    },
+    "windFrom": {
+      "n": "du nord",
+      "ne": "du nord-est",
+      "e": "de l'est",
+      "se": "du sud-est",
+      "s": "du sud",
+      "sw": "du sud-ouest",
+      "w": "de l'ouest",
+      "nw": "du nord-ouest"
+    },
+    "windDirectionLabel": "Vent {value} {unit} {direction}",
+    "airQuality": "Qualité de l'air",
+    "airQualityLabel": "Qualité de l'air : {level}",
+    "aqi": {
+      "1": "Bonne",
+      "2": "Correcte",
+      "3": "Moyenne",
+      "4": "Mauvaise",
+      "5": "Très mauvaise"
+    },
     "errorRetrying": "Nouvel essai dans quelques minutes.",
     "errorLocationNotFound": "Le lieu météo est introuvable. Vérifiez-le dans les réglages météo.",
     "errorLocationAction": "Réglages météo",

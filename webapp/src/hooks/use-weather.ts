@@ -19,6 +19,8 @@ export interface WeatherData {
   conditionIcon: string;
   humidity: number;
   windSpeed: number;
+  /** Where the wind comes from, degrees clockwise from north; absent in calm air. */
+  windDeg?: number;
   location: string;
   high: number;
   low: number;
@@ -28,6 +30,8 @@ export interface WeatherData {
   /** Seconds east of UTC at the weather location. */
   timezoneOffset?: number;
   units?: UnitSystem;
+  /** OpenWeatherMap's Air Quality Index, 1 (Good) to 5 (Very Poor); absent when the provider gave none. */
+  airQuality?: number;
 }
 
 export interface DailyForecast {

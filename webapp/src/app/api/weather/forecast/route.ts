@@ -10,6 +10,7 @@ import {
   dayRainChance,
   fetchOpenWeather,
   groupForecastByDay,
+  withoutPartialLastDay,
   mapCondition,
   middayItem,
   openWeatherApiKey,
@@ -74,7 +75,9 @@ export async function GET(request: NextRequest) {
     const tzOffset = data.city.timezone ?? 0;
 
     // Group forecasts by the day they fall on *where the weather is*.
-    const dailyForecasts = groupForecastByDay(data.list, (dt) => localDateKey(dt, tzOffset));
+    // Without the last day when the forecast reaches only its first hours
+    // (the same rule the assistant's forecast uses; weather-provider.ts).
+    const dailyForecasts = withoutPartialLastDay(groupForecastByDay(data.list, (dt) => localDateKey(dt, tzOffset)));
 
     // Process each day to get summary
     const days = dailyForecasts.map(([dateKey, items]) => {

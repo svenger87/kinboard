@@ -15,13 +15,15 @@ const DEVICE = "weather-card-ui";
 
 const NIGHT = {
   temp: -3, feelsLike: -8, condition: "Clear", conditionMain: "Clear", conditionIcon: "01n", humidity: 88,
-  windSpeed: 14, location: "Garmisch-Partenkirchen", high: 0, low: -5, visibility: 10, sunrise: "07:41",
-  sunset: "16:22", timezoneOffset: 3600, units: "metric",
+  windSpeed: 14, windDeg: 315, location: "Garmisch-Partenkirchen", high: 0, low: -5, visibility: 10, sunrise: "07:41",
+  sunset: "16:22", timezoneOffset: 3600, units: "metric", airQuality: 4,
 };
+/** The weather location's calendar (UTC+1), from today on: the card skips today's entry. */
+const dayAt = (i: number) => new Date(Date.now() + 3600_000 + i * 86_400_000).toISOString().slice(0, 10);
 const FORECAST = {
   location: "Garmisch-Partenkirchen", coords: { lat: 47.5, lon: 11.1 }, timezone: 3600, units: "metric", hourly: [],
   daily: [0, -2, -12, -11, -1, 3].map((max, i) => ({
-    date: `2026-11-${23 + i}`, dayName: i === 0 ? "Today" : `Day ${i}`, tempMax: max, tempMin: max - 9,
+    date: dayAt(i), dayName: i === 0 ? "Today" : `Day ${i}`, tempMax: max, tempMin: max - 9,
     condition: "Snow", conditionMain: "Snow", conditionIcon: "13d", humidity: 80, windSpeed: 10,
     precipProbability: [0, 80, 0, 35, 100, 5][i], rainAmount: 0, snowAmount: 0,
   })),
@@ -68,8 +70,9 @@ for (const [label, width, height] of [["a phone", 390, 844], ["a laptop", 1440, 
       };
       const textEl = (text: string) =>
         [...el.querySelectorAll("*")].find((e) => e.children.length === 0 && e.textContent === text)!;
-      // The "0° / -5°" pair beside the temperature, and the place badge.
-      let highLow: Element = textEl("-5°");
+      // Today's "0° / -9°" beside the temperature (the forecast's day and the
+      // reading now), and the place badge.
+      let highLow: Element = textEl("-9°");
       while (!highLow.textContent!.includes("/")) highLow = highLow.parentElement!;
       const badge = textEl("Garmisch-Partenkirchen").closest("div")!;
       const overflow = [...el.querySelectorAll("*")]
@@ -122,4 +125,48 @@ test("the map's setup is fetched when the dialog opens, not with Home", async ({
   await card(page).click();
   await expect(page.getByRole("dialog")).toBeVisible({ timeout: 15_000 });
   await expect.poll(() => hits.map, { timeout: 15_000 }).toBeGreaterThan(0);
+});
+
+test("today's range comes from the forecast and the reading now, not the city spread", async ({ page }) => {
+  await stub(page);
+  await openHome(page);
+  // The provider's current-weather min/max say 0 / -5; today's forecast says 0 / -9.
+  await expect(page.getByTestId("weather-today-range")).toContainText("0° / -9°");
+});
+
+test("the wind's direction sits beside its speed, with a label for screen readers", async ({ page }) => {
+  await stub(page);
+  await openHome(page);
+  const direction = page.getByTestId("weather-wind-direction");
+  await expect(direction).toHaveText("NW");
+  // 315° comes from the northwest, so the arrow points southeast.
+  expect(await direction.locator("svg").evaluate((el) => (el as SVGElement).style.transform)).toBe("rotate(135deg)");
+  await expect(card(page).getByText("Wind 14 km/h from the northwest")).toHaveCount(1);
+});
+
+test("air quality: on the card only when poor, always in the detail view, nowhere when unknown", async ({ page }) => {
+  // Three loads of Home: on a cold dev server the default minute is not enough.
+  test.setTimeout(180_000);
+  let airQuality: number | undefined = 4;
+  await stub(page, () => ({ status: 200, json: { ...NIGHT, airQuality } }));
+  await openHome(page);
+  await expect(page.getByTestId("weather-aqi")).toHaveText("Air quality: Poor");
+  await card(page).click();
+  await expect(page.getByTestId("weather-modal-aqi")).toContainText("Poor");
+  await page.keyboard.press("Escape");
+
+  airQuality = 2;
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(card(page).getByText("Day 1", { exact: true })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId("weather-aqi")).toHaveCount(0);
+  await card(page).click();
+  await expect(page.getByTestId("weather-modal-aqi")).toContainText("Fair");
+  await page.keyboard.press("Escape");
+
+  airQuality = undefined;
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(card(page).getByText("Day 1", { exact: true })).toBeVisible({ timeout: 60_000 });
+  await card(page).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByTestId("weather-modal-aqi")).toHaveCount(0);
 });

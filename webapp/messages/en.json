@@ -3768,6 +3768,36 @@
     "loadingAria": "Loading weather",
     "errorTitle": "Weather not available",
     "errorFallback": "No data",
+    "compass": {
+      "n": "N",
+      "ne": "NE",
+      "e": "E",
+      "se": "SE",
+      "s": "S",
+      "sw": "SW",
+      "w": "W",
+      "nw": "NW"
+    },
+    "windFrom": {
+      "n": "from the north",
+      "ne": "from the northeast",
+      "e": "from the east",
+      "se": "from the southeast",
+      "s": "from the south",
+      "sw": "from the southwest",
+      "w": "from the west",
+      "nw": "from the northwest"
+    },
+    "windDirectionLabel": "Wind {value} {unit} {direction}",
+    "airQuality": "Air quality",
+    "airQualityLabel": "Air quality: {level}",
+    "aqi": {
+      "1": "Good",
+      "2": "Fair",
+      "3": "Moderate",
+      "4": "Poor",
+      "5": "Very poor"
+    },
     "errorRetrying": "Trying again in a few minutes.",
     "errorLocationNotFound": "The weather location wasn't found. Check it in the weather settings.",
     "errorLocationAction": "Weather settings",

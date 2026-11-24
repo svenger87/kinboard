@@ -3768,6 +3768,36 @@
     "loadingAria": "正在加载天气",
     "errorTitle": "天气不可用",
     "errorFallback": "无数据",
+    "compass": {
+      "n": "北",
+      "ne": "东北",
+      "e": "东",
+      "se": "东南",
+      "s": "南",
+      "sw": "西南",
+      "w": "西",
+      "nw": "西北"
+    },
+    "windFrom": {
+      "n": "北风",
+      "ne": "东北风",
+      "e": "东风",
+      "se": "东南风",
+      "s": "南风",
+      "sw": "西南风",
+      "w": "西风",
+      "nw": "西北风"
+    },
+    "windDirectionLabel": "{direction} {value} {unit}",
+    "airQuality": "空气质量",
+    "airQualityLabel": "空气质量：{level}",
+    "aqi": {
+      "1": "优",
+      "2": "良",
+      "3": "中等",
+      "4": "差",
+      "5": "很差"
+    },
     "errorRetrying": "几分钟后会再试。",
     "errorLocationNotFound": "找不到天气位置。请在天气设置中检查。",
     "errorLocationAction": "天气设置",
