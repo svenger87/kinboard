@@ -203,7 +203,12 @@ const NEED: Record<string, number> = { tasks: 2, shopping: 2 };
  * capped at 11 steps so today's Home keeps its row of cards on 1920x1080
  * (measured 12 here). At XL they show fewer entries on these screens.
  */
-const SHORT_OF: Record<string, string[]> = { tasks: ["landscape-1080-150"], wasteCollection: ["tablet-landscape"] };
+const SHORT_OF: Record<string, string[]> = {
+  tasks: ["landscape-1080-150"],
+  wasteCollection: ["tablet-landscape"],
+  // Kept at 2 steps so the built-in head leaves 1920x1080 its 11-step row of cards: it may show no pill, and cuts none.
+  todayStrip: ["landscape-1080-150", "tablet-landscape"],
+};
 
 test("every list's minimum holds its entries and \"+n\" at text XL on every screen", async ({ page, browserName }) => {
   test.setTimeout(900_000);

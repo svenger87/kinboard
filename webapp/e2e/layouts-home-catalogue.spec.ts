@@ -117,6 +117,24 @@ test.describe("validateItems per surface", () => {
   });
 });
 
+/**
+ * Today's default Home's cards per screen. The same as before the list
+ * minimums were measured, except 1024x768 (was 7): its second row of cards
+ * (week overview, tasks, timers) needs 11 steps and has 8 left.
+ */
+const DEFAULT_CARDS: Record<string, number> = {
+  "1080x1920": 8, "720x1280": 8, "800x1280": 8, "600x1024": 8, "1920x1080": 4, "1280x720": 4, "1280x800": 4,
+  "2560x1440": 4, "2552x1274": 4, "1024x768": 4, "800x600": 4, "3840x2160": 4,
+};
+/**
+ * Every widget switched on: [one card for all children, one per child]. Taller
+ * list minimums fit fewer rows than before (1080x1920 was [20, 21]).
+ */
+const EVERY_CARDS: Record<string, [number, number]> = {
+  "1080x1920": [13, 13], "720x1280": [13, 13], "800x1280": [11, 11], "600x1024": [13, 11], "1920x1080": [4, 4], "1280x720": [4, 4],
+  "1280x800": [4, 4], "2560x1440": [4, 4], "2552x1274": [4, 4], "1024x768": [4, 7], "800x600": [4, 4], "3840x2160": [4, 4],
+};
+
 test.describe("builtInHome", () => {
   const ALL = Object.fromEntries(Object.keys(DEFAULT_WIDGET_VISIBILITY).map((k) => [k, true]));
   const VARIANTS = {
@@ -132,6 +150,13 @@ test.describe("builtInHome", () => {
         expect(home(items, w, h)).toMatchObject({ ok: true });
         const rows = gridFor(w, h)!.rows;
         expect(Math.max(...items.map((i) => i.y + i.h))).toBeLessThanOrEqual(rows);
+        // The cards it places, not just a valid layout: an empty card row is valid too.
+        const cards = items.length - 5;
+        if (label === "nothing but the clock block") expect(cards).toBe(0);
+        else if (label === "defaults") expect(cards, "today's default cards").toBe(DEFAULT_CARDS[`${w}x${h}`]);
+        else expect(cards, "every widget").toBe(EVERY_CARDS[`${w}x${h}`][label === "every widget" ? 0 : 1]);
+        // A landscape screen of 24 rows keeps its row of four cards.
+        if (label !== "nothing but the clock block" && w > h && gridFor(w, h)!.rows === 24) expect(cards).toBeGreaterThanOrEqual(4);
         // The clock block is always there, full width, in today's order.
         expect(items.slice(0, 5).map((i) => [i.widget, i.x, i.w])).toEqual(
           ["clock", "date", "greeting", "familyMembers", "todayStrip"].map((k) => [k, 0, 48]));
