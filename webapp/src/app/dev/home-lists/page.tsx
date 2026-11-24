@@ -5,8 +5,9 @@ import { Suspense, useMemo } from "react";
 import { LayoutGrid } from "@/components/layouts/layout-grid";
 import { HomeDataProvider } from "@/components/layouts/home-data-context";
 import { LISTS_WIDGETS } from "@/components/layouts/home-widgets/lists";
+import { HOME_WIDGET_COMPONENTS } from "@/components/layouts/home-widgets";
 import { useHomeData } from "@/hooks/use-home-data";
-import { gridFor } from "@/lib/layouts/grid";
+import { boxRect, gridFor, textPx } from "@/lib/layouts/grid";
 import { HOME_WIDGETS } from "@/lib/layouts/widgets";
 import type { HomeLayoutItem, HomeWidgetKey, LayoutItem, TextSize } from "@/lib/layouts/types";
 
@@ -16,6 +17,11 @@ import type { HomeLayoutItem, HomeWidgetKey, LayoutItem, TextSize } from "@/lib/
  * Query: `widgets` (comma-separated keys, default all nine), `size`
  * ("min", each at its minimum, or "large", 24x20 steps) or `w`/`h` in steps,
  * `text` (S, M, L, XL). The boxes flow left to right, four steps apart.
+ *
+ * `probe=1` measures minimums instead: for a Home area of `sw`x`sh` px (a
+ * screen less its nav bar), each widget in `widgets` (any Home list widget)
+ * is drawn at its minimum width and at every height from 2 to `max` steps,
+ * one column per widget, each box at that screen's pixel size and text size.
  * Needs a family session. Not served in production.
  */
 
@@ -47,7 +53,7 @@ function items(params: URLSearchParams): HomeLayoutItem[] {
   return out;
 }
 
-function Widgets() {
+function Boxes() {
   const params = useSearchParams();
   const layout = useMemo(() => items(new URLSearchParams(params.toString())), [params]);
   const data = useHomeData();
@@ -66,10 +72,58 @@ function Widgets() {
   );
 }
 
+/** One column per widget, one box per height, sized as the grid of a `sw`x`sh` area draws it. */
+function Probe({ params }: { params: URLSearchParams }) {
+  const data = useHomeData();
+  const sw = Number(params.get("sw")) || WIDTH;
+  const sh = Number(params.get("sh")) || HEIGHT;
+  const grid = gridFor(sw, sh);
+  const text = (params.get("text") ?? "XL") as TextSize;
+  const max = Number(params.get("max")) || 20;
+  const keys = (params.get("widgets") ?? "").split(",").filter((k) => k in HOME_WIDGET_COMPONENTS) as HomeWidgetKey[];
+  if (!grid) return <p data-testid="probe-no-grid">no grid</p>;
+  const font = textPx(text, sw, sh);
+  let left = 0;
+  return (
+    <HomeDataProvider value={data}>
+      {keys.map((widget) => {
+        const Widget = HOME_WIDGET_COMPONENTS[widget]!;
+        const w = HOME_WIDGETS[widget].min.w;
+        const width = Math.round(boxRect({ x: 0, y: 0, w, h: 2 }, grid).width);
+        const x = left;
+        left += width + 16;
+        let top = 0;
+        return Array.from({ length: max - 1 }, (_, i) => i + 2).map((h) => {
+          const height = Math.round(boxRect({ x: 0, y: 0, w, h }, grid).height);
+          const y = top;
+          top += height + 16;
+          const item = { id: `${widget}-${h}`, widget, x: 0, y: 0, w, h, text } as HomeLayoutItem;
+          return (
+            <div
+              key={item.id}
+              data-probe={widget}
+              data-probe-h={h}
+              style={{ position: "absolute", left: x, top: y, width, height, overflow: "hidden", fontSize: font }}
+            >
+              <Widget item={item} box={{ width, height }} />
+            </div>
+          );
+        });
+      })}
+    </HomeDataProvider>
+  );
+}
+
+function Widgets() {
+  const params = useSearchParams();
+  if (params.get("probe") === "1") return <Probe params={new URLSearchParams(params.toString())} />;
+  return <Boxes />;
+}
+
 export default function HomeListsPage() {
   if (process.env.NODE_ENV === "production") notFound();
   return (
-    <div data-testid="home-lists" className="bg-background text-foreground" style={{ width: WIDTH, height: HEIGHT, position: "relative" }}>
+    <div data-testid="home-lists" className="bg-background text-foreground" style={{ width: WIDTH, minHeight: HEIGHT, position: "relative" }}>
       <Suspense>
         <Widgets />
       </Suspense>

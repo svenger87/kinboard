@@ -16,15 +16,20 @@ import { ListBox } from "@/components/layouts/list-box";
  * too small for one more target shows one entry fewer; nothing shrinks.
  */
 
-/** A touch target's height: 48px at least, more when the text is larger. */
-export const TARGET_H = "min-h-[max(48px,2.4em)]";
-/** A square touch target (an icon button): 48px at least. */
-export const TARGET_SQ = "size-[max(48px,2.4em)] shrink-0 [&_svg]:size-[0.9em]";
+/**
+ * A touch target's height: 48px at least, whatever the text size. Larger
+ * text makes a target taller through its own line, not through a taller
+ * minimum, so a box at its minimum still holds a row at XL (as the clock
+ * block's HOME_TARGET_H).
+ */
+export const TARGET_H = "min-h-[48px]";
+/** A square touch target (an icon button): 48px, its icon following the text. */
+export const TARGET_SQ = "size-12 shrink-0 [&_svg]:size-[0.9em]";
 /**
  * A checklist row (ChecklistItem): its text label, which fills the row and is
  * what a tap lands on, is the 48px target itself, not the row around it.
  */
-export const CHECK_ROW = "gap-[0.5em] px-[0.6em] [&>label]:min-h-[max(48px,2.4em)] [&_label]:text-[0.9em]";
+export const CHECK_ROW = "gap-[0.5em] px-[0.6em] [&>label]:min-h-[48px] [&_label]:text-[0.9em]";
 
 /**
  * The card of a Home list widget. The title row is a link to `href` (when the

@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { HOME_WIDGETS } from "../src/lib/layouts/widgets";
 
 /**
  * Home's list widgets in boxes (RFC-022 step 4), on the dev page
@@ -149,14 +151,14 @@ test("a box that fits two tasks: one tap ticks one off, with the card's mutation
     }
   }
   expect(h, "no height shows exactly two tasks").toBeGreaterThan(0);
-  if (SHOTS) await page.getByTestId("home-lists").screenshot({ path: join(SHOTS, `${browserName}-two-rows-before.png`), clip: { x: 0, y: 0, width: 1080, height: 400 } });
+  if (SHOTS) await page.screenshot({ path: join(SHOTS, `${browserName}-two-rows-before.png`), clip: { x: 0, y: 0, width: 1080, height: 400 } });
 
   for (const widget of ["tasks", "shopping"]) {
     const section = page.getByTestId(`home-widget-${widget}`);
     const root = section.locator("[data-list-shown]").first();
     const total = Number(await root.getAttribute("data-list-shown")) + Number(await root.getAttribute("data-list-more"));
     const first = root.locator("[data-list-visible] > div").first();
-    const label = (await first.innerText()).split("\n").find((l) => l.includes("claude-rfc022-s4l"))!;
+    const label = (await first.innerText()).split("\n").map((l) => l.trim()).filter((l) => l && !/^(today|upcoming)$/i.test(l))[0];
     const table = widget === "tasks" ? "todos" : "shopping_items";
     const write = page.waitForResponse((r) => r.url().includes(`/rest/v1/${table}`) && r.request().method() === "PATCH");
     const b = (await first.boundingBox())!;
@@ -167,7 +169,7 @@ test("a box that fits two tasks: one tap ticks one off, with the card's mutation
     await expect(section.getByText(label, { exact: true })).toHaveCount(0, { timeout: 15_000 });
     await expect.poll(async () => Number(await root.getAttribute("data-list-shown")) + Number(await root.getAttribute("data-list-more"))).toBe(total - 1);
   }
-  if (SHOTS) await page.getByTestId("home-lists").screenshot({ path: join(SHOTS, `${browserName}-two-rows-after.png`), clip: { x: 0, y: 0, width: 1080, height: 400 } });
+  if (SHOTS) await page.screenshot({ path: join(SHOTS, `${browserName}-two-rows-after.png`), clip: { x: 0, y: 0, width: 1080, height: 400 } });
 });
 
 test("dialogs open over the page, not inside the box", async ({ page, browserName }) => {
@@ -185,5 +187,60 @@ test("dialogs open over the page, not inside the box", async ({ page, browserNam
     expect(d.width).toBeGreaterThan(s.width);
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
+  }
+});
+
+/** The matrix's screens that hold a grid (the phone does not). */
+const SCREENS: [string, number, number][] = [
+  ["portrait-1080", 1080, 1920], ["portrait-1080-150", 720, 1280], ["landscape-1080", 1920, 1080],
+  ["landscape-1080-150", 1280, 720], ["tablet-landscape", 1280, 800], ["tablet-portrait", 800, 1280], ["desktop-1440", 2560, 1440],
+];
+const PROBED = [...WIDGETS, "upcomingEvents", "todayStrip"];
+/** Entries a box at its minimum must show: the lists ticked off show two. */
+const NEED: Record<string, number> = { tasks: 2, shopping: 2 };
+
+test("every list's minimum holds its entries and \"+n\" at text XL on every screen", async ({ page, browserName }) => {
+  test.setTimeout(900_000);
+  await signIn(page, "light", browserName);
+  const measured: Record<string, Record<string, number | null>> = {};
+  for (const [id, width, height] of SCREENS) {
+    await page.setViewportSize({ width, height });
+    await page.goto("/dev/home-lists?widgets=tasks", { waitUntil: "domcontentloaded" });
+    const nav = page.locator("nav:visible").last();
+    await expect(nav).toBeVisible({ timeout: 90_000 });
+    const navH = Math.round((await nav.boundingBox())!.height);
+    const sh = height - navH;
+    await page.goto(`/dev/home-lists?probe=1&sw=${width}&sh=${sh}&text=XL&max=24&widgets=${PROBED.join(",")}`, { waitUntil: "domcontentloaded" });
+    measured[id] = { navH, areaH: sh } as Record<string, number>;
+    for (const widget of PROBED) {
+      const boxes = page.locator(`[data-probe="${widget}"]`);
+      const tallest = boxes.last().locator("[data-list-shown]").first();
+      await expect
+        .poll(async () => Number(await tallest.getAttribute("data-list-shown").catch(() => 0)) + Number(await tallest.getAttribute("data-list-more").catch(() => 0)), { timeout: 90_000, message: `${id} ${widget} never loaded` })
+        .toBeGreaterThan(NEED[widget] ?? 1);
+    }
+    await page.waitForTimeout(1500);
+    for (const widget of PROBED) {
+      const found = await page.evaluate(
+        ({ widget, need }) => {
+          for (const box of document.querySelectorAll<HTMLElement>(`[data-probe="${widget}"]`)) {
+            const root = box.querySelector<HTMLElement>("[data-list-shown]");
+            if (root && Number(root.dataset.listShown) >= need && Number(root.dataset.listMore) > 0) return Number(box.dataset.probeH);
+          }
+          return null;
+        },
+        { widget, need: NEED[widget] ?? 1 },
+      );
+      measured[id][widget] = found;
+    }
+    console.log(`${browserName} ${id}`, JSON.stringify(measured[id]));
+  }
+  if (process.env.HOME_LISTS_MEASURE) writeFileSync(`${process.env.HOME_LISTS_MEASURE}.${browserName}.json`, JSON.stringify(measured, null, 2));
+  for (const [id] of SCREENS) {
+    for (const widget of PROBED) {
+      const h = measured[id][widget];
+      expect.soft(h, `${id} ${widget}: no height up to 24 steps holds it`).not.toBeNull();
+      expect.soft(HOME_WIDGETS[widget as keyof typeof HOME_WIDGETS].min.h, `${id} ${widget}: needs ${h} steps`).toBeGreaterThanOrEqual(h ?? 0);
+    }
   }
 });
