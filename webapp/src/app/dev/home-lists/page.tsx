@@ -9,7 +9,7 @@ import { HOME_WIDGET_COMPONENTS } from "@/components/layouts/home-widgets";
 import { useHomeData } from "@/hooks/use-home-data";
 import { boxRect, gridFor, textPx } from "@/lib/layouts/grid";
 import { HOME_WIDGETS } from "@/lib/layouts/widgets";
-import type { HomeLayoutItem, HomeWidgetKey, LayoutItem, TextSize } from "@/lib/layouts/types";
+import type { HomeLayoutItem, HomeWidgetKey, TextSize } from "@/lib/layouts/types";
 
 /**
  * Home's list widgets (RFC-022 step 4) in boxes on a 1080x1920 grid, on the
@@ -62,10 +62,10 @@ function Boxes() {
     <HomeDataProvider value={data}>
       <LayoutGrid
         grid={grid}
-        items={layout as unknown as LayoutItem[]}
+        items={layout}
         render={(item, box) => {
-          const Widget = LISTS_WIDGETS[item.widget as unknown as HomeWidgetKey]!;
-          return <Widget item={item as unknown as HomeLayoutItem} box={box} editing={params.get("editing") === "1"} />;
+          const Widget = LISTS_WIDGETS[item.widget]!;
+          return <Widget item={item} box={box} editing={params.get("editing") === "1"} />;
         }}
       />
     </HomeDataProvider>
