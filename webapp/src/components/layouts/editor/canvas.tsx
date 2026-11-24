@@ -5,7 +5,8 @@ import ReactGridLayout, { type EventCallback, type Layout as GridLayout } from "
 import { getCompactor, setTransform, type PositionStrategy } from "react-grid-layout/core";
 import "react-grid-layout/css/styles.css";
 import { GRID, boxRect, textPx, type Grid } from "@/lib/layouts/grid";
-import { specOf } from "@/lib/layouts/place";
+import { minOf } from "@/lib/layouts/place";
+import { homeTextPx, type SurfaceAt } from "@/lib/layouts/home-size";
 import { checkItems, type Box } from "@/lib/layouts/arrange";
 import { guidesFor, snapDrop, type Guides } from "@/lib/layouts/guides";
 import type { HomeLayoutItem, HomeWidgetKey, LayoutItem, SaverWidgetKey, Surface } from "@/lib/layouts/types";
@@ -156,19 +157,24 @@ export function EditorCanvas({
 }) {
   const { ref, navRef, scale } = useFitScale(grid.width, grid.height);
   const strategy = useMemo(() => scaledStrategy(scale || 1), [scale]);
+  // Home's minimums are the ones for this grid's area, at each box's text size.
+  const at = useMemo<SurfaceAt>(() => (surface === "home" ? { surface: "home", width: grid.width, height: grid.height } : surface), [surface, grid.width, grid.height]);
+  const mins = useMemo(() => new Map(items.map((i) => [i.id, minOf(i, at)])), [items, at]);
+  /** A box smaller than its widget's minimum here (a layout saved for other minimums): marked, and the inspector offers to fit it. */
+  const below = (i: Item) => {
+    const m = mins.get(i.id);
+    return !!m && (i.w < m.w || i.h < m.h);
+  };
 
   const layout = useMemo<GridLayout>(
     () =>
-      items.map((i) => ({
-        i: i.id,
-        x: i.x,
-        y: i.y,
-        w: i.w,
-        h: i.h,
-        minW: specOf(i.widget, surface)?.min.w ?? 1,
-        minH: specOf(i.widget, surface)?.min.h ?? 1,
-      })),
-    [items, surface],
+      items.map((i) => {
+        const min = mins.get(i.id) ?? { w: 1, h: 1 };
+        // A box already under its minimum keeps its size as the floor, so the
+        // grid does not jump it on the first touch; it can only grow.
+        return { i: i.id, x: i.x, y: i.y, w: i.w, h: i.h, minW: Math.min(min.w, i.w), minH: Math.min(min.h, i.h) };
+      }),
+    [items, mins],
   );
 
   const toItems = useCallback(
@@ -222,7 +228,7 @@ export function EditorCanvas({
       const box = boxOf(dropped);
       const snapped = snap(box, next.filter((l) => l.i !== dropped.i).map(boxOf));
       if (!sameBox(snapped, box)) {
-        const result = checkItems(toItems(next.map((l) => (l.i === dropped.i ? { ...l, ...snapped } : l))), [dropped.i], grid.rows, surface);
+        const result = checkItems(toItems(next.map((l) => (l.i === dropped.i ? { ...l, ...snapped } : l))), [dropped.i], grid.rows, at, items);
         if (result.ok) return onCommit(result.items);
       }
     }
@@ -306,7 +312,7 @@ export function EditorCanvas({
 
   // Each item sets --kb-handle (its corner's size, in the screen's own pixels); the corner reads it.
   const zoom = scale || 1;
-  const fontSize = (i: Item) => textPx(i.text, grid.width, grid.height);
+  const fontSize = (i: Item) => (surface === "home" ? homeTextPx : textPx)(i.text, grid.width, grid.height);
 
   return (
     <div ref={ref} className="relative w-full min-w-0">
@@ -392,6 +398,7 @@ export function EditorCanvas({
                     data-box={`${item.x},${item.y},${item.w},${item.h}`}
                     data-text={item.text}
                     data-selected={selected}
+                    data-below-minimum={below(item) || undefined}
                     role="button"
                     tabIndex={editable ? 0 : -1}
                     aria-label={label(item)}
@@ -402,6 +409,7 @@ export function EditorCanvas({
                     className="pointer-events-none outline-none"
                     style={{
                       fontSize: fontSize(item),
+                      ["--kb-em" as string]: `${fontSize(item)}px`,
                       ["--kb-handle" as string]: `${handle / zoom}px`,
                       // The corner's mark: 3px on screen, thinner on a small corner.
                       ["--kb-handle-line" as string]: `${Math.min(3, handle / 7) / zoom}px`,
@@ -418,7 +426,9 @@ export function EditorCanvas({
                         inset: INSET,
                         boxShadow: selected
                           ? `0 0 0 ${3 / (scale || 1)}px hsl(var(--primary))`
-                          : editable
+                          : below(item)
+                            ? `0 0 0 ${2 / (scale || 1)}px hsl(var(--destructive))`
+                            : editable
                             ? `0 0 0 ${1 / (scale || 1)}px ${surface === "home" ? "hsl(var(--border))" : "rgba(255,255,255,0.25)"}`
                             : undefined,
                       }}

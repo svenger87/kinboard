@@ -3491,7 +3491,10 @@
             "sameW": "Gleiche Breite wie das zuerst ausgewählte Widget",
             "sameH": "Gleiche Höhe wie das zuerst ausgewählte Widget",
             "distributeHint": "Verteilen braucht mindestens drei Widgets."
-          }
+          },
+          "belowMinimum": "Zu klein für seinen Inhalt auf diesem Bildschirm: Bei dieser Textgröße braucht es mindestens {w} × {h} Schritte.",
+          "fit": "Einpassen",
+          "fitFailed": "Hier ist kein Platz zum Einpassen: Schaffe darunter Platz oder wähle eine kleinere Textgröße."
         },
         "widgets": {
           "clock": "Uhr",

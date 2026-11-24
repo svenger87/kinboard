@@ -10,8 +10,9 @@
  */
 import { GRID } from "./grid";
 import { collides } from "./validate";
-import { specOf } from "./place";
-import type { LayoutItem, Surface } from "./types";
+import { minOf } from "./place";
+import type { SurfaceAt } from "./home-size";
+import type { LayoutItem } from "./types";
 
 /** Any placed box, of either surface. */
 type Item = LayoutItem<string>;
@@ -25,7 +26,13 @@ const refuse = (reason: ArrangeReason) => ({ ok: false as const, reason });
  * Whether the changed boxes are on the screen, at least their minimum and
  * off every other box. Boxes not named in `changed` are taken as they are.
  */
-export function checkItems<T extends Item>(items: T[], changed: string[], rows: number, surface: Surface = "screensaver"): ArrangeResult<T> {
+export function checkItems<T extends Item>(
+  items: T[],
+  changed: string[],
+  rows: number,
+  surface: SurfaceAt = "screensaver",
+  before?: readonly T[],
+): ArrangeResult<T> {
   const ids = new Set(changed);
   const moved = items.filter((i) => ids.has(i.id));
   for (const i of moved) {
@@ -33,8 +40,15 @@ export function checkItems<T extends Item>(items: T[], changed: string[], rows: 
   }
   for (const i of moved) {
     // A key the surface does not know has no minimum here; validateItems refuses it on save.
-    const min = specOf(i.widget, surface)?.min ?? { w: 1, h: 1 };
-    if (i.w < min.w || i.h < min.h) return refuse("below_minimum");
+    // On Home the minimum is the one at the box's own text size on this area.
+    const min = minOf(i, surface);
+    // A box that was already under its minimum (a layout saved for other
+    // minimums) may still be moved, or grown toward it; only making it
+    // smaller is refused. The inspector offers to fit it.
+    const was = before?.find((b) => b.id === i.id);
+    const shrunkW = !was || i.w < was.w;
+    const shrunkH = !was || i.h < was.h;
+    if ((i.w < min.w && shrunkW) || (i.h < min.h && shrunkH)) return refuse("below_minimum");
   }
   for (const i of moved) {
     if (items.some((o) => o.id !== i.id && collides(o, i))) return refuse("overlap");
@@ -42,19 +56,19 @@ export function checkItems<T extends Item>(items: T[], changed: string[], rows: 
   return { ok: true, items };
 }
 
-function applyTo<T extends Item>(items: T[], ids: string[], change: (i: T) => T, rows: number, surface: Surface): ArrangeResult<T> {
+function applyTo<T extends Item>(items: T[], ids: string[], change: (i: T) => T, rows: number, surface: SurfaceAt): ArrangeResult<T> {
   const selected = new Set(ids);
   const next = items.map((i) => (selected.has(i.id) ? change(i) : i));
-  return checkItems(next, ids, rows, surface);
+  return checkItems(next, ids, rows, surface, items);
 }
 
 /** The selected boxes moved by (dx, dy) steps, all or none. */
-export function moveBy<T extends Item>(items: T[], ids: string[], dx: number, dy: number, rows: number, surface: Surface = "screensaver"): ArrangeResult<T> {
+export function moveBy<T extends Item>(items: T[], ids: string[], dx: number, dy: number, rows: number, surface: SurfaceAt = "screensaver"): ArrangeResult<T> {
   return applyTo(items, ids, (i) => ({ ...i, x: i.x + dx, y: i.y + dy }), rows, surface);
 }
 
 /** The selected boxes made dw steps wider and dh taller from their top left corner, all or none. */
-export function resizeBy<T extends Item>(items: T[], ids: string[], dw: number, dh: number, rows: number, surface: Surface = "screensaver"): ArrangeResult<T> {
+export function resizeBy<T extends Item>(items: T[], ids: string[], dw: number, dh: number, rows: number, surface: SurfaceAt = "screensaver"): ArrangeResult<T> {
   return applyTo(items, ids, (i) => ({ ...i, w: i.w + dw, h: i.h + dh }), rows, surface);
 }
 
@@ -66,7 +80,7 @@ export type AlignEdge = "left" | "right" | "top" | "bottom" | "hcenter" | "vcent
  * vcenter up and down) on the centre of the selection's bounding box,
  * rounded down to a whole step. All or none.
  */
-export function alignItems<T extends Item>(items: T[], ids: string[], edge: AlignEdge, rows: number, surface: Surface = "screensaver"): ArrangeResult<T> {
+export function alignItems<T extends Item>(items: T[], ids: string[], edge: AlignEdge, rows: number, surface: SurfaceAt = "screensaver"): ArrangeResult<T> {
   const sel = items.filter((i) => ids.includes(i.id));
   if (sel.length === 0) return { ok: true, items };
   const left = Math.min(...sel.map((i) => i.x));
@@ -90,7 +104,7 @@ export function alignItems<T extends Item>(items: T[], ids: string[], edge: Alig
  * neighbours, and steps left over go one each to the gaps from the first on.
  * Fewer than three: nothing to spread, the items come back as they are.
  */
-export function distribute<T extends Item>(items: T[], ids: string[], axis: "x" | "y", rows: number, surface: Surface = "screensaver"): ArrangeResult<T> {
+export function distribute<T extends Item>(items: T[], ids: string[], axis: "x" | "y", rows: number, surface: SurfaceAt = "screensaver"): ArrangeResult<T> {
   const pos = axis === "x" ? "x" : "y";
   const len = axis === "x" ? "w" : "h";
   const sel = items.filter((i) => ids.includes(i.id)).sort((a, b) => a[pos] - b[pos] || a[pos] + a[len] - (b[pos] + b[len]));
@@ -113,7 +127,7 @@ export function distribute<T extends Item>(items: T[], ids: string[], axis: "x" 
 }
 
 /** Every selected box given the width (or height) of the first one selected, from its top left corner. All or none. */
-export function matchSize<T extends Item>(items: T[], ids: string[], dim: "w" | "h", rows: number, surface: Surface = "screensaver"): ArrangeResult<T> {
+export function matchSize<T extends Item>(items: T[], ids: string[], dim: "w" | "h", rows: number, surface: SurfaceAt = "screensaver"): ArrangeResult<T> {
   const ref = items.find((i) => i.id === ids[0]);
   if (!ref) return { ok: true, items };
   return applyTo(items, ids, (i) => ({ ...i, [dim]: ref[dim] }), rows, surface);
@@ -133,7 +147,7 @@ export interface Box {
  * like any other command when it would leave the screen, go under the
  * widget's minimum or land on another box. An id not in the items changes nothing.
  */
-export function setBox<T extends Item>(items: T[], id: string, box: Box, rows: number, surface: Surface = "screensaver"): ArrangeResult<T> {
+export function setBox<T extends Item>(items: T[], id: string, box: Box, rows: number, surface: SurfaceAt = "screensaver"): ArrangeResult<T> {
   const { x, y, w, h } = box;
   if (![x, y, w, h].every(Number.isInteger)) return refuse("out_of_bounds");
   if (!items.some((i) => i.id === id)) return { ok: true, items };

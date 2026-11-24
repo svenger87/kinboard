@@ -9,8 +9,9 @@ import { useHomeDataContext } from "@/components/layouts/home-data-context";
 import { birthdaysAhead, calculateUpcomingAge } from "@/components/widgets/birthday-widget";
 import { hasBirthYear } from "@/lib/birthday";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
-import { HOME_ROW, HomeEmptyLine, HomeList, HomeListFrame } from "./list-shared";
+import { HOME_ROW, HomeEmptyLine, HomeList } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
+import { HomeCard } from "./frame";
 
 type Entry = ReturnType<typeof birthdaysAhead>[number];
 
@@ -38,13 +39,13 @@ export function BirthdayHomeWidget({ editing }: HomeWidgetProps) {
           )}
           <div className="min-w-0 flex-1">
             {/* No birth year stored means no age to announce - see hasBirthYear. */}
-            <p className="break-words text-[0.9em] font-medium leading-snug">
+            <p className="break-words home-body font-medium leading-snug">
               {hasBirthYear(b.date) ? t("turnsAge", { name: b.name, age: calculateUpcomingAge(b.date) }) : b.name}
             </p>
-            <p className="text-[0.7em] tabular-nums text-muted-foreground">{format(b.date, "d. MMM", { locale: dateLocale })}</p>
+            <p className="home-meta tabular-nums text-muted-foreground">{format(b.date, "d. MMM", { locale: dateLocale })}</p>
           </div>
           <span
-            className={`shrink-0 rounded-full px-[0.6em] py-[0.15em] text-[0.7em] font-semibold tabular-nums ${
+            className={`shrink-0 rounded-full px-[0.6em] py-[0.15em] home-meta font-semibold tabular-nums ${
               isToday ? "bg-primary text-primary-foreground" : isSoon ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"
             }`}
           >
@@ -56,8 +57,8 @@ export function BirthdayHomeWidget({ editing }: HomeWidgetProps) {
   };
 
   return (
-    <HomeListFrame testId="home-widget-birthday" icon={Cake} title={t("title")} href="/birthdays" editing={editing}>
+    <HomeCard list testId="home-widget-birthday" icon={Cake} title={t("title")} href="/birthdays" editing={editing}>
       <HomeList items={entries} keyOf={keyOf} renderItem={renderItem} empty={<HomeEmptyLine text={t("emptyState")} />} href="/birthdays" />
-    </HomeListFrame>
+    </HomeCard>
   );
 }

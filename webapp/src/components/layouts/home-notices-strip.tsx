@@ -2,17 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AttentionWidget } from "@/components/widgets/attention-widget";
-import { GettingStartedChecklist } from "@/components/getting-started-checklist";
 import { ConnectivityBanner } from "@/components/connectivity-banner";
-import { ShoppingInstallPrompt } from "@/components/shopping-install-prompt";
 import { MessageTakeover } from "@/components/message-takeover";
 
 /**
  * The notices of a designed Home that are not widgets (RFC-022 §3.4): "needs
- * attention", "server unreachable", the getting-started checklist, the
- * install prompt, and a message sent to this screen. They come and go and
- * vary in height, so they do not get a box: they slide in as a strip over
- * the top of the layout and leave when done, and the layout never moves.
+ * attention", "server unreachable" and a message sent to this screen. They
+ * come and go and vary in height, so they do not get a box: they slide in as
+ * a strip over the top of the layout and leave when done, and the layout
+ * never moves.
+ *
+ * Only notices that leave by themselves belong here. Today's Home also shows
+ * two standing offers, the getting-started checklist and the shopping app's
+ * install prompt; they stay until someone dismisses them, so over a layout
+ * they would cover its top (the clock) for good. A designed Home is drawn on
+ * a kiosk or a screen given a layout, which someone has already set up, so
+ * they are left to today's Home and the settings.
  *
  * Each notice renders nothing when it has nothing to say, so the strip is
  * empty (zero high, nothing to tap) on a quiet day. It never takes more than
@@ -52,8 +57,6 @@ export function HomeNoticesStrip({ messages }: { messages: boolean }) {
           and gives them a ground of their own, since several are tinted see-through cards. */}
       <div ref={inner} className="flex flex-col gap-3 bg-background px-4 py-4 elev-md md:px-6 lg:px-8 [&>*]:!mb-0 empty:hidden">
         <ConnectivityBanner />
-        <GettingStartedChecklist />
-        <ShoppingInstallPrompt />
         <AttentionWidget />
         {messages && <MessageTakeover />}
       </div>

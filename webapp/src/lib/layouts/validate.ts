@@ -7,7 +7,8 @@
  * database and is checked on the server (checkHomePeople in server.ts).
  */
 import { gridFor, GRID } from "./grid";
-import { HOME_WIDGETS, widgetsFor } from "./widgets";
+import { HOME_WIDGETS, SAVER_WIDGETS, widgetsFor } from "./widgets";
+import { homeMin } from "./home-size";
 import type { HomeWidgetKey, LayoutItem, SaverWidgetKey, Surface, TextSize } from "./types";
 
 export type LayoutError =
@@ -34,18 +35,35 @@ export function personOf(item: Pick<LayoutItem<string>, "options">): string | un
   return typeof p === "string" ? p : undefined;
 }
 
-export function validateItems(items: unknown, width: number, height: number, surface?: "screensaver"): ValidateResult<SaverWidgetKey>;
-export function validateItems(items: unknown, width: number, height: number, surface: "home"): ValidateResult<HomeWidgetKey>;
-export function validateItems(items: unknown, width: number, height: number, surface: Surface): ValidateResult<SaverWidgetKey> | ValidateResult<HomeWidgetKey>;
+export interface ValidateOptions {
+  /**
+   * Whether boxes under their widget's minimum are refused (the default).
+   * Off only to read a saved layout that is otherwise sound, so it can be
+   * fitted to today's minimums (fitItems) instead of losing those boxes.
+   */
+  minimums?: boolean;
+}
+
+/**
+ * On Home `width` and `height` are the area Home's grid gets (homeArea), and
+ * a box's minimum is its widget's at the box's own text size on that area
+ * (home-size.ts).
+ */
+export function validateItems(items: unknown, width: number, height: number, surface?: "screensaver", options?: ValidateOptions): ValidateResult<SaverWidgetKey>;
+export function validateItems(items: unknown, width: number, height: number, surface: "home", options?: ValidateOptions): ValidateResult<HomeWidgetKey>;
+export function validateItems(items: unknown, width: number, height: number, surface: Surface, options?: ValidateOptions): ValidateResult<SaverWidgetKey> | ValidateResult<HomeWidgetKey>;
 export function validateItems(
   items: unknown,
   width: number,
   height: number,
   surface: Surface = "screensaver",
+  options: ValidateOptions = {},
 ): ValidateResult<string> {
   const grid = gridFor(width, height);
   if (!grid || !Array.isArray(items)) return fail("out_of_bounds");
-  const catalogue: Record<string, { min: { w: number; h: number } }> = widgetsFor(surface);
+  const catalogue: Record<string, unknown> = widgetsFor(surface);
+  const minOf = (i: LayoutItem<string>) =>
+    surface === "home" ? homeMin(i.widget as HomeWidgetKey, i.text, width, height) : SAVER_WIDGETS[i.widget as SaverWidgetKey].min;
 
   const out: LayoutItem<string>[] = [];
   const ids = new Set<string>();
@@ -88,7 +106,8 @@ export function validateItems(
     }
   }
   for (const i of out) {
-    const { min } = catalogue[i.widget];
+    if (options.minimums === false) break;
+    const min = minOf(i);
     if (i.w < min.w || i.h < min.h) return fail("below_minimum", i.id);
   }
   // Each widget once; on Home a per-child widget once per child (and once

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { HOME_WIDGETS } from "../src/lib/layouts/widgets";
+import { homeMin } from "../src/lib/layouts/home-size";
 
 /**
  * Home's list widgets in boxes (RFC-022 step 4), on the dev page
@@ -163,95 +163,119 @@ test("dialogs open over the page, not inside the box", async ({ page, browserNam
 const SCREENS: [string, number, number][] = [
   ["portrait-1080", 1080, 1920], ["portrait-1080-150", 720, 1280], ["landscape-1080", 1920, 1080],
   ["landscape-1080-150", 1280, 720], ["tablet-landscape", 1280, 800], ["tablet-portrait", 800, 1280], ["desktop-1440", 2560, 1440],
+  ["4:3", 1024, 768], ["ultrawide", 2560, 1080],
 ];
 const PROBED = [...WIDGETS, "upcomingEvents", "todayStrip"];
 /** Entries a box at its minimum must show: the lists ticked off show two. */
 const NEED: Record<string, number> = { tasks: 2, shopping: 2 };
-/**
- * Landscape screens a minimum is knowingly short of: tasks and the bins are
- * capped at 11 steps so today's Home keeps its row of cards on 1920x1080
- * (measured 12 here). At XL they show fewer entries on these screens.
- */
-const SHORT_OF: Record<string, string[]> = {
-  tasks: ["landscape-1080-150"],
-  wasteCollection: ["tablet-landscape"],
-  // Kept at 2 steps so the built-in head leaves 1920x1080 its 11-step row of cards: it may show no pill, and cuts none.
-  todayStrip: ["landscape-1080-150", "tablet-landscape"],
-};
 
-test("every list's minimum holds its entries and \"+n\" at text XL on every screen", async ({ page, browserName }) => {
-  test.setTimeout(900_000);
-  await signIn(page, "light", browserName);
-  const measured: Record<string, Record<string, number | null>> = {};
-  for (const [id, width, height] of SCREENS) {
-    await page.setViewportSize({ width, height });
-    await page.goto("/dev/home-lists?widgets=tasks", { waitUntil: "domcontentloaded" });
-    const nav = page.locator("nav:visible").last();
-    await expect(nav).toBeVisible({ timeout: 90_000 });
-    const navH = Math.round((await nav.boundingBox())!.height);
-    const sh = height - navH;
-    await page.goto(`/dev/home-lists?probe=1&sw=${width}&sh=${sh}&text=XL&max=24&widgets=${PROBED.join(",")}`, { waitUntil: "domcontentloaded" });
-    measured[id] = { navH, areaH: sh } as Record<string, number>;
-    for (const widget of PROBED) {
-      const boxes = page.locator(`[data-probe="${widget}"]`);
-      const tallest = boxes.last().locator("[data-list-shown]").first();
-      await expect
-        .poll(async () => Number(await tallest.getAttribute("data-list-shown").catch(() => 0)) + Number(await tallest.getAttribute("data-list-more").catch(() => 0)), { timeout: 90_000, message: `${id} ${widget} never loaded` })
-        .toBeGreaterThan(NEED[widget] ?? 1);
+/** The Home area of a screen: its height less the navigation bar, as drawn. */
+async function areaOf(page: Page, width: number, height: number): Promise<{ sw: number; sh: number; navH: number }> {
+  await page.setViewportSize({ width, height });
+  await page.goto("/dev/home-lists?widgets=tasks", { waitUntil: "domcontentloaded" });
+  const nav = page.locator("nav:visible").last();
+  await expect(nav).toBeVisible({ timeout: 90_000 });
+  const navH = Math.round((await nav.boundingBox())!.height);
+  return { sw: width, sh: height - navH, navH };
+}
+
+/**
+ * Minimums follow pixels (home-size.ts), so one rule holds on every screen,
+ * portrait included: at its minimum for the screen and text size, a list
+ * shows its title, its entries (two for tasks and shopping) and "+n", and
+ * cuts nothing. Measured at S, M and XL; the first height that holds them
+ * is logged, for the record.
+ */
+for (const text of ["S", "M", "XL"] as const) {
+  test(`every list's minimum holds its entries and "+n" at text ${text} on every screen`, async ({ page, browserName }) => {
+    test.setTimeout(900_000);
+    await signIn(page, "light", browserName);
+    const measured: Record<string, Record<string, number | null>> = {};
+    const failures: string[] = [];
+    for (const [id, width, height] of SCREENS) {
+      const { sw, sh, navH } = await areaOf(page, width, height);
+      const mins = Object.fromEntries(PROBED.map((w) => [w, homeMin(w as never, text, sw, sh).h]));
+      // Beyond the minimums, so the first height that holds is found even where a minimum is short.
+      const max = Math.ceil(Math.max(...Object.values(mins)) * 1.6) + 2;
+      await page.goto(`/dev/home-lists?probe=1&sw=${sw}&sh=${sh}&text=${text}&from=2&max=${max}&widgets=${PROBED.join(",")}`, { waitUntil: "domcontentloaded" });
+      measured[id] = { navH, areaH: sh };
+      for (const widget of PROBED) {
+        const tallest = page.locator(`[data-probe="${widget}"][data-probe-min]`).locator("[data-list-shown]").first();
+        await expect
+          .poll(async () => Number(await tallest.getAttribute("data-list-shown").catch(() => 0)) + Number(await tallest.getAttribute("data-list-more").catch(() => 0)), { timeout: 90_000, message: `${id} ${widget} never loaded` })
+          .toBeGreaterThan(NEED[widget] ?? 1);
+      }
+      await page.waitForTimeout(1500);
+      for (const widget of PROBED) {
+        const r = await page.evaluate(
+          ({ widget, need }) => {
+            const boxes = [...document.querySelectorAll<HTMLElement>(`[data-probe="${widget}"]`)];
+            const holds = (box: HTMLElement) => {
+              const root = box.querySelector<HTMLElement>("[data-list-shown]");
+              return !!root && Number(root.dataset.listShown) >= need && Number(root.dataset.listMore) > 0;
+            };
+            const first = boxes.find(holds);
+            const atMin = boxes.find((b) => b.dataset.probeMin !== undefined)!;
+            const bottom = atMin.getBoundingClientRect().bottom + 0.5;
+            const cut = [...atMin.querySelectorAll<HTMLElement>("a, button, p, span, label")]
+              .filter((c) => c.checkVisibility({ visibilityProperty: true }) && c.getBoundingClientRect().height > 0)
+              .filter((c) => c.getBoundingClientRect().top < bottom - 0.5 && c.getBoundingClientRect().bottom > bottom)
+              .map((c) => c.textContent?.slice(0, 30));
+            return { first: first ? Number(first.dataset.probeH) : null, holds: holds(atMin), min: Number(atMin.dataset.probeH), cut };
+          },
+          { widget, need: NEED[widget] ?? 1 },
+        );
+        measured[id][widget] = r.first;
+        // The today strip has no title and no entries to count: one pill, or its "+n", is what it must hold.
+        if (!r.holds) failures.push(`${id} ${widget}: its minimum (${r.min} steps) does not hold ${NEED[widget] ?? 1} entr(ies) and "+n"; ${r.first ?? "nothing up to it"} does`);
+        if (r.cut.length) failures.push(`${id} ${widget}: cut by its box at its minimum: ${r.cut.join(" | ")}`);
+      }
+      console.log(`${browserName} ${text} ${id}`, JSON.stringify(measured[id]));
     }
-    await page.waitForTimeout(1500);
-    for (const widget of PROBED) {
-      const found = await page.evaluate(
-        ({ widget, need }) => {
-          for (const box of document.querySelectorAll<HTMLElement>(`[data-probe="${widget}"]`)) {
-            const root = box.querySelector<HTMLElement>("[data-list-shown]");
-            if (root && Number(root.dataset.listShown) >= need && Number(root.dataset.listMore) > 0) return Number(box.dataset.probeH);
-          }
-          return null;
-        },
-        { widget, need: NEED[widget] ?? 1 },
-      );
-      measured[id][widget] = found;
-    }
-    console.log(`${browserName} ${id}`, JSON.stringify(measured[id]));
-  }
-  if (process.env.HOME_LISTS_MEASURE) writeFileSync(`${process.env.HOME_LISTS_MEASURE}.${browserName}.json`, JSON.stringify(measured, null, 2));
-  for (const [id, width, height] of SCREENS) {
-    for (const widget of PROBED) {
-      const min = HOME_WIDGETS[widget as keyof typeof HOME_WIDGETS].min.h;
-      const h = measured[id][widget];
-      if (width > height && !SHORT_OF[widget]?.includes(id)) {
-        // Landscape: the minimum holds its entries and "+n" at XL.
-        expect.soft(h, `${id} ${widget}: no height up to 24 steps holds it`).not.toBeNull();
-        expect.soft(min, `${id} ${widget}: needs ${h} steps`).toBeGreaterThanOrEqual(h ?? 0);
-      } else {
-        // Portrait, or a minimum capped below what this screen needs: at its
-        // minimum the box keeps its title, a 48px link with the count.
-        await page.setViewportSize({ width, height });
-        await page.goto(`/dev/home-lists?probe=1&sw=${width}&sh=${height - (measured[id].navH ?? 0)}&text=XL&max=${min}&widgets=${widget}`, { waitUntil: "domcontentloaded" });
-        const box = page.locator(`[data-probe="${widget}"][data-probe-h="${min}"]`);
-        await expect(box).toBeAttached({ timeout: 60_000 });
-        await page.waitForTimeout(1500);
-        // Nothing drawn is cut by the box's bottom edge (the strip has no title: it shows what fits, else nothing).
-        const cut = await box.evaluate((el) => {
-          const bottom = el.getBoundingClientRect().bottom + 0.5;
-          return [...el.querySelectorAll<HTMLElement>("a, button, p, span")]
+    if (process.env.HOME_LISTS_MEASURE) writeFileSync(`${process.env.HOME_LISTS_MEASURE}.${text}.${browserName}.json`, JSON.stringify(measured, null, 2));
+    expect(failures).toEqual([]);
+  });
+}
+
+/**
+ * The clock block's pieces and the fixed cards at their minimum, full width
+ * (as the clock block sits) or at their minimum width: each drawn at its
+ * text size, not shrunk to fit: the date with its week badge, the greeting,
+ * the members stacked with names and status lines; a fixed card in an
+ * arrangement of its own, without its last-resort shrink (CapFit).
+ */
+const HEAD = ["date", "greeting", "familyMembers"];
+const FIXED = ["weather", "weekOverview", "schedule", "vehicles", "stonks", "pocketMoney", "creatures", "photos", "timers", "media"];
+for (const text of ["S", "M", "XL"] as const) {
+  test(`the clock block and the fixed cards are whole at their minimum, text ${text}, on every screen`, async ({ page, browserName }) => {
+    test.setTimeout(900_000);
+    await signIn(page, "light", browserName);
+    const failures: string[] = [];
+    for (const [id, width, height] of SCREENS) {
+      const { sw, sh } = await areaOf(page, width, height);
+      for (const [keys, full] of [[HEAD, true], [FIXED, false]] as const) {
+        const max = Math.max(...keys.map((w) => homeMin(w as never, text, sw, sh).h));
+        // Only the boxes at their minimum matter here: start a little below it.
+        await page.goto(`/dev/home-lists?probe=1&sw=${sw}&sh=${sh}&text=${text}&from=1&max=${max}&full=${full ? 1 : 0}&widgets=${keys.join(",")}`, { waitUntil: "domcontentloaded" });
+        await page.waitForTimeout(4000);
+        const found = await page.evaluate((keys) => keys.map((widget) => {
+          const box = document.querySelector<HTMLElement>(`[data-probe="${widget}"][data-probe-min]`);
+          if (!box) return `${widget}: no box at its minimum`;
+          const fit = box.querySelector<HTMLElement>("[data-fit]")?.dataset.fit;
+          if (fit && fit !== "full") return `${widget}: drawn smaller than its text size (${fit})`;
+          if (box.querySelector("[data-cap-fit]")) return `${widget}: shrunk to fit (CapFit)`;
+          const r = box.getBoundingClientRect();
+          const out = [...box.querySelectorAll<HTMLElement>("*")]
             .filter((c) => c.checkVisibility({ visibilityProperty: true }) && c.getBoundingClientRect().height > 0)
-            .filter((c) => c.getBoundingClientRect().top < bottom - 0.5 && c.getBoundingClientRect().bottom > bottom)
-            .map((c) => c.textContent?.slice(0, 30));
-        });
-        expect.soft(cut, `${id} ${widget}: cut by its box`).toEqual([]);
-        if (widget === "todayStrip") continue;
-        const title = box.locator("a[href], [data-home-list-title]").first();
-        await expect(title, `${id} ${widget}`).toBeVisible({ timeout: 60_000 });
-        const t = (await title.boundingBox())!;
-        const b = (await box.boundingBox())!;
-        expect.soft(t.height, `${id} ${widget}: title target`).toBeGreaterThanOrEqual(47.5);
-        expect.soft(t.y + t.height, `${id} ${widget}: title inside its box`).toBeLessThanOrEqual(b.y + b.height + 0.5);
+            .find((c) => { const b = c.getBoundingClientRect(); return b.bottom > r.bottom + 1 || b.right > r.right + 1; });
+          return out ? `${widget}: ${out.tagName.toLowerCase()} "${(out.textContent ?? "").slice(0, 20)}" past its box` : null;
+        }), [...keys]);
+        for (const f of found) if (f) failures.push(`${id} ${text}: ${f}`);
       }
     }
-  }
-});
+    expect(failures).toEqual([]);
+  });
+}
 
 // Last: it ticks entries off, and the measurements above need the family as seeded.
 test("a box that fits two tasks: one tap ticks one off, with the card's mutation", async ({ page, browserName }) => {

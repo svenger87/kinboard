@@ -8,8 +8,9 @@
  */
 import { GRID } from "./grid";
 import { collides } from "./validate";
-import { widgetsFor, type HomeWidgetKind, type WidgetSpec } from "./widgets";
-import type { HomeWidgetKey, LayoutItem, SaverWidgetKey, Surface } from "./types";
+import { HOME_WIDGETS, SAVER_WIDGETS, type HomeWidgetKind, type WidgetSpec } from "./widgets";
+import { homeAreaOf, homeBox, homeMin, surfaceOf, type HomeAt, type SurfaceAt } from "./home-size";
+import type { HomeWidgetKey, LayoutItem, SaverWidgetKey, TextSize } from "./types";
 
 type Box = Pick<LayoutItem, "x" | "y" | "w" | "h">;
 
@@ -23,11 +24,23 @@ export interface PlaceSpec {
 /**
  * A widget's minimum and default box on a surface, or undefined for a key the
  * surface does not have (a layout saved by a newer build). The screensaver is
- * the default, as before Home had widgets.
+ * the default, as before Home had widgets. Home's depend on the area and the
+ * text size (home-size.ts): pass Home with its area, and the item's text
+ * size (a new box is dropped at M).
  */
-export function specOf(widget: string, surface: Surface = "screensaver"): PlaceSpec | undefined {
-  const catalogue: Record<string, PlaceSpec> = widgetsFor(surface);
-  return Object.hasOwn(catalogue, widget) ? catalogue[widget] : undefined;
+export function specOf(widget: string, surface: SurfaceAt = "screensaver", text: TextSize = "M"): PlaceSpec | undefined {
+  if (surfaceOf(surface) === "screensaver") {
+    return Object.hasOwn(SAVER_WIDGETS, widget) ? SAVER_WIDGETS[widget as SaverWidgetKey] : undefined;
+  }
+  if (!Object.hasOwn(HOME_WIDGETS, widget)) return undefined;
+  const key = widget as HomeWidgetKey;
+  const { width, height } = homeAreaOf(surface);
+  return { kind: HOME_WIDGETS[key].kind, min: homeMin(key, text, width, height), box: homeBox(key, text, width, height) };
+}
+
+/** The smallest box of a placed item, at its own text size; a key the surface lacks has none. */
+export function minOf(item: Pick<LayoutItem<string>, "widget" | "text">, surface: SurfaceAt = "screensaver"): { w: number; h: number } {
+  return specOf(item.widget, surface, item.text)?.min ?? { w: 1, h: 1 };
 }
 
 /**
@@ -37,9 +50,9 @@ export function specOf(widget: string, surface: Surface = "screensaver"): PlaceS
  * even the minimum fits.
  */
 export function firstFreeBox(items: Box[], widget: SaverWidgetKey, rows: number, surface?: "screensaver"): Box | null;
-export function firstFreeBox(items: Box[], widget: HomeWidgetKey, rows: number, surface: "home"): Box | null;
-export function firstFreeBox(items: Box[], widget: string, rows: number, surface: Surface): Box | null;
-export function firstFreeBox(items: Box[], widget: string, rows: number, surface: Surface = "screensaver"): Box | null {
+export function firstFreeBox(items: Box[], widget: HomeWidgetKey, rows: number, surface: "home" | HomeAt): Box | null;
+export function firstFreeBox(items: Box[], widget: string, rows: number, surface: SurfaceAt): Box | null;
+export function firstFreeBox(items: Box[], widget: string, rows: number, surface: SurfaceAt = "screensaver"): Box | null {
   const spec = specOf(widget, surface);
   if (!spec) return null;
   const { box, min } = spec;

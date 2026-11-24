@@ -240,24 +240,25 @@ test.describe("in the gate's test mode", () => {
       await page.waitForTimeout(3000);
       await expect(page.getByTestId("designed-home")).toBeVisible({ timeout: 45_000 });
     };
-    const checklist = (page: Page) => page.getByTestId("home-notices-strip").getByText("Finish setting up Kinboard");
+    const NOTICE = `${P}needs-attention`;
+    const notice = (page: Page) => page.getByTestId("home-notices-strip").getByText(NOTICE);
 
-    // Setup finished: no checklist. (Another notice may still be up, a slow
+    // Nothing needs attention: no notice. (Another may still be up, a slow
     // dev server reads as "server unreachable"; the grid must not care.)
     const quiet = await open(browser, "kiosk", { testMode: true });
     await settled(quiet.page);
-    await expect(checklist(quiet.page)).toHaveCount(0);
+    await expect(notice(quiet.page)).toHaveCount(0);
     const before = await boxTops(quiet.page);
     test.info().annotations.push({ type: "strip before", description: (await quiet.page.getByTestId("home-notices-strip").innerText()) || "(empty)" });
     await quiet.ctx.close();
 
-    // The getting-started checklist comes back while setup is not finished.
-    psql(`UPDATE families SET setup_completed = false WHERE id = '${famId}'`);
+    // Something needs attention: a notice that comes and goes.
+    psql(`INSERT INTO attention_items (family_id, rule_id, item_key, title) VALUES ('${famId}', '${P}rule', '${P}item', '${NOTICE}')`);
     try {
       const busy = await open(browser, "kiosk", { testMode: true });
       await settled(busy.page);
       const strip = busy.page.getByTestId("home-notices-strip");
-      await expect(checklist(busy.page)).toBeVisible({ timeout: 20_000 });
+      await expect(notice(busy.page)).toBeVisible({ timeout: 20_000 });
       await expect(strip).toHaveAttribute("data-shown", "true");
       // Slid all the way in (motion is reduced here, so at once), over the top boxes.
       await expect.poll(async () => (await strip.boundingBox())?.y).toBe(0);
@@ -269,6 +270,23 @@ test.describe("in the gate's test mode", () => {
       const scroll = await busy.page.evaluate(() => document.scrollingElement!.scrollHeight - document.scrollingElement!.clientHeight);
       expect(scroll, "still nothing to scroll").toBeLessThanOrEqual(0);
       await busy.ctx.close();
+    } finally {
+      psql(`DELETE FROM attention_items WHERE family_id = '${famId}' AND rule_id = '${P}rule'`);
+    }
+  });
+
+  test("standing offers (the getting-started checklist, the install prompt) never cover a designed Home", async ({ browser }) => {
+    test.setTimeout(120_000);
+    // Setup not finished: today's Home would show the checklist until it is.
+    psql(`UPDATE families SET setup_completed = false WHERE id = '${famId}'`);
+    try {
+      const { ctx, page } = await open(browser, "kiosk", { testMode: true });
+      await expect(page.getByTestId("designed-home")).toBeVisible({ timeout: 45_000 });
+      await page.waitForTimeout(4000);
+      const strip = page.getByTestId("home-notices-strip");
+      await expect(strip.getByText("Finish setting up Kinboard")).toHaveCount(0);
+      await expect(page.getByText(/install shopping app/i)).toHaveCount(0);
+      await ctx.close();
     } finally {
       psql(`UPDATE families SET setup_completed = true WHERE id = '${famId}'`);
     }

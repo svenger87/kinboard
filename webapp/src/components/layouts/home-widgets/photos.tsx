@@ -7,7 +7,8 @@ import { Images } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRotatingPhoto } from "@/components/widgets/photos-widget";
 import type { HomeWidgetProps } from "./shared";
-import { SetUpBox, useEm } from "./rest-shared";
+import { HomeSetUp, HOME_CARD_CORNER } from "./frame";
+import { useEm } from "./rest-shared";
 
 /**
  * A photo from the family's library in a box (RFC-022 §3.1, fixed): the
@@ -24,13 +25,13 @@ export function PhotosHomeWidget({ box }: HomeWidgetProps) {
   const em = useEm(ref);
 
   if (!enabled) {
-    return <SetUpBox box={box} icon={Images} title={t("photosName")} description={t("photosDisabled")} href="/settings/plugins" testId="home-photos" />;
+    return <HomeSetUp icon={Images} title={t("photosName")} description={t("photosDisabled")} href="/settings/plugins" testId="home-photos" />;
   }
   if (screensaverOnly) {
-    return <SetUpBox box={box} icon={Images} title={tp("screensaverOnlyTitle")} description={tp("screensaverOnlyBody")} href="/settings/photos" testId="home-photos" />;
+    return <HomeSetUp icon={Images} title={tp("screensaverOnlyTitle")} description={tp("screensaverOnlyBody")} href="/settings/photos" testId="home-photos" />;
   }
   if (!isLoading && photos.length === 0) {
-    return <SetUpBox box={box} icon={Images} title={t("photosName")} description={t("photosEmpty")} href="/settings/photos" testId="home-photos" />;
+    return <HomeSetUp icon={Images} title={t("photosName")} description={t("photosEmpty")} href="/settings/photos" testId="home-photos" />;
   }
 
   // The title only where it leaves most of the photo free: a box at least four lines tall.
@@ -40,7 +41,7 @@ export function PhotosHomeWidget({ box }: HomeWidgetProps) {
       ref={ref}
       href="/photos"
       aria-label={tp("title")}
-      className={`relative block size-full overflow-hidden rounded-2xl border border-border bg-muted elev-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isLoading ? "animate-pulse" : ""}`}
+      className={`relative block size-full overflow-hidden ${HOME_CARD_CORNER} border border-border bg-muted elev-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isLoading ? "animate-pulse" : ""}`}
       data-testid="home-photos"
       data-fills-box
     >
@@ -63,7 +64,7 @@ export function PhotosHomeWidget({ box }: HomeWidgetProps) {
       </AnimatePresence>
       {showTitle && (
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-[0.6em] pb-[0.4em] pt-[1em]">
-          <p className="truncate text-[0.75em] font-medium text-white">{photo?.title}</p>
+          <p className="truncate home-meta font-medium text-white">{photo?.title}</p>
         </div>
       )}
     </Link>

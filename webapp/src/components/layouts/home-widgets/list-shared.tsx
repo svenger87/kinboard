@@ -29,74 +29,13 @@ export const TARGET_SQ = "size-12 shrink-0 [&_svg]:size-[0.9em]";
  * A checklist row (ChecklistItem): its text label, which fills the row and is
  * what a tap lands on, is the 48px target itself, not the row around it.
  */
-export const CHECK_ROW = "gap-[0.5em] px-[0.6em] [&>label]:min-h-[48px] [&_label]:text-[0.9em]";
-
-/**
- * The card of a Home list widget. The title row is a link to `href` (when the
- * widget has a page) and at least 48px tall; `badge` sits beside the title
- * (the count, so a box that fits no entry still says how many there are);
- * `actions` are the header's own buttons, each a TARGET_SQ. In the designer
- * (`editing`) the card is inert: arranging a box must not tick anything off.
- */
-export function HomeListFrame({
-  icon: Icon,
-  title,
-  href,
-  badge,
-  actions,
-  editing,
-  testId,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  href?: string;
-  badge?: ReactNode;
-  actions?: ReactNode;
-  editing?: boolean;
-  testId: string;
-  children: ReactNode;
-}) {
-  const heading = (
-    <>
-      <span className="flex shrink-0 items-center justify-center rounded-[0.5em] bg-primary/10 p-[0.35em] text-primary">
-        <Icon className="size-[1em]" strokeWidth={1.75} aria-hidden="true" />
-      </span>
-      <span className="min-w-0 truncate font-display text-[1em] font-semibold leading-tight">{title}</span>
-      {badge != null && <span className="shrink-0">{badge}</span>}
-      {href && <ChevronRight className="size-[0.8em] shrink-0 text-muted-foreground" aria-hidden="true" />}
-    </>
-  );
-  const headingClass = `${TARGET_H} flex min-w-0 flex-1 items-center gap-[0.5em] rounded-[0.5em] px-[0.25em]`;
-  return (
-    <section
-      data-testid={testId}
-      data-home-list
-      inert={editing || undefined}
-      className="accent-border-top flex size-full flex-col overflow-hidden rounded-[0.75em] border border-border bg-card text-card-foreground elev-sm"
-    >
-      <header className="flex shrink-0 items-center gap-[0.25em] px-[0.4em]">
-        {href ? (
-          <Link href={href} data-home-list-title className={`${headingClass} transition-colors hover:bg-accent/50`}>
-            {heading}
-          </Link>
-        ) : (
-          <div data-home-list-title className={headingClass}>
-            {heading}
-          </div>
-        )}
-        {actions}
-      </header>
-      <div className="min-h-0 flex-1 px-[0.5em] pb-[0.15em]">{children}</div>
-    </section>
-  );
-}
+export const CHECK_ROW = "gap-[0.5em] px-[0.6em] [&>label]:min-h-[48px] [&_label]:home-body";
 
 /** The count beside a list's title. */
 export function CountBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <span data-home-list-count className="rounded-full bg-muted px-[0.5em] py-[0.1em] text-[0.7em] font-medium tabular-nums text-muted-foreground">
+    <span data-home-list-count className="rounded-full bg-muted px-[0.5em] py-[0.1em] home-meta font-medium tabular-nums text-muted-foreground">
       {count}
     </span>
   );
@@ -134,13 +73,13 @@ export function HomeList<T>({
         <Link
           href={href}
           data-home-list-more
-          className={`${TARGET_H} flex items-center justify-center gap-[0.25em] rounded-[0.5em] text-[0.8em] font-medium text-primary/80 transition-colors hover:bg-accent/50 hover:text-primary`}
+          className={`${TARGET_H} flex items-center justify-center gap-[0.25em] rounded-[0.5em] home-body font-medium text-primary/80 transition-colors hover:bg-accent/50 hover:text-primary`}
         >
           <span>{label}</span>
           <ChevronRight className="size-[1em]" aria-hidden="true" />
         </Link>
       ) : (
-        <p data-home-list-more className="py-[0.25em] text-center text-[0.8em] font-medium text-muted-foreground">
+        <p data-home-list-more className="py-[0.25em] text-center home-body font-medium text-muted-foreground">
           {label}
         </p>
       ),
@@ -158,7 +97,7 @@ export const HOME_ROW_GAP = 6;
 
 /** A list with nothing in it. */
 export function HomeEmptyLine({ text }: { text: string }) {
-  return <p className="py-[0.25em] text-[0.8em] text-muted-foreground">{text}</p>;
+  return <p className="py-[0.25em] home-body text-muted-foreground">{text}</p>;
 }
 
 /** An entry's card, on the app's theme. */

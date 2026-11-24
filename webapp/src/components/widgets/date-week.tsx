@@ -21,9 +21,13 @@ export interface DateAndWeekProps {
    * instead of Home's fixed size: for a widget fitting it to its box.
    */
   scaled?: boolean;
+  /** Scaled only: the week badge is a 48px touch target (the default); off in a box flatter than that. */
+  target?: boolean;
+  /** Scaled only: show the week badge (the default); off in a box too small for it. */
+  week?: boolean;
 }
 
-function DateAndWeekFace({ className = "", scaled = false, now }: DateAndWeekProps & { now: ClockNow }) {
+function DateAndWeekFace({ className = "", scaled = false, target = true, week = true, now }: DateAndWeekProps & { now: ClockNow }) {
   const t = useTranslations("clock");
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
@@ -47,16 +51,16 @@ function DateAndWeekFace({ className = "", scaled = false, now }: DateAndWeekPro
       <p className={`text-kiosk-label ${scaled ? "text-[1em] whitespace-nowrap" : "text-base"} text-primary tabular-nums`}>
         {formattedDate}
       </p>
-      <Popover>
+      {(!scaled || week) && <Popover>
         <PopoverTrigger asChild>
           <button
             type="button"
-            className={`bg-transparent border-0 p-0 m-0 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-md${scaled ? " inline-flex min-h-[48px] min-w-[48px] items-center justify-center" : ""}`}
+            className={`bg-transparent border-0 p-0 m-0 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-month-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-md${scaled && target ? " inline-flex min-h-[48px] min-w-[48px] items-center justify-center" : ""}`}
             aria-label={t("tooltipWeekFull", { number: weekNumber })}
           >
             <Badge
               variant="outline"
-              className={`${scaled ? "text-[0.6em] whitespace-nowrap" : "text-xs"} cursor-pointer hover:bg-white/5`}
+              className={`${scaled ? "text-[0.87em] whitespace-nowrap" : "text-xs"} cursor-pointer hover:bg-white/5`}
             >
               {t("weekShort", { number: weekNumber })}
             </Badge>
@@ -70,7 +74,7 @@ function DateAndWeekFace({ className = "", scaled = false, now }: DateAndWeekPro
         >
           <p>{t("tooltipWeekFull", { number: weekNumber })}</p>
         </PopoverContent>
-      </Popover>
+      </Popover>}
     </motion.div>
   );
 }

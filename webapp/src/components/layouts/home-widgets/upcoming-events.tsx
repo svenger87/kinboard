@@ -15,73 +15,9 @@ import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib
 import { toLocalDateKey } from "@/lib/local-date";
 import { personText } from "@/lib/person-color";
 import type { HomeWidgetProps } from "./shared";
+import { HomeCard } from "./frame";
 
-/**
- * A touch target's height: 48px at least, whatever the text size; larger
- * text makes it taller through its own line, not through a taller minimum,
- * so a box at its minimum still holds a row at XL.
- */
-export const HOME_TARGET_H = "min-h-[48px]";
-
-/**
- * The card a Home widget fills its box with, on the app's theme: a title row
- * at least 48px tall, linking to `href` when the widget has a page, or a
- * button running `onOpen` (the weather opens its dialog, over the layout).
- * In the designer (`editing`) the card is inert.
- */
-export function HomeCardFrame({
-  icon: Icon,
-  title,
-  href,
-  onOpen,
-  openLabel,
-  editing,
-  testId,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  href?: string;
-  onOpen?: () => void;
-  /** The title target's accessible name, when it says more than the title. */
-  openLabel?: string;
-  editing?: boolean;
-  testId: string;
-  children: ReactNode;
-}) {
-  const heading = (
-    <>
-      <span className="flex shrink-0 items-center justify-center rounded-[0.5em] bg-primary/10 p-[0.35em] text-primary">
-        <Icon className="size-[1em]" strokeWidth={1.75} aria-hidden="true" />
-      </span>
-      <span className="min-w-0 flex-1 truncate text-left font-display text-[1em] font-semibold leading-tight">{title}</span>
-      {(href || onOpen) && <ChevronRight className="size-[0.8em] shrink-0 text-muted-foreground" aria-hidden="true" />}
-    </>
-  );
-  const headingClass = `${HOME_TARGET_H} flex w-full min-w-0 items-center gap-[0.5em] rounded-[0.5em] px-[0.25em] transition-colors hover:bg-accent/50`;
-  return (
-    <section
-      data-testid={testId}
-      inert={editing || undefined}
-      className="accent-border-top flex size-full flex-col overflow-hidden rounded-[0.75em] border border-border bg-card text-card-foreground elev-sm"
-    >
-      <header className="flex shrink-0 items-center px-[0.4em]">
-        {href ? (
-          <Link href={href} aria-label={openLabel} className={headingClass}>
-            {heading}
-          </Link>
-        ) : onOpen ? (
-          <button type="button" onClick={onOpen} aria-label={openLabel} className={headingClass}>
-            {heading}
-          </button>
-        ) : (
-          <div className={headingClass.replace(" transition-colors hover:bg-accent/50", "")}>{heading}</div>
-        )}
-      </header>
-      <div className="min-h-0 flex-1 px-[0.5em] pb-[0.5em]">{children}</div>
-    </section>
-  );
-}
+import { HOME_TARGET_H } from "./frame";
 
 interface Row {
   id: string;
@@ -187,7 +123,7 @@ export function HomeUpcomingEventsWidget({ editing }: HomeWidgetProps) {
       <Link
         href="/calendar"
         data-home-list-more
-        className={`${HOME_TARGET_H} flex items-center justify-center gap-[0.25em] rounded-[0.5em] text-[0.8em] font-medium text-primary/80 transition-colors hover:bg-accent/50 hover:text-primary`}
+        className={`${HOME_TARGET_H} flex items-center justify-center gap-[0.25em] rounded-[0.5em] home-body font-medium text-primary/80 transition-colors hover:bg-accent/50 hover:text-primary`}
       >
         <span>{label}</span>
         <ChevronRight className="size-[1em]" aria-hidden="true" />
@@ -200,11 +136,11 @@ export function HomeUpcomingEventsWidget({ editing }: HomeWidgetProps) {
     const body = (
       <>
         {!r.allDay && (
-          <span className="shrink-0 text-[0.8em] font-bold tabular-nums" style={{ color: personText(r.color) }}>
+          <span className="shrink-0 home-body font-bold tabular-nums" style={{ color: personText(r.color) }}>
             {formatTime(r.start)}
           </span>
         )}
-        <span className="min-w-0 flex-1 truncate text-[0.8em] font-medium">{r.title}</span>
+        <span className="min-w-0 flex-1 truncate home-body font-medium">{r.title}</span>
       </>
     );
     const rowClass = `${HOME_TARGET_H} flex w-full items-center gap-[0.6em] rounded-[0.6em] border border-border px-[0.7em] py-[0.2em] text-left leading-tight elev-sm ${r.holiday ? "bg-amber-400/10" : "bg-card"}`;
@@ -212,7 +148,7 @@ export function HomeUpcomingEventsWidget({ editing }: HomeWidgetProps) {
       <div className="pb-[0.25em]" data-holiday={r.holiday ? "true" : undefined}>
         {r.dayLabel && (
           <div className="mb-[0.1em] flex items-center gap-[0.5em] leading-tight">
-            <span className="text-kiosk-label text-[0.55em]">{r.dayLabel}</span>
+            <span className="text-kiosk-label home-label">{r.dayLabel}</span>
             <div className="h-px flex-1 bg-border/40" />
           </div>
         )}
@@ -234,11 +170,11 @@ export function HomeUpcomingEventsWidget({ editing }: HomeWidgetProps) {
   };
 
   return (
-    <HomeCardFrame icon={Calendar} title={t("title")} href="/calendar" openLabel={t("viewAllAria")} editing={editing} testId="home-widget-upcomingEvents">
+    <HomeCard icon={Calendar} title={t("title")} href="/calendar" openLabel={t("viewAllAria")} editing={editing} testId="home-widget-upcomingEvents">
       {eventsError ? (
-        <p className="py-[0.25em] text-[0.8em] text-muted-foreground">{t("errorMessage")}</p>
+        <p className="py-[0.25em] home-body text-muted-foreground">{t("errorMessage")}</p>
       ) : eventsLoading ? (
-        <p className="py-[0.25em] text-[0.8em] text-muted-foreground" aria-busy="true">{t("loadingAria")}</p>
+        <p className="py-[0.25em] home-body text-muted-foreground" aria-busy="true">{t("loadingAria")}</p>
       ) : (
         // When not even one row fits, the "+n" is hidden too (it would be
         // cut): the title still links to the calendar.
@@ -247,12 +183,12 @@ export function HomeUpcomingEventsWidget({ editing }: HomeWidgetProps) {
             items={rows}
             keyOf={(r) => r.id}
             renderItem={renderRow}
-            empty={<p className="py-[0.25em] text-[0.8em] text-muted-foreground">{t("emptyState")}</p>}
+            empty={<p className="py-[0.25em] home-body text-muted-foreground">{t("emptyState")}</p>}
             moreLabel={moreLabel}
             renderMore={renderMore}
           />
         </div>
       )}
-    </HomeCardFrame>
+    </HomeCard>
   );
 }

@@ -9,9 +9,10 @@ import { useFitToBox } from "@/hooks/use-fit-to-box";
 import { WeatherModal } from "@/components/widgets/weather-modal";
 import { weatherIcon } from "@/components/widgets/weather";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { HOME_TARGET_H, HomeCardFrame } from "./upcoming-events";
-import { useBoxFontSize } from "./clock";
+import { HOME_TARGET_H } from "./frame";
+import { useBoxFontSize } from "./frame";
 import type { HomeWidgetProps } from "./shared";
+import { HomeCard } from "./frame";
 
 /** A forecast day's width and the row's height, in em of the box's text size. */
 const DAY_EM = 3.4;
@@ -77,7 +78,7 @@ export function HomeWeatherWidget({ box, editing }: HomeWidgetProps) {
   // for the location and units and is pending, not loading, until then; and
   // a failed refresh keeps the last reading rather than showing the error.
   if (!weather && isPending) {
-    content = <p className="text-[0.8em] text-muted-foreground" aria-busy="true">{t("loadingAria")}</p>;
+    content = <p className="home-body text-muted-foreground" aria-busy="true">{t("loadingAria")}</p>;
   } else if (!weather && !error) {
     // The server has no weather key: say so, with the way to set it up.
     content = (
@@ -85,7 +86,7 @@ export function HomeWeatherWidget({ box, editing }: HomeWidgetProps) {
         <Link
           href="/settings/weather"
           title={t("notConfiguredTitle")}
-          className={`${HOME_TARGET_H} inline-flex max-w-full items-center gap-[0.4em] rounded-[0.5em] px-[0.6em] text-[0.75em] font-medium text-primary hover:bg-accent/50`}
+          className={`${HOME_TARGET_H} inline-flex max-w-full items-center gap-[0.4em] rounded-[0.5em] px-[0.6em] home-meta font-medium text-primary hover:bg-accent/50`}
         >
           <CloudOff className="size-[1.2em] shrink-0" strokeWidth={1.75} aria-hidden="true" />
           <span className="truncate">{t("notConfiguredAction")}</span>
@@ -96,7 +97,7 @@ export function HomeWeatherWidget({ box, editing }: HomeWidgetProps) {
     content = (
       <div className="flex size-full items-center justify-center gap-[0.4em] text-center">
         <CloudOff className="size-[1.2em] shrink-0 text-destructive" strokeWidth={1.75} aria-hidden="true" />
-        <p className="truncate text-[0.8em] text-muted-foreground">{t("errorTitle")}</p>
+        <p className="truncate home-body text-muted-foreground">{t("errorTitle")}</p>
       </div>
     );
   }
@@ -105,7 +106,7 @@ export function HomeWeatherWidget({ box, editing }: HomeWidgetProps) {
 
   return (
     <div ref={root} className="size-full">
-      <HomeCardFrame icon={CloudSun} title={t("title")} onOpen={weather ? () => setOpen(true) : undefined} openLabel={t("detailsAria")} editing={editing} testId="home-widget-weather">
+      <HomeCard icon={CloudSun} title={t("title")} onOpen={weather ? () => setOpen(true) : undefined} openLabel={t("detailsAria")} editing={editing} testId="home-widget-weather">
         {content ?? (weather && (
           <button
             ref={body}
@@ -123,8 +124,8 @@ export function HomeWeatherWidget({ box, editing }: HomeWidgetProps) {
               >
                 <Icon className="size-[0.9em] shrink-0 text-primary" strokeWidth={1.5} aria-hidden="true" />
                 <div className="flex flex-col">
-                  <span className="font-display text-[1em] font-light leading-none tracking-tight tabular-nums">{weather.temp}°</span>
-                  <span className="mt-[0.1em] whitespace-nowrap text-[0.22em] font-medium text-muted-foreground">
+                  <span className="font-display font-light leading-none tracking-tight tabular-nums">{weather.temp}°</span>
+                  <span className="mt-[0.1em] whitespace-nowrap home-meta font-medium text-muted-foreground">
                     {weather.condition}
                     {/* Number check: 0° is falsy, and freezing is where the range matters most. */}
                     {weather.high !== undefined && weather.low !== undefined && (
@@ -144,9 +145,9 @@ export function HomeWeatherWidget({ box, editing }: HomeWidgetProps) {
                   const DayIcon = weatherIcon(day.conditionMain ?? day.condition, day.conditionIcon);
                   return (
                     <div key={day.date} className="flex flex-1 flex-col items-center gap-[0.15em]">
-                      <span className="text-[0.65em] text-muted-foreground">{day.dayName}</span>
+                      <span className="home-meta text-muted-foreground">{day.dayName}</span>
                       <DayIcon className="size-[1.1em] text-primary/70" strokeWidth={1.75} aria-hidden="true" />
-                      <span className="whitespace-nowrap text-[0.65em] tabular-nums">
+                      <span className="whitespace-nowrap home-meta tabular-nums">
                         <span className="font-medium">{day.tempMax}°</span>
                         <span className="text-muted-foreground"> {day.tempMin}°</span>
                       </span>
@@ -157,7 +158,7 @@ export function HomeWeatherWidget({ box, editing }: HomeWidgetProps) {
             )}
           </button>
         ))}
-      </HomeCardFrame>
+      </HomeCard>
       {/* Over the layout, not inside the box (RFC-022 §3.3). The dialog's
           rain chances are tooltips, which need a provider above them. */}
       <TooltipProvider>

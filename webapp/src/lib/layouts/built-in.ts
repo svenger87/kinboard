@@ -13,7 +13,7 @@
  * worked out in whole cells and returned in steps (four to a cell).
  */
 import { GRID, gridFor, orientationOf } from "./grid";
-import { HOME_WIDGETS } from "./widgets";
+import { homeComfort, homeMin, homeTextPx, stepsFor } from "./home-size";
 import { DEFAULT_WIDGET_ORDER, DEFAULT_WIDGET_VISIBILITY, type WidgetVisibility } from "../../types/widgets";
 import type { HomeLayoutItem, HomeWidgetKey, LayoutItem, SaverWidgetKey } from "./types";
 
@@ -99,15 +99,19 @@ export interface BuiltInHomeOptions {
 /**
  * The clock block's pieces top to bottom, as today's Home stacks them (the
  * Clock component draws the time, then the date and week, then the greeting;
- * the members and the today strip follow), with their heights in steps. A
- * landscape panel has few rows (24 steps at 1920x1080), so its block starts
- * smaller; spare rows go to the clock, as today's block takes the spare
- * height with `flex-1`.
+ * the members and the today strip follow). Each starts at its minimum for the
+ * screen (home-size.ts), so it holds what it held on today's Home: the date
+ * with its week badge, the greeting, the members with their names and
+ * status lines, the strip's pills. Spare rows go to the clock, as today's
+ * block takes the spare height with `flex-1`.
  */
-const HOME_HEAD: Record<"portrait" | "landscape", [HomeWidgetKey, number][]> = {
-  portrait: [["clock", 8], ["date", 2], ["greeting", 2], ["familyMembers", 4], ["todayStrip", 2]],
-  landscape: [["clock", 4], ["date", 2], ["greeting", 2], ["familyMembers", 3], ["todayStrip", 2]],
-};
+const HOME_HEAD: HomeWidgetKey[] = ["clock", "date", "greeting", "familyMembers", "todayStrip"];
+
+/**
+ * The clock's height before the cards grow, in em of Home's text: about
+ * today's digits, 160px at 18px whichever way round the screen is.
+ */
+const CLOCK_START_EM = 9;
 
 /** Cards that span more than one column on today's Home (`sm:col-span-2`). */
 const TODAY_SPAN: Partial<Record<HomeCardKey, number>> = { weekOverview: 2 };
@@ -141,8 +145,11 @@ function mergeOrder(defaults: readonly HomeCardKey[], saved: readonly string[]):
  * the grid, so validateItems(…, "home") accepts the result.
  */
 export function builtInHome(width: number, height: number, options: BuiltInHomeOptions = {}): HomeLayoutItem[] {
-  const rows = gridFor(width, height)?.rows ?? GRID.MIN_ROWS * GRID.STEPS_PER_CELL;
+  const grid = gridFor(width, height);
+  const rows = grid?.rows ?? GRID.MIN_ROWS * GRID.STEPS_PER_CELL;
   const orientation = orientationOf(width, height);
+  // Every box is written at text M: its minimum is the one at M on this area.
+  const minOf = (widget: HomeWidgetKey) => homeMin(widget, "M", width, height);
   const cols = orientation === "landscape" && width >= 1024 ? 4 : 2;
   const colW = GRID.COLUMNS / cols;
 
@@ -153,7 +160,7 @@ export function builtInHome(width: number, height: number, options: BuiltInHomeO
     .flatMap((widget) => {
       const kids = widget === "schedule" ? options.scheduleChildren : widget === "pocketMoney" ? options.pocketMoneyChildren : undefined;
       const people = kids && kids.length > 0 ? [...new Set(kids)] : [undefined];
-      const span = Math.min(cols, Math.max(TODAY_SPAN[widget] ?? 1, Math.ceil(HOME_WIDGETS[widget].min.w / colW)));
+      const span = Math.min(cols, Math.max(TODAY_SPAN[widget] ?? 1, Math.ceil(minOf(widget).w / colW)));
       return people.map((personId) => ({ widget, personId, span }));
     });
   type Card = (typeof cards)[number];
@@ -174,36 +181,56 @@ export function builtInHome(width: number, height: number, options: BuiltInHomeO
       }
     }
     const rowMin = Array<number>(taken.length).fill(0);
-    for (const p of placed) rowMin[p.row] = Math.max(rowMin[p.row], HOME_WIDGETS[p.card.widget].min.h);
+    for (const p of placed) rowMin[p.row] = Math.max(rowMin[p.row], minOf(p.card.widget).h);
     // A row left empty (the last scanned one, when nothing went in) is dropped.
     while (rowMin.length > 0 && rowMin[rowMin.length - 1] === 0) rowMin.pop();
     return { placed, rowMin };
   };
 
-  const head = HOME_HEAD[orientation];
-  const headH = head.reduce((sum, [, h]) => sum + h, 0);
-  const region = Math.max(0, rows - headH);
+  // Rows are shared out in turns: the clock block's pieces and the card rows
+  // at their minimums (card rows that do not fit are left out, as they sat
+  // below the fold today), then the clock up to its starting size, then the
+  // card rows together up to CARD_ROW_MAX, and what is left to the clock.
+  // The pieces start as on today's Home (the members' names under their
+  // avatars); only when that leaves no room for a single row of cards do
+  // they go to their minimums (the names beside the avatars).
   const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
-  // Whole rows that do not fit are left out, as they sat below the fold today.
   const packed = pack(cards);
+  // On a screen so short that even that leaves none (1024x768: 28 rows of
+  // 20px), the greeting, the piece that says least, is left out.
+  const comfort = HOME_HEAD.map((widget) => homeComfort(widget, "M", width, height).h);
+  const smallest = HOME_HEAD.map((widget) => minOf(widget).h);
+  const firstRow = packed.rowMin[0] ?? 0;
+  const greeting = HOME_HEAD.indexOf("greeting");
+  const headMin =
+    rows - sum(comfort) >= firstRow ? comfort
+    : rows - sum(smallest) + smallest[greeting] >= firstRow && rows - sum(smallest) < firstRow
+      ? smallest.map((h, n) => (n === greeting ? 0 : h))
+      : smallest;
+  const region = Math.max(0, rows - sum(headMin));
   let fit = packed.rowMin.length;
   while (fit > 0 && sum(packed.rowMin.slice(0, fit)) > region) fit--;
   packed.rowMin = packed.rowMin.slice(0, fit);
   packed.placed = packed.placed.filter((p) => p.row < fit);
+  let free = region - sum(packed.rowMin);
+  const clockStart = grid ? stepsFor(CLOCK_START_EM * homeTextPx("M", width, height), grid) : headMin[0];
+  const clockGrow = Math.min(free, Math.max(0, clockStart - headMin[0]));
+  free -= clockGrow;
   // The tallest common row height that fits; a row never goes below its tallest card's minimum.
   let heights = packed.rowMin;
   for (let t = CARD_ROW_MAX; t >= 0; t--) {
     heights = packed.rowMin.map((m) => Math.max(m, t));
-    if (sum(heights) <= region) break;
+    if (sum(heights) - sum(packed.rowMin) <= free) break;
   }
-  const spare = region - sum(heights);
+  const spare = free - (sum(heights) - sum(packed.rowMin));
+  const head: [HomeWidgetKey, number][] = HOME_HEAD.map((widget, n) => [widget, headMin[n] + (widget === "clock" ? clockGrow + spare : 0)]);
 
   const items: HomeLayoutItem[] = [];
   let y = 0;
   for (const [widget, h] of head) {
-    const hh = widget === "clock" ? h + spare : h;
-    items.push({ id: widget, widget, x: 0, y, w: GRID.COLUMNS, h: hh, text: "M" });
-    y += hh;
+    if (h === 0) continue;
+    items.push({ id: widget, widget, x: 0, y, w: GRID.COLUMNS, h, text: "M" });
+    y += h;
   }
   const rowY = heights.map((_, r) => y + sum(heights.slice(0, r)));
   for (const { card, row, col } of packed.placed) {

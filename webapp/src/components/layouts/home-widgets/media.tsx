@@ -12,7 +12,8 @@ import { useMediaCommand } from "@/hooks/use-media-player-state";
 import type { Capability, MediaCommand, MediaPlayerState } from "@/plugins/media/types";
 import type { MediaPlayer } from "@/types/database";
 import type { HomeWidgetProps } from "./shared";
-import { BoxCard, TOUCH, useShrinkStep } from "./rest-shared";
+import { HomeCard } from "./frame";
+import { TOUCH, useShrinkStep } from "./rest-shared";
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
@@ -109,7 +110,7 @@ function Player({
   const main = step.controls !== "play";
 
   return (
-    <BoxCard box={box} ref={ref} testId="home-media" step={index} className={`gap-[0.4em] ${isUnavailable ? "opacity-50" : ""}`}>
+    <HomeCard ref={ref} testId="home-media" step={index} className={`gap-[0.4em] ${isUnavailable ? "opacity-50" : ""}`}>
       {step.switcher && playing.length > 1 && (
         <div className="flex shrink-0 gap-[0.3em]">
           {playing.map((id) => {
@@ -120,7 +121,7 @@ function Player({
                 key={id}
                 type="button"
                 onClick={() => onSelect(id)}
-                className={`${TOUCH} shrink-0 rounded-full px-[0.7em] text-[0.7em] ${id === activeId ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+                className={`${TOUCH} shrink-0 rounded-full px-[0.7em] home-meta ${id === activeId ? "bg-primary text-primary-foreground" : "bg-muted"}`}
               >
                 {p.nickname}
               </button>
@@ -138,16 +139,16 @@ function Player({
             </span>
           ))}
         <div className="min-w-0 flex-1 leading-tight">
-          {step.lines >= 2 && <p className="truncate text-[0.7em] text-muted-foreground">{player.nickname}</p>}
+          {step.lines >= 2 && <p className="truncate home-meta text-muted-foreground">{player.nickname}</p>}
           <p className="truncate font-medium">{subtitle}</p>
-          {step.lines >= 3 && !isUnavailable && state.artist && <p className="truncate text-[0.7em] text-muted-foreground">{state.artist}</p>}
+          {step.lines >= 3 && !isUnavailable && state.artist && <p className="truncate home-meta text-muted-foreground">{state.artist}</p>}
         </div>
         {step.controls === "play" &&
           can("transport") &&
           control(true, t("playPause"), state.status === "playing" ? <Pause className="size-5" /> : <Play className="size-5" />, { kind: "playPause" })}
       </div>
       {step.progress && !isUnavailable && position !== undefined && state.duration !== undefined && (
-        <div className="flex shrink-0 items-center gap-[0.4em] text-[0.6em] tabular-nums text-muted-foreground">
+        <div className="flex shrink-0 items-center gap-[0.4em] home-label tabular-nums text-muted-foreground">
           <span>{fmt(position)}</span>
           <div className="h-[0.35em] flex-1 overflow-hidden rounded-full bg-muted">
             <div className="h-full bg-primary" style={{ width: `${Math.min(100, (position / state.duration) * 100)}%` }} />
@@ -171,7 +172,7 @@ function Player({
           })}
         </div>
       )}
-      {failed && <p className="shrink-0 text-[0.65em] text-destructive">{t("commandFailed")}</p>}
+      {failed && <p className="shrink-0 home-meta text-destructive">{t("commandFailed")}</p>}
       {can("browse") && (
         // A sheet over the whole screen, not inside the box (RFC-022 §3.3).
         <MediaBrowseSheet
@@ -185,7 +186,7 @@ function Player({
           }}
         />
       )}
-    </BoxCard>
+    </HomeCard>
   );
 }
 
@@ -206,11 +207,11 @@ export function MediaHomeWidget({ box, editing }: HomeWidgetProps) {
   if (!family || !player || !activeId || !stateOf) {
     if (!editing) return null;
     return (
-      <BoxCard box={box} testId="home-media" className="items-center justify-center text-center">
-        <p className="text-[0.8em] text-muted-foreground">
+      <HomeCard testId="home-media" className="items-center justify-center text-center">
+        <p className="home-body text-muted-foreground">
           {t("title")} · {t("nothingPlaying")}
         </p>
-      </BoxCard>
+      </HomeCard>
     );
   }
   return (

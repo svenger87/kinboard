@@ -31,10 +31,13 @@ test("the group's registry has the seven keys, one file each", () => {
   for (const file of Object.values(FILES)) expect(existsSync(`${DIR}/${file}.tsx`), file).toBe(true);
 });
 
-test("values grow with their box, lists end in a '+n' that links to the calendar", () => {
-  for (const key of ["clock", "date", "greeting", "familyMembers", "weather"]) {
+test("the clock and the weather grow with their box; the date, greeting and members are drawn at their text size and only shrink to fit; lists end in a '+n' that links to the calendar", () => {
+  for (const key of ["clock", "weather"]) {
     expect(code(`${DIR}/${FILES[key]}.tsx`), key).toMatch(/import \{[^}]*\buseFitToBox\b[^}]*\} from "@\/hooks\/use-fit-to-box"/);
   }
+  // At their text size (frame.tsx's HOME_VALUE_EM), smaller only in too small a box.
+  for (const key of ["date", "greeting"]) expect(code(`${DIR}/${FILES[key]}.tsx`), key).toContain("useCappedFit(frame, ref, box, HOME_VALUE_EM.");
+  expect(code(`${DIR}/family-members.tsx`)).toContain("Math.min(fit, cap)");
   const events = code(`${DIR}/upcoming-events.tsx`);
   expect(events).toMatch(/import \{ ListBox \} from "@\/components\/layouts\/list-box"/);
   expect(events).toMatch(/renderMore=\{renderMore\}/);
@@ -46,13 +49,13 @@ test("values grow with their box, lists end in a '+n' that links to the calendar
 });
 
 test("touch targets stay at least 48px", () => {
-  expect(code(`${DIR}/upcoming-events.tsx`)).toContain('export const HOME_TARGET_H = "min-h-[48px]";');
+  expect(code(`${DIR}/frame.tsx`)).toContain('export const HOME_TARGET_H = "min-h-[48px]";');
   expect(code(`${DIR}/today-strip.tsx`)).toContain('const MORE = "inline-flex min-h-[48px]');
   expect(code(`${DIR}/weather.tsx`)).toContain("${HOME_TARGET_H}");
-  expect(code("src/components/widgets/date-week.tsx")).toContain('scaled ? " inline-flex min-h-[48px] min-w-[48px]');
+  expect(code("src/components/widgets/date-week.tsx")).toContain('scaled && target ? " inline-flex min-h-[48px] min-w-[48px]');
   expect(code(`${DIR}/weather.tsx`)).toContain("min-h-[48px]");
   const members = code("src/components/widgets/family-members.tsx");
-  expect(members).toContain('size={variant === "box" ? "max(48px, 2.6em)" : 64}');
+  expect(members).toContain('size={variant === "box" ? "max(48px, 3.5em)" : 64}');
   expect(members).toContain("min-h-[48px] min-w-[48px]");
 });
 
@@ -73,7 +76,7 @@ test("the group reads Home's shared data: no events request and no timer of its 
   // Handed its week, the members widget does not ask for one.
   const members = code("src/components/widgets/family-members.tsx");
   expect(members).toContain("{ enabled: givenEvents === undefined }");
-  expect(code(`${DIR}/family-members.tsx`)).toContain("<FamilyMembers variant=\"box\" stacked={stacked} events={week} />");
+  expect(code(`${DIR}/family-members.tsx`)).toContain("<FamilyMembers variant=\"box\" stacked={stacked} labels={!bare} events={week} />");
 });
 
 test("the built-in block still draws its widgets at their fixed sizes", () => {

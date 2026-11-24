@@ -8,6 +8,7 @@ import { useKeyboardShortcuts, useSwipeNavigation, useThemeSettings } from "@/ho
 import { useStartRedirect } from "@/hooks/use-device-owner";
 import { homeDataNeeds } from "@/lib/home-data";
 import type { Grid } from "@/lib/layouts/grid";
+import { growToMinimums } from "@/lib/layouts/home-fit";
 import type { HomeLayoutItem } from "@/lib/layouts/types";
 import { WeatherEffects } from "@/components/weather-effects";
 import { CreaturesOnHome } from "@/components/creatures-on-home";
@@ -151,6 +152,11 @@ export function DesignedHome({
   const { showSeconds } = useThemeSettings();
   useKeyboardShortcuts();
   useSwipeNavigation();
+  // A layout saved before the minimums followed the pixels can hold boxes
+  // too small for their widget on this screen (a 2-step date on a portrait
+  // panel is 18px tall): they are drawn grown to their minimum, with what is
+  // below them moved down, as the designer's "Fit" would save them.
+  const drawn = useMemo(() => growToMinimums(items, grid.width, grid.height).items, [items, grid.width, grid.height]);
   const widgetKeys = useMemo(() => items.map((i) => i.widget), [items]);
   const needs = useMemo(() => homeDataNeeds(widgetKeys), [widgetKeys]);
   const data = useHomeData(needs);
@@ -191,7 +197,8 @@ export function DesignedHome({
         >
           <LayoutGrid
             grid={grid}
-            items={items}
+            items={drawn}
+            surface="home"
             render={(item, box) => {
               const Widget = HOME_WIDGET_COMPONENTS[item.widget];
               if (Widget) return <Widget item={item} box={box} />;

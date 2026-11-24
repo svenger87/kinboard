@@ -14,9 +14,9 @@ import type { HomeWidgetProps } from "./shared";
 import { pillsThatFit } from "./pills-fit";
 
 /** A pill drawn in em of the box's text size, so S to XL apply. */
-const PILL = "max-w-full gap-[0.5em] rounded-[0.6em] px-[0.8em] py-[0.45em] [&>span]:text-[0.8em]";
+const PILL = "max-w-full gap-[0.5em] rounded-[0.6em] px-[0.8em] py-[0.45em] [&>span]:home-body";
 /** The "+n" link: a 48px target at least, whatever the text size. */
-const MORE = "inline-flex min-h-[48px] shrink-0 items-center gap-[0.2em] rounded-[0.6em] px-[0.6em] text-[0.8em] font-medium text-primary/80 transition-colors hover:bg-accent/50 hover:text-primary";
+const MORE = "inline-flex min-h-[48px] shrink-0 items-center gap-[0.2em] rounded-[0.6em] px-[0.6em] home-body font-medium text-primary/80 transition-colors hover:bg-accent/50 hover:text-primary";
 
 function HomeTodayStripFace({ editing, now }: HomeWidgetProps & { now: ClockNow }) {
   const t = useTranslations("todayStrip");
@@ -68,11 +68,12 @@ function HomeTodayStripFace({ editing, now }: HomeWidgetProps & { now: ClockNow 
       const widths = nodes.map((n) => n.offsetWidth);
       const moreW = moreRef.current?.offsetWidth ?? 0;
       const rowH = Math.max(moreRef.current?.offsetHeight ?? 0, ...nodes.map((n) => n.offsetHeight));
-      const rows = Math.floor((height + gap) / (rowH + gap));
+      const rows = Math.floor((height + 1 + gap) / (rowH + gap));
       // A box too flat for a row of pills shows only "+n", when it has room for that.
       const n = rows > 0 ? pillsThatFit(widths, moreW, width, rows, gap) : 0;
       setShown((prev) => (prev === n ? prev : n));
-      const fitsMore = height >= (moreRef.current?.offsetHeight ?? 0);
+      // A pixel short still counts: boxes are drawn at whole pixels and may come up a pixel short of a need (stepsFor).
+      const fitsMore = height >= (moreRef.current?.offsetHeight ?? 0) - 1;
       setMoreFits((prev) => (prev === fitsMore ? prev : fitsMore));
     };
     measure();
@@ -99,14 +100,14 @@ function HomeTodayStripFace({ editing, now }: HomeWidgetProps & { now: ClockNow 
       style={shown === null && pills.length > 0 ? { visibility: "hidden" } : undefined}
     >
       {eventsError ? (
-        <span className="flex items-center gap-[0.4em] text-[0.8em] font-medium text-destructive">
+        <span className="flex items-center gap-[0.4em] home-body font-medium text-destructive">
           <AlertCircle className="size-[1em] shrink-0" aria-hidden="true" />
           {t("loadFailed")}
         </span>
       ) : eventsLoading ? (
-        <span className="text-[0.8em] italic text-muted-foreground/70">{t("loading")}</span>
+        <span className="home-body italic text-muted-foreground/70">{t("loading")}</span>
       ) : pills.length === 0 ? (
-        <span className="text-[0.8em] italic text-muted-foreground/70">{t("emptyState")}</span>
+        <span className="home-body italic text-muted-foreground/70">{t("emptyState")}</span>
       ) : (
         <>
           {pills.slice(0, n).map((p) => (

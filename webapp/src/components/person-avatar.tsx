@@ -52,7 +52,10 @@ export function PersonAvatar({
         // Was a hard-coded text-white, which measured 2.15:1 on the seeded
         // amber and fails for every colour in the curated palette (KB-09).
         color: personOn(color),
-        fontSize: scaled(0.42),
+        // A length in em is the parent's em: set on this element it would be
+        // read against its own font size, and the circle would come out
+        // 2.4 times too large. The letter gets its size on a span inside.
+        fontSize: typeof size === "number" ? scaled(0.42) : undefined,
         ["--pa-ring-w" as string]: `${ringWidth}px`,
       }}
       aria-label={name}
@@ -62,8 +65,10 @@ export function PersonAvatar({
         <img src={avatarUrl as string} alt={name} className="h-full w-full object-cover" />
       ) : isEmojiAvatar(avatarUrl) ? (
         <span style={{ fontSize: scaled(0.55) }}>{avatarUrl}</span>
-      ) : (
+      ) : typeof size === "number" ? (
         initial(name)
+      ) : (
+        <span style={{ fontSize: scaled(0.42) }}>{initial(name)}</span>
       )}
     </span>
   );

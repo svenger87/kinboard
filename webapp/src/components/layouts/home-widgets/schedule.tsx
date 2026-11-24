@@ -15,7 +15,8 @@ import {
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { personText, personTint } from "@/lib/person-color";
 import type { HomeWidgetProps } from "./shared";
-import { BoxCard, BoxHeader, MoreLink, personIdOf, SetUpBox, TOUCH, useShrinkStep } from "./rest-shared";
+import { HomeCard, HomeCardHeader, HomeSetUp } from "./frame";
+import { MoreLink, personIdOf, TOUCH, useShrinkStep } from "./rest-shared";
 
 type Detail = "full" | "medium" | "compact";
 interface Step {
@@ -86,17 +87,17 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
   const step = steps[Math.min(index, steps.length - 1)];
 
   if (loading) {
-    return <BoxCard box={box} ref={ref} testId="home-schedule" className="animate-pulse"><span /></BoxCard>;
+    return <HomeCard ref={ref} testId="home-schedule" className="animate-pulse"><span /></HomeCard>;
   }
   if (!personId) {
     return (
-      <SetUpBox box={box} icon={GraduationCap} title={t("title")} description={t("noChildDescription")} href="/settings/people" testId="home-schedule" />
+      <HomeSetUp icon={GraduationCap} title={t("title")} description={t("noChildDescription")} href="/settings/people" testId="home-schedule" />
     );
   }
 
   const nameBadge = person ? (
     <span
-      className="max-w-[8em] truncate rounded-full border px-[0.5em] py-[0.1em] text-[0.7em] font-medium"
+      className="max-w-[8em] truncate rounded-full border px-[0.5em] py-[0.1em] home-meta font-medium"
       style={{ borderColor: personColor, color: personText(personColor) }}
     >
       {personName}
@@ -111,7 +112,7 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
             key={child.id}
             type="button"
             onClick={() => setSelectedChildId(child.id)}
-            className={`${TOUCH} rounded-full border px-[0.6em] text-[0.7em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+            className={`${TOUCH} rounded-full border px-[0.6em] home-meta transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
               child.id === personId ? "font-medium" : "opacity-50 hover:opacity-80"
             }`}
             style={{
@@ -133,7 +134,7 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
     <div className="flex flex-1 flex-col items-center justify-center gap-[0.2em] text-center" {...attrs}>
       {step.detail !== "compact" && <Icon className="size-[1.6em] text-primary/60" strokeWidth={1.75} aria-hidden="true" />}
       <p className="line-clamp-2 break-words font-medium">{text}</p>
-      {sub && step.detail === "full" && <p className="text-[0.75em] text-muted-foreground">{sub}</p>}
+      {sub && step.detail === "full" && <p className="home-meta text-muted-foreground">{sub}</p>}
     </div>
   );
 
@@ -143,7 +144,7 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
       <div key={slot.period} className="flex shrink-0 items-center gap-[0.5em] rounded-lg bg-muted/30 px-[0.5em] py-[0.3em]">
         <Icon className="size-[1em] shrink-0" style={{ color: getSubjectColor(slot.subject) }} aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate font-medium">{slot.subject}</span>
-        <span className="shrink-0 text-[0.7em] text-muted-foreground tabular-nums">
+        <span className="shrink-0 home-meta text-muted-foreground tabular-nums">
           {formatWallClock(slot.start)}–{formatWallClock(slot.end)}
         </span>
       </div>
@@ -161,24 +162,24 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
       >
         {now && step.detail === "full" && (
           <div className="mb-[0.2em] flex items-center gap-[0.4em]">
-            <span className="rounded-full px-[0.5em] text-[0.65em] font-semibold text-white" style={{ backgroundColor: color }}>
+            <span className="rounded-full px-[0.5em] home-meta font-semibold text-white" style={{ backgroundColor: color }}>
               {t("nowBadge")}
             </span>
-            <span className="text-[0.65em] text-muted-foreground">{t("periodNumber", { period: slot.period })}</span>
+            <span className="home-meta text-muted-foreground">{t("periodNumber", { period: slot.period })}</span>
           </div>
         )}
         <div className="flex min-w-0 items-center gap-[0.4em]">
           <Icon className="size-[1em] shrink-0" style={{ color }} aria-hidden="true" />
-          <p className={`min-w-0 truncate font-medium ${step.detail === "compact" ? "shrink-0 max-w-full" : "flex-1 text-[1.15em]"}`}>{slot.subject}</p>
+          <p className={`min-w-0 truncate font-medium ${step.detail === "compact" ? "shrink-0 max-w-full" : "flex-1 home-value"}`}>{slot.subject}</p>
           {step.detail === "compact" && (
             // The subject first: the time gives way to it in a narrow box.
-            <span className="ml-auto min-w-0 truncate text-[0.7em] tabular-nums text-muted-foreground">
+            <span className="ml-auto min-w-0 truncate home-meta tabular-nums text-muted-foreground">
               {now ? t("remainingMinutes", { minutes: getRemainingMinutes(slot) }) : formatWallClock(slot.start)}
             </span>
           )}
         </div>
         {step.detail !== "compact" && (
-          <div className="mt-[0.1em] flex items-center gap-[0.6em] text-[0.7em] text-muted-foreground">
+          <div className="mt-[0.1em] flex items-center gap-[0.6em] home-meta text-muted-foreground">
             <span className="flex items-center gap-[0.25em] tabular-nums">
               <Clock className="size-[0.9em]" aria-hidden="true" />
               {now ? `${formatWallClock(slot.start)} - ${formatWallClock(slot.end)}` : formatWallClock(slot.start)}
@@ -218,7 +219,7 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
       <div className="flex flex-col gap-[0.4em]" aria-live="polite" aria-atomic="true">
         {slotCard(currentSlot, true)}
         {nextPeriod && step.detail === "full" && (
-          <div className="flex min-w-0 items-center gap-[0.4em] text-[0.75em]">
+          <div className="flex min-w-0 items-center gap-[0.4em] home-meta">
             <span className="shrink-0 text-muted-foreground">{t("afterCurrent")}</span>
             <span className="min-w-0 truncate font-medium">{nextPeriod.subject}</span>
             <span className="shrink-0 text-muted-foreground">{t("atTime", { time: formatWallClock(nextPeriod.start) })}</span>
@@ -230,14 +231,14 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
     const later = todaySchedule.filter((s) => s.start > nextPeriod.start).slice(0, 4);
     body = (
       <div className="flex flex-col gap-[0.4em]">
-        {step.detail === "full" && <p className="text-[0.75em] text-muted-foreground">{t("nextPeriodHeading")}</p>}
+        {step.detail === "full" && <p className="home-meta text-muted-foreground">{t("nextPeriodHeading")}</p>}
         {slotCard(nextPeriod, false)}
         {step.detail === "full" && later.length > 0 && (
           <div className="flex flex-wrap gap-[0.25em]">
             {later.map((slot) => (
               <span
                 key={slot.period}
-                className="rounded-full border px-[0.5em] text-[0.65em]"
+                className="rounded-full border px-[0.5em] home-meta"
                 style={{ borderColor: getSubjectColor(slot.subject), color: getSubjectColor(slot.subject) }}
               >
                 {slot.subject}
@@ -252,22 +253,22 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
   }
 
   return (
-    <BoxCard box={box} ref={ref} testId="home-schedule" step={index} className="gap-[0.4em]">
+    <HomeCard ref={ref} testId="home-schedule" step={index} className="gap-[0.4em]">
       {step.header !== "none" && (
-        <BoxHeader
+        <HomeCardHeader
           icon={GraduationCap}
           title={t("title")}
           href="/schedule"
-          ariaLabel={t("viewAllAria")}
+          openLabel={t("viewAllAria")}
           right={step.header === "switch" ? switcher : nameBadge}
         />
       )}
       {step.label && nextLabel && !noScheduleToday && (
-        <p className="shrink-0 text-[0.75em] font-medium text-primary" data-next-school-day={next?.date}>
+        <p className="shrink-0 home-meta font-medium text-primary" data-next-school-day={next?.date}>
           {nextLabel}
         </p>
       )}
       {body}
-    </BoxCard>
+    </HomeCard>
   );
 }

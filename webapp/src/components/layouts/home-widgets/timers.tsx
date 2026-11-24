@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { mmss, useTimerControls } from "@/components/widgets/timer-widget";
 import { remainingSeconds, timerState } from "@/lib/timer-math";
 import type { HomeWidgetProps } from "./shared";
-import { BoxCard, BoxHeader, TOUCH, useShrinkStep } from "./rest-shared";
+import { HomeCard, HomeCardHeader } from "./frame";
+import { TOUCH, useShrinkStep } from "./rest-shared";
 
 interface Step {
   header: boolean;
@@ -55,14 +56,14 @@ export function TimersHomeWidget({ box }: HomeWidgetProps) {
   const more = count - shown.length;
 
   return (
-    <BoxCard box={box} ref={ref} testId="home-timers" step={index} className="gap-[0.4em]">
+    <HomeCard ref={ref} testId="home-timers" step={index} className="gap-[0.4em]">
       {step.header && (
-        <BoxHeader
+        <HomeCardHeader
           icon={TimerIcon}
           title={t("title")}
           right={
             soundOff ? (
-              <span className="flex items-center gap-[0.25em] rounded-full bg-muted px-[0.5em] py-[0.1em] text-[0.65em]" title={t("soundOff")} aria-label={t("soundOff")}>
+              <span className="flex items-center gap-[0.25em] rounded-full bg-muted px-[0.5em] py-[0.1em] home-meta" title={t("soundOff")} aria-label={t("soundOff")}>
                 <VolumeX className="size-[1em]" aria-hidden="true" />
                 {t("soundOffShort")}
               </span>
@@ -83,12 +84,12 @@ export function TimersHomeWidget({ box }: HomeWidgetProps) {
             data-state={state}
           >
             <span className="flex shrink-0 flex-col leading-tight">
-              <span className={`font-mono text-[1.1em] tabular-nums ${state === "paused" ? "text-muted-foreground" : ""}`}>
+              <span className={`font-mono home-value tabular-nums ${state === "paused" ? "text-muted-foreground" : ""}`}>
                 {state === "finished" ? t("finished") : mmss(left)}
               </span>
-              {state === "paused" && <span className="text-[0.55em] font-medium uppercase tracking-wide text-muted-foreground">{t("paused")}</span>}
+              {state === "paused" && <span className="home-label font-medium uppercase tracking-wide text-muted-foreground">{t("paused")}</span>}
             </span>
-            <span className="min-w-0 flex-1 truncate text-[0.75em] text-muted-foreground">{timer.label}</span>
+            <span className="min-w-0 flex-1 truncate home-meta text-muted-foreground">{timer.label}</span>
             {(state === "running" || state === "paused") && (
               <Button
                 variant="ghost"
@@ -113,7 +114,7 @@ export function TimersHomeWidget({ box }: HomeWidgetProps) {
         );
       })}
       {step.more && more > 0 && (
-        <p className="shrink-0 text-[0.75em] font-medium text-muted-foreground" data-testid="box-more">
+        <p className="shrink-0 home-meta font-medium text-muted-foreground" data-testid="box-more">
           {tl("more", { count: more })}
         </p>
       )}
@@ -121,12 +122,12 @@ export function TimersHomeWidget({ box }: HomeWidgetProps) {
         // One line of presets: those that wrap onto a second line are cut off whole, never in half.
         <div className="flex h-[48px] shrink-0 flex-wrap gap-[0.4em] overflow-hidden" data-testid="home-timer-presets">
           {presets.map((minutes) => (
-            <Button key={minutes} variant="outline" className={`${TOUCH} px-[0.7em] text-[0.8em]`} onClick={() => void handlePreset(minutes)}>
+            <Button key={minutes} variant="outline" className={`${TOUCH} px-[0.7em] home-body`} onClick={() => void handlePreset(minutes)}>
               {t("preset", { minutes })}
             </Button>
           ))}
         </div>
       )}
-    </BoxCard>
+    </HomeCard>
   );
 }

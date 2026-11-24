@@ -141,6 +141,10 @@ const SCREENS = [
   { id: "tablet-portrait", label: "Tablet portrait 800×1280", width: 800, height: 1280, scale: 1 },
   { id: "phone", label: "Phone 390×844", width: 390, height: 844, scale: 3 },
   { id: "desktop-1440", label: "Desktop 2560×1440", width: 2560, height: 1440, scale: 1 },
+  // Other shapes: a step is width/48 and text follows the short side, so a 4:3
+  // panel and an ultrawide one have other steps per em than 16:9 (RFC-022).
+  { id: "landscape-4x3", label: "Landscape 4:3 1024×768", width: 1024, height: 768, scale: 1 },
+  { id: "ultrawide", label: "Ultrawide 2560×1080", width: 2560, height: 1080, scale: 1 },
 ];
 const VIEWS = ["home", "saver", "saver-large"];
 const ALL_VIEWS = [...VIEWS, "saver-layout", "home-layout"];
@@ -401,22 +405,24 @@ const layoutShots = (screen, fx) =>
 /**
  * The designed Home's root (components/layouts/designed-home.tsx); its boxes
  * are LayoutGrid's [data-layout-item], and the root covers the grid area.
- * TODO(RFC-022 step 5, feat/rfc022-designed-home): confirm the test id once
- * step 5 lands.
  */
 const DESIGNED_HOME = "[data-testid=designed-home]";
 
 /**
- * A designed Home renders only once every Home widget has a component in a
- * box (missingHomeWidgets() is empty), or in the e2e test mode. This is where
- * the matrix would open that gate for its own browser context.
- * TODO(RFC-022 step 5, feat/rfc022-designed-home): step 5 defines the
- * test-only bypass; switch it on here with exactly its mechanism. Until then
- * nothing is done, so before every widget exists the view reports "layout:
- * expected the designed Home" on each screen that holds a grid.
+ * A designed Home renders once every Home widget has a component in a box
+ * (missingHomeWidgets() is empty), which is so since RFC-022 step 4 (#524):
+ * the gate is open in every build. The dev server's test mode
+ * (HOME_LAYOUT_TEST_KEY, "kinboard.test.home-layouts" = "1") is set anyway,
+ * so a branch that shuts the gate again can still be measured; a production
+ * build ignores it.
  */
-async function allowDesignedHome(_ctx) {
-  return false;
+async function allowDesignedHome(ctx) {
+  await ctx.addInitScript(() => {
+    try {
+      localStorage.setItem("kinboard.test.home-layouts", "1");
+    } catch {}
+  });
+  return true;
 }
 
 /** The app's layout code (TypeScript), loaded on first use. */
@@ -428,6 +434,7 @@ function layoutCode() {
       ...jiti("../src/lib/layouts/built-in.ts"),
       ...jiti("../src/lib/layouts/grid.ts"),
       ...jiti("../src/lib/layouts/validate.ts"),
+      ...jiti("../src/lib/layouts/home-area.ts"),
     };
   }
   return layoutLib;
@@ -737,13 +744,18 @@ try {
           return fixedAtBottom ? Math.ceil(innerHeight - r.top) : 0;
         })));
         const size = homeLayoutSize(screen, navHeight);
-        const key = `${size.width}x${size.height}`;
+        // A layout is saved for a screen; its Home is checked on that screen's
+        // area (homeArea, the screen less the bar), so it is made for the
+        // screen and its Home for the area the server will check it on.
+        const layoutScreen = size.holds ? { width: screen.width, height: screen.height } : (screen.height > screen.width ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 });
+        const key = `${layoutScreen.width}x${layoutScreen.height}`;
         if (!homeLayouts.has(key)) {
-          const { builtInHome, validateItems } = layoutCode();
-          const checked = validateItems(builtInHome(size.width, size.height), size.width, size.height, "home");
+          const { builtInHome, validateItems, homeArea } = layoutCode();
+          const area = homeArea(layoutScreen.width, layoutScreen.height);
+          const checked = validateItems(builtInHome(area.width, area.height), area.width, area.height, "home");
           if (!checked.ok) throw new Error(`builtInHome(${key}) is not a valid Home: ${checked.error} ${checked.itemId ?? ""}`);
           await unlock();
-          const made = await page.request.post(`${BASE}/api/layouts`, { data: { grid: 48, name: `matrix-Home ${key}`, width: size.width, height: size.height } });
+          const made = await page.request.post(`${BASE}/api/layouts`, { data: { grid: 48, name: `matrix-Home ${key}`, width: layoutScreen.width, height: layoutScreen.height } });
           if (made.status() !== 201) throw new Error(`home-layout: creating ${key} failed: ${made.status()} ${await made.text()}`);
           const layout = (await made.json()).layout;
           const patched = await page.request.patch(`${BASE}/api/layouts/${layout.id}`, { data: { grid: 48, home: checked.items, updated_at: layout.updated_at } });

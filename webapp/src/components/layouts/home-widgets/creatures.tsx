@@ -15,7 +15,8 @@ import { rewardsHref } from "@/lib/device-owner";
 import { formatCents } from "@/lib/pocket-money/format";
 import type { Creature, PocketMoneyAccount, Person } from "@/types/database";
 import type { HomeWidgetProps } from "./shared";
-import { BoxCard, BoxHeader, boxPadding, SetUpBox, useEm, useShrinkStep } from "./rest-shared";
+import { HomeCard, HomeCardHeader, HomeSetUp, homePadPx } from "./frame";
+import { useEm, useShrinkStep } from "./rest-shared";
 
 /** Richest first: the heading, then under each creature its name, stage and balance, one line fewer per step. */
 const STEPS = [
@@ -90,15 +91,15 @@ function Cell({
           className="shrink-0"
         />
         {lines >= 1 && (
-          <span className="w-full truncate text-[0.8em] font-semibold" style={{ color: person.color }}>
+          <span className="w-full truncate home-body font-semibold" style={{ color: person.color }}>
             {person.name}
           </span>
         )}
         {lines >= 3 && (
-          <span className="w-full truncate text-[0.6em] text-muted-foreground">{look.name ? `${look.name} · ${stageName}` : stageName}</span>
+          <span className="w-full truncate home-label text-muted-foreground">{look.name ? `${look.name} · ${stageName}` : stageName}</span>
         )}
         {lines >= 2 && (
-          <span className="text-[0.8em] font-bold tabular-nums">
+          <span className="home-body font-bold tabular-nums">
             {money ? (
               formatCents(money.balance_cents, money.currency)
             ) : (
@@ -131,7 +132,7 @@ export function CreaturesHomeWidget({ box }: HomeWidgetProps) {
 
   const ref = useRef<HTMLDivElement>(null);
   const em = useEm(ref);
-  const pad = boxPadding(box);
+  const pad = homePadPx(em);
   const gap = GAP_EM * em;
   // A pixel short of the room, so rounding never tips a cell over the edge.
   const gridFor = (st: (typeof STEPS)[number]) =>
@@ -152,17 +153,17 @@ export function CreaturesHomeWidget({ box }: HomeWidgetProps) {
   const s = STEPS[step];
 
   if ((peopleLoading || creaturesPending) && !isError) {
-    return <BoxCard box={box} ref={ref} testId="home-creatures" className="animate-pulse"><span /></BoxCard>;
+    return <HomeCard ref={ref} testId="home-creatures" className="animate-pulse"><span /></HomeCard>;
   }
   if (children.length === 0) {
-    return <SetUpBox box={box} icon={PawPrint} title={t("title")} description={t("empty")} href="/settings/creatures" testId="home-creatures" />;
+    return <HomeSetUp icon={PawPrint} title={t("title")} description={t("empty")} href="/settings/creatures" testId="home-creatures" />;
   }
 
   const { cols, size } = gridFor(s);
 
   return (
-    <BoxCard box={box} ref={ref} testId="home-creatures" step={step} className="gap-[0.4em]">
-      {s.header && <BoxHeader icon={PawPrint} title={t("title")} href="/rewards" />}
+    <HomeCard ref={ref} testId="home-creatures" step={step} className="gap-[0.4em]">
+      {s.header && <HomeCardHeader icon={PawPrint} title={t("title")} href="/rewards" />}
       <ul
         className="grid flex-1 content-center"
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap }}
@@ -181,6 +182,6 @@ export function CreaturesHomeWidget({ box }: HomeWidgetProps) {
           />
         ))}
       </ul>
-    </BoxCard>
+    </HomeCard>
   );
 }

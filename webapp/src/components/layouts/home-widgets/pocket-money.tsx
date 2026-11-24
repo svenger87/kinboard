@@ -16,7 +16,8 @@ import { daysUntil } from "@/lib/pocket-money/allowance";
 import { formatCents } from "@/lib/pocket-money/format";
 import { pocketMoneyChildren } from "@/lib/pocket-money/widget-children";
 import type { HomeWidgetProps } from "./shared";
-import { boxPadding, personIdOf, SetUpBox, useEm } from "./rest-shared";
+import { HomeSetUp, homePadPx, HOME_CARD_SURFACE } from "./frame";
+import { personIdOf, useEm } from "./rest-shared";
 
 /** The creature beside the figure, in em of the fitted text, so it grows with it. */
 const CREATURE_EM = 3;
@@ -61,7 +62,7 @@ function ChildValue({ child, name, fontPx, lines }: { child: Child; name: string
         <PiggyBank className="shrink-0 text-month-primary" style={{ width: size * 0.75, height: size * 0.75 }} aria-hidden="true" />
       )}
       <div className="flex flex-col">
-        <span className="whitespace-nowrap text-[1.6em] font-bold leading-tight tabular-nums">
+        <span className="whitespace-nowrap home-display font-bold leading-tight tabular-nums">
           {pointsMode ? (
             <>
               <span aria-hidden="true">⭐ </span>
@@ -72,7 +73,7 @@ function ChildValue({ child, name, fontPx, lines }: { child: Child; name: string
           )}
         </span>
         {lines && (
-          <span className="whitespace-nowrap text-[0.6em] text-muted-foreground">
+          <span className="whitespace-nowrap home-label text-muted-foreground">
             {name}
             {sub ? ` · ${sub}` : ""}
           </span>
@@ -108,8 +109,9 @@ export function PocketMoneyHomeWidget({ item, box }: HomeWidgetProps) {
   const rootRef = useRef<HTMLAnchorElement>(null);
   const em = useEm(rootRef);
   const ref = useRef<HTMLDivElement>(null);
-  const pad = boxPadding(box);
-  const inner = { width: box.width - 2 * pad, height: box.height - 2 * pad };
+  const pad = homePadPx(em);
+  // Inside the card's padding and its 1px border.
+  const inner = { width: box.width - 2 * pad - 2, height: box.height - 2 * pad - 2 };
   const wide = children.length > 1 && inner.width > inner.height * 2.5;
   const key = children.map((c) => `${c.personId}:${c.account?.balance_cents ?? ""}`).join();
   // The name and the goal or allowance under each figure only where each
@@ -118,11 +120,11 @@ export function PocketMoneyHomeWidget({ item, box }: HomeWidgetProps) {
   const size = useFitToBox(ref, valueBox(inner, item.text), [key, wide, lines]);
 
   if (!enabled) {
-    return <SetUpBox box={box} icon={PiggyBank} title={t("pocketMoneyName")} description={t("pocketMoneyDisabled")} href="/settings/plugins" testId="home-pocket-money" />;
+    return <HomeSetUp icon={PiggyBank} title={t("pocketMoneyName")} description={t("pocketMoneyDisabled")} href="/settings/plugins" testId="home-pocket-money" />;
   }
   if (children.length === 0) {
     if (pinned) return null;
-    return <SetUpBox box={box} icon={PiggyBank} title={t("pocketMoneyName")} description={t("pocketMoneyEmpty")} href="/settings/pocket-money" testId="home-pocket-money" />;
+    return <HomeSetUp icon={PiggyBank} title={t("pocketMoneyName")} description={t("pocketMoneyEmpty")} href="/settings/pocket-money" testId="home-pocket-money" />;
   }
 
   const href = children.length === 1 ? childHref(children[0]) : children.some((c) => c.account) ? "/pocket-money" : "/rewards";
@@ -131,8 +133,7 @@ export function PocketMoneyHomeWidget({ item, box }: HomeWidgetProps) {
     <Link
       ref={rootRef}
       href={href}
-      className="accent-border-top flex size-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-card text-card-foreground elev-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-      style={{ padding: pad }}
+      className={`${HOME_CARD_SURFACE} flex size-full items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`}
       data-testid="home-pocket-money"
       data-fills-box
     >
@@ -143,7 +144,7 @@ export function PocketMoneyHomeWidget({ item, box }: HomeWidgetProps) {
         data-fitted-content
       >
         {children.map((c) => (
-          <ChildValue key={c.personId} child={c} name={nameOf(c.personId)} fontPx={size ?? em} lines={lines} />
+          <ChildValue key={c.personId} child={c} name={nameOf(c.personId)} fontPx={size ?? em} lines={lines && (size ?? em) >= em} />
         ))}
       </div>
     </Link>

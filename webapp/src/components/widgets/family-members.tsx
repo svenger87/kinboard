@@ -60,6 +60,12 @@ interface FamilyMembersProps {
    */
   variant?: "row" | "box";
   stacked?: boolean;
+  /**
+   * Box only: draw the name and counts at all (the default). Off in a box
+   * too small for them at their text size: the avatars alone, each with its
+   * name as its title (the label already names the member).
+   */
+  labels?: boolean;
 }
 
 function getInitials(name: string): string {
@@ -101,7 +107,7 @@ function FamilyMembersSkeleton() {
   );
 }
 
-export function FamilyMembers({ className = "", events: givenEvents, variant = "row", stacked = true }: FamilyMembersProps) {
+export function FamilyMembers({ className = "", events: givenEvents, variant = "row", stacked = true, labels = true }: FamilyMembersProps) {
   const t = useTranslations("familyMembers");
   const { data: people, isLoading: loadingPeople, isError: peopleError } = usePeople();
   const { data: todos } = useTodos();
@@ -218,6 +224,7 @@ export function FamilyMembers({ className = "", events: givenEvents, variant = "
                   role="button"
                   tabIndex={0}
                   aria-label={t("detailsAria", { name: member.name })}
+                  title={labels ? undefined : member.name}
                   className={
                     variant === "box"
                       ? `flex min-h-[48px] min-w-[48px] cursor-pointer group rounded-[0.5em] ${stacked ? "flex-col items-center gap-[0.35em]" : "flex-row items-center gap-[0.5em]"}`
@@ -228,15 +235,15 @@ export function FamilyMembers({ className = "", events: givenEvents, variant = "
                     name={member.name}
                     color={member.color}
                     avatarUrl={member.avatar_url}
-                    size={variant === "box" ? "max(48px, 2.6em)" : 64}
+                    size={variant === "box" ? "max(48px, 3.5em)" : 64}
                     className="transition-transform [transition-duration:120ms] group-hover:scale-105 reduce-motion:transition-none reduce-motion:group-hover:scale-100"
                   />
-                  {wrapLabel(
+                  {labels && wrapLabel(
                     <>
                       <span className={`${variant === "box" ? "text-[0.8em] leading-tight" : "text-sm"} font-medium text-foreground/90 group-hover:text-foreground transition-colors`}>
                         {member.name}
                       </span>
-                      <span className={`${variant === "box" ? "text-[0.65em] leading-tight" : "text-xs"} text-muted-foreground tabular-nums`}>
+                      <span className={`${variant === "box" ? "text-[0.72em] leading-tight" : "text-xs"} text-muted-foreground tabular-nums`}>
                         {status.events === 0 && status.todos === 0
                           ? t("statusNothing")
                           : [

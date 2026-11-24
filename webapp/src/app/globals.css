@@ -513,6 +513,21 @@ body[data-font-style-cjk="zcool-kuaile"] {
 
 /* Custom Utilities */
 @layer utilities {
+  /* Home's type in a box (RFC-022; components/layouts/home-widgets/frame.tsx).
+     One scale for every Home widget, from the box's text size, which
+     LayoutGrid hands down as --kb-em in px (so a role inside another role
+     does not compound). At text M on a 1080 short side that is 18px, and the
+     roles are today's Home card: title 18px (text-lg), body 14px (text-sm),
+     meta and label 13px (no load-bearing text under 13px on a wall, KB-56), value 24px, display 36px. A
+     widget's file never sets a font size of its own (e2e/home-frame.spec.ts). */
+  .home-title { font-size: var(--kb-em, 1em); }
+  .home-body { font-size: calc(var(--kb-em, 1em) * 0.78); }
+  .home-meta { font-size: calc(var(--kb-em, 1em) * 0.72); }
+  .home-label { font-size: calc(var(--kb-em, 1em) * 0.72); }
+  .home-value { font-size: calc(var(--kb-em, 1em) * 1.33); }
+  .home-display { font-size: calc(var(--kb-em, 1em) * 2); }
+  .home-icon { width: calc(var(--kb-em, 1em) * 1.11); height: calc(var(--kb-em, 1em) * 1.11); flex-shrink: 0; }
+
   /* Kiosk density step (audit KB-56).
      ---------------------------------
      Deliberately in @layer utilities, not components: these OVERRIDE Tailwind's

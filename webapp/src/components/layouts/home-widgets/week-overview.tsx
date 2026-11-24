@@ -9,7 +9,8 @@ import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useHomeDataContext } from "@/components/layouts/home-data-context";
 import { useWeekOverview } from "@/components/widgets/week-overview-widget";
 import type { HomeWidgetProps } from "./shared";
-import { BoxCard, BoxHeader, boxPadding, useEm, useShrinkStep } from "./rest-shared";
+import { HomeCard, HomeCardHeader, homePadPx } from "./frame";
+import { useEm, useShrinkStep } from "./rest-shared";
 
 /**
  * The arrangements, richest first: everything; without the legend; without
@@ -56,22 +57,22 @@ export function WeekOverviewHomeWidget({ box }: HomeWidgetProps) {
 
   // Each column's width, and the date's circle: as large as the column and
   // the box allow, never smaller than the card's.
-  const pad = boxPadding(box);
+  const pad = homePadPx(em);
   const colW = (box.width - 2 * pad - 6 * GAP_EM * em) / 7;
   const circle = Math.max(16, Math.floor(Math.min(colW - 4, Math.max(1.9 * em, Math.min(colW * 0.7, box.height * 0.2)))));
 
   if (isLoading) {
-    return <BoxCard box={box} ref={ref} testId="home-week-overview" className="animate-pulse"><span /></BoxCard>;
+    return <HomeCard ref={ref} testId="home-week-overview" className="animate-pulse"><span /></HomeCard>;
   }
 
   return (
-    <BoxCard box={box} ref={ref} testId="home-week-overview" step={step} className="gap-[0.4em]">
+    <HomeCard ref={ref} testId="home-week-overview" step={step} className="gap-[0.4em]">
       {s.header && (
-        <BoxHeader
+        <HomeCardHeader
           icon={CalendarDays}
           title={t("title")}
           href="/calendar"
-          right={<span className="text-[0.7em] text-muted-foreground">{t("weekEvents", { count: totalWeekEvents })}</span>}
+          right={<span className="home-meta text-muted-foreground">{t("weekEvents", { count: totalWeekEvents })}</span>}
         />
       )}
       <div className="grid flex-1 grid-cols-7" style={{ gap: `${GAP_EM}em` }}>
@@ -91,7 +92,7 @@ export function WeekOverviewHomeWidget({ box }: HomeWidgetProps) {
           >
             {s.name && (
               <span
-                className={`max-w-full truncate text-[0.6em] font-medium uppercase tracking-wider ${day.isToday ? "text-primary" : "text-muted-foreground"}`}
+                className={`max-w-full truncate home-label font-medium uppercase tracking-wider ${day.isToday ? "text-primary" : "text-muted-foreground"}`}
               >
                 {/* The weekday even for today, whose column is marked already: "Today" does not fit a seventh of a small box. */}
                 {format(day.date, "EE", { locale: dateLocale })}
@@ -112,12 +113,12 @@ export function WeekOverviewHomeWidget({ box }: HomeWidgetProps) {
             >
               {day.dayNumber}
               {day.publicHoliday?.emoji && (
-                <span className="absolute -left-[0.15em] -top-[0.15em] text-[0.6em]" aria-hidden="true">
+                <span className="absolute -left-[0.15em] -top-[0.15em] home-label" aria-hidden="true">
                   {day.publicHoliday.emoji}
                 </span>
               )}
               {day.hasBirthday && (
-                <span className="absolute -right-[0.15em] -top-[0.15em] text-[0.6em]" aria-hidden="true">
+                <span className="absolute -right-[0.15em] -top-[0.15em] home-label" aria-hidden="true">
                   🎂
                 </span>
               )}
@@ -141,7 +142,7 @@ export function WeekOverviewHomeWidget({ box }: HomeWidgetProps) {
                     {day.birthdayCount > 0 && <span className="size-[0.2em] rounded-full bg-pink-400" />}
                   </>
                 ) : (
-                  <span className="text-[0.5em] text-muted-foreground/40">—</span>
+                  <span className="home-label text-muted-foreground/40">—</span>
                 )}
               </span>
             )}
@@ -157,7 +158,7 @@ export function WeekOverviewHomeWidget({ box }: HomeWidgetProps) {
       {s.holidays && holidays.length > 0 && (
         <ul className="flex shrink-0 flex-col gap-[0.15em]" aria-label={t("holidaysAria")}>
           {holidays.slice(0, MAX_HOLIDAY_LINES).map((h) => (
-            <li key={h.id} data-holiday={h.kind} className="flex min-w-0 items-baseline gap-[0.4em] text-[0.7em] text-amber-600 dark:text-amber-400">
+            <li key={h.id} data-holiday={h.kind} className="flex min-w-0 items-baseline gap-[0.4em] home-meta text-amber-600 dark:text-amber-400">
               <span className="shrink-0 tabular-nums opacity-80">{holidayDayLabel(h)}</span>
               <span className="min-w-0 truncate font-medium">{h.emoji ? `${h.emoji} ${h.title}` : h.title}</span>
             </li>
@@ -165,7 +166,7 @@ export function WeekOverviewHomeWidget({ box }: HomeWidgetProps) {
         </ul>
       )}
       {s.legend && (
-        <div className="flex shrink-0 flex-wrap items-center justify-center gap-x-[1em] text-[0.6em] text-muted-foreground">
+        <div className="flex shrink-0 flex-wrap items-center justify-center gap-x-[1em] home-label text-muted-foreground">
           <span className="flex items-center gap-[0.3em]">
             <span className="size-[0.5em] rounded-full bg-primary" />
             {t("legendEvents")}
@@ -180,6 +181,6 @@ export function WeekOverviewHomeWidget({ box }: HomeWidgetProps) {
           </span>
         </div>
       )}
-    </BoxCard>
+    </HomeCard>
   );
 }
