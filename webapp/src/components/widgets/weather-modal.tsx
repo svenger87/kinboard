@@ -8,9 +8,7 @@ import { useTranslations } from "next-intl";
 import {
   Sun,
   Cloud,
-  CloudRain,
-  CloudSnow,
-  CloudLightning,
+  CloudOff,
   Wind,
   Droplets,
   Thermometer,
@@ -46,6 +44,7 @@ import {
   useWeatherMapConfig,
 } from "@/hooks";
 import { rainChanceShown } from "@/lib/rain-chance";
+import { weatherIcon } from "@/lib/weather-icon";
 
 const WeatherMap = dynamic(() => import("./weather-map"), {
   ssr: false,
@@ -55,37 +54,6 @@ const WeatherMap = dynamic(() => import("./weather-map"), {
     </div>
   ),
 });
-
-const weatherIcons: Record<string, typeof Sun> = {
-  clear: Sun,
-  klar: Sun,
-  sunny: Sun,
-  sonnig: Sun,
-  clouds: Cloud,
-  cloudy: Cloud,
-  bewölkt: Cloud,
-  rain: CloudRain,
-  regen: CloudRain,
-  drizzle: CloudRain,
-  nieselregen: CloudRain,
-  snow: CloudSnow,
-  schnee: CloudSnow,
-  thunderstorm: CloudLightning,
-  gewitter: CloudLightning,
-  wind: Wind,
-  nebel: Cloud,
-  dunst: Cloud,
-};
-
-function getWeatherIcon(condition: string) {
-  const normalizedCondition = condition.toLowerCase();
-  for (const [key, Icon] of Object.entries(weatherIcons)) {
-    if (normalizedCondition.includes(key)) {
-      return Icon;
-    }
-  }
-  return Cloud;
-}
 
 type MapLayer = "precipitation" | "clouds" | "temperature" | "wind" | "pressure";
 
@@ -220,10 +188,13 @@ interface WeatherModalProps {
 
 export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
   const t = useTranslations("weather");
-  const { data: currentWeather } = useWeather();
+  const { data: currentWeather, error: weatherError } = useWeather();
   const { labels: unitLabels, system } = useWeatherUnits();
   const { data: forecast } = useWeatherForecast();
-  const { data: mapConfig, isLoading: mapLoading } = useWeatherMapConfig();
+  // Only while the dialog is open. The dialog is mounted with the Home card,
+  // so this used to geocode the city and fetch the map setup on every Home
+  // load and every window focus, for a map nobody had asked to see.
+  const { data: mapConfig, isLoading: mapLoading } = useWeatherMapConfig({ enabled: open });
   // The hourly strip's times are the forecast location's wall clock, sent as
   // "HH:mm" because the server cannot know this household's clock setting.
   const { formatWallClock } = useTimeFormat();
@@ -252,15 +223,24 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
               {t("title")}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex items-center justify-center p-12">
-            <Loader2 className="size-8 animate-spin text-muted-foreground" />
-          </div>
+          {/* A failed fetch is not "still loading": the spinner turned forever. */}
+          {weatherError ? (
+            <div className="flex flex-col items-center justify-center gap-2 p-12 text-center" role="status">
+              <CloudOff className="size-8 text-destructive/60" aria-hidden="true" />
+              <p className="text-sm font-medium">{t("errorTitle")}</p>
+              <p className="text-xs text-muted-foreground">{t("errorRetrying")}</p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center p-12">
+              <Loader2 className="size-8 animate-spin text-muted-foreground" aria-label={t("loadingAria")} />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     );
   }
 
-  const WeatherIcon = getWeatherIcon(currentWeather.conditionMain ?? currentWeather.condition);
+  const WeatherIcon = weatherIcon(currentWeather.conditionMain ?? currentWeather.condition, currentWeather.conditionIcon);
   const upcomingDays = forecast?.daily || [];
   const hourly = forecast?.hourly || [];
 
@@ -331,28 +311,38 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
             </div>
 
             <div className="lg:col-span-2 bg-muted/30 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-muted-foreground">{t("sectionMap")}</h3>
-                <SegmentedControl value={selectedLayer} onValueChange={(v) => setSelectedLayer(v as MapLayer)}>
-                  <SegmentedControlItem value="precipitation" className="text-xs px-2">
-                    <Umbrella className="size-3 mr-1" />
-                    {t("layerPrecipitation")}
+              {/* On a phone the five layers did not fit beside the title: the
+                  row ran 80-100px past the dialog's edge (Pressure/Druck/
+                  Pression cut off, out of reach) and the title broke onto two
+                  lines. Below `sm` the control takes its own full-width row,
+                  the five buttons share it, and each shows only its icon,
+                  with the name kept for screen readers and as a tooltip. */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
+                <h3 className="text-sm font-medium text-muted-foreground whitespace-nowrap">{t("sectionMap")}</h3>
+                <SegmentedControl
+                  value={selectedLayer}
+                  onValueChange={(v) => setSelectedLayer(v as MapLayer)}
+                  className="grid w-full grid-cols-5 h-auto min-h-11 sm:inline-flex sm:w-auto"
+                >
+                  <SegmentedControlItem value="precipitation" className="text-xs px-2 min-h-9" aria-label={t("layerPrecipitation")} title={t("layerPrecipitation")}>
+                    <Umbrella className="size-4 sm:size-3 sm:mr-1" aria-hidden="true" />
+                    <span className="hidden sm:inline">{t("layerPrecipitation")}</span>
                   </SegmentedControlItem>
-                  <SegmentedControlItem value="clouds" className="text-xs px-2">
-                    <Cloud className="size-3 mr-1" />
-                    {t("layerClouds")}
+                  <SegmentedControlItem value="clouds" className="text-xs px-2 min-h-9" aria-label={t("layerClouds")} title={t("layerClouds")}>
+                    <Cloud className="size-4 sm:size-3 sm:mr-1" aria-hidden="true" />
+                    <span className="hidden sm:inline">{t("layerClouds")}</span>
                   </SegmentedControlItem>
-                  <SegmentedControlItem value="temperature" className="text-xs px-2">
-                    <Thermometer className="size-3 mr-1" />
-                    {t("layerTemperature")}
+                  <SegmentedControlItem value="temperature" className="text-xs px-2 min-h-9" aria-label={t("layerTemperature")} title={t("layerTemperature")}>
+                    <Thermometer className="size-4 sm:size-3 sm:mr-1" aria-hidden="true" />
+                    <span className="hidden sm:inline">{t("layerTemperature")}</span>
                   </SegmentedControlItem>
-                  <SegmentedControlItem value="wind" className="text-xs px-2">
-                    <Wind className="size-3 mr-1" />
-                    {t("layerWind")}
+                  <SegmentedControlItem value="wind" className="text-xs px-2 min-h-9" aria-label={t("layerWind")} title={t("layerWind")}>
+                    <Wind className="size-4 sm:size-3 sm:mr-1" aria-hidden="true" />
+                    <span className="hidden sm:inline">{t("layerWind")}</span>
                   </SegmentedControlItem>
-                  <SegmentedControlItem value="pressure" className="text-xs px-2">
-                    <Gauge className="size-3 mr-1" />
-                    {t("layerPressure")}
+                  <SegmentedControlItem value="pressure" className="text-xs px-2 min-h-9" aria-label={t("layerPressure")} title={t("layerPressure")}>
+                    <Gauge className="size-4 sm:size-3 sm:mr-1" aria-hidden="true" />
+                    <span className="hidden sm:inline">{t("layerPressure")}</span>
                   </SegmentedControlItem>
                 </SegmentedControl>
               </div>
@@ -383,7 +373,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
               <ScrollArea className="w-full">
                 <div className="flex gap-3 pb-2">
                   {hourly.map((hour, index) => {
-                    const HourIcon = getWeatherIcon(hour.conditionMain ?? hour.condition);
+                    const HourIcon = weatherIcon(hour.conditionMain ?? hour.condition, hour.conditionIcon);
                     return (
                       <div
                         key={index}
@@ -427,7 +417,7 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                 <h3 className="text-sm font-medium text-muted-foreground mb-3">{t("sectionForecast")}</h3>
                 <div className="flex flex-col gap-2">
                   {upcomingDays.map((day, index) => {
-                    const DayIcon = getWeatherIcon(day.conditionMain ?? day.condition);
+                    const DayIcon = weatherIcon(day.conditionMain ?? day.condition, day.conditionIcon);
                     const isToday = index === 0;
                     const barLeft = ((day.tempMin - globalMin) / tempRange) * 100;
                     const barWidth = ((day.tempMax - day.tempMin) / tempRange) * 100;
@@ -461,7 +451,10 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                         <span className="text-xs text-muted-foreground w-8 text-right tabular-nums shrink-0">
                           {day.tempMin}°
                         </span>
-                        <div className="flex-1 h-1.5 bg-white/5 rounded-full relative min-w-[60px]">
+                        {/* `bg-foreground/10`, not `bg-white/5`: white on a light card is
+                            no track at all, so the bars floated unanchored and the
+                            white "now" dot vanished. */}
+                        <div className="flex-1 h-1.5 bg-foreground/10 rounded-full relative min-w-[60px]">
                           <div
                             className="absolute inset-y-0 rounded-full"
                             style={{
@@ -472,9 +465,12 @@ export function WeatherModal({ open, onOpenChange }: WeatherModalProps) {
                           />
                           {isToday && (
                             <div
-                              className="absolute top-1/2 -translate-y-1/2 size-2.5 rounded-full bg-white border-2 border-background elev-sm"
+                              className="absolute top-1/2 -translate-y-1/2 size-2.5 rounded-full bg-foreground border-2 border-background elev-sm"
                               style={{
-                                left: `${((currentWeather.temp - globalMin) / tempRange) * 100}%`,
+                                // Clamped: the current reading can sit outside the
+                                // days' range (a cold snap below every forecast low),
+                                // and the dot then hung off the end of the bar.
+                                left: `${Math.min(100, Math.max(0, ((currentWeather.temp - globalMin) / tempRange) * 100))}%`,
                                 marginLeft: "-5px",
                               }}
                             />
@@ -606,9 +602,14 @@ function SunArc({
           <Sunrise className="size-4 text-weather-sunrise" />
           <span className="text-xs text-muted-foreground">{formatWallClock(sunrise)}</span>
         </div>
-        <span className="text-xs text-muted-foreground/50">
-          {t("daylightLabel", { hours: Math.floor(dayLength / 60), minutes: dayLength % 60 })}
-        </span>
+        {/* Inside the polar circles (or across a DST edge) there is no
+            ordinary day: the arc was guarded for that, but this label still
+            printed "-2h -47m daylight". */}
+        {hasNormalDay && (
+          <span className="text-xs text-muted-foreground/50">
+            {t("daylightLabel", { hours: Math.floor(dayLength / 60), minutes: dayLength % 60 })}
+          </span>
+        )}
         <div className="flex items-center gap-1.5">
           <Sunset className="size-4 text-weather-sunset" />
           <span className="text-xs text-muted-foreground">{formatWallClock(sunset)}</span>
