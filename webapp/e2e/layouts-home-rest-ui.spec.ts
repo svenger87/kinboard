@@ -196,7 +196,8 @@ for (const size of ["min", "large"] as const) {
         await expect(page.getByTestId("home-timers")).toBeVisible({ timeout: 90_000 });
         // Every widget drew something real: the data has arrived. Soft, so the screenshot is taken either way.
         await expect.soft(page.getByTestId("home-media")).toBeVisible({ timeout: 20_000 });
-        await expect.soft(page.getByTestId("home-photo")).toBeVisible({ timeout: 20_000 });
+        // The photo comes last on a first visit: the source setting, then the library, then the image.
+        await expect.soft(page.getByTestId("home-photo")).toBeVisible({ timeout: 60_000 });
         await expect.soft(page.getByTestId("home-timer-row").first()).toBeVisible({ timeout: 20_000 });
         await expect.soft(page.getByTestId("home-creature-cell").first()).toBeVisible({ timeout: 20_000 });
         await expect.soft(page.getByTestId("home-pocket-money-child").first()).toBeVisible({ timeout: 20_000 });
