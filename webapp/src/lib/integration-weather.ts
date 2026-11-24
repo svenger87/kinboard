@@ -22,7 +22,7 @@ import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { precipitationForDisplay, toUnitSystem, unitLabels, windSpeedForDisplay, type UnitSystem } from "@/lib/weather-units";
 import {
   dayRainChance, fetchOpenWeather, groupForecastByDay, mapCondition, middayItem, OpenWeatherError, placeFrom,
-  weatherLang, type OpenWeatherCurrent, type OpenWeatherForecast, type OpenWeatherForecastItem, type WeatherPlace,
+  STEPS_PER_DAY, weatherLang, withoutPartialLastDay, type OpenWeatherCurrent, type OpenWeatherForecast, type OpenWeatherForecastItem, type WeatherPlace,
 } from "@/lib/weather-provider";
 
 export interface WeatherIo {
@@ -83,9 +83,6 @@ export type WeatherResult =
   | { status: 200; body: WeatherForecastBody }
   | { status: 404; body: { error: string; code: "not_found"; reason: WeatherUnavailableReason } }
   | { status: 502; body: { error: string; code: "upstream_unavailable" }; cause: unknown };
-
-/** A forecast step is 3 hours; a day with fewer than this many is not a whole day. */
-const STEPS_PER_DAY = 8;
 
 const notConfigured = (why: string): WeatherResult => ({
   status: 404,
@@ -205,7 +202,8 @@ export async function readFamilyWeather(io: WeatherIo): Promise<WeatherResult> {
       time_zone: timeZone,
       units: { system: units, temperature: labels.temperature, wind_speed: labels.speed, precipitation: labels.precipitation },
       current: current.status === "fulfilled" ? shapeCurrent(current.value, lang, units) : null,
-      daily: groupForecastByDay(data.list, dayOf)
+      // The same rule as the widget: no partial last day (weather-provider.ts).
+      daily: withoutPartialLastDay(groupForecastByDay(data.list, dayOf))
         .filter(([date]) => date >= today)
         .map(([date, items]) => summariseDay(date, items, hourOf, lang, units)),
       hourly_today: data.list

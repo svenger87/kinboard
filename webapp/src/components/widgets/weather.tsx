@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import {
+  ArrowUp,
   Wind,
   Droplets,
   Thermometer,
@@ -28,6 +29,9 @@ import { useTimeFormat } from "@/hooks/use-time-format";
 import { WeatherModal } from "./weather-modal";
 import { WidgetCard } from "@/components/widget-card";
 import { weatherIcon } from "@/lib/weather-icon";
+import { locationDateKey, todayRange } from "@/lib/weather-today";
+import { compassPoint, windArrowRotation } from "@/lib/wind-direction";
+import { aqiDotClass, aqiOnCard, isAqiLevel } from "@/lib/air-quality";
 
 // The shared condition-to-icon table, for anything that draws this card's sky
 // elsewhere (the RFC-022 weather box) and would otherwise keep its own copy.
@@ -153,8 +157,17 @@ export function Weather({ className = "" }: WeatherProps) {
 
   const WeatherIcon = weatherIcon(weatherData.conditionMain ?? weatherData.condition, weatherData.conditionIcon);
 
-  // Get next 6 days forecast (skip today, show rest of the week)
-  const upcomingDays = forecast?.daily?.slice(1, 7) || [];
+  // The days after today, at most six. Usually the forecast's first day is
+  // today and is skipped; after today's last 3-hour step it starts with
+  // tomorrow, which `slice(1)` used to drop.
+  const daily = forecast?.daily ?? [];
+  const today = locationDateKey(new Date(), weatherData.timezoneOffset);
+  const upcomingDays = (daily[0] && daily[0].date > today ? daily : daily.slice(1)).slice(0, 6);
+  // Today's range from the forecast and the reading now (lib/weather-today.ts),
+  // not the current-weather min/max, which is a spread across the city.
+  const range = todayRange(weatherData.temp, daily, weatherData.timezoneOffset);
+  const wind = compassPoint(weatherData.windDeg);
+  const aqi = isAqiLevel(weatherData.airQuality) ? weatherData.airQuality : undefined;
 
   return (
     <TooltipProvider>
@@ -200,13 +213,13 @@ export function Weather({ className = "" }: WeatherProps) {
                   {/* Number check, not truthiness: 0° is falsy, so at
                       exactly freezing this row vanished — the one
                       temperature where the day's range matters most. */}
-                  {weatherData.high !== undefined && weatherData.low !== undefined && (
-                    <div className="text-sm text-muted-foreground tabular-nums whitespace-nowrap">
-                      <span className="sr-only">{t("highLowLabel", { high: weatherData.high, low: weatherData.low })}</span>
+                  {range && (
+                    <div className="text-sm text-muted-foreground tabular-nums whitespace-nowrap" data-testid="weather-today-range">
+                      <span className="sr-only">{t("highLowLabel", { high: range.high, low: range.low })}</span>
                       <span aria-hidden="true">
-                        <span className="text-foreground/70">{weatherData.high}°</span>
+                        <span className="text-foreground/70">{range.high}°</span>
                         {" / "}
-                        <span>{weatherData.low}°</span>
+                        <span>{range.low}°</span>
                       </span>
                     </div>
                   )}
@@ -229,9 +242,27 @@ export function Weather({ className = "" }: WeatherProps) {
                 <span className="flex items-center justify-end gap-1 whitespace-nowrap">
                   <Wind className="size-3" aria-hidden="true" />
                   <span aria-hidden="true">{weatherData.windSpeed} {unitLabels.speed}</span>
-                  <span className="sr-only">{t("windLabel", { value: weatherData.windSpeed, unit: unitLabels.speed })}</span>
+                  {wind && weatherData.windDeg !== undefined && (
+                    <span className="flex items-center gap-0.5" aria-hidden="true" data-testid="weather-wind-direction">
+                      <ArrowUp className="size-3" style={{ transform: `rotate(${windArrowRotation(weatherData.windDeg)}deg)` }} />
+                      {t(`compass.${wind}`)}
+                    </span>
+                  )}
+                  <span className="sr-only">
+                    {wind
+                      ? t("windDirectionLabel", { value: weatherData.windSpeed, unit: unitLabels.speed, direction: t(`windFrom.${wind}`) })
+                      : t("windLabel", { value: weatherData.windSpeed, unit: unitLabels.speed })}
+                  </span>
                 </span>
                 {/* Same trap: "feels like 0°" disappeared entirely. */}
+                {/* Air quality only when it is poor (lib/air-quality.ts); every
+                    level is in the detail view. */}
+                {aqiOnCard(aqi) && aqi && (
+                  <span className="flex items-center justify-end gap-1.5 whitespace-nowrap" data-testid="weather-aqi">
+                    <span className={`size-2 rounded-full ${aqiDotClass(aqi)}`} aria-hidden="true" />
+                    {t("airQualityLabel", { level: t(`aqi.${aqi}`) })}
+                  </span>
+                )}
                 {weatherData.feelsLike !== undefined && (
                   <span className="flex items-center justify-end gap-1 whitespace-nowrap">
                     <Thermometer className="size-3" aria-hidden="true" />

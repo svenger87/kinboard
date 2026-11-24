@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { useThemeSettings, useTextScale } from "@/hooks";
+import { useFontStyle } from "@/hooks/use-font-style";
 import { useFestivalSync } from "@/hooks/use-festival";
 
 /**
@@ -13,6 +14,9 @@ import { useFestivalSync } from "@/hooks/use-festival";
 export function ThemeSettingsProvider({ children }: { children: ReactNode }) {
   // This hook loads settings and applies the theme class to document.documentElement
   useThemeSettings();
+  // The family's font style (lib/font-style.ts): <body data-font-style>,
+  // which globals.css remaps --font-display / --font-sans for.
+  useFontStyle();
   // The festival on this screen (RFC-020): <html data-festival>, the colour
   // wash's two colours and the dressing key off it.
   useFestivalSync();

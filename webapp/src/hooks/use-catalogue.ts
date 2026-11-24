@@ -1,5 +1,6 @@
 "use client";
 
+import { useKeepRemoteImages } from "./use-keep-remote-images";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import type { CatalogueItem } from "@/types/database";
@@ -50,6 +51,8 @@ export function useCatalogue() {
       return ((await r.json()) as { items: CatalogueItem[] }).items;
     },
   });
+  // Old entries whose picture is still an address on the web are brought onto this server.
+  useKeepRemoteImages("device", query.data, [KEY]);
   return { ...query, data: query.data ?? EMPTY };
 }
 
