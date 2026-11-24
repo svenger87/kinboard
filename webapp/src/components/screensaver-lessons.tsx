@@ -80,18 +80,18 @@ export function LessonRow({ row, scale }: { row: LessonRowData; scale: RowScale 
     <div className={rowCard(scale, "start")} data-person={row.personId}>
       <span
         className={`${box ? "mt-[0.45em] size-[0.5em]" : "mt-1.5 size-2.5"} shrink-0 rounded-full`}
-        style={{ backgroundColor: row.color ?? "rgba(255,255,255,0.5)" }}
+        style={{ backgroundColor: row.color ?? "rgb(var(--screensaver-panel-fg-rgb, 255 255 255) / 0.5)" }}
         aria-hidden="true"
       />
       <div className="min-w-0 flex-1">
-        <p className={`text-white ${pick(scale, "text-sm", "text-xl", "text-[1em] leading-[1.4]")}`}>
+        <p className={`panel-fg ${pick(scale, "text-sm", "text-xl", "text-[1em] leading-[1.4]")}`}>
           <span className="font-medium">{row.name}</span>
-          <span className="text-white/50"> · </span>
-          <span className="text-white/80">{row.subjects.join(" · ")}</span>
+          <span className="panel-fg-50"> · </span>
+          <span className="panel-fg-80">{row.subjects.join(" · ")}</span>
         </p>
         {row.bring.length > 0 && (
           <p
-            className={`${box ? "mt-[0.1em] gap-[0.3em]" : "mt-0.5 gap-1.5"} flex items-start text-amber-200 ${pick(scale, "text-xs", "text-base", "text-[0.8em] leading-[1.5]")}`}
+            className={`${box ? "mt-[0.1em] gap-[0.3em]" : "mt-0.5 gap-1.5"} flex items-start panel-amber ${pick(scale, "text-xs", "text-base", "text-[0.8em] leading-[1.5]")}`}
             data-testid="screensaver-lessons-bring"
           >
             <Backpack className={`${pick(scale, "size-3.5", "size-4", "size-[1.1em]")} ${box ? "mt-[0.15em]" : "mt-px"} shrink-0`} aria-hidden="true" />

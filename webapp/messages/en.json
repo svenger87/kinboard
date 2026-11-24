@@ -1499,6 +1499,23 @@
       "previewLabel": "Preview screensaver",
       "previewDescription": "See it on this screen right away, with the options set here. It stays up until the next touch.",
       "previewButton": "Preview",
+      "panelOpacityLabel": "Panel opacity",
+      "panelOpacityDescription": "How solid the screensaver's dark panels — weather, events and news — appear over your photos.",
+      "panelColorLabel": "Panel colour",
+      "panelColorDescription": "The colour of the screensaver's panels — weather, events and news.",
+      "panelColor": {
+        "black": "Black",
+        "graphite": "Graphite",
+        "grey": "Grey",
+        "silver": "Silver",
+        "white": "White"
+      },
+      "panelTextColorLabel": "Panel text colour",
+      "panelTextColorDescription": "The colour of the writing on the panels. Until you choose one, it follows the panel colour — white on dark panels, black on light ones.",
+      "panelTextColor": {
+        "white": "White",
+        "black": "Black"
+      },
       "weatherEffectsLabel": "Weather effects",
       "weatherEffectsDescription": "Snow, rain, frost and more over the photos, as on Home. Which effects and when are set under <link>Weather</link>.",
       "birthdayCountLabel": "Number of birthdays",
@@ -3588,6 +3605,9 @@
       "screensaver_forecast": "forecast, weather forecast, hourly, hours, chance of rain, rain, temperature, clothes, kindergarten",
       "screensaver_lessons": "lessons, timetable, schedule, school, subjects, PE, sports kit, bring, pack, children",
       "screensaver_preview": "preview, show, display, try, test, look, see it now",
+      "screensaver_panel-opacity": "panel opacity, translucent, transparent, solid, dark boxes, panels, background, readability",
+      "screensaver_panel-color": "panel colour, panel color, box colour, grey, gray, silver, white, black, graphite, background colour",
+      "screensaver_panel-text-color": "panel text colour, panel text color, font colour, writing colour, black text, white text",
       "screensaver_weather-effects": "weather effects, snow, rain, frost, fog, storm, animation, weather",
       "screensaver_night": "night, dark, dim, bedtime, sleep, clock only, burn-in",
       "screensaver_timeout": "timeout, idle, inactivity, minutes, when, start",

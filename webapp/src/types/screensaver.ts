@@ -45,6 +45,20 @@ export interface ScreensaverSettings {
   // Home's weather effects (snow, rain, frost...) over the photos too, with
   // the thresholds from Settings -> Weather; separate from Home's own switch.
   weatherEffects?: boolean;
+  // How solid the screensaver's dark panels are over the photos
+  // (weather, events, news...), as a percentage from 30 to 95
+  // in steps of 5; absent means the default, 70 — see
+  // screensaverOverlayOpacity below.
+  overlayOpacity?: number;
+  // The panels' colour (Settings -> Screensaver -> Panel colour), one of
+  // SCREENSAVER_PANEL_COLORS; absent means black, the colour the panels
+  // always were — see screensaverPanelColor below.
+  panelColor?: ScreensaverPanelColor;
+  // The colour of the writing on the panels (Settings -> Screensaver ->
+  // Panel text colour). Absent means derived from the panel colour —
+  // white on the dark panels, black on the light ones; a stored value is
+  // an explicit choice and wins — see screensaverPanelTextColor below.
+  panelTextColor?: ScreensaverPanelTextColor;
 }
 
 /** The choices for both lists. */
@@ -57,6 +71,87 @@ export const SCREENSAVER_LIST_COUNTS = [1, 2, 3, 4, 5] as const;
  */
 export function screensaverListCount(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 5 ? value : fallback;
+}
+
+/** Panel opacity bounds and default, as percentages (Settings -> Screensaver). */
+export const SCREENSAVER_OVERLAY_OPACITY_MIN = 30;
+export const SCREENSAVER_OVERLAY_OPACITY_MAX = 95;
+export const SCREENSAVER_OVERLAY_OPACITY_STEP = 5;
+export const SCREENSAVER_OVERLAY_OPACITY_DEFAULT = 70;
+
+/**
+ * A stored panel opacity as a percentage from 30 to 95 on the slider's
+ * 5-point steps; anything else (never set, hand-edited, a string) is
+ * the default, 70 — solid enough that the panels read as cards over a
+ * bright photo, where the old fixed 40% fill washed out.
+ */
+export function screensaverOverlayOpacity(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return SCREENSAVER_OVERLAY_OPACITY_DEFAULT;
+  const clamped = Math.min(SCREENSAVER_OVERLAY_OPACITY_MAX, Math.max(SCREENSAVER_OVERLAY_OPACITY_MIN, value));
+  return Math.round(clamped / SCREENSAVER_OVERLAY_OPACITY_STEP) * SCREENSAVER_OVERLAY_OPACITY_STEP;
+}
+
+/** The panel colours Settings -> Screensaver offers, darkest to lightest. */
+export const SCREENSAVER_PANEL_COLORS = ["black", "graphite", "grey", "silver", "white"] as const;
+export type ScreensaverPanelColor = (typeof SCREENSAVER_PANEL_COLORS)[number];
+
+/** The writing colours the panels offer. */
+export const SCREENSAVER_PANEL_TEXT_COLORS = ["white", "black"] as const;
+export type ScreensaverPanelTextColor = (typeof SCREENSAVER_PANEL_TEXT_COLORS)[number];
+
+/** Each panel colour as an "r g b" triplet, for the panels' CSS variable. */
+export const SCREENSAVER_PANEL_RGB: Record<ScreensaverPanelColor, string> = {
+  black: "0 0 0",
+  graphite: "38 38 42",
+  grey: "115 115 118",
+  silver: "209 209 214",
+  white: "255 255 255",
+};
+
+/** Each writing colour as an "r g b" triplet. */
+export const SCREENSAVER_PANEL_TEXT_RGB: Record<ScreensaverPanelTextColor, string> = {
+  white: "255 255 255",
+  black: "0 0 0",
+};
+
+/**
+ * The accents inside the panels, per writing colour: the rain figure that
+ * stands out in the forecast, and the amber of a holiday icon, a lessons
+ * "bring" line. The light versions (sky-300,
+ * amber-300) all but vanish on a light panel, so black writing takes the
+ * deep versions (sky-700, amber-800) instead.
+ */
+export const SCREENSAVER_PANEL_ACCENT_RGB: Record<ScreensaverPanelTextColor, string> = {
+  white: "125 211 252",
+  black: "3 105 161",
+};
+export const SCREENSAVER_PANEL_AMBER_RGB: Record<ScreensaverPanelTextColor, string> = {
+  white: "252 211 77",
+  black: "146 64 14",
+};
+
+/**
+ * A stored panel colour as one of the offered names; anything else
+ * (never set, hand-edited) is black, the colour the panels always were.
+ */
+export function screensaverPanelColor(value: unknown): ScreensaverPanelColor {
+  return (SCREENSAVER_PANEL_COLORS as readonly unknown[]).includes(value)
+    ? (value as ScreensaverPanelColor)
+    : "black";
+}
+
+/**
+ * The writing colour for a panel colour: a stored "white" or "black" is
+ * an explicit choice and wins; anything else derives from the panel —
+ * white on the dark panels (black, graphite), black on the light ones
+ * (grey, silver, white), so black writing on a silver panel is what a
+ * family gets by picking the panel colour alone.
+ */
+export function screensaverPanelTextColor(value: unknown, panelColor: ScreensaverPanelColor): ScreensaverPanelTextColor {
+  if ((SCREENSAVER_PANEL_TEXT_COLORS as readonly unknown[]).includes(value)) {
+    return value as ScreensaverPanelTextColor;
+  }
+  return panelColor === "black" || panelColor === "graphite" ? "white" : "black";
 }
 
 export const DEFAULT_SCREENSAVER_SETTINGS: ScreensaverSettings = {
@@ -74,6 +169,11 @@ export const DEFAULT_SCREENSAVER_SETTINGS: ScreensaverSettings = {
   showForecast: false,
   showLessons: false,
   weatherEffects: false,
+  overlayOpacity: SCREENSAVER_OVERLAY_OPACITY_DEFAULT,
+  panelColor: "black",
+  // No panelTextColor here on purpose: its default is derived from the
+  // panel colour, not a constant — a stored object that gained "white"
+  // from these defaults would keep white writing on a silver panel.
 };
 
 export interface PresenceState {
