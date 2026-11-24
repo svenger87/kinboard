@@ -66,9 +66,13 @@ const CASES: { name: string; width: number; height: number; home: () => string }
   })),
 ];
 
+// At file level, not inside the test: the `browser` fixture launches a
+// browser before a test body runs, so a skip in the body still fails on a
+// runner without one (CI's stack-free Specs job).
+test.skip(!BASE || !CODE, "needs PLAYWRIGHT_BASE_URL and HOME_LISTS_CODE");
+
 for (const c of CASES) {
   test(`${c.name}: one type scale, one frame, no text below the meta size`, async ({ browser, browserName }) => {
-    test.skip(!BASE || !CODE, "needs PLAYWRIGHT_BASE_URL and HOME_LISTS_CODE");
     test.setTimeout(240_000);
     const fam = psqlRow(`SELECT id FROM families WHERE join_code = ${sqlText(CODE!)}`);
     const hw = `claude-rfc022-pf-frame-${browserName}-${Date.now()}`;
