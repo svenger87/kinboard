@@ -104,9 +104,11 @@ export async function fetchOpenWeather<T>(
 
 export interface OpenWeatherCurrent {
   dt?: number;
+  coord?: { lat: number; lon: number };
   main: { temp: number; feels_like: number; humidity: number; temp_min: number; temp_max: number };
   weather: Array<{ id: number; main: string; description: string; icon: string }>;
-  wind: { speed: number };
+  /** `deg`: where the wind comes from, degrees clockwise from north (meteorological). */
+  wind: { speed: number; deg?: number };
   visibility: number;
   sys: { sunrise: number; sunset: number };
   name: string;
@@ -161,6 +163,26 @@ export function groupForecastByDay(
   return [...days.entries()];
 }
 
+/** A forecast step is 3 hours; a day with fewer than this many is not a whole day. */
+export const STEPS_PER_DAY = 8;
+
+/**
+ * The days without a partial *last* one.
+ *
+ * The free forecast is 40 three-hour steps from now, so it ends at about this
+ * time of day five days on: the last day is almost always only its early hours.
+ * Its "high" was a morning temperature and its icon came from the middle of
+ * the night, and nothing on a wall display can say "this one is only half a
+ * day" well enough to stop a glance reading it as the day's weather. So it is
+ * left out, here, for the widget and for the assistant alike. The first day is
+ * kept even when partial: it is the rest of today, which is what anyone asking
+ * about today wants.
+ */
+export function withoutPartialLastDay<T>(days: [string, T[]][]): [string, T[]][] {
+  if (days.length > 1 && days[days.length - 1][1].length < STEPS_PER_DAY) return days.slice(0, -1);
+  return days;
+}
+
 /** The day's summary item: the first step between 11:00 and 14:00, else the middle one. */
 export function middayItem(
   items: OpenWeatherForecastItem[], hourOf: (dt: number) => number,
@@ -177,4 +199,32 @@ export function middayItem(
  */
 export function dayRainChance(items: OpenWeatherForecastItem[]): number {
   return Math.round(Math.max(...items.map((i) => i.pop)) * 100);
+}
+
+// ── Air quality ─────────────────────────────────────────────────────────
+
+/**
+ * OpenWeatherMap's Air Quality Index, 1 (Good) to 5 (Very Poor), from the Air
+ * Pollution API, which the free plan includes. It is asked by coordinates
+ * only, so the caller passes the `coord` the current weather came back with.
+ *
+ * Cached as long as current conditions (10 minutes), and asked by the same
+ * route right after them: one more provider request per weather refresh, and
+ * none of its own on the client. Never throws: a key that predates the API,
+ * an outage or an empty `list` all come back as null, and the widget simply
+ * leaves air quality out.
+ */
+export async function fetchAirQuality(
+  coord: { lat: number; lon: number }, apiKey: string, fetchImpl: typeof fetch = fetch,
+): Promise<number | null> {
+  try {
+    const url = `${openWeatherBaseUrl()}/air_pollution?lat=${coord.lat}&lon=${coord.lon}&appid=${apiKey}`;
+    const response = await fetchImpl(url, { next: { revalidate: OPENWEATHER_REVALIDATE.weather } } as RequestInit);
+    if (!response.ok) return null;
+    const body = (await response.json()) as { list?: Array<{ main?: { aqi?: unknown } }> };
+    const aqi = body.list?.[0]?.main?.aqi;
+    return typeof aqi === "number" && Number.isInteger(aqi) && aqi >= 1 && aqi <= 5 ? aqi : null;
+  } catch {
+    return null;
+  }
 }

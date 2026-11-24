@@ -27,8 +27,7 @@ import { PlayerCard } from "@/components/media/player-card";
  * changed, so a duplicate StrictMode invocation is a no-op rather than a
  * second mutation.
  */
-export function MediaPlayerWidget() {
-  const t = useTranslations("media");
+export function useNowPlaying() {
   const { family } = useFamilyStore();
   const { data: players = [] } = useMediaPlayers();
   const [selected, setSelected] = useState<string | undefined>();
@@ -75,10 +74,18 @@ export function MediaPlayerWidget() {
     [playingIds, seenPlayingAt],
   );
 
+  const activeId = selected && playing.includes(selected) ? selected : playing[0];
+  const player = activeId ? players.find((p) => p.id === activeId) : undefined;
+  return { family, players, states, playing, activeId, player, setSelected };
+}
+
+/** The card: the device playing, with a switcher when several are. Absent when nothing plays. */
+export function MediaPlayerWidget() {
+  const t = useTranslations("media");
+  const { family, players, states, playing, activeId, player, setSelected } = useNowPlaying();
+
   if (playing.length === 0 || !family) return null;
 
-  const activeId = selected && playing.includes(selected) ? selected : playing[0];
-  const player = players.find((p) => p.id === activeId);
   if (!player) return null;
 
   return (

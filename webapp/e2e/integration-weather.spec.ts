@@ -187,8 +187,9 @@ test.describe("what it returns", () => {
       humidity_pct: 61, wind_speed: 18, observed_at: "2026-10-07T13:20:00.000Z",
     });
 
-    // Today (Wed) to Monday: 15:00Z..12:00Z five days later, on Berlin's calendar.
-    expect(body.daily.map((d) => d.date)).toEqual(["2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11", "2026-10-12"]);
+    // Today (Wed) to Sunday on Berlin's calendar. The steps reach Monday too,
+    // 02:00 to 14:00 only, and a partial last day is left out (weather-provider.ts).
+    expect(body.daily.map((d) => d.date)).toEqual(["2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11"]);
     for (const day of body.daily) {
       expect(day.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(Number.isInteger(day.rain_chance_pct)).toBe(true);
@@ -201,9 +202,9 @@ test.describe("what it returns", () => {
     });
     // A dry day says 0, not nothing.
     expect(body.daily[2]).toMatchObject({ date: "2026-10-09", rain_chance_pct: 0, condition: "Clear", partial: false });
-    // Today from 17:00 Berlin, and the last day, are only part of a day.
+    // Today from 17:00 Berlin is only part of a day; it stays, flagged.
     expect(body.daily[0].partial).toBe(true);
-    expect(body.daily.at(-1)!.partial).toBe(true);
+    expect(body.daily.at(-1)!.partial).toBe(false);
 
     // Today's steps in Berlin time: 17:00, 20:00, 23:00.
     expect(body.hourly_today).toEqual([

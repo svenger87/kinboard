@@ -1313,7 +1313,11 @@
       "creaturesLabel": "Kreaturen",
       "creaturesDescription": "Die Kreaturen aller Kinder nebeneinander, sie jubeln, wenn eine Aufgabe erledigt ist. Antippen öffnet die Belohnungen des Kindes",
       "creaturesPreview1": "🐉 Mia — Babydrache — ⭐ 42",
-      "creaturesPreview2": "Ruhig an der Wand, bewegt sich nur zum Jubeln"
+      "creaturesPreview2": "Ruhig an der Wand, bewegt sich nur zum Jubeln",
+      "layoutNote": {
+        "assigned": "{count, plural, one {{names} nutzt} other {{names} nutzen}} die Startseite des gestalteten Layouts „{layout}“.",
+        "change": "Ändern kannst du das unter <link>Einstellungen → Layouts</link>. Die Einstellungen hier gelten für Bildschirme ohne gestaltete Startseite."
+      }
     },
     "navigation": {
       "title": "Navigation",
@@ -3333,7 +3337,7 @@
       },
       "editor": {
         "title": "Layout",
-        "subtitle": "Bildschirmschoner · gestaltet für {width}×{height}",
+        "subtitle": "Startseite und Bildschirmschoner · gestaltet für {width}×{height}",
         "notFound": "Dieses Layout gibt es nicht (mehr).",
         "loadFailed": "Die Layouts konnten nicht geladen werden.",
         "tooSmall": "Der Bildschirm dieses Layouts ({width}×{height}) ist zu klein für das Raster.",
@@ -3346,6 +3350,7 @@
         "reset": "Zurücksetzen",
         "resetTitle": "Auf die Standardanordnung zurücksetzen?",
         "resetDescription": "Der Bildschirm bekommt die heutige Standardanordnung des Bildschirmschoners für sein Format. Bis du die Seite verlässt, kannst du das rückgängig machen.",
+        "resetDescriptionHome": "Die Startseite bekommt die heutige Standardanordnung für diese Größe. Bis du die Seite verlässt, kannst du das rückgängig machen.",
         "resetConfirm": "Zurücksetzen",
         "resetCancel": "Abbrechen",
         "save": "Speichern",
@@ -3493,7 +3498,8 @@
           "cancel": "Abbrechen",
           "failed": "Die Kopie konnte nicht angelegt werden. Bitte versuche es noch einmal.",
           "pinRequired": "Die Einstellungen wurden gesperrt – gib die PIN ein und versuche es noch einmal.",
-          "dropped": "Nicht auf dieser Größe: {names}"
+          "dropped": "Nicht auf dieser Größe: {names}",
+          "droppedHome": "Nicht auf der Startseite dieser Größe: {names}"
         },
         "unused": {
           "text": "Dieses Layout ist noch auf keinem Bildschirm zu sehen. Speichern allein setzt es nicht auf einen Bildschirm.",
@@ -3507,7 +3513,43 @@
           "out_of_bounds": "Nicht ausgeführt: Ein Widget würde über den Bildschirm hinausragen.",
           "below_minimum": "Nicht ausgeführt: Ein Widget würde kleiner als seine Mindestgröße.",
           "overlap": "Nicht ausgeführt: Ein Widget würde ein anderes überdecken."
-        }
+        },
+        "surface": {
+          "label": "Welcher Bildschirm",
+          "home": "Startseite",
+          "screensaver": "Bildschirmschoner"
+        },
+        "homeWidgets": {
+          "clock": "Uhr",
+          "date": "Datum und Woche",
+          "greeting": "Begrüßung",
+          "familyMembers": "Familienmitglieder",
+          "todayStrip": "Heute-Leiste",
+          "weather": "Wetter",
+          "upcomingEvents": "Termine",
+          "schedule": "Stundenplan",
+          "birthday": "Geburtstage",
+          "holidays": "Feiertage",
+          "weekOverview": "Wochenübersicht",
+          "mealPlan": "Mahlzeiten",
+          "wasteCollection": "Müllabfuhr",
+          "notes": "Notizen",
+          "tasks": "Aufgaben",
+          "shopping": "Einkauf",
+          "vehicles": "Fahrzeuge",
+          "stonks": "Aktien",
+          "pocketMoney": "Taschengeld",
+          "creatures": "Kreaturen",
+          "photos": "Fotos",
+          "timers": "Timer",
+          "media": "Medien",
+          "messages": "Nachrichten",
+          "countdown": "Countdown"
+        },
+        "homeWidgetForChild": "{widget} · {name}",
+        "homeWidgetForEveryone": "{widget} · alle Kinder",
+        "homePlaceholder": "Erscheint hier, sobald es in einem Kasten gezeichnet werden kann",
+        "homeBuiltIn": "Dieses Layout hat noch keine eigene Startseite: Das ist die heutige Startseite für diese Größe. Bildschirme behalten die heutige Startseite, bis du hier eine Änderung speicherst."
       }
     }
   },
@@ -3757,6 +3799,36 @@
     "loadingAria": "Wetter wird geladen",
     "errorTitle": "Wetter nicht verfügbar",
     "errorFallback": "Keine Daten",
+    "compass": {
+      "n": "N",
+      "ne": "NO",
+      "e": "O",
+      "se": "SO",
+      "s": "S",
+      "sw": "SW",
+      "w": "W",
+      "nw": "NW"
+    },
+    "windFrom": {
+      "n": "aus Nord",
+      "ne": "aus Nordost",
+      "e": "aus Ost",
+      "se": "aus Südost",
+      "s": "aus Süd",
+      "sw": "aus Südwest",
+      "w": "aus West",
+      "nw": "aus Nordwest"
+    },
+    "windDirectionLabel": "Wind {value} {unit} {direction}",
+    "airQuality": "Luftqualität",
+    "airQualityLabel": "Luftqualität: {level}",
+    "aqi": {
+      "1": "Gut",
+      "2": "Ordentlich",
+      "3": "Mäßig",
+      "4": "Schlecht",
+      "5": "Sehr schlecht"
+    },
     "errorRetrying": "Neuer Versuch in ein paar Minuten.",
     "errorLocationNotFound": "Der Wetter-Ort wurde nicht gefunden. Prüfe ihn in den Wetter-Einstellungen.",
     "errorLocationAction": "Wetter-Einstellungen",

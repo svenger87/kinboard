@@ -39,7 +39,7 @@ import { useFestivalLook } from "@/hooks/use-festival";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { DEFAULT_POCKET_MONEY_WIDGET_SETTINGS, type PocketMoneyWidgetSettings } from "@/types/widgets";
 
-type Child = PocketMoneyChild<PocketMoneyAccount>;
+export type Child = PocketMoneyChild<PocketMoneyAccount>;
 
 /**
  * The children the widget shows: those with an account, then those whose
@@ -54,7 +54,7 @@ export function usePocketMoneyChildren(): Child[] {
 }
 
 /** An account's child opens the pocket-money page, a points-only child their Rewards. */
-function childHref(child: Child): string {
+export function childHref(child: Child): string {
   return child.account ? "/pocket-money" : rewardsHref(child.personId);
 }
 
@@ -265,8 +265,13 @@ function PersonName({ personId }: { personId: string }) {
   return <span>{p?.name ?? personId.slice(0, 6)}</span>;
 }
 
-function PocketMoneyWidgetTab({ child, recentCount }: { child: Child; recentCount: number }) {
-  const t = useTranslations("pocketMoney");
+/**
+ * One child's figure as the widget shows it: money or points, their creature
+ * and its stage, the goal they save for or the next allowance. The widget's
+ * rows and the pocket-money value in a designed Home's box
+ * (components/layouts/home-widgets/pocket-money.tsx) both draw from this.
+ */
+export function usePocketMoneyValue(child: Child) {
   const { personId, account } = child;
   const { data: goals = [] } = usePocketMoneyGoals(account?.id);
   // The child's creature (RFC-017), when one is switched on: growing with
@@ -303,6 +308,14 @@ function PocketMoneyWidgetTab({ child, recentCount }: { child: Child; recentCoun
     account && primary
       ? Math.min(100, Math.floor((account.balance_cents * 100) / primary.target_amount_cents))
       : 0;
+
+  return { personId, account, creature, stage, pointsMode, points, primary, progress, nextAllowance, ownedFor, festive, mood };
+}
+
+function PocketMoneyWidgetTab({ child, recentCount }: { child: Child; recentCount: number }) {
+  const t = useTranslations("pocketMoney");
+  const { personId, account, creature, stage, pointsMode, points, primary, progress, nextAllowance, ownedFor, festive, mood } =
+    usePocketMoneyValue(child);
 
   return (
     <div className="space-y-1">
