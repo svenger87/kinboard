@@ -24,12 +24,13 @@ test("the weather's own drawing is exactly the code it was before the festivals 
   // to the scene: the same particles, sprites, lightning and heat, line for
   // line (diffed against 6bb59951 when it was split). The hash makes any
   // change to it a deliberate one: update it with the change, not instead of
-  // looking at it.
+  // looking at it. Last changed when its colours came from effectPalette
+  // (the light theme's palette; the dark one draws exactly as before).
   const source = read("src/components/weather-effects.tsx");
   const body = source.slice(source.indexOf("function weatherLayer("), source.indexOf("  return {\n    resize,"));
   const lines = body.split("\n").map((l) => l.trim()).filter(Boolean);
-  expect(lines.length).toBe(253);
-  expect(createHash("sha256").update(lines.join("\n")).digest("hex")).toBe("b54bfbc6d990df17989b672725788bc98df131fa07f2a1a2b442faa17a4fc63e");
+  expect(lines.length).toBe(254);
+  expect(createHash("sha256").update(lines.join("\n")).digest("hex")).toBe("5a0eb22a7f6db5046e03c54cb73017b94ff198c8f0a7207b339b2f1f3682c53f");
 });
 
 test("one scene: the weather's clock, frame cap and pause drive the visitor too", () => {
@@ -124,7 +125,7 @@ test("every two minutes, about ten seconds a pass, on Home and the screensaver",
   expect(code).toContain('if (placement === "home" && document.documentElement.hasAttribute("data-screensaver")) return;');
   // The screensaver: above the photo, below the clock and everything after it.
   const saver = codeOnly(read("src/components/screensaver.tsx"));
-  const visitorAt = saver.indexOf('<WeatherEffects placement="screensaver" enabled={weatherEffects} />');
+  const visitorAt = saver.indexOf('<WeatherEffects placement="screensaver" enabled={weatherEffects} onPhoto={Boolean(currentBlobUrl)} />');
   expect(visitorAt).toBeGreaterThan(saver.indexOf("screensaver-photo-in"));
   expect(visitorAt).toBeLessThan(saver.indexOf("{(screensaverSettings.showNews ?? true)"));
   expect(code).toContain("const PREVIEW_EVERY_MS = 20_000;");

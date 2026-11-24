@@ -176,3 +176,62 @@ export function parsePreview(param: string | null | undefined): WeatherEffect[] 
 }
 
 export const PREVIEW_MS = 60_000;
+
+/**
+ * The colours the weather effects are drawn in, for the backdrop under them.
+ *
+ * They were near-white everywhere, which is right on the dark theme and next
+ * to invisible on a light one: the frost's crystals, rgb(240, 248, 255), are
+ * 1.02:1 against linen (#F7F5EF). On a light backdrop the same shapes are drawn
+ * in a cool blue-grey with a white halo; the dark theme keeps exactly the
+ * colours it had. `rgb` triples are for the sprites that set their own alpha.
+ */
+export interface EffectPalette {
+  /** The icy rim's three gradient stops: middle, 60 %, the edge. */
+  frostRim: [string, string, string];
+  frostCrystal: string;
+  frostGlow: string;
+  flake: string;
+  flakeShadow: string;
+  /** Distant flakes, as an rgb triple. */
+  speck: string;
+  dropTop: string;
+  dropTip: string;
+  /** Wind streaks, as an rgb triple. */
+  gust: string;
+  splash: string;
+  /** Fog's drifting mist, as an rgb triple. */
+  mist: string;
+}
+
+const DARK_BACKDROP: EffectPalette = {
+  frostRim: ["rgba(215, 235, 255, 0)", "rgba(215, 235, 255, 0.10)", "rgba(225, 242, 255, 0.45)"],
+  frostCrystal: "rgb(240, 248, 255)",
+  frostGlow: "rgba(190, 220, 255, 0.8)",
+  flake: "rgba(255, 255, 255, 0.95)",
+  flakeShadow: "rgba(40, 70, 110, 0.45)",
+  speck: "255, 255, 255",
+  dropTop: "190, 215, 240",
+  dropTip: "215, 235, 255",
+  gust: "225, 232, 240",
+  splash: "rgb(205, 225, 245)",
+  mist: "215, 220, 228",
+};
+
+const LIGHT_BACKDROP: EffectPalette = {
+  frostRim: ["rgba(110, 140, 180, 0)", "rgba(110, 140, 180, 0.08)", "rgba(100, 132, 172, 0.32)"],
+  frostCrystal: "rgb(84, 116, 152)",
+  frostGlow: "rgba(255, 255, 255, 0.85)",
+  flake: "rgba(255, 255, 255, 0.95)",
+  flakeShadow: "rgba(30, 55, 90, 0.8)",
+  speck: "135, 155, 185",
+  dropTop: "90, 120, 160",
+  dropTip: "70, 105, 150",
+  gust: "120, 135, 155",
+  splash: "rgb(90, 122, 160)",
+  mist: "165, 175, 190",
+};
+
+export function effectPalette(dark: boolean): EffectPalette {
+  return dark ? DARK_BACKDROP : LIGHT_BACKDROP;
+}

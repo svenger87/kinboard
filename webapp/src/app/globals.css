@@ -1242,6 +1242,10 @@ html[data-screensaver] nav {
   background: linear-gradient(to top, rgba(205, 210, 218, 0.4), rgba(205, 210, 218, 0.12) 60%, rgba(205, 210, 218, 0.05));
   animation: weather-fog-drift 60s ease-in-out infinite alternate;
 }
+/* On a light theme the pale haze above was all but invisible: a cooler grey. */
+.weather-fog-light {
+  background: linear-gradient(to top, rgba(140, 150, 166, 0.45), rgba(140, 150, 166, 0.16) 60%, rgba(140, 150, 166, 0.06));
+}
 .weather-gloom {
   background: linear-gradient(to bottom, rgba(20, 28, 45, 0.45), rgba(20, 28, 45, 0.15));
 }

@@ -1,15 +1,19 @@
 // Kinboard Service Worker
 //
-// CACHE_NAME bumps on every release via build-time string substitution
-// performed in the Dockerfile (sed-replaces __KINBOARD_VERSION__ with
-// the package.json version before `next build`). On activate, the SW
-// deletes any cache whose name doesn't match this exact release —
-// evicting stale `_next/static/chunks/*` from prior builds, which is
-// what causes ChunkLoadError after Watchtower auto-updates.
+// CACHE_NAME changes with every build: docker/stamp-sw.sh (run by the
+// Dockerfile before `next build`) replaces __KINBOARD_VERSION__ with the
+// package.json version and __KINBOARD_REVISION__ with the build's short git
+// sha. Both are needed. The browser only looks at a new service worker when
+// sw.js changes byte for byte, so with the version alone every rebuild of
+// one version served the same file and an open page (a kiosk, a PWA left
+// open) never noticed the deploy. On activate, the SW deletes any cache
+// whose name isn't this exact build's — evicting stale
+// `_next/static/chunks/*` from prior builds, which is what causes
+// ChunkLoadError after auto-updates.
 //
-// In dev (where the substitution doesn't happen), the literal token
-// stays and acts as a single dev-cache that doesn't auto-evict.
-const CACHE_NAME = 'kinboard-__KINBOARD_VERSION__';
+// In dev (where the substitution doesn't happen), the literal tokens stay
+// and act as a single dev cache that doesn't auto-evict.
+const CACHE_NAME = 'kinboard-__KINBOARD_VERSION__-__KINBOARD_REVISION__';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache immediately on install
