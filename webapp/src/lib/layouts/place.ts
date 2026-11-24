@@ -2,14 +2,33 @@
  * Where the editor puts a widget: the first free spot for a new one, at its
  * default size or as near it as fits (positions are in steps, four to a
  * cell). Never overlapping or off the grid, like the server's check. The
- * arrow keys' moves are in arrange.ts.
+ * arrow keys' moves are in arrange.ts. Per surface: Home's widgets
+ * (HOME_WIDGETS) have other minimums and boxes than the screensaver's, and
+ * some keys (clock, date, vehicles, holidays) are on both with different ones.
  */
 import { GRID } from "./grid";
 import { collides } from "./validate";
-import { SAVER_WIDGETS } from "./widgets";
-import type { LayoutItem, SaverWidgetKey } from "./types";
+import { widgetsFor, type HomeWidgetKind, type WidgetSpec } from "./widgets";
+import type { HomeWidgetKey, LayoutItem, SaverWidgetKey, Surface } from "./types";
 
 type Box = Pick<LayoutItem, "x" | "y" | "w" | "h">;
+
+/** What placing a widget needs to know of it: its kind, its smallest box and the one it is dropped with, in steps. */
+export interface PlaceSpec {
+  kind: WidgetSpec["kind"] | HomeWidgetKind;
+  min: { w: number; h: number };
+  box: { w: number; h: number };
+}
+
+/**
+ * A widget's minimum and default box on a surface, or undefined for a key the
+ * surface does not have (a layout saved by a newer build). The screensaver is
+ * the default, as before Home had widgets.
+ */
+export function specOf(widget: string, surface: Surface = "screensaver"): PlaceSpec | undefined {
+  const catalogue: Record<string, PlaceSpec> = widgetsFor(surface);
+  return Object.hasOwn(catalogue, widget) ? catalogue[widget] : undefined;
+}
 
 /**
  * The first free box for a widget, scanning rows top to bottom and columns
@@ -17,8 +36,13 @@ type Box = Pick<LayoutItem, "x" | "y" | "w" | "h">;
  * largest size between the default and its minimum that does. Null when not
  * even the minimum fits.
  */
-export function firstFreeBox(items: LayoutItem[], widget: SaverWidgetKey, rows: number): Box | null {
-  const { box, min } = SAVER_WIDGETS[widget];
+export function firstFreeBox(items: Box[], widget: SaverWidgetKey, rows: number, surface?: "screensaver"): Box | null;
+export function firstFreeBox(items: Box[], widget: HomeWidgetKey, rows: number, surface: "home"): Box | null;
+export function firstFreeBox(items: Box[], widget: string, rows: number, surface: Surface): Box | null;
+export function firstFreeBox(items: Box[], widget: string, rows: number, surface: Surface = "screensaver"): Box | null {
+  const spec = specOf(widget, surface);
+  if (!spec) return null;
+  const { box, min } = spec;
   const sizes: { w: number; h: number }[] = [];
   for (let w = box.w; w >= min.w; w--) {
     for (let h = box.h; h >= min.h; h--) sizes.push({ w, h });

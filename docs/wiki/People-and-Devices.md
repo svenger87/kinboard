@@ -56,7 +56,7 @@ Toggle on when an [LD2410 presence sensor](Presence-Sensor) is wired into this d
 
 ### Layout
 
-Under each device, **Layout** picks the screensaver arrangement it shows: *Built-in*, or one of the family's [layouts](Layouts). A wall screen (kiosk) without one uses the family's portrait or landscape default, if set; the row says which ("Uses the default layout “Küche hochkant”") and warns when the screen's shape is far from the layout's. Phones and screens narrower than 600px keep the built-in screensaver. Each row also shows the size the screen reports, which is what a layout is drawn for.
+Under each device, **Layout** picks the arrangement of its screensaver and Home: *Built-in*, or one of the family's [layouts](Layouts). A wall screen (kiosk) without one uses the family's portrait or landscape default, if set; the row says which ("Uses the default layout “Küche hochkant”") and warns when the screen's shape is far from the layout's. A laptop or phone uses a layout only when it is picked here, and screens narrower than 600px keep the built-in screensaver and Home. Each row also shows the size the screen reports, which is what a layout is drawn for.
 
 ### Removing a device (revocation)
 
@@ -80,4 +80,4 @@ If a browser's cookies/site data are wiped, the device has lost its saved id and
 - [Schedule](Schedule) — the "child" toggle enables school features
 - [Google-Calendar](Google-Calendar) — assign Google calendars to people
 - [Presence-Sensor](Presence-Sensor) — using a device's ID in the LD2410 script
-- [Layouts](Layouts) — a screensaver arrangement per screen
+- [Layouts](Layouts) — a screensaver and Home arrangement per screen

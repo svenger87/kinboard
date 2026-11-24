@@ -19,6 +19,8 @@ export interface WeatherData {
   conditionIcon: string;
   humidity: number;
   windSpeed: number;
+  /** Where the wind comes from, degrees clockwise from north; absent in calm air. */
+  windDeg?: number;
   location: string;
   high: number;
   low: number;
@@ -28,6 +30,8 @@ export interface WeatherData {
   /** Seconds east of UTC at the weather location. */
   timezoneOffset?: number;
   units?: UnitSystem;
+  /** OpenWeatherMap's Air Quality Index, 1 (Good) to 5 (Very Poor); absent when the provider gave none. */
+  airQuality?: number;
 }
 
 export interface DailyForecast {
@@ -203,7 +207,8 @@ export function useWeatherForecast(options: { enabled?: boolean } = {}) {
   });
 }
 
-export function useWeatherMapConfig() {
+/** `enabled: false` holds the request back: the weather dialog asks only while it is open. */
+export function useWeatherMapConfig(options: { enabled?: boolean } = {}) {
   const { data: location, isLoading: locationLoading } = useWeatherLocation();
   const weatherLocation = location || DEFAULT_LOCATION;
 
@@ -241,7 +246,7 @@ export function useWeatherMapConfig() {
 
       return response.json();
     },
-    enabled: !locationLoading,
+    enabled: !locationLoading && options.enabled !== false,
     staleTime: 60 * 60 * 1000, // 1 hour
     retry: 2,
   });

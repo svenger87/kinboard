@@ -4,7 +4,7 @@ import { useFamilyStore } from "@/stores/family-store";
 import { isPinRequired, relockSettings } from "@/lib/pin-session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { LAYOUT_GRID } from "@/lib/layouts/grid";
-import type { Layout, LayoutDefaults, LayoutItem } from "@/lib/layouts/types";
+import type { HomeLayoutItem, Layout, LayoutDefaults, LayoutItem } from "@/lib/layouts/types";
 import { queryKeys, useSetting } from "./use-supabase-queries";
 
 const NO_DEFAULTS: LayoutDefaults = { portrait: null, landscape: null };
@@ -115,26 +115,31 @@ function useAfterWrite(also: string[] = []) {
 
 /**
  * Save a change; `updated_at` is the stamp the editor loaded, echoed exactly. A stale one fails with code "stale".
+ * `home` and `screensaver` are each sent only when given; an empty `home` puts the screens back on the built-in Home.
  * Every write says which grid its positions count (`grid: LAYOUT_GRID`); a server on another grid answers "grid_changed".
  */
 export function useSaveLayout() {
   const onSuccess = useAfterWrite();
   return useMutation({
-    mutationFn: ({ id, ...body }: { id: string; name?: string; screensaver?: LayoutItem[]; updated_at: string }) =>
+    mutationFn: ({ id, ...body }: { id: string; name?: string; home?: HomeLayoutItem[]; screensaver?: LayoutItem[]; updated_at: string }) =>
       request<{ layout: Layout }>(`/api/layouts/${id}`, "PATCH", { ...body, grid: LAYOUT_GRID }).then((r) => r.layout),
     onSuccess,
   });
 }
 
-/** A layout just created, with the ids of the copied items that did not fit its size (`from: <id>`; otherwise empty). */
-export type CreatedLayout = Layout & { dropped: string[] };
+/**
+ * A layout just created, with the ids of the copied items that did not fit its
+ * size (`from: <id>`; otherwise empty): the screensaver's in `dropped`, Home's
+ * in `droppedHome`.
+ */
+export type CreatedLayout = Layout & { dropped: string[]; droppedHome: string[] };
 
 export function useCreateLayout() {
   const onSuccess = useAfterWrite();
   return useMutation({
     mutationFn: (body: { name: string; width: number; height: number; from?: string }) =>
-      request<{ layout: Layout; dropped?: string[] }>("/api/layouts", "POST", { ...body, grid: LAYOUT_GRID }).then(
-        (r): CreatedLayout => ({ ...r.layout, dropped: r.dropped ?? [] }),
+      request<{ layout: Layout; dropped?: string[]; droppedHome?: string[] }>("/api/layouts", "POST", { ...body, grid: LAYOUT_GRID }).then(
+        (r): CreatedLayout => ({ ...r.layout, dropped: r.dropped ?? [], droppedHome: r.droppedHome ?? [] }),
       ),
     onSuccess,
   });

@@ -42,6 +42,7 @@ import { UnlessHomeLayout } from "@/components/layouts/designed-home";
 import type { WidgetVisibility, ScheduleWidgetSettings, PocketMoneyWidgetSettings } from "@/types/widgets";
 import { useWidgetOrder, mergeWidgetOrder } from "@/hooks/use-widget-order";
 import { TimerPresetsEditor } from "@/components/settings/timer-presets-editor";
+import { HomeLayoutNote } from "@/components/layouts/home-layout-note";
 
 interface WidgetConfig {
   key: keyof WidgetVisibility;
@@ -162,6 +163,8 @@ export default function WidgetSettingsPage() {
         <p className="text-sm text-muted-foreground mb-6 px-1">
           {t("intro")}
         </p>
+
+        <HomeLayoutNote />
 
         {/* A screen with a designed Home has no compact/classic Home to switch (RFC-022 §7.3). */}
         <UnlessHomeLayout>

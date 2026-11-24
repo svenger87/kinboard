@@ -1313,7 +1313,11 @@
       "creaturesLabel": "Creatures",
       "creaturesDescription": "Every child's creature side by side, cheering when a task is ticked off. Tap one for that child's rewards",
       "creaturesPreview1": "🐉 Mia — Baby dragon — ⭐ 42",
-      "creaturesPreview2": "Still on the wall; moves only to cheer"
+      "creaturesPreview2": "Still on the wall; moves only to cheer",
+      "layoutNote": {
+        "assigned": "{names} {count, plural, one {uses} other {use}} the Home of the designed layout “{layout}”.",
+        "change": "Change it under <link>Settings → Layouts</link>. The settings below apply to screens without a designed Home."
+      }
     },
     "navigation": {
       "title": "Navigation",
@@ -3333,7 +3337,7 @@
       },
       "editor": {
         "title": "Layout",
-        "subtitle": "Screensaver · drawn for {width}×{height}",
+        "subtitle": "Home and screensaver · drawn for {width}×{height}",
         "notFound": "This layout does not exist (any more).",
         "loadFailed": "The layouts could not be loaded.",
         "tooSmall": "This layout's screen ({width}×{height}) is too small for the grid.",
@@ -3346,6 +3350,7 @@
         "reset": "Reset",
         "resetTitle": "Reset to the built-in arrangement?",
         "resetDescription": "The screen gets today's standard screensaver arrangement for its shape. You can undo this until you leave the page.",
+        "resetDescriptionHome": "Home gets today's standard arrangement for this size. You can undo this until you leave the page.",
         "resetConfirm": "Reset",
         "resetCancel": "Cancel",
         "save": "Save",
@@ -3493,7 +3498,8 @@
           "cancel": "Cancel",
           "failed": "The copy could not be created. Please try again.",
           "pinRequired": "Settings were locked — enter the PIN and try again.",
-          "dropped": "Not on this size: {names}"
+          "dropped": "Not on this size: {names}",
+          "droppedHome": "Not on this size’s Home: {names}"
         },
         "unused": {
           "text": "No screen shows this layout yet. Saving alone does not put it on a screen.",
@@ -3507,7 +3513,43 @@
           "out_of_bounds": "Not done: a widget would leave the screen.",
           "below_minimum": "Not done: a widget would be smaller than its minimum.",
           "overlap": "Not done: a widget would overlap another."
-        }
+        },
+        "surface": {
+          "label": "Which screen",
+          "home": "Home",
+          "screensaver": "Screensaver"
+        },
+        "homeWidgets": {
+          "clock": "Clock",
+          "date": "Date and week",
+          "greeting": "Greeting",
+          "familyMembers": "Family members",
+          "todayStrip": "Today strip",
+          "weather": "Weather",
+          "upcomingEvents": "Events",
+          "schedule": "School schedule",
+          "birthday": "Birthdays",
+          "holidays": "Holidays",
+          "weekOverview": "Week overview",
+          "mealPlan": "Meals",
+          "wasteCollection": "Waste pickup",
+          "notes": "Notes",
+          "tasks": "Tasks",
+          "shopping": "Shopping",
+          "vehicles": "Vehicles",
+          "stonks": "Stocks",
+          "pocketMoney": "Pocket Money",
+          "creatures": "Creatures",
+          "photos": "Photos",
+          "timers": "Timers",
+          "media": "Media",
+          "messages": "Messages",
+          "countdown": "Countdown"
+        },
+        "homeWidgetForChild": "{widget} · {name}",
+        "homeWidgetForEveryone": "{widget} · all children",
+        "homePlaceholder": "Shown here once it can be drawn in a box",
+        "homeBuiltIn": "This layout has no Home of its own yet: this is today’s Home for this size. Screens keep today’s Home until you save a change here."
       }
     }
   },
@@ -3757,6 +3799,46 @@
     "loadingAria": "Loading weather",
     "errorTitle": "Weather not available",
     "errorFallback": "No data",
+    "compass": {
+      "n": "N",
+      "ne": "NE",
+      "e": "E",
+      "se": "SE",
+      "s": "S",
+      "sw": "SW",
+      "w": "W",
+      "nw": "NW"
+    },
+    "windFrom": {
+      "n": "from the north",
+      "ne": "from the northeast",
+      "e": "from the east",
+      "se": "from the southeast",
+      "s": "from the south",
+      "sw": "from the southwest",
+      "w": "from the west",
+      "nw": "from the northwest"
+    },
+    "windDirectionLabel": "Wind {value} {unit} {direction}",
+    "airQuality": "Air quality",
+    "airQualityLabel": "Air quality: {level}",
+    "aqi": {
+      "1": "Good",
+      "2": "Fair",
+      "3": "Moderate",
+      "4": "Poor",
+      "5": "Very poor"
+    },
+    "errorRetrying": "Trying again in a few minutes.",
+    "errorLocationNotFound": "The weather location wasn't found. Check it in the weather settings.",
+    "errorLocationAction": "Weather settings",
+    "staleAsOf": "As of {time}",
+    "staleAria": "The weather couldn't be updated; showing the reading from {time}.",
+    "humidityLabel": "Humidity {value}%",
+    "windLabel": "Wind {value} {unit}",
+    "sunriseLabel": "Sunrise {time}",
+    "sunsetLabel": "Sunset {time}",
+    "highLowLabel": "High {high}°, low {low}°",
     "notConfiguredTitle": "Weather not set up",
     "notConfiguredDescription": "Add an OpenWeatherMap API key to show local weather. It's free and takes a minute.",
     "notConfiguredAction": "Set up weather",

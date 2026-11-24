@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { User, Calendar, CheckSquare, GraduationCap, X , AlertCircle, Gift} from "lucide-react";
@@ -41,8 +41,25 @@ import { todayPerson } from "@/lib/todo-turns";
 import { toLocalDateKey } from "@/lib/local-date";
 import { useFestivalLook } from "@/hooks/use-festival";
 
+/** An events row as the events query returns it, with its calendar. */
+type EventWithCalendar = NonNullable<ReturnType<typeof useEvents>["data"]>[number];
+
 interface FamilyMembersProps {
   className?: string;
+  /**
+   * The events to count, when the caller already has them: today to seven
+   * days ahead, cut from Home's shared window (RFC-022 step 4). Left out, the
+   * widget asks for that week itself, as the built-in Home's block does.
+   */
+  events?: EventWithCalendar[];
+  /**
+   * How the members are drawn. "row" (default) is the built-in Home's row.
+   * "box" draws them in em of the font size it is given, for a widget that
+   * fits them to its box: `stacked` puts the name and counts under the
+   * avatar, otherwise beside it. Avatars and targets stay at least 48px.
+   */
+  variant?: "row" | "box";
+  stacked?: boolean;
 }
 
 function getInitials(name: string): string {
@@ -84,7 +101,7 @@ function FamilyMembersSkeleton() {
   );
 }
 
-export function FamilyMembers({ className = "" }: FamilyMembersProps) {
+export function FamilyMembers({ className = "", events: givenEvents, variant = "row", stacked = true }: FamilyMembersProps) {
   const t = useTranslations("familyMembers");
   const { data: people, isLoading: loadingPeople, isError: peopleError } = usePeople();
   const { data: todos } = useTodos();
@@ -101,7 +118,8 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
   // Only fetch upcoming events (today + next 7 days)
   const today = startOfDay(new Date());
   const weekFromNow = endOfDay(addDays(today, 7));
-  const { data: events } = useEvents(today.toISOString(), weekFromNow.toISOString());
+  const { data: ownEvents } = useEvents(today.toISOString(), weekFromNow.toISOString(), { enabled: givenEvents === undefined });
+  const events = givenEvents ?? ownEvents;
 
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const pointThresholds = useGrowthPoints();
@@ -157,6 +175,14 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
     };
   };
 
+  // In a box, the name and counts are one column: under the avatar or beside it.
+  const wrapLabel = (label: ReactNode) =>
+    variant === "box" ? (
+      <span className={`flex flex-col ${stacked ? "items-center" : "items-start"} gap-[0.15em] whitespace-nowrap`}>{label}</span>
+    ) : (
+      label
+    );
+
   const container = {
     hidden: { opacity: 0 },
     show: {
@@ -176,7 +202,7 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
         variants={container}
         initial="hidden"
         animate="show"
-        className={`flex items-center justify-center gap-4 md:gap-6 ${className}`}
+        className={variant === "box" ? `flex w-fit shrink-0 items-center gap-[1em] ${className}` : `flex items-center justify-center gap-4 md:gap-6 ${className}`}
       >
         {people.map((member) => {
           const status = getMemberStatus(member.id);
@@ -192,28 +218,36 @@ export function FamilyMembers({ className = "" }: FamilyMembersProps) {
                   role="button"
                   tabIndex={0}
                   aria-label={t("detailsAria", { name: member.name })}
-                  className="flex flex-col items-center gap-2 cursor-pointer group"
+                  className={
+                    variant === "box"
+                      ? `flex min-h-[48px] min-w-[48px] cursor-pointer group rounded-[0.5em] ${stacked ? "flex-col items-center gap-[0.35em]" : "flex-row items-center gap-[0.5em]"}`
+                      : "flex flex-col items-center gap-2 cursor-pointer group"
+                  }
                 >
                   <PersonAvatar
                     name={member.name}
                     color={member.color}
                     avatarUrl={member.avatar_url}
-                    size={64}
+                    size={variant === "box" ? "max(48px, 2.6em)" : 64}
                     className="transition-transform [transition-duration:120ms] group-hover:scale-105 reduce-motion:transition-none reduce-motion:group-hover:scale-100"
                   />
-                  <span className="text-sm font-medium text-foreground/90 group-hover:text-foreground transition-colors">
-                    {member.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    {status.events === 0 && status.todos === 0
-                      ? t("statusNothing")
-                      : [
-                          status.events > 0 ? t("statusEvents", { count: status.events }) : null,
-                          status.todos > 0 ? t("statusTasks", { count: status.todos }) : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                  </span>
+                  {wrapLabel(
+                    <>
+                      <span className={`${variant === "box" ? "text-[0.8em] leading-tight" : "text-sm"} font-medium text-foreground/90 group-hover:text-foreground transition-colors`}>
+                        {member.name}
+                      </span>
+                      <span className={`${variant === "box" ? "text-[0.65em] leading-tight" : "text-xs"} text-muted-foreground tabular-nums`}>
+                        {status.events === 0 && status.todos === 0
+                          ? t("statusNothing")
+                          : [
+                              status.events > 0 ? t("statusEvents", { count: status.events }) : null,
+                              status.todos > 0 ? t("statusTasks", { count: status.todos }) : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                      </span>
+                    </>,
+                  )}
                 </motion.div>
               </TooltipTrigger>
               <TooltipContent>

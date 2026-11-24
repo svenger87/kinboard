@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { LayoutRequestError, useCreateLayout } from "@/hooks/use-layouts";
+import { personOf } from "@/lib/layouts/validate";
 import type { Layout, LayoutItem } from "@/lib/layouts/types";
 
 const droppedKey = (id: string) => `kinboard_layout_dropped:${id}`;
@@ -26,7 +27,12 @@ const droppedKey = (id: string) => `kinboard_layout_dropped:${id}`;
  */
 const taken = new Map<string, string[]>();
 
-/** The widgets a copy left behind, handed to the new layout's editor: taken out of storage once, then kept until releaseCopyDropped. */
+/**
+ * The widgets a copy left behind, handed to the new layout's editor: taken out
+ * of storage once, then kept until releaseCopyDropped. A screensaver widget is
+ * its key; a Home one is `home:<item id>` (the widget's key, and for a
+ * child's widget `<widget>:<personId>`).
+ */
 export function readCopyDropped(id: string): string[] {
   if (typeof window === "undefined") return [];
   const kept = taken.get(id);
@@ -75,6 +81,7 @@ export function CopyForSize({
   size,
   dirty,
   items,
+  homeItems = [],
   onSave,
   onDiscard,
 }: {
@@ -82,6 +89,8 @@ export function CopyForSize({
   size: { width: number; height: number };
   dirty: boolean;
   items: LayoutItem[];
+  /** Home's items as the editor has them, for naming what the copy left out. */
+  homeItems?: LayoutItem<string>[];
   onSave: () => Promise<boolean>;
   onDiscard: () => void;
 }) {
@@ -103,7 +112,13 @@ export function CopyForSize({
       if (first === "discard") onDiscard();
       // Item ids name their widget in layouts the editor made; fall back to the id.
       const widgetOf = new Map([...layout.screensaver, ...items].map((i) => [i.id, i.widget]));
-      handOverDropped(created.id, created.dropped.map((id) => widgetOf.get(id) ?? id));
+      const homeById = new Map([...layout.home, ...homeItems].map((i) => [i.id, i]));
+      const homeName = (id: string) => {
+        const i = homeById.get(id);
+        const person = i && personOf(i);
+        return `home:${!i ? id : person ? `${i.widget}:${person}` : i.widget}`;
+      };
+      handOverDropped(created.id, [...created.dropped.map((id) => widgetOf.get(id) ?? id), ...created.droppedHome.map(homeName)]);
       setOpen(false);
       router.push(`/settings/layouts/${created.id}`);
     } catch (err) {

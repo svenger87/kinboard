@@ -5,19 +5,25 @@ import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { UUID } from "@/lib/home/action-requests";
 import { validateItems } from "@/lib/layouts/validate";
 import { LAYOUT_GRID } from "@/lib/layouts/grid";
-import { DEFAULTS_KEY, fail, gridChanged, gridOk, notFound, parseName, readDefaults, readJson } from "@/lib/layouts/server";
+import { homeArea } from "@/lib/layouts/home-area";
+import { DEFAULTS_KEY, checkHomePeople, fail, gridChanged, gridOk, notFound, parseName, readDefaults, readJson } from "@/lib/layouts/server";
 
 export const dynamic = "force-dynamic";
 
-const PATCHABLE = new Set(["grid", "name", "screensaver", "updated_at"]);
+const PATCHABLE = new Set(["grid", "name", "home", "screensaver", "updated_at"]);
 
 /**
- * PATCH /api/layouts/[id]  body: { grid: 48, name?, screensaver?, updated_at }
+ * PATCH /api/layouts/[id]  body: { grid: 48, name?, home?, screensaver?, updated_at }
  *
  * Saves a change to a layout of the family. `updated_at` is the stamp the
  * editor loaded: if the row has moved on, 409 stale and nothing is written,
  * so two editors cannot overwrite each other unseen. The screensaver is
- * checked against the layout's own size. `home` is not editable yet.
+ * checked against the layout's own size; Home against the area its grid gets
+ * there (the screen less the navigation bar, homeArea), with Home's widgets
+ * and minimums, and each `options.personId` must be a person of this family
+ * (checkHomePeople). A refused arrangement of either is 400
+ * { error, itemId }, the codes of validateItems; nothing is written. An
+ * empty `home` puts the screen back on the built-in Home.
  *
  * Without `grid: 48` (a page on a bundle from before the steps), or on a row
  * not yet on the grid, 409 grid_changed and nothing is written.
@@ -61,6 +67,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const checked = validateItems(body.screensaver, row.width, row.height);
     if (!checked.ok) return NextResponse.json({ error: checked.error, itemId: checked.itemId }, { status: 400 });
     patch.screensaver = checked.items;
+  }
+  if (body.home !== undefined) {
+    const area = homeArea(row.width, row.height);
+    const checked = validateItems(body.home, area.width, area.height, "home");
+    if (!checked.ok) return NextResponse.json({ error: checked.error, itemId: checked.itemId }, { status: 400 });
+    const people = await checkHomePeople(db, familyId, checked.items);
+    if (!people.ok) {
+      if (people.error === "db") return NextResponse.json({ error: people.message }, { status: 500 });
+      return NextResponse.json({ error: people.error, itemId: people.itemId }, { status: 400 });
+    }
+    patch.home = checked.items;
   }
 
   // One statement: the stamp must still be the one the editor loaded.

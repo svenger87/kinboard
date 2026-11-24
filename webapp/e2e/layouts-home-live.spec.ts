@@ -3,7 +3,8 @@ import { randomBytes } from "node:crypto";
 import { postJoin } from "./session";
 import { psql, psqlRow, sqlText } from "./helpers/assistant-connect";
 import { boxRect, gridFor } from "../src/lib/layouts/grid";
-import type { HomeLayoutItem, LayoutItem } from "../src/lib/layouts/types";
+import { homeArea } from "../src/lib/layouts/home-area";
+import type { HomeLayoutItem } from "../src/lib/layouts/types";
 
 /**
  * Home with a designed layout (RFC-022 step 5). The layout is written with
@@ -23,9 +24,9 @@ const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 /** Per Playwright project, so the desktop and WebKit runs, side by side, keep to their own family. */
 let P = "claude-rfc022-s5-";
 const TEST_KEY = "kinboard.test.home-layouts";
-/** A landscape panel: at 1024px and over the bar is 72px, so the grid gets 1280x728 (24 rows). */
+/** A landscape panel: at 1024px and over the bar is 73px (homeArea), so the grid gets 1280x727 (24 rows). */
 const SIZE = { width: 1280, height: 800 };
-const NAV = 72;
+const AREA = homeArea(SIZE.width, SIZE.height);
 const PHONE = { width: 390, height: 844 };
 const ITEMS: HomeLayoutItem[] = [
   { id: "clock", widget: "clock", x: 0, y: 0, w: 24, h: 8, text: "L" },
@@ -183,12 +184,17 @@ test.describe("in the gate's test mode", () => {
     // Today's Home is not drawn alongside, and the compact switch's clock block is gone.
     await expect(page.locator('main [data-festival-anchor="clock"]')).toHaveCount(0);
 
-    // No component in a box yet: the test mode's placeholder stands in, one per item.
+    // Every box draws something: its widget, or, for a widget with no
+    // component in a box yet, the test mode's placeholder, never another's.
     for (const item of ITEMS) {
-      await expect(page.locator(`[data-layout-id=${item.id}] [data-home-widget-missing=${item.widget}]`)).toBeVisible();
+      const box = page.locator(`[data-layout-id=${item.id}]`);
+      await expect(box.locator(":scope > *").first()).toBeVisible();
+      await expect(box.locator(`[data-home-widget-missing]:not([data-home-widget-missing=${item.widget}])`)).toHaveCount(0);
     }
+    // The clock has its component (the clock block's group): no placeholder there.
+    await expect(page.locator("[data-layout-id=clock] [data-home-widget-missing]")).toHaveCount(0);
 
-    const grid = gridFor(SIZE.width, SIZE.height - NAV)!;
+    const grid = gridFor(AREA.width, AREA.height)!;
     expect(grid.rows, "the grid is the screen less the bar").toBe(24);
     const boxes = await page.$$eval("[data-testid=designed-home-grid] [data-layout-id]", (els) =>
       els.map((e) => {
@@ -198,7 +204,7 @@ test.describe("in the gate's test mode", () => {
     );
     expect(boxes).toHaveLength(ITEMS.length);
     for (const b of boxes) {
-      const want = boxRect(ITEMS.find((i) => i.id === b.id)! as unknown as LayoutItem, grid);
+      const want = boxRect(ITEMS.find((i) => i.id === b.id)!, grid);
       expect(Math.abs(b.left - Math.round(want.left)), `${b.id} left`).toBeLessThanOrEqual(1);
       expect(Math.abs(b.top - Math.round(want.top)), `${b.id} top`).toBeLessThanOrEqual(1);
       expect(Math.abs(b.width - Math.round(want.width)), `${b.id} width`).toBeLessThanOrEqual(1);
@@ -210,8 +216,8 @@ test.describe("in the gate's test mode", () => {
       const navs = [...document.querySelectorAll("nav")].filter((n) => getComputedStyle(n).position === "fixed" && n.getBoundingClientRect().height > 0);
       return Math.min(...navs.map((n) => n.getBoundingClientRect().top));
     });
-    // The bar's own top sits a pixel into --nav-spacing (its border), as on today's Home.
-    expect(Math.abs(navTop - (SIZE.height - NAV))).toBeLessThanOrEqual(1);
+    // The bar is where homeArea says it is: the grid's area ends at its top.
+    expect(navTop).toBe(AREA.height);
     const lowest = Math.max(...boxes.map((b) => b.top + b.height));
     expect(lowest).toBeLessThanOrEqual(navTop);
 
