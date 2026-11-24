@@ -5,56 +5,72 @@ import { Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { firstFreeBox } from "@/lib/layouts/place";
-import { SAVER_WIDGETS } from "@/lib/layouts/widgets";
-import type { LayoutItem, SaverWidgetKey } from "@/lib/layouts/types";
+import type { LayoutItem, Surface } from "@/lib/layouts/types";
 
-const ORDER = Object.keys(SAVER_WIDGETS) as SaverWidgetKey[];
+/** A placed box of either surface. */
+type Item = LayoutItem<string>;
+
+/**
+ * One thing the palette offers: a widget, and on Home a per-child widget once
+ * per child (`options.personId`). `id` is the item id it is added with, and
+ * names its button (`palette-add-<id>`): the widget's key, or for a child's
+ * widget `<widget>:<personId>`, as builtInHome names them.
+ */
+export interface PaletteEntry {
+  id: string;
+  widget: string;
+  label: string;
+  options?: Record<string, unknown>;
+}
 
 /**
  * The widgets not on the screen yet. Adding one puts it at the first free
  * spot of its default box (smaller, down to its minimum, when that does not
  * fit); with no room even for the minimum the button is off and says why.
+ * The editor passes only the entries not placed yet, for the surface shown.
  */
 export function EditorPalette({
+  surface = "screensaver",
+  entries,
   items,
   rows,
   disabled,
-  names,
   onAdd,
 }: {
-  items: LayoutItem[];
+  surface?: Surface;
+  entries: PaletteEntry[];
+  items: Item[];
   rows: number;
   disabled: boolean;
-  names: Record<SaverWidgetKey, string>;
-  onAdd: (item: LayoutItem) => void;
+  onAdd: (item: Item) => void;
 }) {
   const t = useTranslations("settings.layouts.editor.palette");
-  const placed = new Set(items.map((i) => i.widget));
-  const unplaced = ORDER.filter((w) => !placed.has(w));
 
   return (
-    <Card className="flex flex-col gap-3 p-4" data-testid="palette">
+    <Card className="flex flex-col gap-3 p-4" data-testid="palette" data-surface={surface}>
       <h2 className="font-display text-sm font-semibold">{t("title")}</h2>
-      {unplaced.length === 0 ? (
+      {entries.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("allPlaced")}</p>
       ) : (
         <ul className="flex flex-col gap-1">
-          {unplaced.map((widget) => {
-            const box = firstFreeBox(items, widget, rows);
+          {entries.map((entry) => {
+            const box = firstFreeBox(items, entry.widget, rows, surface);
             return (
-              <li key={widget}>
+              <li key={entry.id}>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-auto w-full justify-start gap-2 py-1.5 text-left"
                   disabled={disabled || !box}
-                  data-testid={`palette-add-${widget}`}
-                  aria-label={t("add", { name: names[widget] })}
-                  onClick={() => box && onAdd({ id: widget, widget, ...box, text: "M" })}
+                  data-testid={`palette-add-${entry.id}`}
+                  aria-label={t("add", { name: entry.label })}
+                  onClick={() =>
+                    box && onAdd({ id: entry.id, widget: entry.widget, ...box, text: "M", ...(entry.options ? { options: entry.options } : {}) })
+                  }
                 >
                   <Plus className="size-4 shrink-0" aria-hidden="true" />
                   <span className="flex min-w-0 flex-col">
-                    <span className="truncate">{names[widget]}</span>
+                    <span className="truncate">{entry.label}</span>
                     {!box && <span className="whitespace-normal text-xs font-normal text-muted-foreground">{t("noRoom")}</span>}
                   </span>
                 </Button>
