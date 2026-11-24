@@ -238,6 +238,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   ...sectionsOf(theme, [
     { anchor: "monthly-theme", labelKey: "settings.theme.monthlyThemeHeading" },
     { anchor: "palette", labelKey: "settings.theme.paletteHeading" },
+    { anchor: "font-style", labelKey: "settings.theme.fontStyleHeading" },
     { anchor: "appearance", labelKey: "settings.theme.appearanceHeading" },
     { anchor: "animations", labelKey: "settings.theme.motionLabel", descriptionKey: "settings.theme.motionHint" },
     { anchor: "festivals", labelKey: "settings.theme.festivalsLabel", descriptionKey: "settings.theme.festivalsHint" },

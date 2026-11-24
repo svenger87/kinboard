@@ -57,17 +57,40 @@ test("no OpenHolidays data ships: the fixture stays out of the build context and
 
 test("the fonts ship with their OFL, NOTICE names them, and the image carries the licences", () => {
   const dirs = readdirSync(join(process.cwd(), "src/assets/fonts"));
-  expect(dirs.sort()).toEqual(["bricolage-grotesque", "hanken-grotesk", "space-mono"]);
+  expect(dirs.sort()).toEqual([
+    "bricolage-grotesque",
+    "fraunces",
+    "fredoka",
+    "hanken-grotesk",
+    "inter",
+    "noto-sans-sc",
+    "noto-serif-sc",
+    "quicksand",
+    "space-mono",
+    "zcool-kuaile",
+  ]);
   const notice = flat(read("NOTICE"));
   const dockerfile = read("docker/Dockerfile");
   for (const dir of dirs) {
     const files = readdirSync(join(process.cwd(), "src/assets/fonts", dir));
     expect(files.filter((f) => f.endsWith(".woff2")).length, dir).toBeGreaterThan(0);
-    expect(read(`src/assets/fonts/${dir}/OFL.txt`)).toContain("SIL Open Font License, Version 1.1");
+    expect(flat(read(`src/assets/fonts/${dir}/OFL.txt`))).toContain("SIL Open Font License, Version 1.1");
     expect(dockerfile).toContain(`COPY --from=builder /app/src/assets/fonts/${dir}/OFL.txt ./licenses/fonts/${dir}-OFL.txt`);
     expect(dockerfile).toContain(`test -f ./licenses/fonts/${dir}-OFL.txt`);
   }
-  for (const name of ["Bricolage Grotesque", "Hanken Grotesk", "Space Mono"]) expect(notice).toContain(name);
+  for (const name of [
+    "Bricolage Grotesque",
+    "Hanken Grotesk",
+    "Space Mono",
+    "Fredoka",
+    "Quicksand",
+    "Inter",
+    "Fraunces",
+    "Noto Sans SC",
+    "Noto Serif SC",
+    "ZCOOL KuaiLe",
+  ])
+    expect(notice).toContain(name);
   expect(notice).toContain("SIL Open Font License, Version 1.1");
 });
 
