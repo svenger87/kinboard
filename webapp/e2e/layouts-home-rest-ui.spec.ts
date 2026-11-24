@@ -192,6 +192,8 @@ for (const size of ["min", "large"] as const) {
         await page.goto(`/dev/home-rest-widgets?size=${size}&text=${text}`, { waitUntil: "domcontentloaded" });
         const grid = page.getByTestId("home-rest-grid");
         await expect(grid).toBeVisible({ timeout: 90_000 });
+        // The first visit of a run waits for the widgets' chunks and queries; the timers draw without any.
+        await expect(page.getByTestId("home-timers")).toBeVisible({ timeout: 90_000 });
         // Every widget drew something real: the data has arrived. Soft, so the screenshot is taken either way.
         await expect.soft(page.getByTestId("home-media")).toBeVisible({ timeout: 20_000 });
         await expect.soft(page.getByTestId("home-photo")).toBeVisible({ timeout: 20_000 });
