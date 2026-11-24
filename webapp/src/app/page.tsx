@@ -54,8 +54,14 @@ import {
 } from "@/types/widgets";
 import { DEFAULT_WIDGET_VISIBILITY, DEFAULT_WIDGET_ORDER, migrateLegacyWidgetVisibility } from "@/types/widgets";
 import type { WidgetVisibility } from "@/types/widgets";
+import { HomeWithLayout, useHomeLayoutsOn } from "@/components/layouts/designed-home";
 
+/** A screen with a designed Home draws it (RFC-022); every other screen gets today's Home below, unchanged. */
 export default function DashboardPage() {
+  return useHomeLayoutsOn() ? <HomeWithLayout builtIn={<BuiltInHome />} /> : <BuiltInHome />;
+}
+
+function BuiltInHome() {
   const t = useTranslations("dashboard");
   // Load theme settings from Supabase (applies theme CSS class, clock settings)
   const { showSeconds } = useThemeSettings();
