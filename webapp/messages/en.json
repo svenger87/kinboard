@@ -2770,6 +2770,7 @@
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "update to {version} available",
     "whatsNewButtonLabel": "View release notes",
+    "sourceCode": "Source code",
     "itemNewsLabel": "News sources",
     "itemNewsDescription": "Pick which RSS feeds populate the news widget and the /news page",
     "itemPluginsLabel": "Plugins",

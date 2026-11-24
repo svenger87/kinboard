@@ -2770,6 +2770,7 @@
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "有 {version} 更新可用",
     "whatsNewButtonLabel": "查看发布说明",
+    "sourceCode": "源代码",
     "itemNewsLabel": "新闻来源",
     "itemNewsDescription": "选择哪些 RSS 订阅源填充新闻小组件和 /news 页面",
     "itemPluginsLabel": "插件",

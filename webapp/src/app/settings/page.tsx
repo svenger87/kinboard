@@ -60,6 +60,9 @@ import { SettingsSearch } from "@/components/settings/settings-search";
 import { MENU_SECTIONS, SETTINGS_ENTRIES, isEntryVisible } from "@/lib/settings-search/registry";
 import { useEnabledPlugins } from "@/hooks/use-enabled-plugins";
 
+/** Where Kinboard's source lives, linked from the version line at the foot of the page. */
+const SOURCE_CODE_URL = "https://github.com/svenger87/kinboard";
+
 // Diagnostics-only push status row. usePushServerConfigured() fires a fetch
 // on mount — isolating it here (rendered only while the diagnostics
 // collapsible is open) keeps that probe from firing on every settings-page
@@ -1093,6 +1096,20 @@ export default function SettingsPage() {
                 </a>
               </>
             )}
+            {" · "}
+            {/* The repository root: the version above is package.json's,
+                which a build from main shares with the release before it,
+                and no commit reaches the client, so a tag link could name
+                code this build doesn't run. */}
+            <a
+              href={SOURCE_CODE_URL}
+              target="_blank"
+              rel="noopener"
+              data-testid="settings-source-code"
+              className="hover:text-foreground hover:underline transition-colors"
+            >
+              {t("sourceCode")}
+            </a>
           </p>
           {device && <p>{t("deviceLabel", { name: device.name || device.id.slice(0, 8) })}</p>}
         </div>

@@ -2770,6 +2770,7 @@
     "appVersionDynamic": "Kinboard v{version}",
     "updateAvailable": "Update auf {version} verfügbar",
     "whatsNewButtonLabel": "Versionshinweise anzeigen",
+    "sourceCode": "Quellcode",
     "itemNewsLabel": "Nachrichtenquellen",
     "itemNewsDescription": "Welche RSS-Feeds das News-Widget und die /news-Seite befüllen",
     "itemPluginsLabel": "Plugins",
