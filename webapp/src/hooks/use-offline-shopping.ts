@@ -1,5 +1,6 @@
 "use client";
 
+import { useKeepRemoteImages } from "./use-keep-remote-images";
 import { useMemo, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ShoppingItem } from "@/types/database";
@@ -68,6 +69,10 @@ export function useOfflineShoppingItems() {
       gcTime: 60 * 60 * 1000, // Keep shopping data cached for 1 hour
     }
   );
+
+  // Pictures taken from the web are brought onto this server in the
+  // background. Only rows the server has: a local_ item has no row yet.
+  useKeepRemoteImages("shopping", isFromCache ? null : serverItems, ["shopping"]);
 
   // Merge server items with local pending items
   const items = useMemo((): OfflineShoppingItem[] => {

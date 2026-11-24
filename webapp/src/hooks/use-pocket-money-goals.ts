@@ -1,3 +1,4 @@
+import { useKeepRemoteImages } from "./use-keep-remote-images";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFamilyStore } from "@/stores/family-store";
 import type {
@@ -10,7 +11,7 @@ const KEY = "pocket-money-goals";
 
 export function usePocketMoneyGoals(accountId: string | undefined) {
   const { family } = useFamilyStore();
-  return useQuery({
+  const result = useQuery({
     // The family is part of the key as well as the request: these routes
     // now scope by it, so a cached result from one family must not be
     // handed to another after a switch.
@@ -24,6 +25,9 @@ export function usePocketMoneyGoals(accountId: string | undefined) {
       return ((await r.json()) as { goals: PocketMoneyGoal[] }).goals;
     },
   });
+  // A goal picture taken from the web is brought onto this server in the background.
+  useKeepRemoteImages("goal", result.data, [KEY]);
+  return result;
 }
 
 export function useCreatePocketMoneyGoal() {
