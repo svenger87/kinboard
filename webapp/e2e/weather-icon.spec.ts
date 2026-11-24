@@ -68,8 +68,10 @@ test("the card and the detail view draw from the shared table, with the icon cod
 
 test("the map moves only when its location or zoom changes, not on every render", () => {
   const map = read("src/components/widgets/weather-map.tsx");
-  expect(map).toContain("}, [map, lat, lon, zoom]);");
-  expect(map).not.toContain("}, [map, center, zoom]);");
+  // The effect that calls setView, keyed on the two numbers.
+  expect(map).toMatch(/setView\(\[lat, lon\], zoom\);[\s\S]*?\}, \[ready, lat, lon, zoom\]\);/);
+  // No effect anywhere in the file is keyed on the `center` array.
+  expect(map).not.toMatch(/\}, \[[^\]]*\bcenter\b[^\]]*\]\);/);
 });
 
 test("the daylight label is only printed for an ordinary day", () => {
