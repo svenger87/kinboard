@@ -110,7 +110,7 @@ function Probe({ params }: { params: URLSearchParams }) {
               data-probe={widget}
               data-probe-h={h}
               data-probe-min={h === min.h || undefined}
-              style={{ position: "absolute", left: x, top: y, width, height, overflow: "hidden", fontSize: font, ["--kb-em" as string]: `${font}px` }}
+              style={{ position: "absolute", left: x, top: y, width, height, overflow: "hidden", fontSize: font, ["--kb-em" as string]: `${font}px`, ["--kb-head-em" as string]: `${homeTextPx("M", sw, sh)}px` }}
             >
               <Widget item={item} box={{ width, height }} />
             </div>

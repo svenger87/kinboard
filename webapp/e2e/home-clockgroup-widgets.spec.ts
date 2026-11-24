@@ -51,7 +51,9 @@ test("the clock and the weather grow with their box; the date, greeting and memb
 test("touch targets stay at least 48px", () => {
   expect(code(`${DIR}/frame.tsx`)).toContain('export const HOME_TARGET_H = "min-h-[48px]";');
   expect(code(`${DIR}/today-strip.tsx`)).toContain('const MORE = "inline-flex min-h-[48px]');
-  expect(code(`${DIR}/weather.tsx`)).toContain("${HOME_TARGET_H}");
+  // The weather's set-up link is the shared empty line's link, a 48px target.
+  expect(code(`${DIR}/weather.tsx`)).toContain('<HomeEmptyLine text={t("notConfiguredAction")} href="/settings/weather" />');
+  expect(code(`${DIR}/frame.tsx`)).toMatch(/href=\{href\}\s+data-home-empty\s+className=\{`\$\{HOME_TARGET_H\}/);
   expect(code("src/components/widgets/date-week.tsx")).toContain('scaled && target ? " inline-flex min-h-[48px] min-w-[48px]');
   expect(code(`${DIR}/weather.tsx`)).toContain("min-h-[48px]");
   const members = code("src/components/widgets/family-members.tsx");

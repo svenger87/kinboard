@@ -15,9 +15,7 @@ import { entryListDay, HOLIDAY_COLOR, holidayEndPattern, keyToDate } from "@/lib
 import { toLocalDateKey } from "@/lib/local-date";
 import { personText } from "@/lib/person-color";
 import type { HomeWidgetProps } from "./shared";
-import { HomeCard } from "./frame";
-
-import { HOME_TARGET_H } from "./frame";
+import { HOME_TARGET_H, HomeCard, HomeEmptyLine } from "./frame";
 
 interface Row {
   id: string;
@@ -172,9 +170,9 @@ export function HomeUpcomingEventsWidget({ editing }: HomeWidgetProps) {
   return (
     <HomeCard icon={Calendar} title={t("title")} href="/calendar" openLabel={t("viewAllAria")} editing={editing} testId="home-widget-upcomingEvents">
       {eventsError ? (
-        <p className="py-[0.25em] home-body text-muted-foreground">{t("errorMessage")}</p>
+        <HomeEmptyLine text={t("errorMessage")} />
       ) : eventsLoading ? (
-        <p className="py-[0.25em] home-body text-muted-foreground" aria-busy="true">{t("loadingAria")}</p>
+        <HomeEmptyLine text={t("loadingAria")} busy />
       ) : (
         // When not even one row fits, the "+n" is hidden too (it would be
         // cut): the title still links to the calendar.
@@ -183,7 +181,7 @@ export function HomeUpcomingEventsWidget({ editing }: HomeWidgetProps) {
             items={rows}
             keyOf={(r) => r.id}
             renderItem={renderRow}
-            empty={<p className="py-[0.25em] home-body text-muted-foreground">{t("emptyState")}</p>}
+            empty={<HomeEmptyLine text={t("emptyState")} />}
             moreLabel={moreLabel}
             renderMore={renderMore}
           />

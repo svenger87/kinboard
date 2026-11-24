@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, type ReactNode } from "react";
-import { BookOpen, Clock, GraduationCap, PartyPopper, type LucideIcon } from "lucide-react";
+import { Clock, GraduationCap } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useHomeDataContext } from "@/components/layouts/home-data-context";
 import {
@@ -15,7 +15,7 @@ import {
 import { useTimeFormat } from "@/hooks/use-time-format";
 import { personText, personTint } from "@/lib/person-color";
 import type { HomeWidgetProps } from "./shared";
-import { HomeCard, HomeCardHeader, HomeSetUp } from "./frame";
+import { HomeCard, HomeCardHeader, HomeEmptyLine, HomeSetUp } from "./frame";
 import { MoreLink, personIdOf, TOUCH, useShrinkStep } from "./rest-shared";
 
 type Detail = "full" | "medium" | "compact";
@@ -35,8 +35,9 @@ interface Step {
  * one it is today's single card, the first child's, with a switcher between
  * the children while the box has room for it. The day itself is the card's
  * (useScheduleDay): the lesson now, the next one, the day's list, or why
- * there is no school. As the box shrinks it drops the switcher, then detail,
- * then lessons (with "+n" to the schedule page), then the heading.
+ * there is no school, as the shared empty line. As the box shrinks it drops
+ * the switcher, then detail, then lessons (with "+n" to the schedule page),
+ * and only at the very last the title row.
  */
 export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
   const t = useTranslations("scheduleWidget");
@@ -87,7 +88,11 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
   const step = steps[Math.min(index, steps.length - 1)];
 
   if (loading) {
-    return <HomeCard ref={ref} testId="home-schedule" className="animate-pulse"><span /></HomeCard>;
+    return (
+      <HomeCard ref={ref} testId="home-schedule" icon={GraduationCap} title={t("title")} href="/schedule" openLabel={t("viewAllAria")} bodyClassName="animate-pulse">
+        <span />
+      </HomeCard>
+    );
   }
   if (!personId) {
     return (
@@ -130,11 +135,10 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
     </div>
   );
 
-  const message = (Icon: LucideIcon, text: string, sub?: string, attrs?: Record<string, string>) => (
-    <div className="flex flex-1 flex-col items-center justify-center gap-[0.2em] text-center" {...attrs}>
-      {step.detail !== "compact" && <Icon className="size-[1.6em] text-primary/60" strokeWidth={1.75} aria-hidden="true" />}
-      <p className="line-clamp-2 break-words font-medium">{text}</p>
-      {sub && step.detail === "full" && <p className="home-meta text-muted-foreground">{sub}</p>}
+  // A day without lessons left: the shared empty line, as every Home box says it has nothing to show.
+  const message = (text: string, sub?: string, attrs?: Record<string, string>) => (
+    <div className="flex flex-col" {...attrs}>
+      <HomeEmptyLine text={text} sub={step.detail === "full" ? sub : undefined} />
     </div>
   );
 
@@ -199,11 +203,11 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
 
   let body: ReactNode;
   if (dayOff?.reason === "holiday") {
-    body = message(PartyPopper, dayOff.holiday || t("noSchoolToday"), dayOff.holiday ? t("noSchoolToday") : undefined, { "data-day-off": dayOff.date });
+    body = message(dayOff.holiday || t("noSchoolToday"), dayOff.holiday ? t("noSchoolToday") : undefined, { "data-day-off": dayOff.date });
   } else if (isWeekend) {
-    body = message(PartyPopper, t("weekend"));
+    body = message(t("weekend"));
   } else if (noScheduleToday) {
-    body = message(GraduationCap, t("noScheduleToday"));
+    body = message(t("noScheduleToday"));
   } else if (asList) {
     const shown = todaySchedule.slice(0, step.rows || 1);
     body = (
@@ -213,7 +217,7 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
       </div>
     );
   } else if (schoolOver) {
-    body = message(PartyPopper, t("schoolOver"));
+    body = message(t("schoolOver"));
   } else if (currentSlot) {
     body = (
       <div className="flex flex-col gap-[0.4em]" aria-live="polite" aria-atomic="true">
@@ -249,7 +253,7 @@ export function ScheduleHomeWidget({ item, box }: HomeWidgetProps) {
       </div>
     );
   } else {
-    body = message(BookOpen, t("noLessonsToday"));
+    body = message(t("noLessonsToday"));
   }
 
   return (

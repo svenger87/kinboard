@@ -22,8 +22,8 @@ interface Step {
  * The timers in a box (RFC-022 §3.1, fixed): each running, paused or
  * finished timer with its pause and stop buttons, then a row of presets to
  * start one. The buttons stay 48px at every text size (§3.3); a box too
- * small for them shows fewer -- the heading goes first, then timers beyond
- * the first (counted in "+n"), then the presets while a timer runs. A preset
+ * small for them shows fewer -- timers beyond the first (counted in "+n"),
+ * then the presets while a timer runs, and only then the title row. A preset
  * row shows as many presets as fit on one line. The logic is the card's
  * (useTimerControls), its one clock ticking only while something counts.
  */
@@ -36,10 +36,11 @@ export function TimersHomeWidget({ box }: HomeWidgetProps) {
   const steps = useMemo<Step[]>(() => {
     const out: Step[] = [
       { header: true, timers: count, more: true, presets: true },
-      { header: false, timers: count, more: true, presets: true },
     ];
-    for (let k = count - 1; k >= 1; k--) out.push({ header: false, timers: k, more: true, presets: true });
+    for (let k = count - 1; k >= 1; k--) out.push({ header: true, timers: k, more: true, presets: true });
     if (count > 0) {
+      out.push({ header: true, timers: 1, more: true, presets: false });
+      // The title row only now, the screen's size in every box (frame.tsx): a box of one row holds a timer, not both.
       out.push({ header: false, timers: 1, more: true, presets: false });
       // The first timer alone, with its buttons: what a box of one row is for.
       out.push({ header: false, timers: 1, more: false, presets: false });

@@ -1,46 +1,21 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import Link from "next/link";
+import { useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { CloudOff, CloudSun } from "lucide-react";
+import { CloudSun } from "lucide-react";
 import { useWeather, useWeatherForecast } from "@/hooks";
 import { useFitToBox } from "@/hooks/use-fit-to-box";
 import { WeatherModal } from "@/components/widgets/weather-modal";
 import { weatherIcon } from "@/components/widgets/weather";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { HOME_TARGET_H } from "./frame";
-import { useBoxFontSize } from "./frame";
+import { HomeCard, HomeEmptyLine, useBoxFontSize, useElementSize } from "./frame";
 import type { HomeWidgetProps } from "./shared";
-import { HomeCard } from "./frame";
 
 /** A forecast day's width and the row's height, in em of the box's text size. */
 const DAY_EM = 3.4;
 const ROW_EM = 4.2;
 /** The value needs at least this much height (em) left above the forecast row. */
 const VALUE_MIN_EM = 2.6;
-
-/** The size of an element's content box, followed as it resizes. */
-function useElementSize(ref: RefObject<HTMLElement | null>, present: boolean) {
-  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) {
-      setSize(null);
-      return;
-    }
-    const measure = () => {
-      const width = el.clientWidth;
-      const height = el.clientHeight;
-      setSize((prev) => (prev && prev.width === width && prev.height === height ? prev : { width, height }));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ref, present]);
-  return size;
-}
 
 /**
  * The weather in a box (RFC-022 §3.1, value + fixed): the weather now --
@@ -78,28 +53,12 @@ export function HomeWeatherWidget({ box, editing }: HomeWidgetProps) {
   // for the location and units and is pending, not loading, until then; and
   // a failed refresh keeps the last reading rather than showing the error.
   if (!weather && isPending) {
-    content = <p className="home-body text-muted-foreground" aria-busy="true">{t("loadingAria")}</p>;
+    content = <HomeEmptyLine text={t("loadingAria")} busy />;
   } else if (!weather && !error) {
     // The server has no weather key: say so, with the way to set it up.
-    content = (
-      <div className="flex size-full items-center justify-center">
-        <Link
-          href="/settings/weather"
-          title={t("notConfiguredTitle")}
-          className={`${HOME_TARGET_H} inline-flex max-w-full items-center gap-[0.4em] rounded-[0.5em] px-[0.6em] home-meta font-medium text-primary hover:bg-accent/50`}
-        >
-          <CloudOff className="size-[1.2em] shrink-0" strokeWidth={1.75} aria-hidden="true" />
-          <span className="truncate">{t("notConfiguredAction")}</span>
-        </Link>
-      </div>
-    );
+    content = <HomeEmptyLine text={t("notConfiguredAction")} href="/settings/weather" />;
   } else if (!weather) {
-    content = (
-      <div className="flex size-full items-center justify-center gap-[0.4em] text-center">
-        <CloudOff className="size-[1.2em] shrink-0 text-destructive" strokeWidth={1.75} aria-hidden="true" />
-        <p className="truncate home-body text-muted-foreground">{t("errorTitle")}</p>
-      </div>
-    );
+    content = <HomeEmptyLine text={t("errorTitle")} />;
   }
 
   const Icon = weather ? weatherIcon(weather.conditionMain ?? weather.condition, weather.conditionIcon) : CloudSun;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { PiggyBank } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -16,7 +16,7 @@ import { daysUntil } from "@/lib/pocket-money/allowance";
 import { formatCents } from "@/lib/pocket-money/format";
 import { pocketMoneyChildren } from "@/lib/pocket-money/widget-children";
 import type { HomeWidgetProps } from "./shared";
-import { HomeSetUp, homePadPx, HOME_CARD_SURFACE } from "./frame";
+import { HomeCard, HomeSetUp, HOME_CARD_CORNER, useElementSize } from "./frame";
 import { personIdOf, useEm } from "./rest-shared";
 
 /** The creature beside the figure, in em of the fitted text, so it grows with it. */
@@ -109,15 +109,27 @@ export function PocketMoneyHomeWidget({ item, box }: HomeWidgetProps) {
   const rootRef = useRef<HTMLAnchorElement>(null);
   const em = useEm(rootRef);
   const ref = useRef<HTMLDivElement>(null);
-  const pad = homePadPx(em);
-  // Inside the card's padding and its 1px border.
-  const inner = { width: box.width - 2 * pad - 2, height: box.height - 2 * pad - 2 };
+  // The room under the title row, measured: the figures grow into that, never into the title row.
+  const roomRef = useRef<HTMLDivElement>(null);
+  // `present` follows what is drawn: the room mounts only once there is a child to show.
+  const inner = useElementSize(roomRef, enabled && children.length > 0) ?? { width: 0, height: 0 };
   const wide = children.length > 1 && inner.width > inner.height * 2.5;
   const key = children.map((c) => `${c.personId}:${c.account?.balance_cents ?? ""}`).join();
   // The name and the goal or allowance under each figure only where each
   // child has four lines of the box's text: a small box is the figure alone.
   const lines = (wide ? inner.height : inner.height / Math.max(1, children.length)) >= 4 * em;
-  const size = useFitToBox(ref, valueBox(inner, item.text), [key, wide, lines]);
+  const size = useFitToBox(ref, valueBox(inner, item.text), [key, wide, lines, box.width, box.height]);
+  // The title row goes when the figures cannot fit under it even at their smallest
+  // (a small box, several children): the figures are the widget. Checked again when the box or the money changes.
+  const [bare, setBare] = useState(false);
+  useLayoutEffect(() => setBare(false), [box.width, box.height, key]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    const content = ref.current;
+    const room = roomRef.current;
+    if (bare || size === null || !content || !room) return;
+    if (content.offsetHeight > room.clientHeight + 1 || content.offsetWidth > room.clientWidth + 1) setBare(true);
+  });
 
   if (!enabled) {
     return <HomeSetUp icon={PiggyBank} title={t("pocketMoneyName")} description={t("pocketMoneyDisabled")} href="/settings/plugins" testId="home-pocket-money" />;
@@ -129,24 +141,29 @@ export function PocketMoneyHomeWidget({ item, box }: HomeWidgetProps) {
 
   const href = children.length === 1 ? childHref(children[0]) : children.some((c) => c.account) ? "/pocket-money" : "/rewards";
   const nameOf = (id: string) => people?.find((p) => p.id === id)?.name ?? "";
+  // The card's title: the child's name for a widget of one child, as the per-child card heads it.
+  const title = pinned ? nameOf(children[0].personId) || t("pocketMoneyName") : t("pocketMoneyName");
   return (
     <Link
       ref={rootRef}
       href={href}
-      className={`${HOME_CARD_SURFACE} flex size-full items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`}
+      className={`block size-full ${HOME_CARD_CORNER} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`}
       data-testid="home-pocket-money"
-      data-fills-box
     >
-      <div
-        ref={ref}
-        className={`flex w-fit shrink-0 ${wide ? "flex-row gap-[1.2em]" : "flex-col gap-[0.6em]"}`}
-        style={size !== null ? { fontSize: size } : { visibility: "hidden" }}
-        data-fitted-content
-      >
-        {children.map((c) => (
-          <ChildValue key={c.personId} child={c} name={nameOf(c.personId)} fontPx={size ?? em} lines={lines && (size ?? em) >= em} />
-        ))}
-      </div>
+      <HomeCard icon={PiggyBank} title={title} chevron headless={bare}>
+        <div ref={roomRef} className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+          <div
+            ref={ref}
+            className={`flex w-fit shrink-0 ${wide ? "flex-row gap-[1.2em]" : "flex-col gap-[0.6em]"}`}
+            style={size !== null ? { fontSize: size } : { visibility: "hidden" }}
+            data-fitted-content
+          >
+            {children.map((c) => (
+              <ChildValue key={c.personId} child={c} name={nameOf(c.personId)} fontPx={size ?? em} lines={lines && (size ?? em) >= em} />
+            ))}
+          </div>
+        </div>
+      </HomeCard>
     </Link>
   );
 }
