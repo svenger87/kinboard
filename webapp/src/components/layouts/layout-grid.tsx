@@ -2,22 +2,22 @@
 
 import type { ReactNode } from "react";
 import { boxRect, textPx, type Grid } from "@/lib/layouts/grid";
-import type { LayoutItem } from "@/lib/layouts/types";
+import type { HomeLayoutItem, LayoutItem } from "@/lib/layouts/types";
 
 /**
  * A layout drawn on its grid: one absolutely positioned box per item, at
  * whole pixels (the grid's offsets can be half pixels at odd widths), clipped,
  * with the item's text size as the box's font size. `render` gets the rounded
- * box size.
+ * box size. Either surface's items: `render` gets them with their own type.
  */
-export function LayoutGrid({
+export function LayoutGrid<I extends LayoutItem | HomeLayoutItem>({
   grid,
   items,
   render,
 }: {
   grid: Grid;
-  items: LayoutItem[];
-  render: (item: LayoutItem, box: { width: number; height: number }) => ReactNode;
+  items: I[];
+  render: (item: I, box: { width: number; height: number }) => ReactNode;
 }) {
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>

@@ -4,14 +4,15 @@ import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } fr
 import { useTranslations } from "next-intl";
 import { useActiveLayout } from "@/hooks/use-active-layout";
 import { useHomeData } from "@/hooks/use-home-data";
-import { useKeyboardShortcuts, useSwipeNavigation } from "@/hooks";
+import { useKeyboardShortcuts, useSwipeNavigation, useThemeSettings } from "@/hooks";
 import { useStartRedirect } from "@/hooks/use-device-owner";
 import { homeDataNeeds } from "@/lib/home-data";
 import type { Grid } from "@/lib/layouts/grid";
-import type { HomeLayoutItem, LayoutItem } from "@/lib/layouts/types";
+import type { HomeLayoutItem } from "@/lib/layouts/types";
 import { WeatherEffects } from "@/components/weather-effects";
 import { CreaturesOnHome } from "@/components/creatures-on-home";
 import { FloatingLightsFab } from "@/components/floating-lights-fab";
+import { ClockProvider } from "@/components/widgets/clock";
 import { LayoutGrid } from "./layout-grid";
 import { HomeDataProvider } from "./home-data-context";
 import { HOME_WIDGET_COMPONENTS, missingHomeWidgets } from "./home-widgets";
@@ -147,6 +148,7 @@ export function DesignedHome({
   placeholders?: boolean;
 }) {
   const t = useTranslations("dashboard");
+  const { showSeconds } = useThemeSettings();
   useKeyboardShortcuts();
   useSwipeNavigation();
   const widgetKeys = useMemo(() => items.map((i) => i.widget), [items]);
@@ -174,7 +176,11 @@ export function DesignedHome({
       <WeatherEffects />
       <CreaturesOnHome />
       <h1 className="sr-only">{t("ariaWidgets")}</h1>
+      {/* One data source and one clock for every box: the clock, the date,
+          the greeting and the today strip share its tick instead of each
+          running a timer of its own. */}
       <HomeDataProvider value={data}>
+        <ClockProvider showSeconds={showSeconds}>
         <section
           data-testid="designed-home-grid"
           // Not `festival-grid`: its direct children are taken for cards (the
@@ -185,15 +191,15 @@ export function DesignedHome({
         >
           <LayoutGrid
             grid={grid}
-            items={items as unknown as LayoutItem[]}
+            items={items}
             render={(item, box) => {
-              const homeItem = item as unknown as HomeLayoutItem;
-              const Widget = HOME_WIDGET_COMPONENTS[homeItem.widget];
-              if (Widget) return <Widget item={homeItem} box={box} />;
-              return placeholders ? <MissingWidget item={homeItem} /> : null;
+              const Widget = HOME_WIDGET_COMPONENTS[item.widget];
+              if (Widget) return <Widget item={item} box={box} />;
+              return placeholders ? <MissingWidget item={item} /> : null;
             }}
           />
         </section>
+        </ClockProvider>
       </HomeDataProvider>
       <HomeNoticesStrip messages={talkedTo} />
       <FloatingLightsFab />
