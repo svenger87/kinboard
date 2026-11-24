@@ -12,7 +12,7 @@ import { useMediaCommand } from "@/hooks/use-media-player-state";
 import type { Capability, MediaCommand, MediaPlayerState } from "@/plugins/media/types";
 import type { MediaPlayer } from "@/types/database";
 import type { HomeWidgetProps } from "./shared";
-import { HomeCard } from "./frame";
+import { HomeCard, HomeCardHeader, HomeEmptyLine } from "./frame";
 import { TOUCH, useShrinkStep } from "./rest-shared";
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -26,17 +26,20 @@ interface Step {
   progress: boolean;
   /** "all": power, previous, play, next, browse, mute; "main": previous, play, next; "play": play alone. */
   controls: "all" | "main" | "play";
+  /** The shared title row: it goes last, in a box too small for it and a row of play. */
+  header: boolean;
 }
 
 /** Richest first; each step drops the next least needed thing. */
 const STEPS: Step[] = [
-  { switcher: true, artwork: true, lines: 3, progress: true, controls: "all" },
-  { switcher: false, artwork: true, lines: 3, progress: true, controls: "all" },
-  { switcher: false, artwork: true, lines: 2, progress: false, controls: "all" },
-  { switcher: false, artwork: true, lines: 2, progress: false, controls: "main" },
-  { switcher: false, artwork: false, lines: 2, progress: false, controls: "main" },
-  { switcher: false, artwork: false, lines: 1, progress: false, controls: "main" },
-  { switcher: false, artwork: false, lines: 1, progress: false, controls: "play" },
+  { switcher: true, artwork: true, lines: 3, progress: true, controls: "all", header: true },
+  { switcher: false, artwork: true, lines: 3, progress: true, controls: "all", header: true },
+  { switcher: false, artwork: true, lines: 2, progress: false, controls: "all", header: true },
+  { switcher: false, artwork: true, lines: 2, progress: false, controls: "main", header: true },
+  { switcher: false, artwork: false, lines: 2, progress: false, controls: "main", header: true },
+  { switcher: false, artwork: false, lines: 1, progress: false, controls: "main", header: true },
+  { switcher: false, artwork: false, lines: 1, progress: false, controls: "play", header: true },
+  { switcher: false, artwork: false, lines: 1, progress: false, controls: "play", header: false },
 ];
 
 function Player({
@@ -111,6 +114,7 @@ function Player({
 
   return (
     <HomeCard ref={ref} testId="home-media" step={index} className={`gap-[0.4em] ${isUnavailable ? "opacity-50" : ""}`}>
+      {step.header && <HomeCardHeader icon={Music} title={t("title")} />}
       {step.switcher && playing.length > 1 && (
         <div className="flex shrink-0 gap-[0.3em]">
           {playing.map((id) => {
@@ -207,10 +211,8 @@ export function MediaHomeWidget({ box, editing }: HomeWidgetProps) {
   if (!family || !player || !activeId || !stateOf) {
     if (!editing) return null;
     return (
-      <HomeCard testId="home-media" className="items-center justify-center text-center">
-        <p className="home-body text-muted-foreground">
-          {t("title")} · {t("nothingPlaying")}
-        </p>
+      <HomeCard testId="home-media" icon={Music} title={t("title")}>
+        <HomeEmptyLine text={t("nothingPlaying")} />
       </HomeCard>
     );
   }

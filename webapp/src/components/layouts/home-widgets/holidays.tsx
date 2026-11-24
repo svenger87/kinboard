@@ -1,13 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { CalendarHeart, TreePalm } from "lucide-react";
 import { useHolidayDay, useNextHolidays } from "@/components/widgets/holiday-widget";
 import { daysUntilHoliday } from "@/lib/holidays";
 import { holidayLabel } from "@/lib/holidays/label";
-import { HOME_ROW, HomeEmptyLine, HomeList, TARGET_H } from "./list-shared";
+import { HOME_ROW, HomeEmptyLine, HomeList } from "./list-shared";
 import type { HomeWidgetProps } from "./shared";
 import { HomeCard } from "./frame";
 
@@ -74,9 +73,7 @@ export function HolidaysHomeWidget({ editing }: HomeWidgetProps) {
   // nothing about it, and must not ask a family that chose one to choose.
   const noRegion = region === null && !isLoading && !isError;
   const empty = noRegion ? (
-    <Link href="/settings/holidays" className={`${TARGET_H} flex items-center home-body text-muted-foreground hover:text-foreground`}>
-      {t("noRegion")}
-    </Link>
+    <HomeEmptyLine text={t("noRegion")} href="/settings/holidays" />
   ) : (
     <HomeEmptyLine text={t("emptyState")} />
   );

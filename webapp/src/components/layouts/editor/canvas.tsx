@@ -410,6 +410,8 @@ export function EditorCanvas({
                     style={{
                       fontSize: fontSize(item),
                       ["--kb-em" as string]: `${fontSize(item)}px`,
+                      // Home's title rows are text M for the screen in every box (home-widgets/frame.tsx).
+                      ["--kb-head-em" as string]: `${surface === "home" ? homeTextPx("M", grid.width, grid.height) : fontSize(item)}px`,
                       ["--kb-handle" as string]: `${handle / zoom}px`,
                       // The corner's mark: 3px on screen, thinner on a small corner.
                       ["--kb-handle-line" as string]: `${Math.min(3, handle / 7) / zoom}px`,

@@ -527,6 +527,14 @@ body[data-font-style-cjk="zcool-kuaile"] {
   .home-value { font-size: calc(var(--kb-em, 1em) * 1.33); }
   .home-display { font-size: calc(var(--kb-em, 1em) * 2); }
   .home-icon { width: calc(var(--kb-em, 1em) * 1.11); height: calc(var(--kb-em, 1em) * 1.11); flex-shrink: 0; }
+  /* A box's title row, its padding and its corner are the screen's, not the
+     box's: text M for the screen, which LayoutGrid hands down as
+     --kb-head-em, so a box at S and one at L beside it have the same title
+     row on the same line. Inside `home-head` the roles read it as their em.
+     Outside a layout (--kb-head-em unset) both fall back to the box's own. */
+  .home-head { --kb-em: var(--kb-head-em); font-size: var(--kb-head-em); }
+  .home-card-pad { padding: calc(var(--kb-head-em, 1em) * 0.89); }
+  .home-card-corner { border-radius: calc(var(--kb-head-em, 1em) * 0.89); }
 
   /* Kiosk density step (audit KB-56).
      ---------------------------------

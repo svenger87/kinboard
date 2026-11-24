@@ -9,21 +9,22 @@ import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useHomeDataContext } from "@/components/layouts/home-data-context";
 import { useWeekOverview } from "@/components/widgets/week-overview-widget";
 import type { HomeWidgetProps } from "./shared";
-import { HomeCard, HomeCardHeader, homePadPx } from "./frame";
+import { HomeCard, HomeCardHeader, homePadPx, useHeadEm } from "./frame";
 import { useEm, useShrinkStep } from "./rest-shared";
 
 /**
  * The arrangements, richest first: everything; without the legend; without
- * the holidays' names; without the heading; without the dots; the dates
- * alone. Each step drops one line, so the seven days stay as large as the
- * box allows.
+ * the holidays' names; without the dots; without the weekday names; and
+ * only at the very last without the title row, which is the screen's size
+ * in every box (frame.tsx). Each step drops one line, so the seven days
+ * stay as large as the box allows.
  */
 const STEPS = [
   { header: true, holidays: true, legend: true, name: true, dots: true },
   { header: true, holidays: true, legend: false, name: true, dots: true },
   { header: true, holidays: false, legend: false, name: true, dots: true },
-  { header: false, holidays: false, legend: false, name: true, dots: true },
-  { header: false, holidays: false, legend: false, name: true, dots: false },
+  { header: true, holidays: false, legend: false, name: true, dots: false },
+  { header: true, holidays: false, legend: false, name: false, dots: false },
   { header: false, holidays: false, legend: false, name: false, dots: false },
 ] as const;
 
@@ -57,12 +58,16 @@ export function WeekOverviewHomeWidget({ box }: HomeWidgetProps) {
 
   // Each column's width, and the date's circle: as large as the column and
   // the box allow, never smaller than the card's.
-  const pad = homePadPx(em);
+  const pad = homePadPx(useHeadEm(ref));
   const colW = (box.width - 2 * pad - 6 * GAP_EM * em) / 7;
   const circle = Math.max(16, Math.floor(Math.min(colW - 4, Math.max(1.9 * em, Math.min(colW * 0.7, box.height * 0.2)))));
 
   if (isLoading) {
-    return <HomeCard ref={ref} testId="home-week-overview" className="animate-pulse"><span /></HomeCard>;
+    return (
+      <HomeCard ref={ref} testId="home-week-overview" icon={CalendarDays} title={t("title")} href="/calendar" bodyClassName="animate-pulse">
+        <span />
+      </HomeCard>
+    );
   }
 
   return (

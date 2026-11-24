@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useFitToBox } from "@/hooks/use-fit-to-box";
 import type { HomeLayoutItem } from "@/lib/layouts/types";
-import { HOME_TEXT_FLOOR_EM, homePadPx } from "./frame";
+import { HOME_TEXT_FLOOR_EM } from "./frame";
 
 /**
  * Helpers for the "rest" group of Home widgets in a box (RFC-022 §3.1): the
@@ -46,17 +46,21 @@ export function useEm(ref: RefObject<HTMLElement | null>): number {
  * The last resort of a fixed widget whose barest arrangement still does not
  * fit (a figure at XL in a minimum box): its content drawn smaller, never
  * larger than the box's text size. Off (`active` false) it changes nothing,
- * so the arrangements are measured at the box's own size first.
+ * so the arrangements are measured at the box's own size first. It fits the
+ * room its parent leaves it (the card's body, under the title row), so the
+ * title row is never part of what shrinks.
  */
 export function CapFit({ box, active, deps, children }: { box: { width: number; height: number }; active: boolean; deps: unknown[]; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [cap, setCap] = useState<number | null>(null);
+  const [room, setRoom] = useState({ width: 0, height: 0 });
   useLayoutEffect(() => {
     const el = ref.current?.parentElement;
-    if (el) setCap(parseFloat(getComputedStyle(el).fontSize) || null);
-  }, [box.width, box.height]);
-  const pad = homePadPx(cap ?? 16);
-  const fit = useFitToBox(ref, { width: box.width - 2 * pad - 2, height: box.height - 2 * pad - 2 }, [active, cap, ...deps]);
+    if (!el) return;
+    setCap(parseFloat(getComputedStyle(el).fontSize) || null);
+    setRoom((prev) => (prev.width === el.clientWidth && prev.height === el.clientHeight ? prev : { width: el.clientWidth, height: el.clientHeight }));
+  }, [box.width, box.height, active]);
+  const fit = useFitToBox(ref, { width: room.width - 1, height: room.height - 1 }, [active, cap, ...deps]);
   const size = active && fit !== null && cap !== null ? Math.min(fit, cap) : undefined;
   // The text roles read --kb-em, so it shrinks with the content; but never
   // below the meta role's size at the box's: then the content is left out.

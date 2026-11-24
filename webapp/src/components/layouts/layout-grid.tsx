@@ -30,6 +30,8 @@ export function LayoutGrid<I extends LayoutItem | HomeLayoutItem>({
         const r = boxRect(item, grid);
         const box = { width: Math.round(r.width), height: Math.round(r.height) };
         const font = fontPx(item.text, grid.width, grid.height);
+        // Home's title rows are text M for the screen in every box (home-widgets/frame.tsx).
+        const head = surface === "home" ? homeTextPx("M", grid.width, grid.height) : font;
         return (
           <div
             key={item.id}
@@ -45,6 +47,7 @@ export function LayoutGrid<I extends LayoutItem | HomeLayoutItem>({
               fontSize: font,
               // Home's text roles (globals.css) read the box's size from here, in px, so nesting never compounds.
               ["--kb-em" as string]: `${font}px`,
+              ["--kb-head-em" as string]: `${head}px`,
             }}
           >
             {render(item, box)}

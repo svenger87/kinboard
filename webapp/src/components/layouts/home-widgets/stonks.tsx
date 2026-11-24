@@ -9,18 +9,18 @@ import { useQuotes } from "@/hooks/use-stonks";
 import { useIsPluginEnabled } from "@/hooks/use-enabled-plugins";
 import { ChangeIcon, changeColor, formatPercent, formatPrice } from "@/plugins/stonks/drivers/yahoo-finance";
 import type { HomeWidgetProps } from "./shared";
-import { HomeCard, HomeSetUp, HOME_CARD_CORNER } from "./frame";
+import { HomeCard, HomeEmptyLine, HomeSetUp, HOME_CARD_CORNER } from "./frame";
 import { CapFit, useShrinkStep } from "./rest-shared";
 
 /** As the card: one ticker at a time, the next every eight seconds. */
 const ROTATE_INTERVAL_MS = 8000;
 
-/** Richest first: name, price and change; the price and change; the price alone. */
+/** Richest first: price, change and its arrow; the price and change; the price alone. The ticker's name is the title. */
 const STEPS = ["full", "figures", "price"] as const;
 
 /**
- * The stonks card in a box (RFC-022 §3.1, fixed): a ticker's name, its
- * price large and the day's change, each ticker in turn as on the card,
+ * The stonks card in a box (RFC-022 §3.1, fixed): the shared title row
+ * with a ticker's name (as the card heads it), its price large and the day's change, each ticker in turn as on the card,
  * from the same quote query per symbol. The whole box opens /stonks.
  */
 export function StonksHomeWidget({ box }: HomeWidgetProps) {
@@ -55,23 +55,17 @@ export function StonksHomeWidget({ box }: HomeWidgetProps) {
   const name = tk.nickname ?? tk.symbol;
   return (
     <Link href="/stonks" className={`block size-full ${HOME_CARD_CORNER} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`} data-testid="home-stonks">
-      <HomeCard ref={ref} step={step} className={`justify-center ${isPending ? "animate-pulse" : ""}`}>
+      <HomeCard ref={ref} step={step} icon={LineChart} title={name} chevron bodyClassName={`justify-end ${isPending ? "animate-pulse" : ""}`}>
         {!quote ? (
-          <div className="min-w-0">
-            <p className="truncate home-body font-medium">{name}</p>
-            {!isPending && <p className="home-meta text-muted-foreground">{tYahoo("quoteUnavailable")}</p>}
-          </div>
+          !isPending && <HomeEmptyLine text={tYahoo("quoteUnavailable")} />
         ) : (
           <CapFit box={box} active={step === STEPS.length - 1} deps={[quote.price]}>
           <div className="flex min-w-0 flex-col gap-[0.15em]">
-            {s === "full" && (
-              <div className="flex items-center justify-between gap-[0.4em]">
-                <p className="min-w-0 truncate home-body font-medium">{name}</p>
-                <ChangeIcon delta={quote.change} className={`size-[1em] shrink-0 ${changeColor(quote.change)}`} />
-              </div>
-            )}
             <div className="flex flex-col">
-              <p className="whitespace-nowrap home-display font-bold leading-tight tabular-nums">{formatPrice(quote.price, quote.currency)}</p>
+              <p className="flex items-center gap-[0.2em] whitespace-nowrap home-display font-bold leading-tight tabular-nums">
+                {formatPrice(quote.price, quote.currency)}
+                {s === "full" && <ChangeIcon delta={quote.change} className={`size-[0.5em] shrink-0 ${changeColor(quote.change)}`} />}
+              </p>
               {s !== "price" && (
                 <p className={`whitespace-nowrap home-body tabular-nums ${changeColor(quote.change)}`}>{formatPercent(quote.changePercent)}</p>
               )}

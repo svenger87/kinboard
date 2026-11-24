@@ -46,19 +46,19 @@ function useVehicleSummary(vehicle: Vehicle | undefined) {
   return { haConnected, configured: entityIds.length > 0, readings };
 }
 
-/** Richest first: the car's picture; its name; the range or charging power; the charge alone. */
+/** Richest first: the car's picture; the range or charging power; the charge alone. Its name is the title. */
 const STEPS = [
-  { image: true, name: true, side: true },
-  { image: false, name: true, side: true },
-  { image: false, name: false, side: true },
-  { image: false, name: false, side: false },
+  { image: true, side: true },
+  { image: false, side: true },
+  { image: false, side: false },
 ] as const;
 
 /**
- * The vehicles card in a box (RFC-022 §3.1, fixed): the charge large, then
- * the range (or the charging power), the car's name and its picture while
- * the box has room for them. The whole box opens /vehicles, as the card
- * does, so it is one target of any size.
+ * The vehicles card in a box (RFC-022 §3.1, fixed): the shared title row
+ * with the car's name (the name the card shows, one car at a time), then
+ * the charge large, the range (or the charging power) and its picture
+ * while the box has room for them. The whole box opens /vehicles, as the
+ * card does, so it is one target of any size.
  */
 export function VehiclesHomeWidget({ box }: HomeWidgetProps) {
   const t = useTranslations("dashboard.pluginDiscover");
@@ -103,7 +103,7 @@ export function VehiclesHomeWidget({ box }: HomeWidgetProps) {
 
   return (
     <Link href="/vehicles" className={`block size-full ${HOME_CARD_CORNER} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50`} data-testid="home-vehicles">
-      <HomeCard ref={ref} step={step} className="justify-center gap-[0.4em]">
+      <HomeCard ref={ref} step={step} icon={Car} title={v.nickname} chevron bodyClassName="justify-end gap-[0.4em]">
         {s.image && (
           <div className="flex min-h-[3em] flex-1 items-center justify-center">
             {image ? (
@@ -120,7 +120,6 @@ export function VehiclesHomeWidget({ box }: HomeWidgetProps) {
               {r.battery ? Math.round(r.battery.value) : "—"}
               <span className="home-body text-muted-foreground">%</span>
             </p>
-            {s.name && <p className="truncate home-meta text-muted-foreground">{v.nickname}</p>}
           </div>
           {s.side && (
             <div className="shrink-0 text-right">

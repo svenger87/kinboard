@@ -95,10 +95,8 @@ export function HomeList<T>({
 /** Room between entries, in px (ListBox's gap). A gap after the last entry would cost a 48px row its place in a small box. */
 export const HOME_ROW_GAP = 6;
 
-/** A list with nothing in it. */
-export function HomeEmptyLine({ text }: { text: string }) {
-  return <p className="py-[0.25em] home-body text-muted-foreground">{text}</p>;
-}
+/** A list with nothing in it: the shared empty line (frame.tsx). */
+export { HomeEmptyLine } from "./frame";
 
 /** An entry's card, on the app's theme. */
 export const HOME_ROW = "flex items-center gap-[0.5em] rounded-[0.6em] border border-border bg-card px-[0.6em] py-[0.3em] elev-sm";

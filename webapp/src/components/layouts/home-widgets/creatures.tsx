@@ -15,15 +15,15 @@ import { rewardsHref } from "@/lib/device-owner";
 import { formatCents } from "@/lib/pocket-money/format";
 import type { Creature, PocketMoneyAccount, Person } from "@/types/database";
 import type { HomeWidgetProps } from "./shared";
-import { HomeCard, HomeCardHeader, HomeSetUp, homePadPx } from "./frame";
+import { HomeCard, HomeCardHeader, HomeSetUp, homePadPx, useHeadEm } from "./frame";
 import { useEm, useShrinkStep } from "./rest-shared";
 
-/** Richest first: the heading, then under each creature its name, stage and balance, one line fewer per step. */
+/** Richest first: under each creature its name, stage and balance, one line fewer per step; the title row only at the very last. */
 const STEPS = [
   { header: true, lines: 3 },
-  { header: false, lines: 3 },
-  { header: false, lines: 2 },
-  { header: false, lines: 1 },
+  { header: true, lines: 2 },
+  { header: true, lines: 1 },
+  { header: true, lines: 0 },
   { header: false, lines: 0 },
 ] as const;
 
@@ -117,9 +117,9 @@ function Cell({
 
 /**
  * Every child's creature in a box (RFC-022 §3.1, fixed): as many columns as
- * make them largest, each opening the child's Rewards as on the card. The
- * heading goes first as the box shrinks, then the lines under each creature
- * (stage, balance, name), so the creatures keep the room. Static, like the
+ * make them largest, each opening the child's Rewards as on the card. As
+ * the box shrinks the lines under each creature go (stage, balance, name),
+ * and the title row only at the very last, so it matches its neighbours. Static, like the
  * card. People come from Home's shared data.
  */
 export function CreaturesHomeWidget({ box }: HomeWidgetProps) {
@@ -132,7 +132,7 @@ export function CreaturesHomeWidget({ box }: HomeWidgetProps) {
 
   const ref = useRef<HTMLDivElement>(null);
   const em = useEm(ref);
-  const pad = homePadPx(em);
+  const pad = homePadPx(useHeadEm(ref));
   const gap = GAP_EM * em;
   // A pixel short of the room, so rounding never tips a cell over the edge.
   const gridFor = (st: (typeof STEPS)[number]) =>
@@ -153,7 +153,11 @@ export function CreaturesHomeWidget({ box }: HomeWidgetProps) {
   const s = STEPS[step];
 
   if ((peopleLoading || creaturesPending) && !isError) {
-    return <HomeCard ref={ref} testId="home-creatures" className="animate-pulse"><span /></HomeCard>;
+    return (
+      <HomeCard ref={ref} testId="home-creatures" icon={PawPrint} title={t("title")} href="/rewards" bodyClassName="animate-pulse">
+        <span />
+      </HomeCard>
+    );
   }
   if (children.length === 0) {
     return <HomeSetUp icon={PawPrint} title={t("title")} description={t("empty")} href="/settings/creatures" testId="home-creatures" />;
