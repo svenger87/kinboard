@@ -45,7 +45,7 @@ export function HomeNoticesStrip({ messages }: { messages: boolean }) {
     <div
       data-testid="home-notices-strip"
       data-shown={shown ? "true" : "false"}
-      className="absolute inset-x-0 top-0 z-20 max-h-[50%] overflow-y-auto transition-transform duration-300 ease-out motion-reduce:transition-none"
+      className="absolute inset-x-0 top-0 z-20 max-h-[50%] overflow-y-auto transition-transform duration-300 ease-out reduce-motion:transition-none"
       style={{ transform: shown ? "translateY(0)" : "translateY(-100%)", pointerEvents: shown ? undefined : "none" }}
     >
       {/* The notices bring the bottom margins they have in today's column; the strip spaces them itself,
