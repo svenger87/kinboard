@@ -73,8 +73,13 @@ const home = (kind: HomeWidgetKind, w: number, h: number, box: { w: number; h: n
 
 /**
  * Home's widgets, in steps (48 across, four to a cell). Every card stays
- * usable at its minimum: a list fits its title and one 48px row, a fixed
- * widget its smallest arrangement. A card's minimum width is at most 12
+ * usable at its minimum: a fixed widget fits its smallest arrangement, and a
+ * list its title, one entry and its "+n" (two entries for tasks and
+ * shopping, which are ticked off there) at text XL on every landscape screen
+ * of the matrix -- measured by e2e/home-list-widgets-ui.spec.ts, capped at 11
+ * so today's Home still fits its one row of cards on 1920x1080. On a portrait
+ * screen a list at its minimum and at XL shows its title and count only: the
+ * box is too narrow for an entry at that size, and the title is its link. A card's minimum width is at most 12
  * steps (a quarter of the screen, a column of today's four), except the
  * week overview, which needs its seven columns (24 steps, RFC-022 §3.1).
  */
@@ -84,19 +89,19 @@ export const HOME_WIDGETS: Record<HomeWidgetKey, HomeWidgetSpec> = {
   date: home("value", 12, 2, { w: 48, h: 2 }, { clockBlock: true }),
   greeting: home("value", 12, 2, { w: 48, h: 2 }, { clockBlock: true }),
   familyMembers: home("fixed", 16, 3, { w: 48, h: 4 }, { clockBlock: true }),
-  todayStrip: home("list", 16, 2, { w: 48, h: 2 }, { clockBlock: true }),
+  todayStrip: home("list", 16, 4, { w: 48, h: 4 }, { clockBlock: true }),
   // The cards of Settings -> Widgets.
   weather: home("value+fixed", 8, 4, { w: 12, h: 8 }),
-  upcomingEvents: home("list", 12, 6, { w: 12, h: 12 }),
+  upcomingEvents: home("list", 12, 9, { w: 12, h: 12 }),
   schedule: home("fixed", 12, 8, { w: 12, h: 12 }, { perChild: true }),
-  birthday: home("list", 12, 4, { w: 12, h: 8 }),
-  holidays: home("list", 12, 4, { w: 12, h: 8 }),
+  birthday: home("list", 12, 10, { w: 12, h: 10 }),
+  holidays: home("list", 12, 10, { w: 12, h: 10 }),
   weekOverview: home("fixed", 24, 8, { w: 24, h: 12 }),
-  mealPlan: home("list", 12, 6, { w: 12, h: 12 }),
-  wasteCollection: home("list", 12, 4, { w: 12, h: 8 }),
-  notes: home("list", 12, 6, { w: 12, h: 12 }),
-  tasks: home("list", 12, 6, { w: 12, h: 12 }),
-  shopping: home("list", 12, 6, { w: 12, h: 12 }),
+  mealPlan: home("list", 12, 10, { w: 12, h: 12 }),
+  wasteCollection: home("list", 12, 11, { w: 12, h: 11 }),
+  notes: home("list", 12, 11, { w: 12, h: 12 }),
+  tasks: home("list", 12, 11, { w: 12, h: 12 }),
+  shopping: home("list", 12, 10, { w: 12, h: 12 }),
   vehicles: home("fixed", 8, 4, { w: 12, h: 8 }),
   stonks: home("fixed", 8, 4, { w: 12, h: 8 }),
   pocketMoney: home("value", 8, 4, { w: 12, h: 8 }, { perChild: true }),
@@ -104,8 +109,8 @@ export const HOME_WIDGETS: Record<HomeWidgetKey, HomeWidgetSpec> = {
   photos: home("fixed", 8, 8, { w: 12, h: 12 }),
   timers: home("fixed", 12, 6, { w: 12, h: 8 }),
   media: home("fixed", 12, 6, { w: 12, h: 8 }),
-  messages: home("list", 12, 6, { w: 12, h: 12 }),
-  countdown: home("list", 12, 4, { w: 12, h: 8 }),
+  messages: home("list", 12, 8, { w: 12, h: 12 }),
+  countdown: home("list", 12, 8, { w: 12, h: 8 }),
 };
 
 /** The catalogue of a surface. */

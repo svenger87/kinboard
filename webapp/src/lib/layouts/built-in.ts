@@ -105,8 +105,8 @@ export interface BuiltInHomeOptions {
  * height with `flex-1`.
  */
 const HOME_HEAD: Record<"portrait" | "landscape", [HomeWidgetKey, number][]> = {
-  portrait: [["clock", 8], ["date", 2], ["greeting", 2], ["familyMembers", 4], ["todayStrip", 2]],
-  landscape: [["clock", 4], ["date", 2], ["greeting", 2], ["familyMembers", 3], ["todayStrip", 2]],
+  portrait: [["clock", 8], ["date", 2], ["greeting", 2], ["familyMembers", 4], ["todayStrip", 4]],
+  landscape: [["clock", 4], ["date", 2], ["greeting", 2], ["familyMembers", 3], ["todayStrip", 4]],
 };
 
 /** Cards that span more than one column on today's Home (`sm:col-span-2`). */

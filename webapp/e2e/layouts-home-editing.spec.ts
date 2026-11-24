@@ -52,24 +52,24 @@ test("firstFreeBox drops a Home widget at Home's default box; the screensaver's 
   expect(firstFreeBox([], "clock", rows, "screensaver")).toEqual({ x: 0, y: 0, ...SAVER_WIDGETS.clock.box });
   // Next to a 36-wide box only 12 columns are free: Home's holidays (min 12) fit there, the screensaver's (min 16) go below.
   const wide = [{ x: 0, y: 0, w: 36, h: 8 }];
-  expect(firstFreeBox(wide, "holidays", rows, "home")).toEqual({ x: 36, y: 0, w: 12, h: 8 });
+  expect(firstFreeBox(wide, "holidays", rows, "home")).toEqual({ x: 36, y: 0, w: 12, h: 10 });
   expect(firstFreeBox(wide, "holidays", rows)).toEqual({ x: 0, y: 8, ...SAVER_WIDGETS.holidays.box });
   // A key the surface does not have gets no box.
   expect(firstFreeBox([], "news", rows, "home")).toBeNull();
 });
 
 test("move and resize hold Home's minimums, all or none", () => {
-  const items = [hi({ id: "week", widget: "weekOverview", w: 24, h: 8 }), hi({ id: "h", widget: "holidays", x: 24, w: 12, h: 4 })];
+  const items = [hi({ id: "week", widget: "weekOverview", w: 24, h: 8 }), hi({ id: "h", widget: "holidays", x: 24, w: 12, h: 10 })];
   expect(resizeBy(items, ["week"], -1, 0, rows, "home")).toEqual({ ok: false, reason: "below_minimum" });
   expect(resizeBy(items, ["h"], 0, -1, rows, "home")).toEqual({ ok: false, reason: "below_minimum" });
   const grown = resizeBy(items, ["h"], 4, 4, rows, "home");
-  expect(grown.ok && grown.items.find((i) => i.id === "h")).toMatchObject({ w: 16, h: 8 });
+  expect(grown.ok && grown.items.find((i) => i.id === "h")).toMatchObject({ w: 16, h: 14 });
   expect(moveBy(items, ["h"], -1, 0, rows, "home")).toEqual({ ok: false, reason: "overlap" });
   expect(moveBy(items, ["h"], 0, rows, rows, "home")).toEqual({ ok: false, reason: "out_of_bounds" });
   // The same Home box judged as a screensaver one is under the screensaver's holidays minimum.
   expect(checkItems(items, ["h"], rows, "home").ok).toBe(true);
   expect(checkItems(items as LayoutItem<string>[], ["h"], rows)).toEqual({ ok: false, reason: "below_minimum" });
-  expect(setBox(items, "h", { x: 36, y: 0, w: 11, h: 4 }, rows, "home")).toEqual({ ok: false, reason: "below_minimum" });
+  expect(setBox(items, "h", { x: 36, y: 0, w: 11, h: 10 }, rows, "home")).toEqual({ ok: false, reason: "below_minimum" });
   const aligned = alignItems([...items, hi({ id: "t", widget: "tasks", x: 0, y: 20 })], ["h", "t"], "top", rows, "home");
   expect(aligned.ok).toBe(false); // tasks to y 0 lands on the week overview
 });

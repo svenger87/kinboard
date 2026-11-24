@@ -198,6 +198,12 @@ const SCREENS: [string, number, number][] = [
 const PROBED = [...WIDGETS, "upcomingEvents", "todayStrip"];
 /** Entries a box at its minimum must show: the lists ticked off show two. */
 const NEED: Record<string, number> = { tasks: 2, shopping: 2 };
+/**
+ * Landscape screens a minimum is knowingly short of: tasks and the bins are
+ * capped at 11 steps so today's Home keeps its row of cards on 1920x1080
+ * (measured 12 here). At XL they show fewer entries on these screens.
+ */
+const SHORT_OF: Record<string, string[]> = { tasks: ["landscape-1080-150"], wasteCollection: ["tablet-landscape"] };
 
 test("every list's minimum holds its entries and \"+n\" at text XL on every screen", async ({ page, browserName }) => {
   test.setTimeout(900_000);
@@ -236,11 +242,39 @@ test("every list's minimum holds its entries and \"+n\" at text XL on every scre
     console.log(`${browserName} ${id}`, JSON.stringify(measured[id]));
   }
   if (process.env.HOME_LISTS_MEASURE) writeFileSync(`${process.env.HOME_LISTS_MEASURE}.${browserName}.json`, JSON.stringify(measured, null, 2));
-  for (const [id] of SCREENS) {
+  for (const [id, width, height] of SCREENS) {
     for (const widget of PROBED) {
+      const min = HOME_WIDGETS[widget as keyof typeof HOME_WIDGETS].min.h;
       const h = measured[id][widget];
-      expect.soft(h, `${id} ${widget}: no height up to 24 steps holds it`).not.toBeNull();
-      expect.soft(HOME_WIDGETS[widget as keyof typeof HOME_WIDGETS].min.h, `${id} ${widget}: needs ${h} steps`).toBeGreaterThanOrEqual(h ?? 0);
+      if (width > height && !SHORT_OF[widget]?.includes(id)) {
+        // Landscape: the minimum holds its entries and "+n" at XL.
+        expect.soft(h, `${id} ${widget}: no height up to 24 steps holds it`).not.toBeNull();
+        expect.soft(min, `${id} ${widget}: needs ${h} steps`).toBeGreaterThanOrEqual(h ?? 0);
+      } else {
+        // Portrait, or a minimum capped below what this screen needs: at its
+        // minimum the box keeps its title, a 48px link with the count.
+        await page.setViewportSize({ width, height });
+        await page.goto(`/dev/home-lists?probe=1&sw=${width}&sh=${height - (measured[id].navH ?? 0)}&text=XL&max=${min}&widgets=${widget}`, { waitUntil: "domcontentloaded" });
+        const box = page.locator(`[data-probe="${widget}"][data-probe-h="${min}"]`);
+        await expect(box).toBeAttached({ timeout: 60_000 });
+        await page.waitForTimeout(1500);
+        // Nothing drawn is cut by the box's bottom edge (the strip has no title: it shows what fits, else nothing).
+        const cut = await box.evaluate((el) => {
+          const bottom = el.getBoundingClientRect().bottom + 0.5;
+          return [...el.querySelectorAll<HTMLElement>("a, button, p, span")]
+            .filter((c) => c.checkVisibility({ visibilityProperty: true }) && c.getBoundingClientRect().height > 0)
+            .filter((c) => c.getBoundingClientRect().top < bottom - 0.5 && c.getBoundingClientRect().bottom > bottom)
+            .map((c) => c.textContent?.slice(0, 30));
+        });
+        expect.soft(cut, `${id} ${widget}: cut by its box`).toEqual([]);
+        if (widget === "todayStrip") continue;
+        const title = box.locator("a[href], [data-home-list-title]").first();
+        await expect(title, `${id} ${widget}`).toBeVisible({ timeout: 60_000 });
+        const t = (await title.boundingBox())!;
+        const b = (await box.boundingBox())!;
+        expect.soft(t.height, `${id} ${widget}: title target`).toBeGreaterThanOrEqual(47.5);
+        expect.soft(t.y + t.height, `${id} ${widget}: title inside its box`).toBeLessThanOrEqual(b.y + b.height + 0.5);
+      }
     }
   }
 });
