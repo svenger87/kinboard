@@ -56,6 +56,12 @@ source ./.env
 set +a
 PROJECT_NAME="${PROJECT_NAME:-kinboard}"
 
+# A source build (docker-compose.build.yml) stamps this into sw.js, so every
+# rebuild serves a different service worker and pages left open pick it up.
+# Without git it stays empty and the Dockerfile falls back to a timestamp.
+BUILD_REVISION="${BUILD_REVISION:-$(git -C "$SCRIPT_DIR" rev-parse --short=7 HEAD 2>/dev/null || true)}"
+export BUILD_REVISION
+
 # NOTE: PostgREST's login-role password is aligned INSIDE the stack by the
 # one-shot `db-init` service in docker-compose.yml, which `rest` waits for, so
 # a bare `docker compose up` works without this script.

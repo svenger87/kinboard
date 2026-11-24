@@ -108,6 +108,7 @@ build_head_image() {
     exit 1
   fi
   docker build -q -f "$REPO_ROOT/webapp/docker/Dockerfile" \
+    --build-arg BUILD_REVISION="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD)" \
     -t "$HEAD_IMAGE" "$REPO_ROOT/webapp" | tail -1
   # The same check the runbook demands before any local image is deployed.
   local hits
