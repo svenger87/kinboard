@@ -10,6 +10,9 @@ node_modules
 # kept for tests only, and no snapshot of it may reach an image (RFC-014
 # §5.5). e2e/licence-files.spec.ts checks this line is here.
 e2e
+# The Playwright config imports its project split from e2e/ (spec-projects.ts),
+# which is not in the image; next build would type-check it and fail.
+playwright.config.ts
 playwright-report
 test-results
 
