@@ -44,6 +44,10 @@ COPY . .
 # screenshot demo stack), they override .env.local.
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+# Short git sha of the source being built; CI passes it (docker.yml), as do
+# docker-compose.build.yml and start.sh. Empty is allowed: stamp-sw.sh then
+# uses a timestamp, so a build is never mistaken for another one.
+ARG BUILD_REVISION=
 
 # Set environment for build
 ENV NEXT_TELEMETRY_DISABLED 1
@@ -71,11 +75,14 @@ RUN set -e; \
   if [ -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then \
       export NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY"; \
   fi; \
-  # Substitute the SW's CACHE_NAME placeholder with the package.json
-  # version. This evicts the previous release's static-chunk cache on
-  # SW activation, preventing ChunkLoadError after auto-updates.
+  # Stamp the SW's CACHE_NAME with the package.json version AND this
+  # build's revision, so every build serves a different sw.js. A changed
+  # sw.js is the only way an open page learns of a deploy (updatefound);
+  # with the version alone, rebuilds of one version were invisible to it.
+  # The new name also evicts the previous build's static-chunk cache on
+  # activation, preventing ChunkLoadError after auto-updates.
   KINBOARD_VERSION=$(node -p "require('./package.json').version"); \
-  sed -i "s/__KINBOARD_VERSION__/${KINBOARD_VERSION}/g" public/sw.js; \
+  sh docker/stamp-sw.sh public/sw.js "$KINBOARD_VERSION" "$BUILD_REVISION"; \
   if [ -f yarn.lock ]; then yarn build; \
   elif [ -f package-lock.json ]; then npm run build; \
   elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm build; \

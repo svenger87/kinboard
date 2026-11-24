@@ -399,7 +399,7 @@ export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) 
             and everything else here. The visitor's passes move pixels against
             burn-in alongside BURN_IN_OFFSETS. With the effects off this is the
             visitor alone, as before. */}
-        <WeatherEffects placement="screensaver" enabled={weatherEffects} />
+        <WeatherEffects placement="screensaver" enabled={weatherEffects} onPhoto={Boolean(currentBlobUrl)} />
 
         {/* The children's creatures along the bottom edge (RFC-021 §3.1), above
             the photo and under everything that reads. The clock and the events

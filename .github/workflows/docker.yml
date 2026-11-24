@@ -117,6 +117,13 @@ jobs:
           platform=${{ matrix.platform }}
           echo "pair=${platform//\//-}" >> "$GITHUB_OUTPUT"
 
+      # The short sha goes into sw.js (docker/stamp-sw.sh), so every image
+      # serves a different service worker and open pages notice the deploy.
+      # Same value on both platforms, and the same 7 characters as :sha-<short>.
+      - name: Compute build revision
+        id: rev
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
       - name: Extract Docker metadata (tags + labels)
         id: meta
         uses: docker/metadata-action@v5
@@ -158,6 +165,8 @@ jobs:
           file: webapp/docker/Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_REVISION=${{ steps.rev.outputs.short }}
           # Output one image per platform with no tags; the merge job
           # below stitches them together into a single multi-arch
           # manifest under the canonical tags from metadata-action.

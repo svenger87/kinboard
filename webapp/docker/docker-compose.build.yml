@@ -19,3 +19,6 @@ services:
       dockerfile: docker/Dockerfile
       args:
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+        # Stamped into sw.js so open pages notice the new build. start.sh
+        # exports the checkout's short sha; empty falls back to a timestamp.
+        BUILD_REVISION: ${BUILD_REVISION:-}
