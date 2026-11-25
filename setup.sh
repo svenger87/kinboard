@@ -247,11 +247,11 @@ fill_secret KINBOARD_PROJECT_DIR "$REPO_ROOT" "$DOCKER_ENV"
 # SERVICE_ROLE_KEY.
 #
 # Reuse the JWT_SECRET we just generated (or that was already in .env).
-JWT_SECRET_NOW=$(grep -E "^JWT_SECRET=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
+JWT_SECRET_NOW=$(grep -E "^JWT_SECRET=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r' || true)
 
 # Read existing keys to preserve them on idempotent re-runs
-existing_anon=$(grep -E "^ANON_KEY=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
-existing_service=$(grep -E "^SERVICE_ROLE_KEY=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
+existing_anon=$(grep -E "^ANON_KEY=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r' || true)
+existing_service=$(grep -E "^SERVICE_ROLE_KEY=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r' || true)
 
 if [[ -z "$existing_anon" ]] || [[ -z "$existing_service" ]] || [[ $force -eq 1 ]]; then
   echo "→ minting Supabase ANON_KEY + SERVICE_ROLE_KEY (HS256-signed JWTs)"
@@ -288,7 +288,7 @@ fi
 # ----------------------------------------------------------------------
 # 3. Generate VAPID keys for web-push
 # ----------------------------------------------------------------------
-existing_vapid_pub=$(grep -E "^VAPID_PUBLIC_KEY=" "$DOCKER_ENV" | head -n1 | cut -d= -f2-)
+existing_vapid_pub=$(grep -E "^VAPID_PUBLIC_KEY=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- || true)
 if [[ -z "$existing_vapid_pub" ]] || [[ $force -eq 1 ]]; then
   if [[ $HAVE_NODE -eq 1 ]]; then
     echo "→ generating VAPID keys (web-push)"
@@ -377,8 +377,8 @@ EOF
   # Sync VAPID_SUBJECT from SMTP_ADMIN_EMAIL when the email was just set
   # AND VAPID_SUBJECT is still the .env.example default. Avoids stomping
   # a custom mailto: the user might have set themselves.
-  smtp_admin=$(grep -E "^SMTP_ADMIN_EMAIL=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
-  vapid_subject=$(grep -E "^VAPID_SUBJECT=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
+  smtp_admin=$(grep -E "^SMTP_ADMIN_EMAIL=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r' || true)
+  vapid_subject=$(grep -E "^VAPID_SUBJECT=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r' || true)
   if [[ -n "$smtp_admin" ]] \
      && [[ "$smtp_admin" != "admin@example.com" ]] \
      && { [[ "$vapid_subject" == "mailto:admin@example.com" ]] || [[ -z "$vapid_subject" ]]; }; then
@@ -458,7 +458,7 @@ fi
 # ----------------------------------------------------------------------
 DIUN_YML="$REPO_ROOT/webapp/docker/diun/diun.yml"
 if [[ -f "$DIUN_YML" ]]; then
-  diun_secret=$(grep -E "^DIUN_WEBHOOK_SECRET=" "$DOCKER_ENV" | head -n1 | cut -d= -f2-)
+  diun_secret=$(grep -E "^DIUN_WEBHOOK_SECRET=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- || true)
   if [[ -n "$diun_secret" ]]; then
     if grep -q "REPLACE_WITH_DIUN_WEBHOOK_SECRET\|X-Diun-Token: '{{ env " "$DIUN_YML"; then
       echo "→ substituting DIUN_WEBHOOK_SECRET into diun.yml"
@@ -523,7 +523,7 @@ EOF
 # VAPID key (e.g. Node.js wasn't installed at setup time) doesn't get lost
 # in the scrollback. Without these, calendar reminders + other push alerts
 # stay silently disabled.
-vapid_pub_now=$(grep -E "^VAPID_PUBLIC_KEY=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r')
+vapid_pub_now=$(grep -E "^VAPID_PUBLIC_KEY=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r' || true)
 if [[ -z "$vapid_pub_now" ]]; then
   cat <<'EOF'
 ⚠ Push notifications are OFF — no VAPID keys are set (Node.js wasn't found
