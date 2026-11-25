@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { readImmichAlbumAssets, type ImmichAsset } from "@/lib/immich/album-assets";
+import { readImmichRandomAssets } from "@/lib/immich/random-assets";
 
 interface ImmichSettings {
   url: string;
@@ -70,27 +71,11 @@ export async function GET(request: NextRequest) {
       assets = albumResults.flat();
       console.log(`Total assets from all albums: ${assets.length}`);
     } else {
-      // Fetch random photos using search
-      const response = await fetch(
-        `${immichSettings.url}/api/search/random?count=${limit}`,
-        {
-          headers: {
-            "x-api-key": immichSettings.api_key,
-            "Accept": "application/json",
-          },
-          signal: AbortSignal.timeout(20_000),
-        }
-      );
-
-      if (!response.ok) {
-        console.error("Immich random search error:", response.status);
-        return NextResponse.json(
-          { error: "Failed to fetch random photos from Immich" },
-          { status: response.status }
-        );
-      }
-
-      assets = await response.json();
+      // No album: random images from the whole library, asked for the way
+      // Immich understands (POST search/random, or assets/random before
+      // v1.116). If Immich cannot give any, this is an empty list and a log
+      // line, not an error — see lib/immich/random-assets.ts.
+      assets = await readImmichRandomAssets(immichSettings.url, immichSettings.api_key, limit);
     }
 
     // Filter to only images
