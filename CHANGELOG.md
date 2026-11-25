@@ -29,6 +29,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`setup.sh` no longer stops without a word when a key is missing from `.env`.** An `.env` written before a key existed, or by hand without `ANON_KEY`, `SERVICE_ROLE_KEY` or `VAPID_PUBLIC_KEY`, made it exit with status 1 halfway through and print nothing about why: the lookup of the missing line failed and the script's strict mode ended it there. It now treats a missing key like an empty one and mints it.
+
 - **The St Nicholas setting says when the boot is filled.** Its description said the boot by the Tasks card is "empty in the evening, filled in the morning"; it is empty all day on 5 December and filled on the morning of the 6th, and now says so, in English, German, French and Chinese. The wiki names the settings page *Design*, as the app has for a while, instead of *Theme*, and the Layouts page no longer says a festival's card dressing appears on a designed Home: its colour wash and visitors do, the snow on the card edges, the bunting and the boot belong to today's card grid.
 
 - **The weather map is built on Leaflet alone.** The map in the weather detail view used react-leaflet, a thin layer over Leaflet whose licence (Hippocratic-2.1) adds conditions on use that the usual open-source licences don't, and it shipped with every install. The map now talks to Leaflet directly and react-leaflet is gone; it looks and behaves as before, including keeping your zoom when you switch layers. A new check fails when a package that ships with Kinboard is under a licence outside a short list of standard ones.
