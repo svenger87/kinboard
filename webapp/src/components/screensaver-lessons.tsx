@@ -11,7 +11,7 @@ import { keyToDate } from "@/lib/holiday-entries";
 import { NEXT_SCHOOL_DAY_HORIZON } from "@/lib/school-day-rule";
 import { DEFAULT_PACK_ITEMS, type PackItemConfig } from "@/lib/schedule-pack-items";
 import { lessonsForScreensaver, type LessonRow as LessonRowData, type ScreensaverLessons as ScreensaverLessonsData } from "@/lib/screensaver-lessons";
-import { pick, rowCard, SectionLabel, type RowScale } from "@/components/screensaver-rows";
+import { pick, rowCard, SaverMoreLine, SectionLabel, type RowScale } from "@/components/screensaver-rows";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { DEFAULT_SCHEDULE_WIDGET_SETTINGS, type ScheduleWidgetSettings } from "@/types/widgets";
@@ -112,18 +112,46 @@ export function LessonRow({ row, scale }: { row: LessonRowData; scale: RowScale 
  * Mounted only while the option is on, so a family without it fetches no
  * timetables or holidays for the screensaver.
  */
-export function ScreensaverLessons({ large }: { large: boolean }) {
+export function ScreensaverLessons({
+  large,
+  limit,
+  onRows,
+  moreLabel,
+}: {
+  large: boolean;
+  /** How many children's rows fit (lib/screensaver-fit.ts); the rest are a "+n" line. */
+  limit?: number;
+  /** How many rows there are, for the screensaver's fit. */
+  onRows?: (rows: number) => void;
+  moreLabel?: (n: number) => string;
+}) {
   const lessons = useScreensaverLessons();
+  const total = lessons?.rows.length ?? 0;
+  useEffect(() => {
+    onRows?.(total);
+  }, [onRows, total]);
   if (!lessons) return null;
   const scale: RowScale = large ? "large" : "normal";
+  const shown = Math.min(limit ?? total, total);
+  if (shown === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2 landscape:lg:gap-3" data-testid="screensaver-lessons" data-day={lessons.day}>
+    <div
+      className="flex flex-col gap-2 landscape:lg:gap-3"
+      data-testid="screensaver-lessons"
+      data-day={lessons.day}
+      data-saver-list="lessons"
+      data-list-shown={shown}
+      data-list-more={total - shown}
+    >
       <SectionLabel icon={GraduationCap} label={lessons.label} scale={scale} />
-      <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
-        {lessons.rows.map((row) => (
+      <div className="flex flex-col gap-1.5 landscape:lg:gap-2" data-list-visible>
+        {lessons.rows.slice(0, shown).map((row) => (
           <LessonRow key={row.personId} row={row} scale={scale} />
         ))}
+        {shown < total && moreLabel && (
+          <SaverMoreLine large={large} label={moreLabel(total - shown)} />
+        )}
       </div>
     </div>
   );

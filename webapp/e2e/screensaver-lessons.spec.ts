@@ -68,7 +68,7 @@ test("a holiday is no school, even with a timetable for the weekday", () => {
 
 test("the screensaver shows it only when switched on, in the stack with the events", () => {
   const src = readFileSync("src/components/screensaver.tsx", "utf8");
-  expect(src).toContain("{showLessons && <ScreensaverLessons large={largeDetails} />}");
+  expect(src).toContain("{showLessons && <ScreensaverLessons large={largeDetails} limit={plan.lessons} onRows={setLessonRows} moreLabel={moreLabel} />}");
   const types = readFileSync("src/types/screensaver.ts", "utf8");
   expect(types).toMatch(/showLessons: false/);
 });

@@ -11,6 +11,7 @@ import { PersonAvatar } from "@/components/person-avatar";
 import { hasBirthYear } from "@/lib/birthday";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTimeFormat } from "@/hooks/use-time-format";
+import { LIST_MORE_CLASS } from "@/components/layouts/list-box";
 
 /**
  * The rows the screensaver lists, drawn by the built-in screensaver and by the
@@ -103,6 +104,21 @@ export function SectionLabel({
       <span className={`${pick(scale, "text-xs landscape:lg:text-sm", "text-lg", "text-[0.9em] truncate")} font-medium uppercase tracking-wider`}>
         {label}
       </span>
+    </div>
+  );
+}
+
+/**
+ * The "+n" line under a built-in screensaver list that had to leave entries
+ * out (lib/screensaver-fit.ts): the designed layouts' line (LIST_MORE_CLASS),
+ * sized to the rows above it.
+ */
+export function SaverMoreLine({ large, label }: { large: boolean; label: string }) {
+  return (
+    <div className={large ? "text-2xl" : "text-lg"}>
+      <div data-testid="list-more" className={LIST_MORE_CLASS}>
+        {label}
+      </div>
     </div>
   );
 }
