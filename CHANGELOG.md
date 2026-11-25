@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-11-25
+
 ### Added
 
 - **A link to the source code in Settings.** The version line at the foot of Settings now ends in *Source code*, which opens Kinboard's repository on GitHub in a new tab. In English, German, French and Chinese.
@@ -1169,7 +1171,8 @@ Initial public release.
 
 ---
 
-[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/svenger87/kinboard/compare/v1.17.0...HEAD
+[1.17.0]: https://github.com/svenger87/kinboard/compare/v1.16.0...v1.17.0
 [1.16.0]: https://github.com/svenger87/kinboard/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/svenger87/kinboard/compare/v1.13.0...v1.15.0
 [1.13.0]: https://github.com/svenger87/kinboard/compare/v1.12.1...v1.13.0
