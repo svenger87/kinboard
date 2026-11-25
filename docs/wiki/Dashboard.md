@@ -75,9 +75,9 @@ The dashboard is what the [kiosk](Kiosk-Windows-11-Mele-4C) shows when it's idle
 
 - **Hide individual widgets** in Settings → Widgets
 - **Arrange Home yourself** on a wall screen — place and size every widget, the clock block's pieces included, with a layout. See [Layouts → Home](Layouts#home)
-- **Re-theme** monthly themes auto-rotate; manual override in Settings → Theme
-- **Show seconds / 24h vs 12h** in Settings → Theme
-- **Light vs dark mode** in Settings → Theme
+- **Re-theme** monthly themes auto-rotate; manual override in Settings → Design
+- **Show seconds / 24h vs 12h** in Settings → Design
+- **Light vs dark mode** in Settings → Design
 
 The widget *order* is fixed (defined in `webapp/src/app/page.tsx`) — no drag-to-reorder yet.
 
