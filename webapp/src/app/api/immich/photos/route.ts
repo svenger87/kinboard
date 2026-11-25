@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
+import { readImmichAlbumAssets, type ImmichAsset } from "@/lib/immich/album-assets";
 
 interface ImmichSettings {
   url: string;
   api_key: string;
   selected_album?: string;
-}
-
-interface ImmichAsset {
-  id: string;
-  type: string;
-  originalFileName: string;
-  localDateTime: string;
-  isFavorite: boolean;
 }
 
 // GET: Fetch photos from Immich
@@ -66,81 +59,12 @@ export async function GET(request: NextRequest) {
     let assets: ImmichAsset[] = [];
 
     if (targetAlbumIds.length > 0) {
-      // Fetch photos from albums using search/metadata for better pagination
-      const albumPromises = targetAlbumIds.map(async (id) => {
-        // First get album info to know total count
-        const albumResponse = await fetch(
-          `${immichSettings.url}/api/albums/${id}`,
-          {
-            headers: {
-              "x-api-key": immichSettings.api_key,
-              "Accept": "application/json",
-            },
-            signal: AbortSignal.timeout(20_000),
-          }
-        );
-
-        if (!albumResponse.ok) {
-          // Template literal — `${id}` is interpolated as a string value,
-          // not used as a printf-style format specifier. No format-string
-          // injection attack surface. (CodeQL #8 dismissed: false positive.)
-          console.error(`Immich album fetch error for ${id}:`, albumResponse.status);
-          return [];
-        }
-
-        const albumData = await albumResponse.json();
-        console.log(`Album ${albumData.albumName}: assetCount=${albumData.assetCount}, assets returned=${albumData.assets?.length}`);
-
-        // If album returns all assets, use them
-        if (albumData.assets && albumData.assets.length >= (albumData.assetCount || 0)) {
-          return albumData.assets;
-        }
-
-        // Otherwise try search/metadata endpoint with pagination
-        console.log(`Trying search/metadata for album ${id}...`);
-        const allAssets: ImmichAsset[] = [];
-        let page = 1;
-        const pageSize = 1000;
-
-        while (true) {
-          const searchResponse = await fetch(
-            `${immichSettings.url}/api/search/metadata`,
-            {
-              method: "POST",
-              headers: {
-                "x-api-key": immichSettings.api_key,
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-              },
-              signal: AbortSignal.timeout(20_000),
-              body: JSON.stringify({
-                albumId: id,
-                page: page,
-                size: pageSize,
-              }),
-            }
-          );
-
-          if (!searchResponse.ok) {
-            console.error(`Search metadata error:`, searchResponse.status);
-            // Fall back to album assets
-            return albumData.assets || [];
-          }
-
-          const searchData = await searchResponse.json();
-          const items = searchData.assets?.items || [];
-          console.log(`Page ${page}: got ${items.length} assets`);
-
-          if (items.length === 0) break;
-          allAssets.push(...items);
-
-          if (items.length < pageSize) break;
-          page++;
-        }
-
-        console.log(`Total from search: ${allAssets.length} assets`);
-        return allAssets.length > 0 ? allAssets : (albumData.assets || []);
-      });
+      // Only ever the albums asked for: see lib/immich/album-assets.ts for
+      // how each Immich version is read, and why an unreadable album gives
+      // no photos rather than the whole library (#536).
+      const albumPromises = targetAlbumIds.map((id) =>
+        readImmichAlbumAssets(immichSettings.url, immichSettings.api_key, id),
+      );
 
       const albumResults = await Promise.all(albumPromises);
       assets = albumResults.flat();
