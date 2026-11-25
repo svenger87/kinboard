@@ -12,12 +12,15 @@
 #      needs. No-ops when nothing's missing.
 #   3. docker compose pull                — pulls new GHCR images.
 #   3b. BACKUP                             — a verified database dump and
-#      the storage directory, taken only when the pull actually brought a
-#      new image, and before anything is recreated. See below.
-#   4. docker compose up -d --remove-orphans — recreates only services
-#      whose image or definition changed, and removes containers of services
-#      a release retired (1.15: kong, auth, realtime, storage, imgproxy). The
-#      webapp's entrypoint applies new migrations on boot (migrate.sh).
+#      the storage directory, taken only when the pull brought a new image
+#      or a service is about to be recreated, and before anything is. See below.
+#   4. docker compose up -d --no-recreate --remove-orphans, then
+#      up -d --no-deps --force-recreate <changed> — recreates only services
+#      whose image or definition changed in this run (decided here, not by
+#      Compose: see "What to recreate" below), and removes containers of
+#      services a release retired (1.15: kong, auth, realtime, storage,
+#      imgproxy). The webapp's entrypoint applies new migrations on boot
+#      (migrate.sh).
 #   4b. docker compose up -d --force-recreate cron — only when step 4
 #      recreated the webapp: ofelia reads job labels only at start.
 #   5. docker restart kinboard-diun        — only if diun.yml changed.
@@ -241,11 +244,86 @@ recreate_scheduler_if_webapp_changed() {
     || log "WARN: could not recreate cron; run: docker compose \$CF up -d --force-recreate cron"
 }
 
+# ---------------------------------------------------------------------------
+# What to recreate is decided here, not by `docker compose up`.
+#
+# Compose treats a container as out of date when the hash of its service's
+# definition differs from the hash it stored on the container when it created
+# it (the com.docker.compose.config-hash label). That hash depends on the
+# Compose version computing it: 2.29 stopped hashing depends_on, and 5.0
+# serialises bind mounts differently. This script runs the Compose installed
+# in the webhook image (2.27, Alpine 3.20); `./start.sh up` and any
+# `docker compose` typed on the host run the host's. So every switch from one
+# to the other found each service with a depends_on or a bind mount "changed"
+# and recreated it -- the database, PostgREST and go2rtc among them -- on runs
+# where nothing had changed at all.
+#
+# So the stored hash is not consulted. A service is recreated when, in this
+# run, either
+#   - its definition changed: the hash before `git pull` and setup.sh differs
+#     from the hash after them, both computed by this same Compose; or
+#   - its container runs another image than the one its image reference names
+#     now, which is what `docker compose pull` just fetched.
+# Everything else is left running. (A definition edited on the host and never
+# applied is not picked up here; `./start.sh up` applies it.)
+# ---------------------------------------------------------------------------
+
+# "service hash" lines for the stack's definition as it is on disk now.
+config_hashes() {
+  # shellcheck disable=SC2086
+  (cd "$PROJECT_DIR/webapp/docker" && docker compose $COMPOSE_FILES config --hash='*' 2>/dev/null) | sort
+}
+
+# $1: the services to consider. Reads HASHES_BEFORE. Prints, one per line,
+# the ones whose container must be recreated.
+services_to_recreate() {
+  hashes_now="$(config_hashes)"
+  for svc in $1; do
+    # shellcheck disable=SC2086
+    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1)"
+    # No container yet: the up creates it, nothing to recreate.
+    [ -n "$cid" ] || continue
+
+    before="$(printf '%s\n' "$HASHES_BEFORE" | awk -v s="$svc" '$1 == s { print $2 }')"
+    now="$(printf '%s\n' "$hashes_now" | awk -v s="$svc" '$1 == s { print $2 }')"
+    # No hash from before (a new service, or the old files did not parse):
+    # recreating is what `up` would have done, so that is the safe side.
+    if [ -z "$before" ] || [ "$before" != "$now" ]; then
+      echo "$svc"
+      continue
+    fi
+
+    # `|| true`: under `set -e` a failed lookup (an image no longer on disk, a
+    # container gone in the meantime) would end the loop here and silently
+    # drop every service after this one.
+    ref="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null || true)"
+    running="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true)"
+    wanted="$(docker image inspect -f '{{.Id}}' "$ref" 2>/dev/null || true)"
+    if [ -n "$wanted" ] && [ "$wanted" != "$running" ]; then
+      echo "$svc"
+    fi
+  done
+}
+
 cd "$PROJECT_DIR"
 
 log "=== self-update fired ==="
 log "PROJECT_DIR=$PROJECT_DIR"
 log "COMPOSE_FILES=$COMPOSE_FILES"
+
+# The definitions the containers were created from, before `git pull` and
+# setup.sh change them. Kept in .git until the up below has run, so a run that
+# stops in between (a failed backup, a failed pull) leaves the next run what
+# it started from rather than the already-pulled files, which would compare
+# equal and hide the change.
+HASHES_FILE="$(git rev-parse --absolute-git-dir 2>/dev/null || echo "$PROJECT_DIR/.git")/kinboard-update-hashes"
+if [ -s "$HASHES_FILE" ]; then
+  log "an earlier run stopped before recreating anything; comparing against what it started from"
+  HASHES_BEFORE="$(cat "$HASHES_FILE")"
+else
+  HASHES_BEFORE="$(config_hashes)"
+  printf '%s\n' "$HASHES_BEFORE" > "$HASHES_FILE" 2>/dev/null || true
+fi
 
 # 1. git fetch + pull
 log "git fetch origin main"
@@ -327,24 +405,6 @@ docker compose $COMPOSE_FILES pull --ignore-buildable >>"$LOG_FILE" 2>&1
 
 IMAGES_AFTER="$(images_now)"
 
-# 3b. Back up, but only when something is actually about to change, and
-# before `up -d` recreates anything or the webapp's entrypoint runs a
-# migration over the data.
-#
-# A failure here aborts the upgrade. That is the whole point: staying on the
-# current image is recoverable, and discovering after the fact that a
-# migration ran with no backup is not. The pulled image stays on disk, so the
-# next run picks up where this one stopped.
-if [ "$IMAGES_BEFORE" != "$IMAGES_AFTER" ]; then
-  log "new image(s) pulled — taking a backup before recreating anything"
-  if ! take_backup; then
-    log "=== self-update ABORTED: no verified backup, nothing was recreated ==="
-    exit 1
-  fi
-else
-  log "no image changed; skipping the pre-upgrade backup"
-fi
-
 # Changes to THIS script do not need that out-of-band step any more: the hook
 # runs it through the project directory mount (diun/hooks.yaml), so the next
 # run after a `git pull` executes the new version. It used to run a copy
@@ -361,6 +421,31 @@ fi
 SERVICES=$(docker compose $COMPOSE_FILES config --services 2>/dev/null \
             | grep -vE '^(webhook|diun)$' \
             | tr '\n' ' ')
+
+# The services whose image or definition changed (see "What to recreate").
+RECREATE="$(services_to_recreate "$SERVICES" | tr '\n' ' ')"
+RECREATE="${RECREATE% }"
+
+# 3b. Back up, but only when something is actually about to change, and
+# before `up -d` recreates anything or the webapp's entrypoint runs a
+# migration over the data.
+#
+# A failure here aborts the upgrade. That is the whole point: staying on the
+# current image is recoverable, and discovering after the fact that a
+# migration ran with no backup is not. The pulled image stays on disk, and the
+# next run, finding the container still on the old one, recreates it then --
+# so the backup also keys on what is about to be recreated, not only on what
+# this run's pull brought.
+if [ "$IMAGES_BEFORE" != "$IMAGES_AFTER" ] || [ -n "$RECREATE" ]; then
+  log "new image(s) or changed services (${RECREATE:-none}) — taking a backup before recreating anything"
+  if ! take_backup; then
+    log "=== self-update ABORTED: no verified backup, nothing was recreated ==="
+    exit 1
+  fi
+else
+  log "no image changed; skipping the pre-upgrade backup"
+fi
+
 # 3c. Containers of services a release retired (1.15: kong, auth, realtime,
 # storage, imgproxy) go before the up rather than during it: Kong held
 # WEBAPP_PORT on some installs, and the webapp needs it now. --remove-orphans
@@ -370,12 +455,29 @@ COMPOSE="docker compose" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env \
   sh ./kinboard-entry.sh retire 2>&1 | while IFS= read -r line; do log "$line"; done
 
 WEBAPP_BEFORE="$(webapp_container)"
-log "docker compose $COMPOSE_FILES up -d --no-build --remove-orphans $SERVICES"
+
+# 4. First everything that is missing or stopped, recreating nothing:
+# --no-recreate keeps Compose's own hash comparison, which is the one that
+# differs between versions, out of the decision. Then the services that did
+# change, and only those: --no-deps, or Compose would check their
+# dependencies by that same hash and recreate the database along with them.
+log "docker compose $COMPOSE_FILES up -d --no-build --no-recreate --remove-orphans $SERVICES"
 # shellcheck disable=SC2086
-if ! docker compose $COMPOSE_FILES up -d --no-build --remove-orphans $SERVICES >>"$LOG_FILE" 2>&1; then
+if ! docker compose $COMPOSE_FILES up -d --no-build --no-recreate --remove-orphans $SERVICES >>"$LOG_FILE" 2>&1; then
   log "=== self-update ABORTED: docker compose up failed ==="
   exit 1
 fi
+if [ -n "$RECREATE" ]; then
+  log "docker compose $COMPOSE_FILES up -d --no-build --no-deps --force-recreate $RECREATE"
+  # shellcheck disable=SC2086
+  if ! docker compose $COMPOSE_FILES up -d --no-build --no-deps --force-recreate $RECREATE >>"$LOG_FILE" 2>&1; then
+    log "=== self-update ABORTED: docker compose up failed ==="
+    exit 1
+  fi
+else
+  log "no service changed; none recreated"
+fi
+rm -f "$HASHES_FILE"
 
 # 4b. The scheduler, when the webapp is new (see recreate_scheduler_if_webapp_changed).
 recreate_scheduler_if_webapp_changed "$WEBAPP_BEFORE"
