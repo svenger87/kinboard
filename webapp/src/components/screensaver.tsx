@@ -7,8 +7,10 @@ import { DesignedScreensaver } from "@/components/layouts/designed-screensaver";
 import { useActiveLayout } from "@/hooks/use-active-layout";
 import type { PreviewLayout } from "@/lib/screensaver-gate";
 import { ScreensaverDataProvider, useScreensaverDataValue } from "@/components/layouts/screensaver-data-context";
-import { BirthdayRow, EnergyRows, EventRow, NewsCard, SectionLabel, TeslaRows, useEventWhen, useNewsTime } from "@/components/screensaver-rows";
-import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties } from "react";
+import { BirthdayRow, EnergyRows, EventRow, NewsCard, SaverMoreLine, SectionLabel, TeslaRows, useEventWhen, useNewsTime } from "@/components/screensaver-rows";
+import { useMoreLabel } from "@/components/layouts/saver-widgets/shared";
+import { saverListMaxCut, saverListPlan } from "@/lib/screensaver-fit";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, type CSSProperties } from "react";
 import { type NewsItem } from "@/hooks";
 import { useScreensaverSettings } from "@/hooks/use-screensaver-settings";
 import {
@@ -261,10 +263,12 @@ export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) 
   // A callback ref: the column is not rendered at night, so an effect run
   // once on mount would miss it when the night ends.
   const weatherObserver = useRef<{ ro: ResizeObserver; off: () => void } | null>(null);
+  const weatherEl = useRef<HTMLDivElement | null>(null);
   const weatherColumnRef = useCallback((el: HTMLDivElement | null) => {
     weatherObserver.current?.ro.disconnect();
     weatherObserver.current?.off();
     weatherObserver.current = null;
+    weatherEl.current = el;
     if (!el) return;
     const measure = () => {
       const r = el.getBoundingClientRect();
@@ -328,6 +332,108 @@ export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) 
     };
   }, [news, screensaverSettings.showNews, soon, largeDetails, selectedNews]);
 
+  /*
+    How far up the events, birthdays and lessons may reach (#282). The block
+    is anchored at its bottom (the bottom edge on a landscape desktop panel,
+    the clock everywhere else) and used to grow upwards for as long as it had
+    entries, while the weather is anchored to the top and nothing between
+    the two knew about the other: on a 1280x800 tablet five events, three
+    birthdays and the lessons ran 161px into the forecast, and on 960x600
+    and 1024x600 past the top of the screen.
+
+    Now its top may not pass `ceiling`: a section gap below the weather when
+    the weather is above it, or the 48px edge. The lists show as many whole
+    entries as that leaves room for, each ending in "+n" for the rest, and
+    lib/screensaver-fit.ts says which gives way first. The clock and the
+    weather keep their size, and a screen with room for everything is laid
+    out exactly as before: nothing moved, the block only shows fewer rows.
+
+    Measured in the screensaver's own coordinates (offsetTop and friends), so
+    the burn-in drift and the slide-in animations do not move it.
+  */
+  const wide = useMediaQuery("(orientation: landscape) and (min-width: 1024px)");
+  const clusterRef = useRef<HTMLDivElement>(null);
+  const saverRootRef = useRef<HTMLDivElement>(null);
+  const [ceiling, setCeiling] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!showBuiltIn) return;
+    const weatherCol = weatherEl.current;
+    const cluster = clusterRef.current;
+    const content = eventsBlockRef.current;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    // The gap between the sections (gap-6 / gap-10), at this screen's text size.
+    const gap = rem * (largeDetails ? 2.5 : 1.5);
+    let top = SAVER_EDGE;
+    if (weatherCol && weatherCol.offsetHeight > 0) {
+      const left = weatherCol.offsetLeft;
+      const right = left + weatherCol.offsetWidth;
+      // Landscape desktop: the weather and the events share the right edge.
+      let above = true;
+      if (!wide && cluster && content) {
+        const colLeft = cluster.offsetLeft;
+        above = left < colLeft + content.offsetWidth && right > colLeft;
+      }
+      if (above) top = weatherCol.offsetTop + weatherCol.offsetHeight + gap;
+    }
+    const next = Math.round(top);
+    setCeiling((prev) => (prev === next ? prev : next));
+  }, [showBuiltIn, weatherBox, wide, largeDetails, portrait]);
+
+  const [lessonRows, setLessonRows] = useState(0);
+  const totals = useMemo(
+    () => ({
+      events: upcomingEvents.length,
+      birthdays: upcomingBirthdays.length,
+      lessons: showLessons ? lessonRows : 0,
+    }),
+    [upcomingEvents.length, upcomingBirthdays.length, showLessons, lessonRows]
+  );
+  const [fit, setFit] = useState({ cut: 0, run: 0 });
+  const plan = saverListPlan(totals, fit.cut);
+  const refit = useCallback(() => setFit((f) => ({ cut: 0, run: f.run + 1 })), []);
+  // Start again with every entry whenever the lists or the room change.
+  const eventIds = upcomingEvents.map((e) => e.id).join(",");
+  const birthdayIds = upcomingBirthdays.map((b) => b.id).join(",");
+  useLayoutEffect(refit, [refit, eventIds, birthdayIds, totals, ceiling, wide, largeDetails]);
+  useEffect(() => {
+    if (!showBuiltIn) return;
+    // The room changes with the screen, and in the stack with the clock
+    // below the block (the line under it comes and goes). Not with the lists.
+    const clock = clockBlockRef.current;
+    let last = clock?.offsetHeight ?? 0;
+    const ro = new ResizeObserver(() => {
+      if (!clock || clock.offsetHeight === last) return;
+      last = clock.offsetHeight;
+      refit();
+    });
+    if (clock) ro.observe(clock);
+    window.addEventListener("resize", refit);
+    // Measured before the display font swapped in, the rows had other heights.
+    let live = true;
+    document.fonts?.ready.then(() => live && refit());
+    return () => {
+      live = false;
+      ro.disconnect();
+      window.removeEventListener("resize", refit);
+    };
+  }, [showBuiltIn, refit]);
+  // One step at a time while the block reaches above the ceiling. Layout
+  // effects run before paint, so the steps are never seen.
+  useLayoutEffect(() => {
+    const block = eventsBlockRef.current;
+    const root = saverRootRef.current;
+    if (ceiling === null || !block || !root) return;
+    let top = block.offsetTop;
+    for (let p = block.offsetParent as HTMLElement | null; p && p !== root; p = p.offsetParent as HTMLElement | null) top += p.offsetTop;
+    if (top < ceiling - 1 && fit.cut < saverListMaxCut(totals)) {
+      // Not when a restart was asked for in the same commit: this measured
+      // the old lists, and the step would land on top of the fresh start.
+      const run = fit.run;
+      setFit((f) => (f.run === run ? { ...f, cut: f.cut + 1 } : f));
+    }
+  }, [fit, ceiling, totals]);
+  const moreLabel = useMoreLabel();
+
   // Night: no photo, no news, no events, the clock alone and dim, drifting
   // with the burn-in offsets like everything else here. A touch wakes the
   // screen as always (the screensaver gate listens on the document).
@@ -352,6 +458,7 @@ export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) 
   return (
     <ScreensaverDataProvider value={screensaverData}>
       <div
+        ref={saverRootRef}
         className={`fixed inset-0 z-[100] screensaver-fade-in ${
           currentBlobUrl ? "bg-black" : "screensaver-canvas-empty"
         }`}
@@ -618,6 +725,7 @@ export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) 
           source — DOM order is what the landscape layout reads.
         */}
         <div
+          ref={clusterRef}
           className={`absolute inset-x-12 bottom-[calc(3rem+var(--idle-creature-floor,0px))] flex flex-col-reverse ${sectionGap} landscape:lg:contents`}
         >
         {/* Clock overlay - bottom left (compact for mobile & portrait). A festival's fireworks go up over it (RFC-020). */}
@@ -658,39 +766,43 @@ export function Screensaver({ photos, previewLayout = null }: ScreensaverProps) 
           )}
         </div>
 
-        {/* Right side - Events and Birthdays (above clock for portrait/mobile, right side for landscape desktop) */}
+        {/* Right side - Events and Birthdays (above clock for portrait/mobile, right side for landscape desktop).
+            Anchored at its bottom as before; how far up it may reach is `ceiling`. */}
         <div
           ref={eventsBlockRef}
           data-saver-block="events"
+          data-lesson-rows={showLessons ? lessonRows : undefined}
           className={`max-w-sm landscape:lg:absolute landscape:lg:bottom-[calc(3rem+var(--idle-creature-floor,0px))] landscape:lg:right-12 flex flex-col ${sectionGap} screensaver-slide-right`}
           style={{ animationDelay: "0.7s", maxWidth: largeDetails ? "36rem" : undefined, ...burnInStyle }}
         >
           {/* Upcoming Events */}
-          {upcomingEvents.length > 0 && (
-            <div className="flex flex-col gap-2 landscape:lg:gap-3">
+          {plan.events > 0 && (
+            <div className="flex flex-col gap-2 landscape:lg:gap-3" data-saver-list="events" data-list-shown={plan.events} data-list-more={totals.events - plan.events}>
               <SectionLabel icon={Calendar} label={t("eventsLabel")} scale={rowScale} />
-              <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
-                {upcomingEvents.map((event) => (
+              <div className="flex flex-col gap-1.5 landscape:lg:gap-2" data-list-visible>
+                {upcomingEvents.slice(0, plan.events).map((event) => (
                   <EventRow key={event.id} event={event} when={eventWhen(event)} scale={rowScale} />
                 ))}
+                {plan.events < totals.events && <SaverMoreLine large={largeDetails} label={moreLabel(totals.events - plan.events)} />}
               </div>
             </div>
           )}
 
           {/* Upcoming Birthdays */}
-          {upcomingBirthdays.length > 0 && (
-            <div className="flex flex-col gap-2 landscape:lg:gap-3">
+          {plan.birthdays > 0 && (
+            <div className="flex flex-col gap-2 landscape:lg:gap-3" data-saver-list="birthdays" data-list-shown={plan.birthdays} data-list-more={totals.birthdays - plan.birthdays}>
               <SectionLabel icon={Cake} label={t("birthdaysLabel")} scale={rowScale} />
-              <div className="flex flex-col gap-1.5 landscape:lg:gap-2">
-                {upcomingBirthdays.map((birthday) => (
+              <div className="flex flex-col gap-1.5 landscape:lg:gap-2" data-list-visible>
+                {upcomingBirthdays.slice(0, plan.birthdays).map((birthday) => (
                   <BirthdayRow key={birthday.id} birthday={birthday} scale={rowScale} />
                 ))}
+                {plan.birthdays < totals.birthdays && <SaverMoreLine large={largeDetails} label={moreLabel(totals.birthdays - plan.birthdays)} />}
               </div>
             </div>
           )}
 
           {/* The children's lessons and what to bring (#282). */}
-          {showLessons && <ScreensaverLessons large={largeDetails} />}
+          {showLessons && <ScreensaverLessons large={largeDetails} limit={plan.lessons} onRows={setLessonRows} moreLabel={moreLabel} />}
 
         </div>
         </div>
