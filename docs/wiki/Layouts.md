@@ -90,7 +90,7 @@ Home is the face people touch: they tick off a task, start a timer, open an even
 ### What a designed Home is
 
 - **One screen, never scrolling.** Everything sits on the grid between the top of the screen and the navigation bar. A list that has more entries than its box shows ends with **"+3 more"**, and tapping that opens the full page (tasks → Tasks, shopping → Shopping), as a card's title does today. Want to see more? Make the box bigger.
-- **The clock block, taken apart.** The block at the top of today's Home is five widgets you place on their own: **clock** (with seconds if you have them on under Settings → Theme), **date and week**, **greeting**, **family members** (the avatars with their counts) and **today strip**. A new layout starts with them across the top, where they are today; move them apart, shrink them, or leave one out.
+- **The clock block, taken apart.** The block at the top of today's Home is five widgets you place on their own: **clock** (with seconds if you have them on under Settings → Design), **date and week**, **greeting**, **family members** (the avatars with their counts) and **today strip**. A new layout starts with them across the top, where they are today; move them apart, shrink them, or leave one out.
 - **The cards of Settings → Widgets** — weather, upcoming events, schedule, birthdays, holidays, week overview, meal plan, waste collection, notes, tasks, shopping, vehicles, stonks, pocket money, creatures, photos, timers, media player, messages and countdowns.
 - **One widget per child.** The schedule and pocket money appear in the palette once for each child, so each child's timetable or balance can sit where that child looks.
 
@@ -107,7 +107,7 @@ Touch keeps working whatever the size: buttons and rows stay at least 48px tall,
 
 - **The navigation bar** at the bottom is not part of the layout; the grid ends above it. The floating **lights** button stays where it is.
 - **Notices** that come and go — "Needs attention", "Server unreachable", the getting-started checklist, the install prompt — slide in as a strip over the top of the layout and leave when they are done. The layout itself never moves.
-- A **message** sent to the screen still takes over the whole screen. The **festival** decorations, the **creatures** walking along Home and the **weather effects** stay in the background.
+- A **message** sent to the screen still takes over the whole screen. The **weather effects**, the **creatures** walking along Home and the festival's background (its colour wash and visitors) stay in the background. A festival's **card dressing** (snow on the card edges, bunting, St Nicholas's boot on the Tasks card) is not drawn on a designed Home: it belongs to today's card grid.
 - Settings → Widgets → *Compact home layout* is hidden on a screen that uses a layout: the layout decides where the clock and the people go.
 
 ### Which screens use it
