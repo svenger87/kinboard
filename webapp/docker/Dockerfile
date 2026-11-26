@@ -249,11 +249,23 @@ COPY --chown=nextjs:nodejs docker/migrate.sh docker/webapp-entrypoint.sh ./
 USER root
 RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh
 # No `USER nextjs` here: webapp-entrypoint.sh drops to it before starting the
-# server, after the steps that need root (the uploaded-files directory).
+# server, after the steps that need root (the uploaded-files directory). With
+# PUID/PGID set it drops to those ids instead (RFC-024 §6.3).
 
 EXPOSE 3000
 
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
+
+# The image's own health check (RFC-024 §6), so `docker run`, Portainer and
+# any orchestrator see healthy/unhealthy without a compose file. /api/health
+# probes the database with a 3 s timeout and answers 503 only when it is
+# unreachable, so this marks the webapp unhealthy when it, or its database,
+# is gone. Timings are for a Raspberry Pi: a first start waits up to 60 s for
+# PostgreSQL and then runs every migration, so failures in the first 120 s do
+# not count; the probe gets 10 s, and three misses in a row (90 s) make it
+# unhealthy. A compose file's own `healthcheck:` replaces these values.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+  CMD curl -sf -o /dev/null "http://127.0.0.1:${PORT:-3000}/api/health" || exit 1
 
 ENTRYPOINT ["./webapp-entrypoint.sh"]

@@ -4,7 +4,7 @@ You'll need:
 
 - **Docker** with Compose v2 (`docker compose ...`)
 - **Node.js 20+** — `setup.sh` calls `npx web-push generate-vapid-keys` to mint the keypair that signs push notifications. If Node.js isn't on PATH, setup completes but push notifications stay disabled (everything else works); install Node.js + re-run `./setup.sh --force` later to enable.
-- ~2 GB free disk for the Postgres + webapp images, ~3 GB during a source build
+- ~2 GB free disk for the images (about 590 MB to download), ~3 GB during a source build, and about 250 MB of memory once it runs. The measured figures are in [Self-hosting → Resource needs](Self-hosting#resource-needs)
 - An interactive terminal for `./setup.sh` if you want to be asked for the optional integration keys. Without one (`--non-interactive`, over SSH, in a script) it simply skips them.
 - A free [OpenWeatherMap API key](https://openweathermap.org/api) (optional, for the weather widget)
 

@@ -75,12 +75,13 @@ RIG_PROJECT="kbupg"
 # Overridable so the same rig runs on a CI runner, which has no
 # /mnt/user. The default stays the Unraid path this is developed on.
 RIG_DATA="${RIG_DATA:-/mnt/user/appdata/kinboard-upgrade-data}"
-RIG_WEBAPP_PORT=3021
-RIG_POSTGRES_PORT=5452
-RIG_KONG_HTTP_PORT=8120
-RIG_KONG_HTTPS_PORT=8563
-RIG_GO2RTC_HTTP_PORT=1994
-RIG_GO2RTC_WEBRTC_PORT=8575
+# The ports too, for a machine where another stack already holds one.
+RIG_WEBAPP_PORT="${RIG_WEBAPP_PORT:-3021}"
+RIG_POSTGRES_PORT="${RIG_POSTGRES_PORT:-5452}"
+RIG_KONG_HTTP_PORT="${RIG_KONG_HTTP_PORT:-8120}"
+RIG_KONG_HTTPS_PORT="${RIG_KONG_HTTPS_PORT:-8563}"
+RIG_GO2RTC_HTTP_PORT="${RIG_GO2RTC_HTTP_PORT:-1994}"
+RIG_GO2RTC_WEBRTC_PORT="${RIG_GO2RTC_WEBRTC_PORT:-8575}"
 # The compose network pins a fixed subnet, so a second stack on the default
 # collides with "Pool overlaps with other one on this address space".
 # Taken on this host: 10.200 (familycalendar), 10.201 (prod), 10.209 (kbaudit).
