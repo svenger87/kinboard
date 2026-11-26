@@ -132,7 +132,8 @@ test("no `up` lets Compose decide by the hash it stored", () => {
       "a plain `up -d` recreates every container whose stored config hash differs, " +
         "and that hash differs between the webhook's Compose and the host's: use " +
         "--no-recreate for the stack and --no-deps --force-recreate for what changed",
-    ).toMatch(/--no-recreate|--no-deps --force-recreate \$RECREATE/);
+    ).toMatch(/--no-recreate|--no-deps --force-recreate (\$RECREATE|\$others|init)\b/);
   }
-  expect(ups.join("\n"), "what did change is never recreated").toMatch(/--no-deps --force-recreate \$RECREATE/);
+  // recreate_services: compose.yml's init alone first, then the others.
+  expect(ups.join("\n"), "what did change is never recreated").toMatch(/--no-deps --force-recreate \$others/);
 });

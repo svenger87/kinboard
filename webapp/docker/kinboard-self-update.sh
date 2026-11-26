@@ -9,7 +9,8 @@
 #   1. git fetch + git pull origin main  — pulls new compose files,
 #      migrations, init.sql, seed-demo.sql.
 #   2. ./setup.sh --non-interactive       — adds any .env key a new release
-#      needs. No-ops when nothing's missing.
+#      needs. No-ops when nothing's missing. Not for a stack on the root
+#      compose.yml, whose secrets kinboard-init keeps.
 #   3. docker compose pull                — pulls new GHCR images.
 #   3b. BACKUP                             — a verified database dump and
 #      the storage directory (and the config folder, where the install has
@@ -37,6 +38,11 @@
 # a KINBOARD_TAG changed in .env, which Diun cannot see. `--tick-loop` is the
 # loop that runs it. See "The reconciliation tick" below.
 #
+# A git install that moved to the root compose.yml (RFC-023 §5.2) runs the
+# same steps against that file and its overlays, found from the running
+# stack's own Compose labels: see "Which files the stack runs". A folder with
+# no git checkout is left alone: see "No git checkout".
+#
 # Logs to /var/log/kinboard-update.log inside the webhook container —
 # bind-mount that path on the host if you want persistent logs.
 #
@@ -57,10 +63,15 @@
 # included — nothing is dumped unless the pull actually changed an image.
 #
 # Required env / mounts (configured by docker-compose.diun.yml.example):
-#   PROJECT_DIR    project root (bind-mounted from host)
+#   PROJECT_DIR    project root (bind-mounted from host), a git checkout
 #   COMPOSE_FILES  space-separated -f flags for the host's stack overlay
 #                  set, e.g. "-f docker-compose.yml -f docker-compose.traefik.yml -f ..."
+#                  (relative to webapp/docker). A stack started from the root
+#                  compose.yml needs none: see "Which files the stack runs".
 #   /var/run/docker.sock  bind-mounted so we can talk to the host docker
+#
+# A PROJECT_DIR without .git (a compose.yml pasted into a folder) is never
+# updated from here: see "No git checkout" below.
 
 set -eu
 
@@ -113,6 +124,19 @@ log() {
 # ---------------------------------------------------------------------------
 
 BACKUP_KEEP="${BACKUP_KEEP:-5}"
+
+# Which compose file the stack runs: "legacy" (webapp/docker/docker-compose.yml
+# and COMPOSE_FILES, as every git install before RFC-023) or "compose" (the
+# root compose.yml). Decided by resolve_stack below; until then, legacy.
+STACK_MODE=legacy
+# The .env the stack's compose files are interpolated from.
+STACK_ENV_FILE="$PROJECT_DIR/webapp/docker/.env"
+
+# The value of $1 in the stack's .env, as written there (quotes removed), or
+# nothing.
+env_value() {
+  grep -E "^$1=" "$STACK_ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '"' || true
+}
 
 # ---------------------------------------------------------------------------
 # The config folder (RFC-023 §4.1, §6.5).
@@ -211,6 +235,16 @@ done
 rm -f .pre-upgrade-*.partial
 '
 
+# What service $1's container mounts at $2, as something `docker run -v` can
+# mount: a named volume's name or a host path. Nothing when the service has no
+# container or no such mount.
+mount_source() {
+  # shellcheck disable=SC2086
+  cid="$(docker compose $COMPOSE_FILES ps -aq "$1" 2>/dev/null | head -n1 || true)"
+  [ -n "$cid" ] || return 0
+  docker inspect -f '{{range .Mounts}}{{if eq .Destination "'"$2"'"}}{{if eq .Type "volume"}}{{.Name}}{{else}}{{.Source}}{{end}}{{end}}{{end}}' "$cid" 2>/dev/null || true
+}
+
 # Where the install keeps its config folder, as something `docker run -v` can
 # mount (a host folder or a named volume), or nothing. In order: what the
 # running stack mounts at /kinboard (any compose file that has a config
@@ -218,15 +252,15 @@ rm -f .pre-upgrade-*.partial
 # moved its secrets into files). $1: DATA_DIR, $2: the helper image.
 config_source() {
   for svc in webapp db; do
-    # shellcheck disable=SC2086
-    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
-    [ -n "$cid" ] || continue
-    src="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/kinboard"}}{{if eq .Type "volume"}}{{.Name}}{{else}}{{.Source}}{{end}}{{end}}{{end}}' "$cid" 2>/dev/null || true)"
+    src="$(mount_source "$svc" /kinboard)"
     if [ -n "$src" ]; then
       printf '%s\n' "$src"
       return 0
     fi
   done
+  # A stack on compose.yml has no DATA_DIR: what its containers mount is all
+  # there is.
+  [ -n "$1" ] || return 0
   # Printed, not an exit status: a container that fails to start must not read
   # as "the folder exists".
   found="$(docker run --rm --user 0:0 --entrypoint sh -v "$1":/data:ro "$2" \
@@ -242,15 +276,45 @@ config_source() {
 take_backup() {
   stamp="$(date -u +%Y%m%d-%H%M%S)"
 
-  # Absolute, not relative: by the time this runs the script has already
-  # cd'd into webapp/docker, so a relative path here would find nothing and
-  # abort every upgrade.
-  data_dir="$(grep -E '^DATA_DIR=' "$PROJECT_DIR/webapp/docker/.env" 2>/dev/null | head -n1 | cut -d= -f2- | tr -d '"')"
-  if [ -z "$data_dir" ]; then
-    log "ERROR: no DATA_DIR in webapp/docker/.env — cannot locate the data to back up"
-    return 1
+  if [ "$STACK_MODE" = compose ]; then
+    # compose.yml has no DATA_DIR. The uploaded files are wherever the webapp
+    # mounts /var/lib/storage (KINBOARD_STORAGE_DIR, or the kinboard-storage
+    # volume), read from the container, not from a file (RFC-023 §4.11.3
+    # step 6). The backups go next to that folder: beside a folder called
+    # storage, into backups (as $DATA_DIR/backups is beside $DATA_DIR/storage,
+    # which is also where they land for a git install that moved to
+    # compose.yml with RFC-023 §5.2's layout, and for install.sh's
+    # ./data/storage); beside any other folder, into <that folder>-backups,
+    # never a parent's generic backups/ shared with other apps; for a named
+    # volume, into the volume kinboard-backups.
+    data_dir=""
+    storage_src="$(mount_source webapp /var/lib/storage)"
+    if [ -z "$storage_src" ]; then
+      log "ERROR: the webapp container mounts nothing at /var/lib/storage — cannot locate the uploaded files to back up"
+      return 1
+    fi
+    backup_dir="${KINBOARD_BACKUP_DIR:-$(env_value KINBOARD_BACKUP_DIR)}"
+    if [ -z "$backup_dir" ]; then
+      storage_src="${storage_src%/}"
+      case "$storage_src" in
+        /*/storage) backup_dir="${storage_src%/storage}/backups" ;;
+        /*) backup_dir="$storage_src-backups" ;;
+        *) backup_dir=kinboard-backups ;;
+      esac
+    fi
+    storage_mount="$storage_src:/data/storage:ro"
+  else
+    # Absolute, not relative: by the time this runs the script has already
+    # cd'd into webapp/docker, so a relative path here would find nothing and
+    # abort every upgrade.
+    data_dir="$(grep -E '^DATA_DIR=' "$PROJECT_DIR/webapp/docker/.env" 2>/dev/null | head -n1 | cut -d= -f2- | tr -d '"')"
+    if [ -z "$data_dir" ]; then
+      log "ERROR: no DATA_DIR in webapp/docker/.env — cannot locate the data to back up"
+      return 1
+    fi
+    backup_dir="${KINBOARD_BACKUP_DIR:-${data_dir}/backups}"
+    storage_mount="$data_dir:/data:ro"
   fi
-  backup_dir="${KINBOARD_BACKUP_DIR:-${data_dir}/backups}"
 
   db_cid="$(docker compose $COMPOSE_FILES ps -q db 2>/dev/null | head -n1)"
   if [ -z "$db_cid" ]; then
@@ -312,7 +376,7 @@ take_backup() {
   # pictures, vehicle images. --user 0:0 because both the source directory and
   # the backup directory belong to root on the host. --entrypoint: the
   # database image's own would start Postgres.
-  if ! docker run --rm --user 0:0 --entrypoint tar -v "$data_dir":/data:ro -v "$backup_dir":/out "$tar_image" \
+  if ! docker run --rm --user 0:0 --entrypoint tar -v "$storage_mount" -v "$backup_dir":/out "$tar_image" \
        -czf "/out/pre-upgrade-$stamp-storage.tar.gz" \
        -C /data storage >>"$LOG_FILE" 2>&1; then
     log "ERROR: could not archive the storage directory — refusing to upgrade"
@@ -330,7 +394,7 @@ take_backup() {
 
   # An archive that holds no files while the storage directory does is the
   # failure this is here to catch — it is invisible in a size check.
-  on_disk="$(docker run --rm --user 0:0 --entrypoint sh -v "$data_dir":/data:ro "$tar_image" \
+  on_disk="$(docker run --rm --user 0:0 --entrypoint sh -v "$storage_mount" "$tar_image" \
     -c 'find /data/storage -type f 2>/dev/null | wc -l' 2>/dev/null)"
   [ -n "$on_disk" ] || on_disk=0
   if [ "$files" -lt "$on_disk" ]; then
@@ -769,8 +833,13 @@ smoke_check() {
   smoke_deadline=$(( $(date +%s) + SMOKE_TIMEOUT ))
   while :; do
     # CRON_SECRET is the webapp container's own: single quotes, expanded there.
+    # On compose.yml it is not in the container's environment at all: the
+    # entrypoint exports it from the secrets store to the server only, and a
+    # `docker exec` shell has the container's configured environment. So the
+    # store's file, where there is one (kinboard-init, RFC-023 §4.1);
+    # without it every check there was a 401, and passed on health alone.
     # shellcheck disable=SC2016
-    out="$(docker exec "$cid" sh -c 'curl -s -m 30 -w "\n%{http_code}" -H "Authorization: Bearer ${CRON_SECRET:-}" "http://localhost:3000/api/health?deep=1"' 2>/dev/null || true)"
+    out="$(docker exec "$cid" sh -c 's="${CRON_SECRET:-$(cat /kinboard/secrets/cron_secret 2>/dev/null)}"; curl -s -m 30 -w "\n%{http_code}" -H "Authorization: Bearer $s" "http://localhost:3000/api/health?deep=1"' 2>/dev/null || true)"
     code="$(printf '%s\n' "$out" | tail -n1)"
     body="$(printf '%s\n' "$out" | sed '$d')"
     case "$code|$body" in
@@ -820,7 +889,11 @@ failed_migration() {
 redact() {
   # Values from .env whose names say they are secret, as written there:
   # `export` dropped, quotes and a trailing comment taken off, CR removed.
-  secrets="$(tr -d '\r' < "$PROJECT_DIR/webapp/docker/.env" 2>/dev/null \
+  # On compose.yml the secrets are files in the config folder, not .env lines:
+  # read through the database container, which mounts that folder. A VAPID
+  # private key is base64url, a shape nothing below would catch.
+  secrets="$( { tr -d '\r' < "${STACK_ENV_FILE:-$PROJECT_DIR/webapp/docker/.env}" 2>/dev/null || true
+    [ "${STACK_MODE:-}" != compose ] || stored_secrets; } \
     | sed -nE 's/^[[:space:]]*(export[[:space:]]+)?[A-Z0-9_]*(SECRET|PASSWORD|PASS|TOKEN|KEY|URL|URI|DSN|CODE|PAT)[A-Z0-9_]*=(.*)$/\3/p' \
     | sed 's/[[:space:]]#.*$//; s/^"\(.*\)"$/\1/; s/^'"'"'\(.*\)'"'"'$/\1/' \
     | awk 'length($0) >= 6' || true)"
@@ -876,6 +949,16 @@ redact() {
       if (total > 6000) exit
       print line
     }'
+}
+
+# The secrets a compose.yml install keeps as files (kinboard-init), one
+# STORED_SECRET=<value> line each, read through the database container, which
+# mounts the config folder at /kinboard. Nothing when that fails.
+stored_secrets() {
+  db="$(db_container)"
+  [ -n "$db" ] || return 0
+  # shellcheck disable=SC2016
+  docker exec "$db" sh -c 'for f in /kinboard/secrets/*; do [ -f "$f" ] && printf "STORED_SECRET=%s\n" "$(cat "$f")"; done' 2>/dev/null || true
 }
 
 # The last lines each of the given services' containers logged, for Details,
@@ -936,7 +1019,15 @@ TICK_INTERVAL="${KINBOARD_TICK_INTERVAL:-1800}"
 # it, so an `off` set later would never reach an existing install. The
 # container's environment is the fallback.
 tick_switch() {
-  v="$(grep -E '^KINBOARD_UPDATE_TICK=' "$PROJECT_DIR/webapp/docker/.env" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '"' || true)"
+  # Before the stack is resolved (the loop, and a tick's first look): the
+  # root's .env when it names the switch, where a git install on compose.yml
+  # keeps its variables (one that moved there may still have the old
+  # webapp/docker/.env); else webapp/docker/.env, as always.
+  v=""
+  if [ "$STACK_MODE" = legacy ]; then
+    v="$(grep -E '^KINBOARD_UPDATE_TICK=' "$PROJECT_DIR/.env" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '"' || true)"
+  fi
+  [ -n "$v" ] || v="$(env_value KINBOARD_UPDATE_TICK)"
   echo "${v:-${KINBOARD_UPDATE_TICK:-on}}"
 }
 
@@ -996,6 +1087,238 @@ tick_backoff() {
   log "tick skipped: $1; nothing was changed. Next try in $((wait_s / 60)) minutes (failure $n in a row)"
 }
 
+# ---------------------------------------------------------------------------
+# No git checkout (RFC-023 §4.8).
+#
+# Everything this script does first is git-shaped: `git fetch origin main`,
+# `git pull`, setup.sh writing .env. A compose.yml pasted into a folder has no
+# checkout, and that folder may sit inside some other repository (a UI that
+# keeps all its stacks in one), where `git fetch origin main` would fetch a
+# stranger's repository and `git pull` merge it. So a project directory
+# without its own .git is not updated from here at all, before anything is
+# locked, read or written: no backup, no pull, no recreate, nothing half done.
+# It exits 0, because nothing failed: such an install is updated with Pull
+# and Up, and its automatic updates are the published kinboard-updater's
+# (RFC-023 §4.11.3).
+#
+# Only a missing .git counts. A .git that git refuses to read (a checkout
+# owned by another user) goes on as before and fails at `git fetch`, loudly.
+# ---------------------------------------------------------------------------
+if [ ! -d "$PROJECT_DIR" ]; then
+  log "ERROR: PROJECT_DIR=$PROJECT_DIR is not a folder here; nothing was changed"
+  exit 1
+fi
+if [ ! -e "$PROJECT_DIR/.git" ]; then
+  log "this install has no git checkout ($PROJECT_DIR has no .git), so it is not updated from here; nothing was pulled, run or changed. Update it with Pull and Up in your Compose UI, or: docker compose pull && docker compose up -d"
+  exit 0
+fi
+# A checkout, but of something else: a stack folder some Compose UIs keep in
+# a repository of their own (Komodo's and Portainer's git stacks, say), with
+# compose.yml in it. Its `origin main` is the household's own repository.
+# Only a checkout git can read is judged here; one it refuses (owned by
+# another user) goes on and fails at `git fetch`, as it always has.
+if git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1 \
+   && ! git -C "$PROJECT_DIR" ls-files --error-unmatch webapp/docker/kinboard-self-update.sh >/dev/null 2>&1; then
+  log "$PROJECT_DIR is a git checkout, but not of Kinboard (it does not track webapp/docker/kinboard-self-update.sh), so it is not updated from here; nothing was pulled, run or changed. Update it with Pull and Up in your Compose UI, or: docker compose pull && docker compose up -d"
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Which files the stack runs (RFC-023 §4.11.2, §5.2).
+#
+# Every git install before RFC-023 runs webapp/docker/docker-compose.yml and
+# the overlays in COMPOSE_FILES, read from webapp/docker. A git install that
+# moved to the root compose.yml runs that file instead, from the root, with
+# the root's .env and its overlays as absolute paths. The legacy set run
+# against it would find no containers (another project) and start a second
+# stack beside it. So the files come from the stack itself: Compose records on
+# every container the project, its folder, the files and the .env it was
+# started with (com.docker.compose.project, .project.working_dir,
+# .project.config_files, .project.environment_file).
+#
+# Whose labels: this container's, when it is part of the stack (the Diun
+# overlay's webhook; the updater of RFC-023 §4.11.3); else those of the
+# webapp container whose project folder is PROJECT_DIR or its webapp/docker.
+# KINBOARD_SELF_CONTAINER names the container to read instead of this one.
+#
+#   the labels say        COMPOSE_FILES             what runs
+#   nothing, or legacy    names no compose.yml      COMPOSE_FILES as given, as always
+#   compose.yml           names no compose.yml      the labelled files (the Diun
+#                                                   overlay's default is the legacy set)
+#   compose.yml, nothing  names compose.yml         COMPOSE_FILES, made absolute
+#   legacy                names compose.yml         refused: two different stacks
+#
+# On compose.yml every `docker compose` call gets -p, --project-directory,
+# --env-file and absolute -f paths, through COMPOSE_FILES, so nothing below
+# needs to know which kind of stack it runs except where the two really
+# differ: setup.sh, the services 1.15 retired, and where the backup finds the
+# data.
+# ---------------------------------------------------------------------------
+
+LABELS_TMPL='{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.project.working_dir"}}|{{index .Config.Labels "com.docker.compose.project.config_files"}}|{{index .Config.Labels "com.docker.compose.project.environment_file"}}'
+
+# "project|working_dir|config_files|environment_file" of container $1, or nothing.
+stack_labels() {
+  docker inspect -f "$LABELS_TMPL" "$1" 2>/dev/null | head -n1 | sed 's/<no value>//g' || true
+}
+
+# The container whose labels describe the stack, or nothing.
+stack_container() {
+  self="${KINBOARD_SELF_CONTAINER:-}"
+  if [ -z "$self" ] && [ -f /.dockerenv ]; then self="$(hostname 2>/dev/null || true)"; fi
+  if [ -n "$self" ]; then
+    # Only when its project is a Kinboard stack, one with a webapp: a
+    # container of some other project that happens to run this script must
+    # not have its project pulled and recreated.
+    project="$(stack_labels "$self" | cut -d'|' -f1)"
+    if [ -n "$project" ] && [ -n "$(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter label=com.docker.compose.service=webapp 2>/dev/null || true)" ]; then
+      echo "$self"
+      return 0
+    fi
+  fi
+  pd="${PROJECT_DIR%/}"
+  physical="$(cd "$pd" 2>/dev/null && pwd -P || true)"
+  # Running containers first: a stopped copy from an older project in the
+  # same folder must not decide.
+  for all in "" -a; do
+    # shellcheck disable=SC2086
+    for cid in $(docker ps $all -q --filter label=com.docker.compose.service=webapp 2>/dev/null || true); do
+      wd="$(stack_labels "$cid" | cut -d'|' -f2)"
+      case "$wd" in
+        "") ;;
+        "$pd" | "$pd/webapp/docker" | "$physical" | "$physical/webapp/docker") echo "$cid"; return 0 ;;
+      esac
+    done
+  done
+  return 0
+}
+
+# The files COMPOSE_FILES names (-f, --file), one per line, as written.
+cf_files() {
+  set -f
+  # shellcheck disable=SC2086
+  set -- $COMPOSE_FILES
+  set +f
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -f | --file) [ $# -ge 2 ] || break; echo "$2"; shift 2 ;;
+      --file=*) echo "${1#--file=}"; shift ;;
+      *) shift ;;
+    esac
+  done
+}
+
+# $1 as an absolute path, a relative one taken from webapp/docker (where
+# COMPOSE_FILES has always been read), or nothing when its folder is missing.
+abs_path() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *) d="$(cd "$PROJECT_DIR/webapp/docker" 2>/dev/null && cd "$(dirname "$1")" 2>/dev/null && pwd || true)"
+       [ -z "$d" ] || printf '%s/%s\n' "$d" "$(basename "$1")" ;;
+  esac
+}
+
+# Sets STACK_MODE, STACK_ENV_FILE and, for compose.yml, COMPOSE_FILES; or
+# logs why it cannot and returns 1, before anything has been touched.
+resolve_stack() {
+  cf_compose=""
+  for f in $(cf_files); do
+    case "${f##*/}" in compose.yml | compose.yaml) cf_compose=1 ;; esac
+  done
+  cid="$(stack_container)"
+  labels=""
+  [ -z "$cid" ] || labels="$(stack_labels "$cid")"
+  IFS='|' read -r l_project l_workdir l_files l_envfiles <<EOF
+$labels
+EOF
+  # compose.yml only when the labels name it and not the legacy file; any
+  # other set of labels is legacy, as every stack was before this. Compose v1
+  # (docker-compose 1.x, which start.sh prefers where it is installed) may
+  # record the files relative to the project folder, as given to -f.
+  l_kind=none
+  if [ -n "$l_files" ]; then
+    l_kind=legacy
+    case ",$l_files," in
+      *"/webapp/docker/docker-compose.yml,"* | *",docker-compose.yml,"*) ;;
+      *"/compose.yml,"* | *"/compose.yaml,"* | *",compose.yml,"* | *",compose.yaml,"*) l_kind=compose ;;
+    esac
+  fi
+  # A git install on the legacy file: nothing here changes anything.
+  if [ -z "$cf_compose" ] && [ "$l_kind" != compose ]; then
+    return 0
+  fi
+  if [ -n "$cf_compose" ] && [ "$l_kind" = legacy ]; then
+    log "ERROR: COMPOSE_FILES names compose.yml ($COMPOSE_FILES), but the running stack was started with $l_files. Running one against the other would start a second stack; nothing was changed. Set COMPOSE_FILES to the files the stack runs"
+    return 1
+  fi
+  case "$l_project|$l_workdir|$l_files|$l_envfiles" in
+    *[[:space:]]*)
+      log "ERROR: the stack's project, folder or file names contain a space ($l_files); this script cannot pass them to docker compose. Nothing was changed"
+      return 1 ;;
+  esac
+  set -f
+  if [ -n "$cf_compose" ]; then
+    files=""
+    for f in $(cf_files); do
+      a="$(abs_path "$f")"
+      if [ -z "$a" ]; then
+        set +f
+        log "ERROR: COMPOSE_FILES names $f, whose folder does not exist here (relative paths are read from $PROJECT_DIR/webapp/docker). Nothing was changed"
+        return 1
+      fi
+      files="$files $a"
+    done
+    [ "$l_kind" = none ] || STACK_NOTE="the running stack was started with $l_files; using COMPOSE_FILES"
+  else
+    files=""
+    for f in $(printf '%s' "$l_files" | tr ',' ' '); do
+      case "$f" in
+        /*) files="$files $f" ;;
+        *) files="$files ${l_workdir%/}/$f" ;;
+      esac
+    done
+    STACK_NOTE="the running stack was started with $l_files (its Compose labels); COMPOSE_FILES ($COMPOSE_FILES) names the legacy files and is not used"
+  fi
+  first="${files# }"; first="${first%% *}"
+  workdir="${l_workdir:-$(dirname "$first")}"
+  args=""
+  [ -z "$l_project" ] || args="-p $l_project"
+  args="$args --project-directory $workdir"
+  envfile=""
+  for e in $(printf '%s' "$l_envfiles" | tr ',' ' '); do
+    case "$e" in /*) ;; *) e="${workdir%/}/$e" ;; esac
+    if [ ! -r "$e" ]; then
+      set +f
+      log "ERROR: the stack was started with the env file $e, which cannot be read here (it must be mounted at the same path). Nothing was changed"
+      return 1
+    fi
+    args="$args --env-file $e"
+    envfile="$e"
+  done
+  for f in $files; do
+    if [ ! -r "$f" ]; then
+      set +f
+      log "ERROR: the stack was started with $f, which cannot be read here (it must be mounted at the same path). Nothing was changed"
+      return 1
+    fi
+    args="$args -f $f"
+  done
+  set +f
+  STACK_MODE=compose
+  STACK_ENV_FILE="${envfile:-$workdir/.env}"
+  # Not exported any more: the Diun overlay fills the webhook's own
+  # environment from ${COMPOSE_FILES}, and these flags are this script's.
+  unset COMPOSE_FILES
+  COMPOSE_FILES="${args# }"
+  # The webhook container sets TZ for itself (Etc/UTC when .env has none),
+  # and a variable in the environment wins over .env when Compose fills in
+  # ${TZ:-Europe/Berlin}: a recreated webapp would get another time zone than
+  # the one `docker compose up` gave it. The script's own times are UTC (-u).
+  unset TZ
+  return 0
+}
+STACK_NOTE=""
+
 if [ "$MODE" = loop ]; then
   run_tick_loop
 fi
@@ -1054,6 +1377,21 @@ if [ "$MODE" = tick ]; then
   tick_allowed || exit 0
 else
   ensure_tick_loop
+fi
+
+# Which files the stack runs (see above). Read-only; a stack it cannot read
+# ends the run here, before the hash file, the pull or anything else.
+if ! resolve_stack; then
+  if [ "$MODE" = tick ]; then log "=== tick skipped ==="; else log "=== self-update skipped ==="; fi
+  exit 1
+fi
+if [ "$STACK_MODE" = compose ] && [ "$MODE" = tick ] && [ "$(tick_switch)" = off ]; then
+  log "=== tick: switched off (KINBOARD_UPDATE_TICK=off) ==="
+  exit 0
+fi
+if [ "$STACK_MODE" = compose ] && [ "$MODE" = update ]; then
+  [ -z "$STACK_NOTE" ] || log "$STACK_NOTE"
+  log "this stack runs compose.yml: docker compose $COMPOSE_FILES"
 fi
 DIUN_BEFORE="$(stat -c %Y webapp/docker/diun/diun.yml 2>/dev/null || echo 0)"
 
@@ -1146,7 +1484,13 @@ if [ "$MODE" = update ]; then
 
   # 2. setup.sh — idempotent. Adds .env keys a release needs; does nothing
   #    when none are missing.
-  if [ -x ./setup.sh ]; then
+  #    Not for a stack on compose.yml: setup.sh writes webapp/docker/.env,
+  #    which that stack does not read, and puts that file's
+  #    DIUN_WEBHOOK_SECRET into diun.yml, where a secret the stack's own .env
+  #    does not hold would lock Diun out of the webhook.
+  if [ "$STACK_MODE" = compose ]; then
+    log "not running setup.sh: this stack runs compose.yml, whose secrets kinboard-init keeps"
+  elif [ -x ./setup.sh ]; then
     log "running setup.sh --non-interactive"
     ./setup.sh --non-interactive >>"$LOG_FILE" 2>&1 || {
       log "ERROR: setup.sh failed; aborting before touching containers"
@@ -1317,6 +1661,9 @@ for svc in $(printf '%s\n' "$DECISIONS" | awk '$1 == "held" { print $2 }'); do
   cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
   running="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true)"
   want_ref="$(field_for "$svc" "$CONFIG_IMAGES")"
+  # Once is enough where services share the reference (compose.yml's init,
+  # db-init and webapp).
+  [ "$(docker image inspect -f '{{.Id}}' "$want_ref" 2>/dev/null || true)" != "$running" ] || continue
   if [ -n "$running" ] && [ -n "$want_ref" ] && docker tag "$running" "$want_ref" >>"$LOG_FILE" 2>&1; then
     log "$want_ref points at the image $svc runs again ($running), not the held one"
   fi
@@ -1379,7 +1726,8 @@ fi
 # below would catch them too, but only as part of the same up that has to
 # bind the port. A service an overlay still defines is left alone. Not on a
 # tick: it changes what runs, never what exists.
-if [ "$MODE" = update ]; then
+# A stack on compose.yml (1.18 and later) never had them.
+if [ "$MODE" = update ] && [ "$STACK_MODE" != compose ]; then
   COMPOSE="docker compose" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env \
     sh ./kinboard-entry.sh retire 2>&1 | while IFS= read -r line; do log "$line"; done
 fi
@@ -1401,6 +1749,78 @@ if [ "$MODE" = update ]; then
   fi
 fi
 
+# $1: extra flags for `up` ("--pull never" for a rollback); $2: the services.
+# `up -d --no-deps --force-recreate` for them, and nothing else.
+#
+# With --no-deps Compose keeps only the depends_on between the services it is
+# given. On compose.yml, init is what db depends on, and db is not among them,
+# so nothing given would wait for init: it would run beside db-init and the
+# webapp instead of before them, and a release whose init writes a file they
+# read would start them without it. So init goes first, alone, and must have
+# exited 0 before the others are started. Returns 1, with UNHEALTHY set, when
+# any of it fails. (On the legacy file there is no init: one `up`, as always.)
+recreate_services() {
+  case " $2 " in
+    *" init "*)
+      others="$(printf ' %s ' "$2" | sed 's/ init / /; s/^  *//; s/  *$//')"
+      log "recreating init first, on its own, and waiting for it to finish${others:+; then $others}"
+      # shellcheck disable=SC2086
+      if ! docker compose $COMPOSE_FILES up -d $1 --no-build --no-deps --force-recreate init >>"$LOG_FILE" 2>&1; then
+        UNHEALTHY="docker compose up failed for init (the log above has its output)
+"
+        return 1
+      fi
+      wait_completed init || return 1
+      [ -n "$others" ] || return 0
+      ;;
+    *) others="$2" ;;
+  esac
+  # shellcheck disable=SC2086
+  if ! docker compose $COMPOSE_FILES up -d $1 --no-build --no-deps --force-recreate $others >>"$LOG_FILE" 2>&1; then
+    UNHEALTHY="docker compose up failed (the log above has its output)
+"
+    return 1
+  fi
+  return 0
+}
+
+# Until one-shot $1 has exited 0, for at most KINBOARD_HEALTH_TIMEOUT; 1, with
+# UNHEALTHY set, when it exits otherwise, goes or is still running then.
+wait_completed() {
+  UNHEALTHY=""
+  deadline=$(( $(date +%s) + HEALTH_TIMEOUT ))
+  while :; do
+    # shellcheck disable=SC2086
+    cid="$(docker compose $COMPOSE_FILES ps -aq "$1" 2>/dev/null | head -n1 || true)"
+    st="$(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}' "$cid" 2>/dev/null || true)"
+    IFS='|' read -r status health restarts code policy <<EOF
+$st
+EOF
+    if [ -z "$cid" ] || [ -z "$st" ]; then
+      UNHEALTHY="$1: its container is gone
+"
+      return 1
+    fi
+    case "$status" in
+      exited)
+        [ "$code" = 0 ] && return 0
+        UNHEALTHY="$1: exited with code $code
+"
+        return 1 ;;
+      dead)
+        UNHEALTHY="$1: exited with code $code
+"
+        return 1 ;;
+    esac
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      UNHEALTHY="$1: still not done after ${HEALTH_TIMEOUT}s
+"
+      return 1
+    fi
+    sleep "$HEALTH_POLL"
+  done
+}
+
 # 4c. Recreate, wait for health, and roll back if it does not come (see
 # "Health and rollback").
 roll_back() {
@@ -1408,12 +1828,27 @@ roll_back() {
   MIGRATION=""
   case " $RECREATE " in *" webapp "*) MIGRATION="$(failed_migration)" ;; esac
   EXCERPT="$(log_excerpt "$RECREATE")"
+  # What each reference names now, read for every service before any is
+  # tagged back: on compose.yml init, db-init and webapp share one reference,
+  # and once the first has been tagged back the others would read their old
+  # image there and take the failure for their definition's.
+  NEW_IDS=""
   for svc in $RECREATE; do
+    want_ref="$(field_for "$svc" "$CONFIG_IMAGES")"
+    [ -n "$want_ref" ] || want_ref="$(printf '%s\n' "$PREVIOUS" | awk -v s="$svc" '$1 == s { print $3; exit }')"
+    NEW_IDS="$NEW_IDS$svc $(docker image inspect -f '{{.Id}}' "$want_ref" 2>/dev/null || echo -)
+"
+  done
+  # The webapp last: where services that share a reference ran different
+  # images before (a webapp recreated by hand since), the tag ends on the
+  # webapp's.
+  for svc in $(printf '%s\n' $RECREATE | grep -vx webapp || true) $(printf '%s\n' $RECREATE | grep -x webapp || true); do
     prev_id="$(field_for "$svc" "$PREVIOUS")"
     want_ref="$(field_for "$svc" "$CONFIG_IMAGES")"
     [ -n "$want_ref" ] || want_ref="$(printf '%s\n' "$PREVIOUS" | awk -v s="$svc" '$1 == s { print $3; exit }')"
-    new_id="$(docker image inspect -f '{{.Id}}' "$want_ref" 2>/dev/null || true)"
-    if [ -n "$new_id" ] && [ "$new_id" != "$prev_id" ]; then
+    new_id="$(field_for "$svc" "$NEW_IDS")"
+    [ "$new_id" != - ] || new_id=""
+    if [ -n "$new_id" ] && [ "$new_id" != "$prev_id" ] && ! is_held "$new_id"; then
       hold_back "$new_id" "$want_ref"
       log "holding back $want_ref ($new_id) until a newer image appears"
     fi
@@ -1421,14 +1856,14 @@ roll_back() {
       log "ERROR: the image $svc ran before ($prev_id) is no longer on this host; it cannot go back"
     elif [ "$new_id" = "$prev_id" ]; then
       log "ERROR: $svc runs the same image as before; what failed is its definition (the compose files or .env), which going back to the image cannot undo"
+    elif [ "$(docker image inspect -f '{{.Id}}' "$want_ref" 2>/dev/null || true)" = "$prev_id" ]; then
+      : # tagged back already, for another service on the same reference
     elif ! docker tag "$prev_id" "$want_ref" >>"$LOG_FILE" 2>&1; then
       log "ERROR: could not tag $prev_id as $want_ref"
     fi
   done
   log "rolling back: docker compose $COMPOSE_FILES up -d --pull never --no-build --no-deps --force-recreate $RECREATE"
-  # shellcheck disable=SC2086
-  if docker compose $COMPOSE_FILES up -d --pull never --no-build --no-deps --force-recreate $RECREATE >>"$LOG_FILE" 2>&1 \
-     && wait_ready "$RECREATE"; then
+  if recreate_services "--pull never" "$RECREATE" && wait_ready "$RECREATE"; then
     OUTCOME=rolled_back
     log "ERROR: ROLLED BACK: $RECREATE run the images they ran before this update again, and are healthy"
     if [ -n "$MIGRATION" ]; then
@@ -1449,12 +1884,7 @@ EXCERPT=""
 if [ -n "$RECREATE" ]; then
   log "docker compose $COMPOSE_FILES up -d --no-build --no-deps --force-recreate $RECREATE"
   up_ok=1
-  # shellcheck disable=SC2086
-  if ! docker compose $COMPOSE_FILES up -d --no-build --no-deps --force-recreate $RECREATE >>"$LOG_FILE" 2>&1; then
-    up_ok=""
-    UNHEALTHY="docker compose up failed (the log above has its output)
-"
-  fi
+  recreate_services "" "$RECREATE" || up_ok=""
   # The versions for the status record, before a rollback re-tags anything.
   MAIN_SVC=webapp
   case " $RECREATE " in *" webapp "*) ;; *) MAIN_SVC="${RECREATE%% *}" ;; esac

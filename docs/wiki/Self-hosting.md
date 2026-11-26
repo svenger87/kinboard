@@ -535,6 +535,19 @@ The overlay adds a `diun.enable=true` label to the kinboard-webapp service so Di
 
 The webhook image gets built locally on first `up --build` from `webapp/docker/Dockerfile.webhook`. The upstream `almir/webhook` image ships only the webhook binary (no git, no docker CLI), so we layer those on top of an Alpine base.
 
+#### A git checkout that runs `compose.yml`
+
+A git install that moved to the root `compose.yml` ([RFC-023 §5.2](../rfc/023-one-file-install.md)) keeps this overlay. Bring it up from the checkout's root, naming the overlay by its absolute path, with `KINBOARD_PROJECT_DIR` and `DIUN_WEBHOOK_SECRET` (the value already in `webapp/docker/.env` and `diun/diun.yml`) in the root's `.env`:
+
+```bash
+cd /absolute/host/path/to/kinboard
+docker compose -f compose.yml -f "$PWD/webapp/docker/docker-compose.diun.yml" up -d --build
+```
+
+The overlay names its own files from `KINBOARD_PROJECT_DIR`, so it works whichever compose file comes first. `COMPOSE_FILES` needs no change: the self-update reads which files, which project and which `.env` the stack was started with from its containers' Compose labels, and runs every step against those. On such a stack it does not run `setup.sh` (which writes `webapp/docker/.env`, a file `compose.yml` doesn't read), and its pre-update backup finds the data from the containers' mounts: the uploaded files from the webapp's `/var/lib/storage`, the config folder from `/kinboard`, and puts the archives beside the storage folder: into `backups` next to a folder called `storage` (the same place as `$DATA_DIR/backups` with §5.2's layout), into `<folder>-backups` next to any other folder, or into the Docker volume `kinboard-backups` when the files are in a named volume. `KINBOARD_BACKUP_DIR` in the root's `.env` names another folder. A git checkout that is not Kinboard's (a Compose UI's own stacks repository) is left alone in the same way as a folder without git.
+
+A `compose.yml` in a folder **without** a git checkout (pasted into a Compose UI) is never updated by this script: it says so in its log and changes nothing. Update it with Pull and Up in your UI, or `docker compose pull && docker compose up -d`.
+
 #### Tuning the cadence
 
 Edit `webapp/docker/diun/diun.yml` — `watch.schedule` is a cron expression (default: every 30 min). The GHCR build itself takes ~4 min after a tag push, so polling more aggressively than every 5 min wastes Diun's API budget on GHCR.

@@ -41,7 +41,18 @@ make() { # service: a new container from the definition in ./stack.txt
 cid() { printf '%s' "$1" | sed 's/^cid-//; s/-g[0-9]*$//'; }
 if [ "$1" = compose ]; then
   shift
-  while [ "$1" = -f ]; do shift 2; done
+  # Global flags: -f picks the folder whose stack.txt is the definition (the
+  # first file's, as Compose takes the project folder from it).
+  first=""
+  while :; do
+    case "$1" in
+      -f) [ -n "$first" ] || first="$2"; shift 2 ;;
+      -p | --project-directory | --env-file) echo "$1 $2" >> "$STUB/globals"; shift 2 ;;
+      *) break ;;
+    esac
+  done
+  printenv TZ >> "$STUB/tz" || echo "<unset>" >> "$STUB/tz"
+  if [ -n "$first" ]; then cd "$(dirname "$first")" || exit 1; fi
   sub="$1"; shift
   last=""; for a in "$@"; do last="$a"; done
   case "$sub" in
@@ -86,12 +97,29 @@ if [ "$1" = compose ]; then
   exit 0
 fi
 case "$1" in
+  ps)
+    # docker ps [-a] -q --filter label=com.docker.compose.service=webapp
+    for f in "$STUB"/labels/*; do
+      [ -f "$f" ] || continue
+      n="$(basename "$f")"
+      case "$*" in *service=webapp*) [ "$n" = webapp ] || continue ;; esac
+      case "$*" in *compose.project=*)
+        want="$(printf '%s' "$*" | sed -n 's/.*compose\.project=\([^ ]*\).*/\1/p')"
+        [ "$(cut -d'|' -f1 "$f")" = "$want" ] || continue ;;
+      esac
+      echo "cid-$n-g$(cat "$STUB/gen-$n" 2>/dev/null || echo 0)"
+    done ;;
   inspect)
+    case "$3" in
+      *com.docker.compose.project*) cat "$STUB/labels/$(cid "$4")" 2>/dev/null || exit 1; exit 0 ;;
+    esac
     f="$STUB/containers/$(cid "$4")"; [ -f "$f" ] || exit 1
     IFS='|' read -r ref id created < "$f"
     case "$3" in
-      *Destination*) cat "$STUB/mounts/$(cid "$4")" 2>/dev/null ;;
-      *State.Status*) cat "$STUB/health/$(esc "$id")" 2>/dev/null || echo "running|healthy|0|0|unless-stopped" ;;
+      *Destination*)
+        dest="$(printf '%s' "$3" | sed -n 's/.*eq .Destination "\([^"]*\)".*/\1/p')"
+        awk -v d="$dest" '$1 == d { print $2 }' "$STUB/mounts/$(cid "$4")" 2>/dev/null ;;
+      *State.Status*) cat "$STUB/health-svc/$(cid "$4")" 2>/dev/null || cat "$STUB/health/$(esc "$id")" 2>/dev/null || echo "running|healthy|0|0|unless-stopped" ;;
       *Config.Image*) echo "$ref" ;;
       *Created*) echo "$created" ;;
       *.Image*) echo "$id" ;;
@@ -115,6 +143,8 @@ case "$1" in
         f="$STUB/containers/$(cid "$2")"; IFS='|' read -r ref id created < "$f"
         r="$(cat "$STUB/smoke/$(esc "$id")" 2>/dev/null || echo '200|{"deep":{"ok":true,"missing":[],"write":true}}')"
         printf '%s\n%s\n' "$(printf '%s' "$r" | cut -d'|' -f2-)" "$(printf '%s' "$r" | cut -d'|' -f1)" ;;
+      */kinboard/secrets/*)
+        cat "$STUB/stored-secrets" 2>/dev/null ;;
       *pg_dumpall*)
         echo "CREATE SCHEMA auth;"; i=0; while [ $i -lt 60 ]; do echo "CREATE TABLE t$i ();"; i=$((i + 1)); done ;;
       *psql*)
@@ -163,6 +193,18 @@ export type Scenario = {
   locked?: boolean;
   /** A tick holds the lock for about a second when the run starts. */
   tickRunning?: boolean;
+  /**
+   * The checkout runs the root compose.yml (RFC-023 §5.2), not
+   * webapp/docker/docker-compose.yml: the definition (stack.txt) is at the
+   * root, beside compose.yml and the root's .env. `overlay` adds the Diun
+   * overlay, named by absolute path. `labels` is what the containers' Compose
+   * labels say ("compose", the default here; "none"). Off: the legacy layout.
+   */
+  compose?: { overlay?: boolean; labels?: "compose" | "none"; project?: string };
+  /** The containers carry the Compose labels of a legacy stack started from webapp/docker. */
+  legacyLabels?: boolean;
+  /** PROJECT_DIR has no .git: a compose.yml in a plain folder. */
+  noGit?: boolean;
 };
 
 export type Health = { status: string; health?: string; restarts?: number; code?: number; policy?: string };
@@ -184,6 +226,10 @@ export type RunResult = {
   log: string;
   /** Every `docker run` in this run, its arguments on one line (a multi-line script spans several). */
   runs: string;
+  /** The global flags (-p, --project-directory, --env-file) `docker compose` was called with, de-duplicated. */
+  globals: string[];
+  /** The TZ every `docker compose` call saw ("<unset>" when none), de-duplicated. */
+  tz: string[];
 };
 
 export const stackTxt = (stack: Record<string, Service>) =>
@@ -213,7 +259,7 @@ export class Rig {
         cwd,
         stdio: "pipe",
       });
-    for (const d of ["containers", "images", "registry", "health", "versions", "logs", "gone", "smoke", "mounts"]) mkdirSync(join(this.stub, d), { recursive: true });
+    for (const d of ["containers", "images", "registry", "health", "health-svc", "versions", "logs", "gone", "smoke", "mounts", "labels"]) mkdirSync(join(this.stub, d), { recursive: true });
     mkdirSync(this.bin, { recursive: true });
     writeFileSync(join(this.bin, "docker"), STUB_DOCKER);
     chmodSync(join(this.bin, "docker"), 0o755);
@@ -227,19 +273,68 @@ export class Rig {
     git(this.dir, "init", "-q", "--bare", "origin.git");
     git(this.dir, "clone", "-q", join(this.dir, "origin.git"), "proj");
     mkdirSync(join(this.proj, "webapp", "docker"), { recursive: true });
-    writeFileSync(join(this.proj, "webapp", "docker", "stack.txt"), stackTxt(sc.stack));
+    writeFileSync(join(this.proj, this.stackDir, "stack.txt"), stackTxt(sc.stack));
+    // The files the stub's `-r` checks and the labels name; their content is
+    // stack.txt's business.
+    writeFileSync(join(this.proj, "compose.yml"), "# stub\n");
+    writeFileSync(join(this.proj, "webapp", "docker", "docker-compose.yml"), "# stub\n");
+    writeFileSync(join(this.proj, "webapp", "docker", "docker-compose.diun.yml"), "# stub\n");
+    // Tracked, as in every Kinboard checkout: the script checks for it.
+    writeFileSync(join(this.proj, "webapp", "docker", "kinboard-self-update.sh"), "# the checkout's copy; the run uses SCRIPT\n");
+    // The real one: the run calls it to remove the services 1.15 retired.
+    writeFileSync(join(this.proj, "webapp", "docker", "kinboard-entry.sh"), readFileSync(resolve("docker/kinboard-entry.sh")));
     git(this.proj, "add", "-A");
     git(this.proj, "commit", "-qm", "stack");
     git(this.proj, "push", "-q", "origin", "main");
     if (sc.pulled) {
       git(this.dir, "clone", "-q", join(this.dir, "origin.git"), "pusher");
-      writeFileSync(join(this.dir, "pusher", "webapp", "docker", "stack.txt"), stackTxt(sc.pulled));
+      writeFileSync(join(this.dir, "pusher", this.stackDir, "stack.txt"), stackTxt(sc.pulled));
       git(join(this.dir, "pusher"), "commit", "-qam", "release");
       git(join(this.dir, "pusher"), "push", "-q", "origin", "main");
     }
     writeFileSync(join(this.proj, "webapp", "docker", ".env"), `DATA_DIR=${join(this.dir, "data")}\n`);
+    if (sc.compose) {
+      writeFileSync(join(this.proj, ".env"), "KINBOARD_TAG=next\n");
+      if (sc.compose.labels !== "none") {
+        const files = [join(this.proj, "compose.yml")];
+        if (sc.compose.overlay) files.push(join(this.proj, "webapp", "docker", "docker-compose.diun.yml"));
+        this.setLabels(`${sc.compose.project ?? "kbt"}|${this.proj}|${files.join(",")}|${join(this.proj, ".env")}`);
+      }
+      // init is a one-shot: done, exit 0, never restarted.
+      if (sc.containers.init) this.setServiceHealth("init", { status: "exited", code: 0, policy: "no" });
+      // compose.yml's named volumes
+      for (const svc of Object.keys(sc.containers)) {
+        if (svc === "webapp") this.setMount("webapp", "/var/lib/storage", "kinboard-storage");
+        if (svc === "webapp" || svc === "db") this.setMount(svc, "/kinboard", "kinboard-config");
+      }
+    }
+    if (sc.legacyLabels) {
+      const d = join(this.proj, "webapp", "docker");
+      this.setLabels(`docker|${d}|${join(d, "docker-compose.yml")},${join(d, "docker-compose.diun.yml")}|${join(d, ".env")}`);
+    }
+    if (sc.noGit) rmSync(join(this.proj, ".git"), { recursive: true, force: true });
     if (sc.hashesFile !== undefined) writeFileSync(this.hashesPath, sc.hashesFile);
     if (sc.stateFile !== undefined) writeFileSync(this.statePath, sc.stateFile);
+  }
+
+  /** Where stack.txt lives: beside the first compose file. */
+  get stackDir() {
+    return this.sc.compose ? "" : join("webapp", "docker");
+  }
+
+  /** Compose labels, "project|working_dir|config_files|environment_file", on every container (and the webhook's). */
+  setLabels(line: string) {
+    for (const svc of [...Object.keys(this.sc.containers), "webhook"]) writeFileSync(join(this.stub, "labels", svc), `${line}\n`);
+  }
+  /** What service svc's container mounts at dest: a volume name or a host folder. */
+  setMount(svc: string, dest: string, source: string) {
+    const p = join(this.stub, "mounts", svc);
+    const kept = existsSync(p) ? readFileSync(p, "utf8").split("\n").filter((l) => l && !l.startsWith(`${dest} `)) : [];
+    writeFileSync(p, [...kept, `${dest} ${source}`].join("\n") + "\n");
+  }
+  /** The files in the config folder's secrets/, as the database container would cat them. */
+  setStoredSecrets(values: string[]) {
+    writeFileSync(join(this.stub, "stored-secrets"), values.map((v) => `STORED_SECRET=${v}`).join("\n") + "\n");
   }
 
   get hashesPath() {
@@ -251,7 +346,7 @@ export class Rig {
 
   /** The stack as .env and the compose files name it now, without a commit (a hand edit of .env). */
   setStack(stack: Record<string, Service>) {
-    writeFileSync(join(this.proj, "webapp", "docker", "stack.txt"), stackTxt(stack));
+    writeFileSync(join(this.proj, this.stackDir, "stack.txt"), stackTxt(stack));
   }
   setRegistry(registry: Record<string, string>) {
     for (const [ref, id] of Object.entries(registry)) writeFileSync(join(this.stub, "registry", esc(ref)), `${id}\n`);
@@ -260,6 +355,13 @@ export class Rig {
   setHealth(id: string, h: Health) {
     writeFileSync(
       join(this.stub, "health", esc(id)),
+      `${h.status}|${h.health ?? ""}|${h.restarts ?? 0}|${h.code ?? 0}|${h.policy ?? "unless-stopped"}\n`,
+    );
+  }
+  /** The state service svc's container reaches, whatever its image (a one-shot's). */
+  setServiceHealth(svc: string, h: Health) {
+    writeFileSync(
+      join(this.stub, "health-svc", svc),
       `${h.status}|${h.health ?? ""}|${h.restarts ?? 0}|${h.code ?? 0}|${h.policy ?? "unless-stopped"}\n`,
     );
   }
@@ -277,7 +379,7 @@ export class Rig {
    */
   setConfig(c: { dataDir?: boolean; mount?: { svc: string; source: string }; out?: string; fail?: boolean }) {
     if (c.dataDir) writeFileSync(join(this.stub, "config-dir"), "");
-    if (c.mount) writeFileSync(join(this.stub, "mounts", c.mount.svc), `${c.mount.source}\n`);
+    if (c.mount) this.setMount(c.mount.svc, "/kinboard", c.mount.source);
     if (c.out !== undefined) writeFileSync(join(this.stub, "config-out"), c.out);
     if (c.fail) writeFileSync(join(this.stub, "config-fail"), "");
   }
@@ -319,7 +421,7 @@ export class Rig {
 
   run(args: string[] = [], env: Record<string, string> = {}): RunResult {
     const read = (p: string) => (existsSync(p) ? readFileSync(p, "utf8") : "");
-    for (const f of ["recreated", "calls", "pulls", "status", "tags", "psql", "runs"]) rmSync(join(this.stub, f), { force: true });
+    for (const f of ["recreated", "calls", "pulls", "status", "tags", "psql", "runs", "globals", "tz"]) rmSync(join(this.stub, f), { force: true });
     const logBefore = read(this.logFile).length;
     const lock = join(this.proj, ".git", "kinboard-update.lock");
     const res = spawnSync(
@@ -336,6 +438,10 @@ export class Rig {
       ],
       {
         encoding: "utf8",
+        // A run that never ends (a loop the guard should have stopped) fails
+        // the test instead of hanging the whole suite.
+        timeout: 60_000,
+        killSignal: "SIGKILL",
         env: {
           ...process.env,
           PATH: `${this.bin}:${process.env.PATH}`,
@@ -364,6 +470,8 @@ export class Rig {
       tags: read(join(this.stub, "tags")).split("\n").filter(Boolean),
       log: read(this.logFile).slice(logBefore),
       runs: read(join(this.stub, "runs")),
+      globals: [...new Set(read(join(this.stub, "globals")).split("\n").filter(Boolean))],
+      tz: [...new Set(read(join(this.stub, "tz")).split("\n").filter(Boolean))],
     };
   }
 
