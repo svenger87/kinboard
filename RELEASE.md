@@ -111,6 +111,7 @@ Before tagging:
 - [ ] No new env vars without `.env.example` entries
 - [ ] If a breaking change: it's flagged prominently in CHANGELOG and a migration note exists in the wiki
 - [ ] **1.18.0 only:** remove the `# PRE-RELEASE:` line at the top of `compose.yml` and its test in `webapp/e2e/compose-file.spec.ts` ("before 1.18 is released"), and drop this item. It tells people who find the file on main that it needs the release that ships it (RFC-023)
+- [ ] **1.18.0 only:** make the one-file install `install.sh`'s default: change `INSTALL_MODE="${KINBOARD_INSTALL_MODE:-git}"` to `one-file`, `--git` and `KINBOARD_INSTALL_MODE=git` keep the old path, update the default-path tests in `webapp/e2e/install-sh.spec.ts` and its RELEASE.md test, and point README's install line at it. Until then `--one-file` is an opt-in, because the newest release's image has no `kinboard-init` (RFC-023 §4.9, PR 8)
 
 ## Cutting the release
 
