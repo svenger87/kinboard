@@ -25,6 +25,18 @@
 
 set -e
 
+# The one-shot steps of a one-file install (RFC-023 §4.1, §4.2), run from this
+# image as `command: ["kinboard-init"]` and `command: ["kinboard-db-init"]`.
+# They run before any secret exists and start no server, so they go first.
+# Without a command (every existing install), nothing here applies.
+case "${1:-}" in
+  kinboard-init | kinboard-db-init)
+    cmd="$1"
+    shift
+    exec "${KINBOARD_BIN_DIR:-/usr/local/bin}/$cmd" "$@"
+    ;;
+esac
+
 # Root for the steps below that own files (moving uploads out of the old
 # storage-api layout); the server itself never runs as root. An image run with
 # `user:` set skips the file steps and starts as that user.

@@ -200,6 +200,51 @@ runs in this order:
 `db` waits for it with `condition: service_completed_successfully`, so a
 failed init step stops the stack before anything starts.
 
+**Done in PR 2** (`docker/kinboard-init.mjs`, `docker/kinboard-db-init.sh`),
+with these findings against the text above:
+
+- **A Windows line ending matters as much as the byte-order mark.**
+  `file_env`'s `$(< file)` drops trailing `\n` only, so a file ending in
+  `\r\n` gives the database a password ending in `\r`, while `fileValue`
+  drops it. The init step rewrites a file whenever the two readers would
+  disagree (a leading BOM or a trailing `\r`), not only for the BOM. A value
+  in `.env` that starts with a BOM or ends in a line break is refused.
+- **The filesystem comes from `/proc/self/mountinfo`, not `statfs`.** Both
+  report FUSE, but only mountinfo has the subtype: Unraid's user shares are
+  `fuse.shfs` (PostgreSQL works there, and §7 sends households there), while
+  ntfs-3g is `fuseblk`. `statfs` and `stat -f` (`start.sh`) call both
+  `fuseblk`. The refused list also has `exfat`, `smb3`, `ntfs`, `ntfs3` and `vboxsf`,
+  where PostgreSQL fails the same way. The config volume is refused only on `tmpfs` and
+  `ramfs`; anything else that can hold a file works for it.
+- **A missing half of the VAPID pair** regenerates both (the old half kept as
+  `.previous-<time>`, with a warning), because a new half can't match the
+  old one. Half a pair in `.env` is refused. A pair that doesn't belong
+  together is a warning.
+- **The VAPID pair is made with `node:crypto`** (P-256, uncompressed public
+  key and 32-byte private key, unpadded base64url), the format `web-push`
+  generates and checks; a test passes the result through `web-push`. The
+  standalone image need not carry the library's CLI.
+- **The command dispatch is in the entrypoint**: `command: ["kinboard-init"]`
+  reaches `webapp-entrypoint.sh` as its argument, which hands it off before
+  reading any secret. Without a command, as in the legacy file, nothing
+  changes.
+- **`kinboard-db-init` keeps the password out of the server's records as
+  far as it can.** psql substitutes `:'pw'` on the client, so the server
+  receives the literal. For that one transaction `log_statement`,
+  `log_min_error_statement`, `log_min_duration_statement` and
+  `pg_stat_statements.track_utility` are turned off. The supabase image's own
+  first-start script still logs `ALTER USER supabase_admin WITH PASSWORD …`
+  under `log_statement`; that line exists on today's installs too.
+- **Crashes and odd files.** The directory is fsynced after the renames. A
+  leftover temporary file next to a missing `postgres_password` is a refusal,
+  not a cleanup, because it may be the only copy. `.previous-<time>` is a hard
+  link made before the replace, so the live file never goes missing, and a
+  second replacement in the same second gets `-2`. Symlinks and anything else
+  that is not a plain file are refused as secrets and never followed for
+  `chmod`. A `chmod` or `chown` the filesystem refuses is a warning (§6.3),
+  as is a config folder PostgREST (uid 1000, group 0) can't enter. A refusal
+  writes nothing, not even the `secrets/` folder.
+
 **How each service reads the store:**
 
 | Service | How | Verified |
