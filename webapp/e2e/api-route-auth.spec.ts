@@ -198,6 +198,10 @@ test("a route that still takes family_id checks it against the session", () => {
     "layouts/[id]/route.ts",
     "layouts/[id]/duplicate/route.ts",
     "layouts/defaults/route.ts",
+    // The auto-updater's status (RFC-023 §4.11.4): the regex matches the
+    // local `familyId` the operator check is called with, from
+    // auth.session.familyId; the requests carry an action only.
+    "update-status/route.ts",
     "devices/[id]/layout/route.ts",
     // The family's shop prices: the regex matches the `family_id` column the
     // setting is written under, from auth.session.familyId; the request carries

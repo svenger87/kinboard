@@ -337,6 +337,10 @@ services:
       # public-demo visitors can load the seeded household. Self-hosters
       # leave it unset.
       KINBOARD_DEMO_FAMILY_CODE: ${KINBOARD_DEMO_FAMILY_CODE:-}
+      # The family that sees the auto-updater's status and "Try again" in
+      # Settings on an install with several families (RFC-023 §4.11.4). A
+      # household install with one family needs nothing here.
+      INSTANCE_ADMIN_FAMILY_ID: ${INSTANCE_ADMIN_FAMILY_ID:-}
       # Postgres credentials for the entrypoint's migration runner (so any
       # image update applies new schema without `start.sh migrate`) and for
       # the live-update feed's LISTEN connection (src/lib/realtime).

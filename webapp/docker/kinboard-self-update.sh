@@ -23,7 +23,18 @@
 #      (migrate.sh).
 #   4b. docker compose up -d --force-recreate cron — only when step 4
 #      recreated the webapp: ofelia reads job labels only at start.
+#   4c. HEALTH WAIT                        — every recreated service must come
+#      up healthy (or running, without a health check) within 10 minutes. If
+#      one does not, the recreated services go back to the image ids they ran
+#      before this run, that version is held back until a newer one appears,
+#      and Settings says so. See "Health and rollback" below.
 #   5. docker restart kinboard-diun        — only if diun.yml changed.
+#
+# `--tick` (RFC-023 §4.11.5) is the reconciliation run the webhook container
+# starts every 30 minutes on its own: no git, no setup.sh, only "does what
+# runs match what .env names, and what the registry has under it". It catches
+# a KINBOARD_TAG changed in .env, which Diun cannot see. `--tick-loop` is the
+# loop that runs it. See "The reconciliation tick" below.
 #
 # Logs to /var/log/kinboard-update.log inside the webhook container —
 # bind-mount that path on the host if you want persistent logs.
@@ -55,6 +66,14 @@ set -eu
 LOG_FILE="${LOG_FILE:-/var/log/kinboard-update.log}"
 PROJECT_DIR="${PROJECT_DIR:-/project}"
 COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml}"
+
+MODE=update
+case "${1:-}" in
+  "") ;;
+  --tick) MODE=tick ;;
+  --tick-loop) MODE=loop ;;
+  *) echo "usage: $0 [--tick | --tick-loop]" >&2; exit 2 ;;
+esac
 
 # Ensure the log file is writable. If the host-side bind-mount target
 # wasn't pre-created (typical), Docker auto-creates it as root:755 —
@@ -133,7 +152,7 @@ take_backup() {
   # plausible-looking 1.7KB archive and the upgrade sails on believing it has
   # a backup. -U supabase_admin because postgres is not a superuser in this
   # image and pg_dumpall dies on the _realtime tables it does not own.
-  tmp_sql="/tmp/kinboard-pre-upgrade-$stamp.sql"
+  tmp_sql="${TMPDIR:-/tmp}/kinboard-pre-upgrade-$stamp-$$.sql"
   if ! docker exec "$db_cid" pg_dumpall -U supabase_admin > "$tmp_sql" 2>>"$LOG_FILE"; then
     log "ERROR: pg_dumpall failed — refusing to upgrade"
     rm -f "$tmp_sql"
@@ -202,8 +221,15 @@ take_backup() {
     done
   " >>"$LOG_FILE" 2>&1 || true
 
+  # For the status record Settings shows (see write_status).
+  BACKUP_FILE="pre-upgrade-$stamp.sql.gz"
+  BACKUP_DIR="$backup_dir"
+  BACKUP_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   return 0
 }
+BACKUP_FILE=""
+BACKUP_DIR=""
+BACKUP_AT=""
 
 # ---------------------------------------------------------------------------
 # The scheduler follows a new webapp.
@@ -305,9 +331,11 @@ field_for() {
 }
 
 # $1: the services to consider. Reads HASHES_BEFORE, HASHES_NOW,
-# HASHES_SINCE and CONFIG_IMAGES. Prints "recreate <service> <why>" or
-# "skip <service> <why>" lines; a skipped service is one this could not
-# judge, and keeps the hash file for the next run.
+# HASHES_SINCE and CONFIG_IMAGES. Prints "recreate <service> <why>",
+# "skip <service> <why>" or "held <service> <why>" lines. A skipped service is
+# one this could not judge, and keeps the hash file for the next run. A held
+# one would run an image that an earlier run rolled back (see "Health and
+# rollback"); it stays as it is until a newer image appears.
 #
 # Every lookup ends in `|| true`: under `set -e` one failed lookup (an image
 # no longer on disk, a container gone in the meantime) would otherwise end
@@ -320,6 +348,13 @@ services_to_recreate() {
       echo "skip $svc no-container"
       continue
     fi
+    ref="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null || true)"
+    running="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true)"
+    want_ref="$(field_for "$svc" "$CONFIG_IMAGES")"
+    [ -n "$want_ref" ] || want_ref="$ref"
+    wanted=""
+    [ -z "$want_ref" ] || wanted="$(docker image inspect -f '{{.Id}}' "$want_ref" 2>/dev/null || true)"
+    why=""
 
     # The definition, when both sides are known. A container created after
     # the hashes were taken (a `./start.sh up` since an interrupted run) was
@@ -332,152 +367,715 @@ services_to_recreate() {
         if awk -v c="$(printf '%.19s' "$created")" -v w="$HASHES_SINCE" 'BEGIN { exit !(c > w) }'; then
           :
         else
-          echo "recreate $svc definition"
-          continue
+          why=definition
         fi
       fi
     fi
 
-    ref="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null || true)"
-    running="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true)"
-    want_ref="$(field_for "$svc" "$CONFIG_IMAGES")"
-    [ -n "$want_ref" ] || want_ref="$ref"
-    if [ -z "$ref" ] || [ -z "$running" ]; then
-      echo "skip $svc container-unreadable"
+    if [ -z "$why" ]; then
+      if [ -z "$ref" ] || [ -z "$running" ]; then
+        echo "skip $svc container-unreadable"
+        continue
+      fi
+      if [ "$ref" != "$want_ref" ]; then
+        why=image-reference
+      elif [ -z "$wanted" ]; then
+        echo "skip $svc image-not-on-disk"
+        continue
+      elif [ "$wanted" != "$running" ]; then
+        why=image
+      else
+        continue
+      fi
+    fi
+
+    if [ -n "$wanted" ] && [ "$wanted" != "$running" ] && is_held "$wanted"; then
+      echo "held $svc $why"
       continue
     fi
-    if [ "$ref" != "$want_ref" ]; then
-      echo "recreate $svc image-reference"
-      continue
-    fi
-    wanted="$(docker image inspect -f '{{.Id}}' "$want_ref" 2>/dev/null || true)"
-    if [ -z "$wanted" ]; then
-      echo "skip $svc image-not-on-disk"
-    elif [ "$wanted" != "$running" ]; then
-      echo "recreate $svc image"
-    fi
+    echo "recreate $svc $why"
   done
 }
 
+# ---------------------------------------------------------------------------
+# State that outlives a run: .git/kinboard-update-state, next to the hash file
+# and the lock, so a run in the webhook container and one started on the host
+# share it. One "key value..." line each:
+#
+#   baseline <UTC>                 the first tick has run (see "The tick")
+#   failures <n>                   ticks in a row that could not reach the registry
+#   backoff_until <epoch seconds>  no tick before then
+#   held <image id> <reference> <UTC>   rolled back once; not applied again
+#   previous <service> <image id> <reference>   what ran before the last recreate
+#
+# RFC-023 §4.11.3 names config/updater/state.json for the published updater
+# image; a git install has no config/ directory, and its other run state
+# already lives in .git.
+# ---------------------------------------------------------------------------
+
+state_get() {
+  awk -v k="$1" '$1 == k { print $2; exit }' "$STATE_FILE" 2>/dev/null || true
+}
+
+# $1 key, $2 value: replaces every line for the key; an empty value removes it.
+state_set() {
+  tmp="$STATE_FILE.tmp"
+  { awk -v k="$1" '$1 != k' "$STATE_FILE" 2>/dev/null || true
+    [ -z "$2" ] || echo "$1 $2"
+  } > "$tmp" && mv "$tmp" "$STATE_FILE"
+}
+
+is_held() {
+  awk -v id="$1" '$1 == "held" && $2 == id { found = 1 } END { exit !found }' "$STATE_FILE" 2>/dev/null
+}
+
+# $1 image id, $2 reference.
+hold_back() {
+  is_held "$1" || echo "held $1 $2 $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$STATE_FILE"
+}
+
+# $1: a reference whose held versions no longer matter (a newer image under it
+# came up healthy), or empty for all of them ("Try again" in Settings).
+release_held() {
+  tmp="$STATE_FILE.tmp"
+  { awk -v r="$1" '!($1 == "held" && (r == "" || $3 == r))' "$STATE_FILE" 2>/dev/null || true; } > "$tmp" \
+    && mv "$tmp" "$STATE_FILE"
+}
+
+# ---------------------------------------------------------------------------
+# The database, for the status record Settings reads.
+#
+# instance_settings (migrations/065) holds settings of the install rather than
+# of a family; the browser roles cannot read it. Through the db container, as
+# the backup is, because this container has no other way in. -U supabase_admin
+# for the same reason as the dump: local connections in that image trust it.
+# ---------------------------------------------------------------------------
+
+db_container() {
+  # shellcheck disable=SC2086
+  docker compose $COMPOSE_FILES ps -q db 2>/dev/null | head -n1 || true
+}
+
+# A JSON string, quotes included. Control characters (a log's colour codes)
+# are dropped: JSON does not allow them raw.
+json_str() {
+  # sed, not awk, for the escaping: busybox awk's gsub turns "\\\\" into one
+  # backslash, not two, which made invalid JSON of any log with a backslash.
+  printf '"'
+  printf '%s' "$1" | tr -d '\000-\010\013-\037' \
+    | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g' \
+    | sed ':a;N;$!ba;s/\n/\\n/g' | tr -d '\n'
+  printf '"'
+}
+
+# $1: the record, a JSON object. $2: what to say in the log. $3: the same
+# record without the log excerpt, tried when the first is refused (a log line
+# that is not valid UTF-8, say).
+write_status() {
+  db="$(db_container)"
+  if [ -z "$db" ]; then
+    log "WARN: the database is not running; Settings will not show: $2"
+    return 0
+  fi
+  # A psql variable, never pasted into the SQL: the record holds a log
+  # excerpt. Variables are not interpolated in -c, hence stdin.
+  if printf '%s\n' "INSERT INTO public.instance_settings (key, value) VALUES ('update_status', :'v')
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();" \
+     | docker exec -i "$db" psql -U supabase_admin -d postgres -q -v ON_ERROR_STOP=1 -v "v=$1" >>"$LOG_FILE" 2>&1; then
+    log "status for Settings: $2"
+  elif [ -n "${3:-}" ] && [ "$3" != "$1" ] && printf '%s\n' "INSERT INTO public.instance_settings (key, value) VALUES ('update_status', :'v')
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();" \
+     | docker exec -i "$db" psql -U supabase_admin -d postgres -q -v ON_ERROR_STOP=1 -v "v=$3" >>"$LOG_FILE" 2>&1; then
+    log "status for Settings, without the log excerpt: $2"
+  else
+    log "WARN: could not record the status for Settings: $2"
+  fi
+}
+
+# "Try again now" in Settings writes update_retry; it releases every held
+# version, and the run that reads it removes it.
+take_retry_request() {
+  db="$(db_container)"
+  [ -n "$db" ] || return 0
+  # Taken and removed in one statement: only a request that was really removed
+  # releases anything, so a DELETE that fails cannot release the held version
+  # again at every tick.
+  asked="$(docker exec "$db" psql -U supabase_admin -d postgres -tAq -v ON_ERROR_STOP=1 \
+    -c "DELETE FROM public.instance_settings WHERE key = 'update_retry' RETURNING value" 2>/dev/null || true)"
+  [ -n "$asked" ] || return 0
+  release_held ""
+  log "\"Try again\" was pressed in Settings ($asked); versions held back after a rollback are tried again"
+}
+
+# $1 image id, $2 reference: a version to show a person. The release label
+# docker.yml puts on the image, else the reference's tag.
+image_version() {
+  v="$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' "$1" 2>/dev/null || true)"
+  case "$v" in "<no value>") v="" ;; esac
+  if [ -z "$v" ]; then
+    case "$2" in
+      *@*) v="$(printf '%.19s' "${2##*@}")" ;;
+      *:*) v="${2##*:}"; case "$v" in */*) v=latest ;; esac ;;
+      *) v=latest ;;
+    esac
+  fi
+  echo "$v"
+}
+
+# ---------------------------------------------------------------------------
+# Health and rollback (RFC-023 §4.11.4).
+#
+# Until this, a release that did not start stayed down: the script recreated
+# the webapp, logged "done" and left. Nothing waited for it, and the household
+# found a dead screen in the morning.
+#
+# Now every recreated service is watched until Docker calls it healthy (its
+# health check, which for the webapp is /api/health, database included), or,
+# without a health check, until it has been running for two looks in a row.
+# A container that exits, restarts more than twice, or is not there yet after
+# KINBOARD_HEALTH_TIMEOUT (10 minutes: a first boot's migrations retry for 30
+# seconds, the check has a 30-second start period, and a large migration on a
+# Pi needs room) has failed. So has a webapp that is healthy but fails the
+# smoke check (smoke_check below): the schema its code needs is not there.
+#
+# Then the recreated services go back to the image ids they ran before this
+# run, recorded before anything was touched: each id is tagged as the
+# reference again and the services are recreated with --pull never. The image
+# that failed is held back (state file) so the next run and the next tick do
+# not walk into it again; a newer image under the reference, or "Try again"
+# in Settings, releases it.
+#
+# A migration the failed version ran stays. Migrations are additive
+# (UPGRADING.md), so the older version runs on the newer schema; one that
+# failed halfway left part of itself, and is retried with the next release.
+# ---------------------------------------------------------------------------
+
+HEALTH_TIMEOUT="${KINBOARD_HEALTH_TIMEOUT:-600}"
+HEALTH_POLL="${KINBOARD_HEALTH_POLL:-5}"
+UNHEALTHY=""
+
+# $1: services. Returns 0 when all are healthy; otherwise 1, with
+# UNHEALTHY set to "<service>: <why>" lines.
+wait_healthy() {
+  pending="$1"
+  seen_running=""
+  UNHEALTHY=""
+  deadline=$(( $(date +%s) + HEALTH_TIMEOUT ))
+  while :; do
+    still=""
+    for svc in $pending; do
+      # shellcheck disable=SC2086
+      cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+      st="$(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}' "$cid" 2>/dev/null || true)"
+      IFS='|' read -r status health restarts code policy <<EOF
+$st
+EOF
+      if [ -z "$cid" ] || [ -z "$st" ]; then
+        UNHEALTHY="$UNHEALTHY$svc: its container is gone
+"
+      elif [ "$health" = healthy ]; then
+        :
+      elif [ "$status" = exited ] && [ "$policy" = no ] && [ "$code" = 0 ]; then
+        : # a one-shot (db-init) that did its job
+      elif [ "$status" = exited ] || [ "$status" = dead ]; then
+        UNHEALTHY="$UNHEALTHY$svc: exited with code $code
+"
+      elif [ "${restarts:-0}" -gt 2 ]; then
+        UNHEALTHY="$UNHEALTHY$svc: restarted $restarts times
+"
+      elif [ -z "$health" ] && [ "$status" = running ] && printf ' %s ' "$seen_running" | grep -q " $svc "; then
+        :
+      else
+        [ -n "$health" ] || [ "$status" != running ] || seen_running="$seen_running $svc"
+        still="$still $svc"
+      fi
+    done
+    [ -z "$UNHEALTHY" ] || return 1
+    [ -n "$still" ] || return 0
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      for svc in $still; do
+        UNHEALTHY="$UNHEALTHY$svc: not healthy after ${HEALTH_TIMEOUT}s
+"
+      done
+      return 1
+    fi
+    pending="$still"
+    sleep "$HEALTH_POLL"
+  done
+}
+
+# The smoke check, after the webapp is healthy: `/api/health?deep=1`, run
+# inside the webapp container (lib/deep-health.ts). Healthy is not enough: a
+# column renamed by a release (a non-additive migration) kept Docker's health
+# status healthy and /api/health at 200, and only a write through /rest/v1
+# failed. The deep check compares the schema PostgREST serves with the tables
+# and columns this build's code declares, and makes one harmless write.
+#
+# Retried for KINBOARD_SMOKE_TIMEOUT (3 minutes; PostgREST reloads its schema
+# cache a moment after the migrations) after the health wait. The answers:
+#   - a `deep` object: 200 passes, anything else is retried, then fails;
+#   - the plain health JSON (`"status"`): an image older than the deep check,
+#     which ignores `deep`; it passes on its health check alone;
+#   - 401: no CRON_SECRET in the webapp's environment; passes, with a warning,
+#     since failing would roll back every release on such an install;
+#   - nothing, a timeout, an HTML error page: retried, then fails.
+SMOKE_TIMEOUT="${KINBOARD_SMOKE_TIMEOUT:-180}"
+
+smoke_check() {
+  # shellcheck disable=SC2086
+  cid="$(docker compose $COMPOSE_FILES ps -aq webapp 2>/dev/null | head -n1 || true)"
+  smoke_deadline=$(( $(date +%s) + SMOKE_TIMEOUT ))
+  while :; do
+    # CRON_SECRET is the webapp container's own: single quotes, expanded there.
+    # shellcheck disable=SC2016
+    out="$(docker exec "$cid" sh -c 'curl -s -m 30 -w "\n%{http_code}" -H "Authorization: Bearer ${CRON_SECRET:-}" "http://localhost:3000/api/health?deep=1"' 2>/dev/null || true)"
+    code="$(printf '%s\n' "$out" | tail -n1)"
+    body="$(printf '%s\n' "$out" | sed '$d')"
+    case "$code|$body" in
+      200\|*'"deep"'*)
+        log "smoke check passed: the schema the webapp needs is there, and a write went through"
+        return 0 ;;
+      *'"deep"'*) ;;
+      401\|*)
+        log "WARN: smoke check refused (HTTP 401: no CRON_SECRET in the webapp's environment?); its health check stands alone"
+        return 0 ;;
+      200\|*'"status"'*)
+        log "smoke check: this webapp image has no deep health check; its health check stands alone"
+        return 0 ;;
+    esac
+    if [ "$(date +%s)" -ge "$smoke_deadline" ]; then
+      UNHEALTHY="${UNHEALTHY}webapp: the smoke check failed (HTTP $code): $(printf '%.400s' "$body")
+"
+      return 1
+    fi
+    sleep "$HEALTH_POLL"
+  done
+}
+
+# Health, and for a recreated webapp the smoke check too.
+wait_ready() {
+  wait_healthy "$1" || return 1
+  case " $1 " in *" webapp "*) smoke_check || return 1 ;; esac
+  return 0
+}
+
+# The migration the webapp's entrypoint gave up on, from its log
+# (migrate.sh: "[migrate] FAILED: <file>"), or nothing.
+failed_migration() {
+  # shellcheck disable=SC2086
+  cid="$(docker compose $COMPOSE_FILES ps -aq webapp 2>/dev/null | head -n1 || true)"
+  [ -n "$cid" ] || return 0
+  docker logs "$cid" 2>&1 | sed -n 's/.*\[migrate\] FAILED: *\([^ ]*\).*/\1/p' | tail -n1 || true
+}
+
+# Secret-shaped text out of a log excerpt before it is stored where Settings
+# shows it: every value in .env whose name says secret, password, token or
+# key, as written; JWTs; credentials in a URL; Bearer tokens; name=value and
+# name: value pairs for password, secret, token and API keys; and any run of
+# 32 or more hex digits (the webhook secret and CRON_SECRET are hex, and so are
+# keys a library might print). Each line is cut to 300 characters, and the
+# whole to 6000.
+redact() {
+  # Values from .env whose names say they are secret, as written there:
+  # `export` dropped, quotes and a trailing comment taken off, CR removed.
+  secrets="$(tr -d '\r' < "$PROJECT_DIR/webapp/docker/.env" 2>/dev/null \
+    | sed -nE 's/^[[:space:]]*(export[[:space:]]+)?[A-Z0-9_]*(SECRET|PASSWORD|PASS|TOKEN|KEY|URL|URI|DSN|CODE|PAT)[A-Z0-9_]*=(.*)$/\3/p' \
+    | sed 's/[[:space:]]#.*$//; s/^"\(.*\)"$/\1/; s/^'"'"'\(.*\)'"'"'$/\1/' \
+    | awk 'length($0) >= 6' || true)"
+  SECRETS="$secrets" awk '
+    BEGIN {
+      n = split(ENVIRON["SECRETS"], s, "\n")
+      q = "\047"
+      hex = "[0-9a-fA-F]"; hexre = ""
+      for (i = 0; i < 32; i++) hexre = hexre hex
+      hexre = hexre "+"
+      val = "(\"[^\"]*\"|" q "[^" q "]*" q "|[^] ,;&\"" q "[{}()]+)"
+      kv = "(password|passwd|pwd|secret|token|api[_-]?key|apikey|access[_-]?key|private[_-]?key|appid|client[_-]?secret|pin|join[_-]?code)[a-z_-]*\"?[ ]*[=:][ ]*" val
+      sqlpw = "password +" q "[^" q "]*" q
+      qp = "[?&](key|code|sig|signature|state|access_token)=[^& ]+"
+      total = 0
+    }
+    # Postgres repeats the failing row and the statement in these; they hold
+    # family data (names, join codes, a PIN in integration_secrets).
+    /^[ \t]*(DETAIL|STATEMENT|CONTEXT|QUERY|HINT):|^[ \t]*LINE [0-9]+:/ { $0 = "[a database detail line, left out]" }
+    {
+      line = $0
+      gsub(/Failing row contains \(.*\)/, "Failing row contains ([redacted])", line)
+      for (i = 1; i <= n; i++) {
+        if (s[i] == "") continue
+        from = 1
+        while ((p = index(substr(line, from), s[i])) > 0) {
+          p += from - 1
+          line = substr(line, 1, p - 1) "[redacted]" substr(line, p + length(s[i]))
+          from = p + length("[redacted]")
+        }
+      }
+      gsub(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/, "[redacted]", line)
+      gsub(/:\/\/[^\/ ]*@/, "://[redacted]@", line)
+      gsub(/[Bb][Ee][Aa][Rr][Ee][Rr] [^ ]+/, "Bearer [redacted]", line)
+      gsub(/[Bb][Aa][Ss][Ii][Cc] [A-Za-z0-9+\/=]+/, "Basic [redacted]", line)
+      gsub(hexre, "[redacted]", line)
+      for (pass = 1; pass <= 3; pass++) {
+        re = (pass == 1) ? kv : (pass == 2) ? sqlpw : qp
+        lower = tolower(line); out = ""
+        while (match(lower, re)) {
+          seg = substr(line, RSTART, RLENGTH)
+          e = index(seg, "="); c = index(seg, ":"); sp = index(seg, " ")
+          if (pass == 2) e = sp
+          else if (pass == 3) e = index(seg, "=")
+          else if (e == 0 || (c > 0 && c < e)) e = c
+          out = out substr(line, 1, RSTART - 1) substr(seg, 1, e) "[redacted]"
+          line = substr(line, RSTART + RLENGTH); lower = substr(lower, RSTART + RLENGTH)
+        }
+        line = out line
+      }
+      if (length(line) > 300) line = substr(line, 1, 300) "…"
+      total += length(line) + 1
+      if (total > 6000) exit
+      print line
+    }'
+}
+
+# The last lines each of the given services' containers logged, for Details,
+# with secrets taken out (redact).
+log_excerpt() {
+  for svc in $1; do
+    # shellcheck disable=SC2086
+    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+    [ -n "$cid" ] || continue
+    echo "--- $svc"
+    docker logs --tail 30 "$cid" 2>&1 || true
+  done | tail -n 60 | redact
+}
+
+# ---------------------------------------------------------------------------
+# The reconciliation tick (RFC-023 §4.11.5).
+#
+# Diun watches the image the running container was created from, not .env. So
+# after a deploy pinned to a sha-… tag, putting KINBOARD_TAG=next back in .env
+# changes nothing Diun can see: the pinned tag never moves, and updates stay
+# stopped until someone runs `up -d` by hand. That happened on the
+# maintainer's own install on 2026-11-26.
+#
+# So the webhook container runs this script with --tick every 30 minutes (0-5
+# minutes of jitter, the first one 2 minutes after the loop starts). A tick:
+#   - does no git pull and no setup.sh: those belong to a release, which Diun
+#     announces; a tick only brings what runs in line with what is configured;
+#   - the first time ever, only records a baseline and logs what differs, as
+#     Diun's own firstCheckNotif=false does on its first sighting of an image:
+#     a script arriving on an install does not recreate anything on its own
+#     first look;
+#   - after that, for each running service whose container runs another image
+#     reference than the compose files and .env name, pulls that service and
+#     recreates it, with backup, health wait and rollback as any run. Nothing
+#     else: a newer image under the same reference is Diun's to announce
+#     (its run does the release's git pull and setup.sh first); a pinned tag
+#     is a reference that matches, so nothing happens there; a service
+#     someone stopped stays stopped; no orphan is removed. With nothing to
+#     apply it does not even ask the registry;
+#   - when the registry or the network is down, touches nothing and waits:
+#     30 minutes, then twice as long each time, up to 6 hours.
+#
+# RFC-023 §4.11.3 has the published updater compare remote digests too: it
+# has no Diun. A git install has, and a tick that applied a new digest before
+# Diun's run would start a release without the compose files and .env keys
+# that run brings.
+#
+# The loop is started by the webhook container's entrypoint
+# (docker-compose.diun.yml), and by any run inside a webhook container that
+# has none yet: a container created before this script cannot have it in its
+# entrypoint, and the self-update never recreates the container it runs in.
+# ---------------------------------------------------------------------------
+
+TICK_INTERVAL="${KINBOARD_TICK_INTERVAL:-1800}"
+
+# KINBOARD_UPDATE_TICK from .env, read each time: the webhook container's own
+# environment is fixed when it is created, and the self-update never recreates
+# it, so an `off` set later would never reach an existing install. The
+# container's environment is the fallback.
+tick_switch() {
+  v="$(grep -E '^KINBOARD_UPDATE_TICK=' "$PROJECT_DIR/webapp/docker/.env" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '"' || true)"
+  echo "${v:-${KINBOARD_UPDATE_TICK:-on}}"
+}
+
+run_tick_loop() {
+  [ "$(tick_switch)" != off ] || exit 0
+  command -v flock >/dev/null 2>&1 || exit 0
+  # One loop per container.
+  exec 8>/tmp/kinboard-update-tick.lock
+  flock -n 8 || exit 0
+  sleep "${KINBOARD_TICK_FIRST:-120}"
+  while :; do
+    # The script on disk now, not this copy: `git pull` replaces it.
+    if [ "$(tick_switch)" != off ]; then
+      sh "$PROJECT_DIR/webapp/docker/kinboard-self-update.sh" --tick </dev/null >/dev/null 2>&1 8>&- || true
+    fi
+    sleep $(( TICK_INTERVAL + $(awk 'BEGIN { srand(); print int(rand() * 300) }') ))
+  done
+}
+
+ensure_tick_loop() {
+  [ "$(tick_switch)" != off ] || return 0
+  [ -f /.dockerenv ] && command -v webhook >/dev/null 2>&1 || return 0
+  command -v flock >/dev/null 2>&1 || return 0
+  # Held by the loop for as long as it lives.
+  if ( exec 8>/tmp/kinboard-update-tick.lock; flock -n 8 ); then
+    # Detached and with nothing of ours open: the webhook reads this run's
+    # output until every holder of it has closed it.
+    detach=""
+    command -v setsid >/dev/null 2>&1 && detach=setsid
+    $detach sh "$PROJECT_DIR/webapp/docker/kinboard-self-update.sh" --tick-loop </dev/null >/dev/null 2>&1 9>&- &
+    log "started the 30-minute reconciliation tick in this container"
+  fi
+}
+
+# Whether a tick may run now; logs why not.
+tick_allowed() {
+  until_ts="$(state_get backoff_until)"
+  if [ -n "$until_ts" ] && [ "$(date +%s)" -lt "$until_ts" ]; then
+    log "tick: backing off after $(state_get failures) failed tick(s); next try after $(date -u -d "@$until_ts" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "$until_ts")"
+    return 1
+  fi
+  return 0
+}
+
+# $1: why. The next tick waits 30 minutes, then twice as long each time, up
+# to 6 hours.
+tick_backoff() {
+  n="$(state_get failures)"
+  n=$(( ${n:-0} + 1 ))
+  wait_s="$TICK_INTERVAL"
+  i=1
+  while [ "$i" -lt "$n" ] && [ "$wait_s" -lt 21600 ]; do wait_s=$((wait_s * 2)); i=$((i + 1)); done
+  [ "$wait_s" -le 21600 ] || wait_s=21600
+  state_set failures "$n"
+  # A minute short of the wait, so the jittered tick that lands on it runs.
+  state_set backoff_until "$(( $(date +%s) + wait_s - 60 ))"
+  log "tick skipped: $1; nothing was changed. Next try in $((wait_s / 60)) minutes (failure $n in a row)"
+}
+
+if [ "$MODE" = loop ]; then
+  run_tick_loop
+fi
+
 cd "$PROJECT_DIR"
 
-log "=== self-update fired ==="
-log "PROJECT_DIR=$PROJECT_DIR"
-log "COMPOSE_FILES=$COMPOSE_FILES"
+if [ "$MODE" = tick ]; then
+  log "=== tick ==="
+else
+  log "=== self-update fired ==="
+  log "PROJECT_DIR=$PROJECT_DIR"
+  log "COMPOSE_FILES=$COMPOSE_FILES"
+fi
 
 GIT_DIR_ABS="$(git rev-parse --absolute-git-dir 2>/dev/null || echo "$PROJECT_DIR/.git")"
+STATE_FILE="$GIT_DIR_ABS/kinboard-update-state"
 
 # One run at a time. A second one (Diun firing during a hand-started run)
 # would read the first one's hash file, recreate what the first is already
 # recreating and take a second backup. In .git so a run started on the host
 # and one inside the webhook container share it; flock, so a killed run
 # leaves no lock behind.
+#
+# A Diun run that finds a tick holding the lock waits for it instead: Diun
+# calls once per release and never again, so giving up would drop the
+# release's git pull and setup.sh until the next one. The tick leaves a marker
+# while it runs; a killed tick leaves the lock free, so a stale marker costs
+# nothing.
+TICK_MARKER="$GIT_DIR_ABS/kinboard-update.tick"
 if command -v flock >/dev/null 2>&1; then
   exec 9>"$GIT_DIR_ABS/kinboard-update.lock"
   if ! flock -n 9; then
-    log "another self-update is running; leaving it to finish"
-    log "=== self-update skipped ==="
-    exit 0
+    if [ "$MODE" = update ] && [ -f "$TICK_MARKER" ] \
+       && log "a reconciliation tick is running; waiting for it to finish" \
+       && flock -w "${KINBOARD_LOCK_WAIT:-1500}" 9; then
+      :
+    else
+      log "another self-update is running; leaving it to finish"
+      log "=== self-update skipped ==="
+      exit 0
+    fi
+  fi
+  if [ "$MODE" = tick ]; then
+    echo "$$" > "$TICK_MARKER" 2>/dev/null || true
+    trap 'rm -f "$TICK_MARKER"' EXIT
   fi
 else
   log "WARN: no flock here; a second run at the same time is not prevented"
 fi
 
-# The definitions the containers were created from, before `git pull` and
-# setup.sh change them. Kept in .git until the up below has run, so a run that
-# stops in between (a failed backup, a failed pull) leaves the next run what
-# it started from rather than the already-pulled files, which would compare
-# equal and hide the change. The file says when it was written: a container
-# created after that already carries the current definition, so a
-# `./start.sh up` in between does not make it stale.
-#
-#   head <sha before the pull>
-#   written <UTC, to the second>
-#   <service> <hash>   (one per service)
-HASHES_FILE="$GIT_DIR_ABS/kinboard-update-hashes"
-HASHES_BEFORE=""
-HASHES_SINCE=""
-if [ -f "$HASHES_FILE" ]; then
-  file_since="$(awk '$1 == "written" { print $2; exit }' "$HASHES_FILE" 2>/dev/null || true)"
-  file_hashes="$(grep -E '^[^ ]+ [0-9a-f]{64}$' "$HASHES_FILE" 2>/dev/null || true)"
-  if [ -n "$file_since" ] && [ -n "$file_hashes" ]; then
-    log "an earlier run stopped before recreating (from $(awk '$1 == "head" { print $2; exit }' "$HASHES_FILE"), $file_since); comparing against what it started from"
-    HASHES_BEFORE="$file_hashes"
-    HASHES_SINCE="$file_since"
-  else
-    log "ignoring an unreadable $HASHES_FILE"
-    rm -f "$HASHES_FILE"
+if [ "$MODE" = tick ]; then
+  if [ "$(tick_switch)" = off ]; then
+    log "=== tick: switched off (KINBOARD_UPDATE_TICK=off) ==="
+    exit 0
   fi
+  tick_allowed || exit 0
+else
+  ensure_tick_loop
 fi
-if [ -z "$HASHES_BEFORE" ]; then
-  HASHES_SINCE="$(date -u +%Y-%m-%dT%H:%M:%S)"
-  HASHES_BEFORE="$(config_hashes)"
-  if [ -n "$HASHES_BEFORE" ]; then
-    { echo "head $(git rev-parse HEAD 2>/dev/null || echo unknown)"
-      echo "written $HASHES_SINCE"
-      printf '%s\n' "$HASHES_BEFORE"
-    } > "$HASHES_FILE" 2>/dev/null || true
-  else
-    log "WARN: docker compose config --hash gave nothing; a changed definition will not be recreated in this run"
-  fi
-fi
-
-# 1. git fetch + pull
-log "git fetch origin main"
-git fetch origin main >>"$LOG_FILE" 2>&1
-LOCAL_SHA="$(git rev-parse HEAD)"
-REMOTE_SHA="$(git rev-parse origin/main)"
 DIUN_BEFORE="$(stat -c %Y webapp/docker/diun/diun.yml 2>/dev/null || echo 0)"
 
-if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
-  log "pulling $LOCAL_SHA → $REMOTE_SHA"
-  # The git pull brings new compose files and migrations. The IMAGE pull below (steps 3-4)
-  # is what carries the actual release, and it must not be held hostage to the
-  # working tree being clean — so a git failure here logs loudly and continues,
-  # rather than aborting under `set -e` and leaving the container on the old,
-  # possibly-vulnerable image. This is exactly how the demo silently stalled on
-  # an old build while `latest` moved three releases ahead.
-  if ! git pull --ff-only origin main >>"$LOG_FILE" 2>&1; then
-    log "WARN: git pull failed — attempting to clear collisions and retry"
-    # The common cause: files that used to be created locally (compose
-    # overlays, the diun runtime db) are now tracked upstream, so an untracked
-    # local copy blocks the merge. Remove ONLY untracked paths that origin/main
-    # actually tracks — git is about to replace each with its own version, so
-    # nothing local-only is lost. Everything else is left untouched.
-    git ls-files --others --exclude-standard 2>/dev/null | while IFS= read -r f; do
-      if git cat-file -e "origin/main:$f" 2>/dev/null; then
-        log "  removing stale untracked (now tracked upstream): $f"
-        rm -f "$f"
-      fi
-    done
-    if git pull --ff-only origin main >>"$LOG_FILE" 2>&1; then
-      log "pulled $REMOTE_SHA after clearing collisions"
+if [ "$MODE" = update ]; then
+  # The definitions the containers were created from, before `git pull` and
+  # setup.sh change them. Kept in .git until the up below has run, so a run that
+  # stops in between (a failed backup, a failed pull) leaves the next run what
+  # it started from rather than the already-pulled files, which would compare
+  # equal and hide the change. The file says when it was written: a container
+  # created after that already carries the current definition, so a
+  # `./start.sh up` in between does not make it stale.
+  #
+  #   head <sha before the pull>
+  #   written <UTC, to the second>
+  #   <service> <hash>   (one per service)
+  HASHES_FILE="$GIT_DIR_ABS/kinboard-update-hashes"
+  HASHES_BEFORE=""
+  HASHES_SINCE=""
+  if [ -f "$HASHES_FILE" ]; then
+    file_since="$(awk '$1 == "written" { print $2; exit }' "$HASHES_FILE" 2>/dev/null || true)"
+    file_hashes="$(grep -E '^[^ ]+ [0-9a-f]{64}$' "$HASHES_FILE" 2>/dev/null || true)"
+    if [ -n "$file_since" ] && [ -n "$file_hashes" ]; then
+      log "an earlier run stopped before recreating (from $(awk '$1 == "head" { print $2; exit }' "$HASHES_FILE"), $file_since); comparing against what it started from"
+      HASHES_BEFORE="$file_hashes"
+      HASHES_SINCE="$file_since"
     else
-      # Still stuck (local commits, real conflicts). Do not abort — the image
-      # pull is the point, and new migrations ride in the image regardless.
-      log "WARN: git still behind at $LOCAL_SHA; continuing to image pull anyway"
+      log "ignoring an unreadable $HASHES_FILE"
+      rm -f "$HASHES_FILE"
+    fi
+  fi
+  if [ -z "$HASHES_BEFORE" ]; then
+    HASHES_SINCE="$(date -u +%Y-%m-%dT%H:%M:%S)"
+    HASHES_BEFORE="$(config_hashes)"
+    if [ -n "$HASHES_BEFORE" ]; then
+      { echo "head $(git rev-parse HEAD 2>/dev/null || echo unknown)"
+        echo "written $HASHES_SINCE"
+        printf '%s\n' "$HASHES_BEFORE"
+      } > "$HASHES_FILE" 2>/dev/null || true
+    else
+      log "WARN: docker compose config --hash gave nothing; a changed definition will not be recreated in this run"
+    fi
+  fi
+
+  # 1. git fetch + pull
+  log "git fetch origin main"
+  # No network, no GitHub: nothing has been touched yet, and nothing is.
+  if ! fetch_out="$(git fetch origin main 2>&1)"; then
+    printf '%s\n' "$fetch_out" >> "$LOG_FILE" 2>/dev/null || true
+    log "=== self-update skipped: git fetch failed ($(printf '%s\n' "$fetch_out" | grep -v '^[[:space:]]*$' | head -n1)); nothing was changed, retried at the next run ==="
+    exit 1
+  fi
+  [ -z "$fetch_out" ] || printf '%s\n' "$fetch_out" >> "$LOG_FILE" 2>/dev/null || true
+  LOCAL_SHA="$(git rev-parse HEAD)"
+  REMOTE_SHA="$(git rev-parse origin/main)"
+
+  if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
+    log "pulling $LOCAL_SHA → $REMOTE_SHA"
+    # The git pull brings new compose files and migrations. The IMAGE pull below (steps 3-4)
+    # is what carries the actual release, and it must not be held hostage to the
+    # working tree being clean — so a git failure here logs loudly and continues,
+    # rather than aborting under `set -e` and leaving the container on the old,
+    # possibly-vulnerable image. This is exactly how the demo silently stalled on
+    # an old build while `latest` moved three releases ahead.
+    if ! git pull --ff-only origin main >>"$LOG_FILE" 2>&1; then
+      log "WARN: git pull failed — attempting to clear collisions and retry"
+      # The common cause: files that used to be created locally (compose
+      # overlays, the diun runtime db) are now tracked upstream, so an untracked
+      # local copy blocks the merge. Remove ONLY untracked paths that origin/main
+      # actually tracks — git is about to replace each with its own version, so
+      # nothing local-only is lost. Everything else is left untouched.
+      git ls-files --others --exclude-standard 2>/dev/null | while IFS= read -r f; do
+        if git cat-file -e "origin/main:$f" 2>/dev/null; then
+          log "  removing stale untracked (now tracked upstream): $f"
+          rm -f "$f"
+        fi
+      done
+      if git pull --ff-only origin main >>"$LOG_FILE" 2>&1; then
+        log "pulled $REMOTE_SHA after clearing collisions"
+      else
+        # Still stuck (local commits, real conflicts). Do not abort — the image
+        # pull is the point, and new migrations ride in the image regardless.
+        log "WARN: git still behind at $LOCAL_SHA; continuing to image pull anyway"
+      fi
+    else
+      log "pulled $REMOTE_SHA"
     fi
   else
-    log "pulled $REMOTE_SHA"
+    log "git up-to-date at $LOCAL_SHA"
   fi
-else
-  log "git up-to-date at $LOCAL_SHA"
-fi
 
-# 2. setup.sh — idempotent. Adds .env keys a release needs; does nothing
-#    when none are missing.
-if [ -x ./setup.sh ]; then
-  log "running setup.sh --non-interactive"
-  ./setup.sh --non-interactive >>"$LOG_FILE" 2>&1 || {
-    log "ERROR: setup.sh failed; aborting before touching containers"
-    exit 1
-  }
+  # 2. setup.sh — idempotent. Adds .env keys a release needs; does nothing
+  #    when none are missing.
+  if [ -x ./setup.sh ]; then
+    log "running setup.sh --non-interactive"
+    ./setup.sh --non-interactive >>"$LOG_FILE" 2>&1 || {
+      log "ERROR: setup.sh failed; aborting before touching containers"
+      exit 1
+    }
+  fi
 fi
 
 # 3. + 4. compose pull + up -d
 cd webapp/docker
 
-log "docker compose $COMPOSE_FILES pull --ignore-buildable"
+take_retry_request
+
+# The tick's first run: a baseline, and nothing else (see "The reconciliation
+# tick"). What differs is logged, and the next tick applies it.
+if [ "$MODE" = tick ] && [ -z "$(state_get baseline)" ]; then
+  CONFIG_IMAGES="$(config_images)"
+  # shellcheck disable=SC2086
+  for svc in $(docker compose $COMPOSE_FILES config --services 2>/dev/null | grep -vE '^(webhook|diun)$' || true); do
+    # shellcheck disable=SC2086
+    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+    ref=""; running=""
+    if [ -n "$cid" ]; then
+      ref="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null || true)"
+      running="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true)"
+    fi
+    want="$(field_for "$svc" "$CONFIG_IMAGES")"
+    log "tick baseline: $svc runs ${ref:-nothing} ${running}"
+    if [ -n "$want" ] && [ -n "$ref" ] && [ "$want" != "$ref" ]; then
+      log "tick baseline: $svc: the compose files and .env name $want; the next tick applies it"
+    fi
+  done
+  state_set baseline "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  log "=== tick: first run, baseline recorded; nothing pulled or recreated ==="
+  exit 0
+fi
+
+# A tick acts on one thing: a service whose container runs another image
+# reference than the compose files and .env name now (a KINBOARD_TAG edited
+# by hand, a deploy pinned to a sha-… tag and set back). A newer image under
+# the same reference is Diun's to announce: its run does the release's git
+# pull and setup.sh first, which a tick never does. And a service someone
+# stopped is left stopped. So a tick with nothing to apply asks the registry
+# nothing, and one that has pulls only those services.
+PULL_SVCS=""
+if [ "$MODE" = tick ]; then
+  CONFIG_IMAGES="$(config_images)"
+  # shellcheck disable=SC2086
+  for svc in $(docker compose $COMPOSE_FILES config --services 2>/dev/null | grep -vE '^(webhook|diun)$' || true); do
+    # shellcheck disable=SC2086
+    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+    [ -n "$cid" ] || continue
+    st="$(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}' "$cid" 2>/dev/null || true)"
+    case "$st" in
+      running\|* | *\|no) ;;
+      *) continue ;;
+    esac
+    ref="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null || true)"
+    want="$(field_for "$svc" "$CONFIG_IMAGES")"
+    if [ -n "$ref" ] && [ -n "$want" ] && [ "$ref" != "$want" ]; then
+      log "tick: $svc runs $ref; the compose files and .env name $want"
+      PULL_SVCS="$PULL_SVCS $svc"
+    fi
+  done
+  if [ -z "$PULL_SVCS" ]; then
+    log "=== tick: nothing to do ==="
+    exit 0
+  fi
+fi
+
+[ "$MODE" = tick ] || log "docker compose $COMPOSE_FILES pull --ignore-buildable"
 # `--ignore-buildable` skips services that have a `build:` directive
 # (the webhook service is locally-built from Dockerfile.webhook, has no
 # pullable registry counterpart).
@@ -497,8 +1095,30 @@ images_now() {
 }
 IMAGES_BEFORE="$(images_now)"
 
+# A pull that fails (no network, the registry down or rate-limiting) ends the
+# run here, before anything is backed up or recreated: what it did fetch
+# stays on disk and is applied by the run that next gets through. A tick's
+# output goes to the log only then, so a quiet tick is one line.
+PULL_OUT="${TMPDIR:-/tmp}/kinboard-update-pull.$$"
 # shellcheck disable=SC2086
-docker compose $COMPOSE_FILES pull --ignore-buildable >>"$LOG_FILE" 2>&1
+if ! docker compose $COMPOSE_FILES pull --ignore-buildable $PULL_SVCS >"$PULL_OUT" 2>&1; then
+  cat "$PULL_OUT" >> "$LOG_FILE" 2>/dev/null || true
+  why="$(grep -v '^[[:space:]]*$' "$PULL_OUT" | tail -n1 || true)"
+  rm -f "$PULL_OUT"
+  case "$why" in
+    *429* | *toomanyrequests* | *"Too Many Requests"*) why="the registry is rate-limiting: $why" ;;
+  esac
+  if [ "$MODE" = tick ]; then
+    tick_backoff "the pull failed (${why:-no output})"
+    exit 0
+  fi
+  log "=== self-update skipped: the pull failed (${why:-no output}); nothing was changed, retried at the next run ==="
+  exit 1
+fi
+[ "$MODE" = tick ] || cat "$PULL_OUT" >> "$LOG_FILE" 2>/dev/null || true
+rm -f "$PULL_OUT"
+state_set failures ""
+state_set backoff_until ""
 
 IMAGES_AFTER="$(images_now)"
 
@@ -520,21 +1140,70 @@ SERVICES=$(docker compose $COMPOSE_FILES config --services 2>/dev/null \
             | tr '\n' ' ')
 
 # The services whose image or definition changed (see "What to recreate").
-HASHES_NOW="$(config_hashes)"
+# A tick pulled no definitions, so it compares images only.
+HASHES_NOW=""
 KEEP_HASHES_FILE=""
-if [ -z "$HASHES_NOW" ]; then
-  log "WARN: docker compose config --hash gave nothing after the pull; recreating only for images, keeping the hash file for the next run"
-  KEEP_HASHES_FILE=1
+if [ "$MODE" = update ]; then
+  HASHES_NOW="$(config_hashes)"
+  if [ -z "$HASHES_NOW" ]; then
+    log "WARN: docker compose config --hash gave nothing after the pull; recreating only for images, keeping the hash file for the next run"
+    KEEP_HASHES_FILE=1
+  fi
+else
+  HASHES_BEFORE=""
 fi
 CONFIG_IMAGES="$(config_images)"
-DECISIONS="$(services_to_recreate "$SERVICES")"
+# A tick judges only the services it found above.
+if [ "$MODE" = tick ]; then
+  DECISIONS="$(services_to_recreate "$PULL_SVCS")"
+else
+  DECISIONS="$(services_to_recreate "$SERVICES")"
+fi
 printf '%s\n' "$DECISIONS" | while read -r what svc why; do
-  if [ -n "$what" ]; then log "$what $svc ($why)"; fi
+  case "$what" in
+    held) log "held $svc ($why): its image was rolled back before; waiting for a newer one" ;;
+    ?*) log "$what $svc ($why)" ;;
+  esac
 done
 RECREATE="$(printf '%s\n' "$DECISIONS" | awk '$1 == "recreate" { printf "%s%s", sep, $2; sep = " " }')"
+
+# The pull has just pointed a held service's tag at the image that was rolled
+# back. Point it at the image that runs again, so that a `./start.sh up` or a
+# `docker compose up` by hand does not start the broken one.
+for svc in $(printf '%s\n' "$DECISIONS" | awk '$1 == "held" { print $2 }'); do
+  # shellcheck disable=SC2086
+  cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+  running="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true)"
+  want_ref="$(field_for "$svc" "$CONFIG_IMAGES")"
+  if [ -n "$running" ] && [ -n "$want_ref" ] && docker tag "$running" "$want_ref" >>"$LOG_FILE" 2>&1; then
+    log "$want_ref points at the image $svc runs again ($running), not the held one"
+  fi
+done
 if printf '%s\n' "$DECISIONS" | grep -q '^skip '; then
   KEEP_HASHES_FILE=1
 fi
+
+if [ "$MODE" = tick ] && [ -z "$RECREATE" ]; then
+  log "=== tick: nothing to do ==="
+  exit 0
+fi
+
+# What runs now, before anything is touched: the rollback target. In the
+# state file too, for whoever reads it after a run that was cut short.
+PREVIOUS=""
+for svc in $RECREATE; do
+  # shellcheck disable=SC2086
+  cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+  id="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true)"
+  ref="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null || true)"
+  PREVIOUS="$PREVIOUS$svc ${id:--} ${ref:--}
+"
+  digests="$(docker image inspect -f '{{join .RepoDigests " "}}' "$id" 2>/dev/null || true)"
+  log "before recreating: $svc runs ${id:-an unreadable image} (${ref:-?}${digests:+; $digests})"
+done
+{ awk '$1 != "previous"' "$STATE_FILE" 2>/dev/null || true
+  printf '%s' "$PREVIOUS" | sed 's/^/previous /'
+} > "$STATE_FILE.tmp" && mv "$STATE_FILE.tmp" "$STATE_FILE"
 
 # 3b. Back up, but only when something is actually about to change, and
 # before `up -d` recreates anything or the webapp's entrypoint runs a
@@ -546,7 +1215,13 @@ fi
 # next run, finding the container still on the old one, recreates it then --
 # so the backup also keys on what is about to be recreated, not only on what
 # this run's pull brought.
-if [ "$IMAGES_BEFORE" != "$IMAGES_AFTER" ] || [ -n "$RECREATE" ]; then
+#
+# A pull that brought new images but recreates nothing (every changed service
+# is held back after a rollback, or the image belongs to diun) needs no
+# backup, unless `up` below is about to create a missing container from one.
+NEW_CONTAINER=""
+if printf '%s\n' "$DECISIONS" | grep -q '^skip [^ ]* no-container$'; then NEW_CONTAINER=1; fi
+if [ -n "$RECREATE" ] || { [ "$IMAGES_BEFORE" != "$IMAGES_AFTER" ] && [ -n "$NEW_CONTAINER" ]; }; then
   log "new image(s) or changed services (${RECREATE:-none}) — taking a backup before recreating anything"
   if ! take_backup; then
     log "=== self-update ABORTED: no verified backup, nothing was recreated ==="
@@ -560,9 +1235,12 @@ fi
 # storage, imgproxy) go before the up rather than during it: Kong held
 # WEBAPP_PORT on some installs, and the webapp needs it now. --remove-orphans
 # below would catch them too, but only as part of the same up that has to
-# bind the port. A service an overlay still defines is left alone.
-COMPOSE="docker compose" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env \
-  sh ./kinboard-entry.sh retire 2>&1 | while IFS= read -r line; do log "$line"; done
+# bind the port. A service an overlay still defines is left alone. Not on a
+# tick: it changes what runs, never what exists.
+if [ "$MODE" = update ]; then
+  COMPOSE="docker compose" COMPOSE_FILES="$COMPOSE_FILES" ENV_FILE=./.env \
+    sh ./kinboard-entry.sh retire 2>&1 | while IFS= read -r line; do log "$line"; done
+fi
 
 WEBAPP_BEFORE="$(webapp_container)"
 
@@ -571,26 +1249,101 @@ WEBAPP_BEFORE="$(webapp_container)"
 # differs between versions, out of the decision. Then the services that did
 # change, and only those: --no-deps, or Compose would check their
 # dependencies by that same hash and recreate the database along with them.
-log "docker compose $COMPOSE_FILES up -d --no-build --no-recreate --remove-orphans $SERVICES"
-# shellcheck disable=SC2086
-if ! docker compose $COMPOSE_FILES up -d --no-build --no-recreate --remove-orphans $SERVICES >>"$LOG_FILE" 2>&1; then
-  log "=== self-update ABORTED: docker compose up failed ==="
-  exit 1
-fi
-if [ -n "$RECREATE" ]; then
-  log "docker compose $COMPOSE_FILES up -d --no-build --no-deps --force-recreate $RECREATE"
+# A tick skips the first: a service someone stopped stays stopped.
+if [ "$MODE" = update ]; then
+  log "docker compose $COMPOSE_FILES up -d --no-build --no-recreate --remove-orphans $SERVICES"
   # shellcheck disable=SC2086
-  if ! docker compose $COMPOSE_FILES up -d --no-build --no-deps --force-recreate $RECREATE >>"$LOG_FILE" 2>&1; then
+  if ! docker compose $COMPOSE_FILES up -d --no-build --no-recreate --remove-orphans $SERVICES >>"$LOG_FILE" 2>&1; then
     log "=== self-update ABORTED: docker compose up failed ==="
     exit 1
+  fi
+fi
+
+# 4c. Recreate, wait for health, and roll back if it does not come (see
+# "Health and rollback").
+roll_back() {
+  printf '%s' "$UNHEALTHY" | while IFS= read -r line; do log "ERROR: $line"; done
+  MIGRATION=""
+  case " $RECREATE " in *" webapp "*) MIGRATION="$(failed_migration)" ;; esac
+  EXCERPT="$(log_excerpt "$RECREATE")"
+  for svc in $RECREATE; do
+    prev_id="$(field_for "$svc" "$PREVIOUS")"
+    want_ref="$(field_for "$svc" "$CONFIG_IMAGES")"
+    [ -n "$want_ref" ] || want_ref="$(printf '%s\n' "$PREVIOUS" | awk -v s="$svc" '$1 == s { print $3; exit }')"
+    new_id="$(docker image inspect -f '{{.Id}}' "$want_ref" 2>/dev/null || true)"
+    if [ -n "$new_id" ] && [ "$new_id" != "$prev_id" ]; then
+      hold_back "$new_id" "$want_ref"
+      log "holding back $want_ref ($new_id) until a newer image appears"
+    fi
+    if [ "$prev_id" = - ] || ! docker image inspect -f '{{.Id}}' "$prev_id" >/dev/null 2>&1; then
+      log "ERROR: the image $svc ran before ($prev_id) is no longer on this host; it cannot go back"
+    elif [ "$new_id" = "$prev_id" ]; then
+      log "ERROR: $svc runs the same image as before; what failed is its definition (the compose files or .env), which going back to the image cannot undo"
+    elif ! docker tag "$prev_id" "$want_ref" >>"$LOG_FILE" 2>&1; then
+      log "ERROR: could not tag $prev_id as $want_ref"
+    fi
+  done
+  log "rolling back: docker compose $COMPOSE_FILES up -d --pull never --no-build --no-deps --force-recreate $RECREATE"
+  # shellcheck disable=SC2086
+  if docker compose $COMPOSE_FILES up -d --pull never --no-build --no-deps --force-recreate $RECREATE >>"$LOG_FILE" 2>&1 \
+     && wait_ready "$RECREATE"; then
+    OUTCOME=rolled_back
+    log "ERROR: ROLLED BACK: $RECREATE run the images they ran before this update again, and are healthy"
+    if [ -n "$MIGRATION" ]; then
+      log "ERROR: rolled back after migration $MIGRATION failed; the database may hold part of it; the older version runs on it because migrations are additive; the file is retried with the next release"
+    else
+      log "migrations the new version applied stay: they are additive, and the older version runs on them"
+    fi
+  else
+    OUTCOME=rollback_failed
+    printf '%s' "$UNHEALTHY" | while IFS= read -r line; do log "ERROR: after the rollback: $line"; done
+    log "ERROR: THE ROLLBACK DID NOT COME UP EITHER. Kinboard may be down. The backup from before the update is $BACKUP_DIR/$BACKUP_FILE"
+  fi
+}
+
+OUTCOME=none
+MIGRATION=""
+EXCERPT=""
+if [ -n "$RECREATE" ]; then
+  log "docker compose $COMPOSE_FILES up -d --no-build --no-deps --force-recreate $RECREATE"
+  up_ok=1
+  # shellcheck disable=SC2086
+  if ! docker compose $COMPOSE_FILES up -d --no-build --no-deps --force-recreate $RECREATE >>"$LOG_FILE" 2>&1; then
+    up_ok=""
+    UNHEALTHY="docker compose up failed (the log above has its output)
+"
+  fi
+  # The versions for the status record, before a rollback re-tags anything.
+  MAIN_SVC=webapp
+  case " $RECREATE " in *" webapp "*) ;; *) MAIN_SVC="${RECREATE%% *}" ;; esac
+  main_prev_id="$(field_for "$MAIN_SVC" "$PREVIOUS")"
+  main_prev_ref="$(printf '%s\n' "$PREVIOUS" | awk -v s="$MAIN_SVC" '$1 == s { print $3; exit }')"
+  main_ref="$(field_for "$MAIN_SVC" "$CONFIG_IMAGES")"
+  FROM_VERSION="$(image_version "$main_prev_id" "$main_prev_ref")"
+  TO_VERSION="$(image_version "$(docker image inspect -f '{{.Id}}' "${main_ref:-$main_prev_ref}" 2>/dev/null || true)" "${main_ref:-$main_prev_ref}")"
+
+  if [ -n "$up_ok" ]; then
+    log "waiting up to ${HEALTH_TIMEOUT}s for $RECREATE to come up healthy"
+  fi
+  if [ -n "$up_ok" ] && wait_ready "$RECREATE"; then
+    OUTCOME=updated
+    log "healthy: $RECREATE"
+    for svc in $RECREATE; do
+      release_held "$(field_for "$svc" "$CONFIG_IMAGES")"
+    done
+  else
+    log "ERROR: the update to $TO_VERSION did not come up healthy; going back to $FROM_VERSION"
+    roll_back
   fi
 else
   log "no service changed; none recreated"
 fi
-if [ -n "$KEEP_HASHES_FILE" ]; then
-  log "keeping $HASHES_FILE: a service could not be judged in this run, the next one looks again"
-else
-  rm -f "$HASHES_FILE"
+if [ "$MODE" = update ]; then
+  if [ -n "$KEEP_HASHES_FILE" ]; then
+    log "keeping $HASHES_FILE: a service could not be judged in this run, the next one looks again"
+  else
+    rm -f "$HASHES_FILE"
+  fi
 fi
 
 # 4b. The scheduler, when the webapp is new (see recreate_scheduler_if_webapp_changed).
@@ -610,4 +1363,32 @@ else
   log "diun.yml unchanged; skipping diun restart"
 fi
 
-log "=== self-update done ==="
+# 6. The status record Settings reads (instance_settings.update_status): a
+# rollback always, an update when the webapp was in it ("Updated to 1.18.0").
+if [ "$OUTCOME" = updated ] && [ "$MAIN_SVC" != webapp ]; then
+  :
+elif [ "$OUTCOME" != none ]; then
+  severe=false
+  if [ "$OUTCOME" = rollback_failed ] || [ -n "$MIGRATION" ]; then severe=true; fi
+  shown_log="$LOG_FILE"
+  # The webhook container's log, as the household finds it on the host
+  # (docker-compose.diun.yml mounts /var/lib/kinboard-update there).
+  [ "$LOG_FILE" != /var/log/kinboard-update.log ] || shown_log=/var/lib/kinboard-update/kinboard-update.log
+  record="{\"status\":$(json_str "$OUTCOME"),\"at\":$(json_str "$(date -u +%Y-%m-%dT%H:%M:%SZ)"),\"from\":$(json_str "$FROM_VERSION"),\"to\":$(json_str "$TO_VERSION"),\"services\":$(json_str "$RECREATE"),\"backup\":$(json_str "$BACKUP_FILE"),\"backup_dir\":$(json_str "$BACKUP_DIR"),\"backup_at\":$(json_str "$BACKUP_AT"),\"migration\":$(json_str "$MIGRATION"),\"severe\":$severe,\"log_file\":$(json_str "$shown_log"),\"log\":$(json_str "$EXCERPT")}"
+  write_status "$record" "$OUTCOME ($FROM_VERSION → $TO_VERSION)" \
+    "$(printf '%s' "$record" | sed 's/,"log":".*"}$/,"log":""}/')"
+fi
+
+case "$OUTCOME" in
+  rolled_back)
+    log "=== self-update ROLLED BACK: $TO_VERSION did not start; $FROM_VERSION runs again ==="
+    exit 1 ;;
+  rollback_failed)
+    log "=== self-update FAILED: $TO_VERSION did not start, and going back to $FROM_VERSION did not work either ==="
+    exit 1 ;;
+esac
+if [ "$MODE" = tick ]; then
+  log "=== tick done ==="
+else
+  log "=== self-update done ==="
+fi
