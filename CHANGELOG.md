@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **Kinboard refuses to change or delete every row of a table by mistake.** A change or removal that names no row, the kind that would wipe a whole list for every family at once, is now stopped inside Kinboard before it reaches the database, on the tablets and phones as well as on the server, with an error that names the table (in the server log when the server made the request). The database already refuses such a request on today's installs; this is a second net in front of it, so a future install without that database safeguard is no weaker. Nothing in Kinboard writes that way today, so nothing a family does changes (RFC-024 §4.2.1).
+
 ## [1.17.0] - 2026-11-25
 
 ### Added
