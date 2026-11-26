@@ -198,7 +198,7 @@ work learned this by having its predicate silently wiped on the next restart, an
 the file is named `migration_zzz_soft_delete.sql` for that reason alone.
 
 Migrations from this RFC that touch RLS must therefore sort after `zz`, and the
-upgrade rig (`webapp/docker/test-upgrade.sh`) already asserts this class of
+upgrade rig (`scripts/rigs/test-upgrade.sh`) already asserts this class of
 regression — it checks that the soft-delete predicate is still present after an
 upgrade. An equivalent assertion is required for `domain_events`.
 

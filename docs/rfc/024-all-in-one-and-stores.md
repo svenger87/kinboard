@@ -222,7 +222,7 @@ explicit `REVOKE`s:
 - **The superuser.** The image's own superuser is created as `supabase_admin`
   (`POSTGRES_USER=supabase_admin`), so backups, restore and the slot cleanup
   connect as they do today (`kinboard-self-update.sh:137`,
-  `test-backup-restore.sh:199`, `webapp-entrypoint.sh:120`).
+  `scripts/rigs/test-backup-restore.sh:205`, `webapp-entrypoint.sh:120`).
 - **The roles.** It creates `postgres` and the four API roles with the
   attributes, memberships, settings and default privileges above.
 - **`supautils`.** Leaves it out, and that is no loss on stock PostgreSQL
@@ -441,7 +441,7 @@ The supported path is logical:
   the first family is created. It refuses a non-empty database.
 
 The commands build on the documented restore (`docs/wiki/Self-hosting.md:284-302`)
-and the backup rig (`webapp/docker/test-backup-restore.sh`), which already
+and the backup rig (`scripts/rigs/test-backup-restore.sh`), which already
 proves that a dump from yesterday's version restores into today's. Later, the
 same archive is what a "download a full backup" button in Settings produces
 (RFC-023 §11.10).

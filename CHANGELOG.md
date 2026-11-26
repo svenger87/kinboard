@@ -10,6 +10,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **A database update can no longer take away something the previous version needs.** When an update doesn't start, going back to the previous version only works if it still finds every table and column it uses. That has always been the rule for Kinboard's database updates, but nothing checked it. Now every change is checked before it can be merged: removing or renaming a table or column, changing a column's type, emptying a table and similar changes are refused unless they are written down as a reviewed exception. A test also starts the previous release on the newest database and joins, reads and writes a task with it, so the way back is tried, not assumed.
 
+### Fixed
+
+- **`test-upgrade.sh` no longer looks like the way to update.** It sat next to `start.sh` in `webapp/docker`, and a self-hoster who ran it to update to 1.17 got a second, throwaway copy of Kinboard running beside his own instead, and nothing updated. It was a developer test all along. The developer tests now live in `scripts/rigs/` and refuse to start unless a developer asks for one; the old `webapp/docker/test-upgrade.sh` only says that it is not an updater and how to update (`git pull`, then `cd webapp/docker && ./start.sh up`, see [Self-hosting → Updates](https://github.com/svenger87/kinboard/wiki/Self-hosting#updates)). The test also rewrote `webapp/docker/.env` for its throwaway copy, so a later `./start.sh up` would have started that empty copy rather than your Kinboard. `start.sh` now notices such an `.env`, stops, and says which lines to put back; your family's data was never touched. A test that fails or is stopped halfway now removes its throwaway copy, and says how to remove one left from before (#539).
+
 ## [1.17.0] - 2026-11-25
 
 ### Added

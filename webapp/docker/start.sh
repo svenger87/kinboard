@@ -56,6 +56,36 @@ source ./.env
 set +a
 PROJECT_NAME="${PROJECT_NAME:-kinboard}"
 
+# A developer test rig run in an installed copy rewrites this .env for its own
+# throwaway stack (#539): the rig's project name, data folder, ports and
+# subnet, and no COMPOSE_FILES. Bringing that up would start an empty copy of
+# Kinboard and look as if the family's data were gone. The rigs set
+# KINBOARD_RIG=1; nobody else has a reason to use these project names.
+# (Same list as RIG_PROJECTS in scripts/rigs/test-rig-common.sh.)
+case "$PROJECT_NAME" in
+  kbupg|kbinstall|kbbak)
+    if [[ "${KINBOARD_RIG:-0}" != "1" ]]; then
+      cat >&2 <<MSG
+error: $SCRIPT_DIR/.env was rewritten by one of Kinboard's developer tests
+       (PROJECT_NAME=$PROJECT_NAME), so this would start that test's empty
+       copy of Kinboard, not yours. Your family's data is untouched, in the
+       data folder your own .env named.
+
+       Put your own values back in .env: PROJECT_NAME (normally kinboard),
+       COMPOSE_PROJECT_NAME (delete the line), DATA_DIR, WEBAPP_PORT,
+       POSTGRES_PORT, NETWORK_SUBNET, GO2RTC_HTTP_PORT, GO2RTC_WEBRTC_PORT,
+       KINBOARD_PROJECT_DIR, KINBOARD_DEMO_FAMILY_CODE, and your COMPOSE_FILES
+       line if you had one. .env.example has the defaults. Then run
+       ./start.sh up again.
+
+       To remove the test's own containers:
+         docker compose -p $PROJECT_NAME down -v --remove-orphans
+MSG
+      exit 1
+    fi
+    ;;
+esac
+
 # A source build (docker-compose.build.yml) stamps this into sw.js, so every
 # rebuild serves a different service worker and pages left open pick it up.
 # Without git it stays empty and the Dockerfile falls back to a timestamp.

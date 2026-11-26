@@ -93,8 +93,11 @@ jobs:
           df -h / | tail -1
 
       - name: Run ${{ matrix.rig }}
-        working-directory: webapp/docker
         env:
+          # The rigs refuse to start without it: they live in scripts/rigs/,
+          # away from start.sh, and say "this is not an updater" to anyone who
+          # runs one without asking for a test (#539).
+          KINBOARD_RIG: "1"
           # No /mnt/user on a runner. Everything the rigs write goes under the
           # runner's own temp directory, which is discarded with the VM.
           RIG_DATA: ${{ runner.temp }}/rig-${{ matrix.rig }}
@@ -102,16 +105,16 @@ jobs:
         run: |
           set -o pipefail
           case "${{ matrix.rig }}" in
-            fresh-install)   ./test-fresh-install.sh "$ITERATIONS" ;;
-            backup-restore)  ./test-backup-restore.sh "$ITERATIONS" ;;
+            fresh-install)   scripts/rigs/test-fresh-install.sh "$ITERATIONS" ;;
+            backup-restore)  scripts/rigs/test-backup-restore.sh "$ITERATIONS" ;;
             # Takes the versions to upgrade *from*; its own defaults are the
             # two most recent, which is what a real user is most likely on.
-            upgrade)         ./test-upgrade.sh ;;
+            upgrade)         scripts/rigs/test-upgrade.sh ;;
             # The newest stable release's published image on HEAD's migrated
             # schema: what an update falls back to when it doesn't come up
             # (RFC-023 §4.11.4). Tags come from the full checkout above.
-            rollback)        ./test-upgrade.sh --rollback ;;
-            integration-api) ./test-integration-api.sh ;;
+            rollback)        scripts/rigs/test-upgrade.sh --rollback ;;
+            integration-api) scripts/rigs/test-integration-api.sh ;;
           esac
 
       # A rig that fails has already printed why, but the stack's own logs are
@@ -128,8 +131,9 @@ jobs:
             fi
           done
 
-      # `docker compose down -v` inside the rig covers the normal path; this
-      # covers the one where the rig died before reaching it. The runner is
+      # The rig tears its stack down on any exit, failures and interrupts
+      # included (an EXIT trap); this covers the one where it was killed
+      # outright and the trap never ran. The runner is
       # thrown away regardless — this only keeps a failing job's own later
       # steps from tripping over a half-up stack.
       - name: Tear down
