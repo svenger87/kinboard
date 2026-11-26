@@ -2800,6 +2800,9 @@
       "inService": "(service {service})",
       "whatChanged": "What changed",
       "currentFile": "The current compose.yml",
+      "heldBody": "Kinboard {version} is out, but it needs compose file revision {needed}, and yours is revision {declared}. The automatic update didn't install it, so nothing half-matching runs: Kinboard {current} keeps running.",
+      "heldBodyUnknown": "Kinboard {version} is out, but it doesn't say which compose file it needs, and yours is revision {declared}. The automatic update didn't install it: Kinboard {current} keeps running.",
+      "heldHow": "To get it, replace your compose file with the current one and keep your own settings (port, folders, time zone), then Pull and Up. Automatic updates carry on from there.",
       "changes": {}
     },
     "itemNewsLabel": "News sources",

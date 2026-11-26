@@ -15,7 +15,7 @@ import {
 
 /** Imported dynamically: Playwright's require hook mangles a statically imported .mjs (see secrets-store.spec.ts). */
 interface ReleaseModule {
-  releaseCompose(text: string, o: { tag: string; image: string; repo?: string }): { text: string; channel: string; revision: number };
+  releaseCompose(text: string, o: { tag: string; image: string; updaterImage?: string; repo?: string }): { text: string; channel: string; revision: number };
 }
 const releaseModule: Promise<ReleaseModule> = import("../../scripts/release-compose.mjs");
 
@@ -45,6 +45,11 @@ type ComposeFile = { services: Record<string, Service>; volumes?: Record<string,
 
 const load = (text: string) => yaml.load(text) as ComposeFile;
 
+/** The opt-in updater (RFC-023 §4.11.3): its service, its profile, and the one host path it may mount. */
+const UPDATER_SERVICE = "updater";
+const UPDATER_PROFILE = "autoupdate";
+const SOCKET = "/var/run/docker.sock:/var/run/docker.sock";
+
 /**
  * The optional variables compose.yml may use: §4.6's table, plus the image's
  * name for a mirror, PUID/PGID for NAS folders (RFC-024 §6.3) and the
@@ -57,7 +62,7 @@ const SECRET_VARIABLES = [
   "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "ANON_KEY", "SERVICE_ROLE_KEY",
 ];
 const ALLOWED_VARIABLES = new Set([
-  "WEBAPP_PORT", "TZ", "KINBOARD_TAG", "KINBOARD_IMAGE",
+  "WEBAPP_PORT", "TZ", "KINBOARD_TAG", "KINBOARD_IMAGE", "KINBOARD_UPDATER_IMAGE",
   "KINBOARD_DB_DIR", "KINBOARD_STORAGE_DIR", "KINBOARD_CONFIG_DIR",
   "SITE_URL", "WEBRTC_LAN_IP", "PUID", "PGID", "INSTANCE_ADMIN_FAMILY_ID",
   ...SECRET_VARIABLES.map((v) => `KINBOARD_${v}`),
@@ -80,6 +85,10 @@ const DIR_VARIABLES: Record<string, string> = {
  * - volumes are named, with a fixed name, so a stack renamed in a UI keeps
  *   its data; a folder is one KINBOARD_*_DIR away;
  * - no Docker socket, no published database port, no fixed subnet.
+ *
+ * One service is the exception, and only opt-in (RFC-023 §4.11.3, §6.6): the
+ * automatic updater, under the `autoupdate` profile and no other, may mount
+ * the Docker socket. Without COMPOSE_PROFILES=autoupdate it never starts.
  */
 function pasteProblems(text: string): string[] {
   const problems: string[] = [];
@@ -109,7 +118,9 @@ function pasteProblems(text: string): string[] {
     if (n?.ipam) problems.push(`network ${nname}: a fixed subnet collides with other projects`);
   }
   for (const [sname, svc] of Object.entries(doc.services ?? {})) {
+    const optIn = sname === UPDATER_SERVICE && JSON.stringify(svc.profiles) === JSON.stringify([UPDATER_PROFILE]);
     for (const key of ["build", "env_file", "extends", "profiles", "privileged"]) {
+      if (key === "profiles" && optIn) continue;
       if (key in svc) problems.push(`${sname}: ${key} is not for the pasted file`);
     }
     if (!/^kinboard-[a-z0-9-]+$/.test(String(svc.container_name ?? ""))) {
@@ -122,6 +133,7 @@ function pasteProblems(text: string): string[] {
       }
       const source = vol.split(":")[0];
       const src = /^\$\{([A-Z_]+):-([^}]*)\}/.exec(vol);
+      if (vol === SOCKET && optIn) continue;
       if (src) {
         if (DIR_VARIABLES[src[1]] !== src[2]) problems.push(`${sname}: ${src[1]} must default to the volume ${DIR_VARIABLES[src[1]] ?? "?"}`);
         if (!(src[2] in declared)) problems.push(`${sname}: ${src[2]} is not a declared volume`);
@@ -156,6 +168,9 @@ test.describe("compose.yml pastes into every Compose UI (RFC-023 §4.6)", () => 
     ["a fixed subnet", (s) => s.replace("  kinboard: {}", "  kinboard:\n    ipam:\n      config:\n        - subnet: 10.200.0.0/24"), /fixed subnet/],
     ["a folder variable defaulting to a path", (s) => s.replace("${KINBOARD_DB_DIR:-kinboard-db}:/var/lib", "${KINBOARD_DB_DIR:-./db}:/var/lib"), /KINBOARD_DB_DIR must default/],
     ["a profile", (s) => s.replace("  go2rtc:\n", "  go2rtc:\n    profiles: [cameras]\n"), /go2rtc: profiles/],
+    ["the socket on a default service, beside the updater's", (s) => s.replace("      - ${KINBOARD_STORAGE_DIR:-kinboard-storage}:/var/lib/storage\n", `      - \${KINBOARD_STORAGE_DIR:-kinboard-storage}:/var/lib/storage\n      - ${SOCKET}\n`), /webapp: .*docker\.sock/],
+    ["the updater without its profile (it would start by default, with the socket)", (s) => s.replace('    profiles: ["autoupdate"]\n', ""), /updater: .*docker\.sock/],
+    ["the updater under another profile", (s) => s.replace('profiles: ["autoupdate"]', 'profiles: ["autoupdate", "debug"]'), /updater: profiles/],
   ];
   for (const [what, breakIt, expected] of broken) {
     test(`red: ${what}`, () => {
@@ -174,10 +189,18 @@ test.describe("compose.yml pastes into every Compose UI (RFC-023 §4.6)", () => 
       // As a file in an empty folder, and as a paste on stdin (Portainer's web editor).
       writeFileSync(join(dir, "compose.yml"), COMPOSE);
       const images = execFileSync("docker", ["compose", "config", "--images"], { cwd: dir, env, encoding: "utf8" });
-      expect(images.trim().split("\n").sort()).toEqual([
+      expect(images.trim().split("\n").sort(), "no updater without the profile").toEqual([
         "alexxit/go2rtc:1.9.14", "ghcr.io/svenger87/kinboard:latest", "ghcr.io/svenger87/kinboard:latest",
         "ghcr.io/svenger87/kinboard:latest", "postgrest/postgrest:v14.16", "supabase/postgres:15.14.1.159",
       ]);
+      // The profile, as RFC-023 §4.11.3 turns it on: COMPOSE_PROFILES from the environment (or .env).
+      const withUpdater = execFileSync("docker", ["compose", "config", "--services"], {
+        cwd: dir, env: { ...env, COMPOSE_PROFILES: "autoupdate" }, encoding: "utf8",
+      });
+      expect(withUpdater.trim().split("\n")).toContain("updater");
+      writeFileSync(join(dir, ".env"), "COMPOSE_PROFILES=autoupdate\n");
+      expect(execFileSync("docker", ["compose", "config", "--services"], { cwd: dir, env, encoding: "utf8" })).toContain("updater");
+      rmSync(join(dir, ".env"));
       rmSync(join(dir, "compose.yml"));
       const json = execFileSync("docker", ["compose", "-p", "someproject", "-f", "-", "config", "--format", "json"], {
         cwd: dir, env, input: COMPOSE, encoding: "utf8",
@@ -208,10 +231,26 @@ test.describe("compose.yml is wired as the RFC says", () => {
   const doc = load(COMPOSE);
   const s = doc.services;
 
-  test("the services, and nothing that needs a socket", () => {
-    expect(Object.keys(s).sort()).toEqual(["db", "db-init", "go2rtc", "init", "rest", "webapp"]);
+  test("the services, and nothing in the default stack that needs a socket", () => {
+    const byDefault = Object.fromEntries(Object.entries(s).filter(([, svc]) => !svc.profiles));
+    expect(Object.keys(byDefault).sort()).toEqual(["db", "db-init", "go2rtc", "init", "rest", "webapp"]);
     // The parsed file, not its comments (which say there is no ofelia).
-    expect(JSON.stringify(doc)).not.toMatch(/ofelia|docker\.sock/);
+    expect(JSON.stringify({ ...doc, services: byDefault })).not.toMatch(/ofelia|docker\.sock/);
+  });
+
+  test("the updater: opt-in under the autoupdate profile, the one service with the socket (§4.11.3, §6.6)", () => {
+    const u = s.updater;
+    expect(u.profiles).toEqual(["autoupdate"]);
+    expect(u.container_name).toBe("kinboard-updater");
+    expect(u.entrypoint).toEqual(["kinboard-updater"]);
+    // In the service, not only in the entrypoint: `docker exec` doesn't inherit what that exports.
+    expect(u.environment.KINBOARD_UPDATER).toBe("1");
+    expect(u.restart).toBe("unless-stopped");
+    expect(u.volumes).toEqual([SOCKET, "${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard"]);
+    expect(u.ports, "no port: it takes no requests").toBeUndefined();
+    expect(u.privileged).toBeUndefined();
+    const withSocket = Object.entries(s).filter(([, svc]) => JSON.stringify(svc.volumes ?? []).includes("docker.sock"));
+    expect(withSocket.map(([n]) => n)).toEqual(["updater"]);
   });
 
   test("startup order: init -> db -> db-init -> rest -> webapp", () => {
@@ -254,6 +293,8 @@ test.describe("compose.yml is wired as the RFC says", () => {
   test("the config volume: read-write in init only, read-only elsewhere, absent from go2rtc (§6.1)", () => {
     const mounts = (svc: Service) => (svc.volumes ?? []).filter((v: string) => v.startsWith("${KINBOARD_CONFIG_DIR"));
     expect(mounts(s.init)).toEqual(["${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard"]);
+    // The updater's state and log (updater/), only with the autoupdate profile.
+    expect(mounts(s.updater)).toEqual(["${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard"]);
     for (const name of ["db", "db-init", "rest", "webapp"]) {
       expect(mounts(s[name]), name).toEqual(["${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard:ro"]);
     }
@@ -284,13 +325,16 @@ test.describe("image names from one place, and the legacy file in step", () => {
   const legacy = load(LEGACY);
   const workflow = yaml.load(read(".github/workflows/docker.yml")) as { env: Record<string, string> };
 
-  test("the Kinboard image is named once, as docker.yml publishes it", () => {
+  test("the Kinboard image is named once, as docker.yml publishes it; the updater's too", () => {
     const anchors = COMPOSE.match(/ghcr\.io\/[^}:\s]+/g) ?? [];
-    expect(anchors, "one place in the file").toHaveLength(1);
+    expect(anchors, "one place in the file for each").toHaveLength(2);
     // The owner docker.yml takes from GitHub, as the app's own version check names the repository.
     const owner = /const REPO = "([^/"]+)\/kinboard"/.exec(read("webapp/src/app/api/version-check/route.ts"))?.[1];
     const published = `${workflow.env.REGISTRY}/${workflow.env.IMAGE_NAME.replace("${{ github.repository_owner }}", owner ?? "?")}`;
+    const updater = `${workflow.env.REGISTRY}/${workflow.env.UPDATER_IMAGE_NAME.replace("${{ github.repository_owner }}", owner ?? "?")}`;
     expect(anchors[0]).toBe(published);
+    expect(anchors[1]).toBe(updater);
+    expect(doc.services.updater.image).toBe(`\${KINBOARD_UPDATER_IMAGE:-${updater}}:\${KINBOARD_TAG:-latest}`);
     for (const name of ["init", "db-init", "webapp"]) {
       expect(doc.services[name].image, name).toBe(`\${KINBOARD_IMAGE:-${published}}:\${KINBOARD_TAG:-latest}`);
     }
@@ -344,6 +388,16 @@ test.describe("KINBOARD_COMPOSE_REVISION", () => {
   test("a git install (no variable) never gets the notice", () => {
     expect(composeRevisionStatus(undefined)).toBeNull();
     expect(composeRevisionStatus("")).toBeNull();
+  });
+
+  test("the image says which revision it ships, for kinboard-updater (§4.11.3): the newest, the file's", () => {
+    const labels = [...read("webapp/docker/Dockerfile").matchAll(/^LABEL app\.kinboard\.compose-revision="([^"]*)"$/gm)];
+    expect(labels, "one label, in the final stage").toHaveLength(1);
+    expect(labels[0][1]).toBe(String(LATEST_COMPOSE_REVISION));
+    const dockerfile = read("webapp/docker/Dockerfile");
+    expect(dockerfile.indexOf("app.kinboard.compose-revision")).toBeGreaterThan(dockerfile.lastIndexOf("\nFROM "));
+    // The script reads that label, under that name.
+    expect(read("webapp/docker/kinboard-self-update.sh")).toContain('{{index .Config.Labels "app.kinboard.compose-revision"}}');
   });
 
   test("the file in the repository is what this image wants", () => {
@@ -447,7 +501,10 @@ test.describe("the release asset (scripts/release-compose.mjs)", () => {
   test("everything else is the repository's file, byte for byte, and still pastes", () => {
     const out = make("v1.18.0");
     const body = out.text.slice(out.text.indexOf("\n") + 1);
-    const restore = body.replace("ghcr.io/owner/kinboard", "ghcr.io/svenger87/kinboard");
+    expect(out.text).toContain("${KINBOARD_UPDATER_IMAGE:-ghcr.io/owner/kinboard-updater}:${KINBOARD_TAG:-latest}");
+    const restore = body
+      .replace("ghcr.io/owner/kinboard-updater", "ghcr.io/svenger87/kinboard-updater")
+      .replace("ghcr.io/owner/kinboard}", "ghcr.io/svenger87/kinboard}");
     expect(restore).toBe(COMPOSE);
     expect(pasteProblems(out.text)).toEqual([]);
     expect(pasteProblems(make("v1.18.0-rc.1").text)).toEqual([]);
@@ -461,6 +518,11 @@ test.describe("the release asset (scripts/release-compose.mjs)", () => {
     expect(() => make("v1.18.0", COMPOSE.replace(/^x-kinboard-image:.*$/m, ""))).toThrow(/found 0/);
     expect(() => make("v1.18.0", COMPOSE.replace(/^(x-kinboard-image:.*)$/m, "$1\n$1"))).toThrow(/found 2/);
     expect(() => make("v1.18.0", COMPOSE.replace(/^\s+KINBOARD_COMPOSE_REVISION:.*\n/m, ""))).toThrow(/REVISION exactly once; found 0/);
+    expect(() => make("v1.18.0", COMPOSE.replace(/^x-kinboard-updater-image:.*$/m, ""))).toThrow(/updater's image on exactly one x-kinboard-updater-image line; found 0/);
+    expect(
+      releaseCompose(COMPOSE, { tag: "v1.18.0-rc.1", image: "ghcr.io/o/kinboard", updaterImage: "ghcr.io/o/updater" }).text,
+      "the updater's name from docker.yml, and the channel",
+    ).toContain("${KINBOARD_UPDATER_IMAGE:-ghcr.io/o/updater}:${KINBOARD_TAG:-next}");
   });
 
   test("the CLI writes the asset and says what it made", () => {

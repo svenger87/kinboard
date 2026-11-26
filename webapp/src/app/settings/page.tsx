@@ -43,12 +43,12 @@ import { useKeyboardShortcuts, useSwipeNavigation, useIsOnline, useDeleteDevice,
 } from "@/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVersionCheck } from "@/hooks/use-version-check";
-import { useUpdateStatus } from "@/hooks/use-update-status";
+import { useUpdateHold, useUpdateStatus } from "@/hooks/use-update-status";
 import { UpdateStatusNotice } from "@/components/settings/update-status-notice";
 import { usePushReset } from "@/hooks/use-push-reset";
 import { PushResetNotice } from "@/components/settings/push-reset-notice";
 import { useComposeRevision } from "@/hooks/use-compose-revision";
-import { ComposeRevisionNotice } from "@/components/settings/compose-revision-notice";
+import { ComposeHoldNotice, ComposeRevisionNotice } from "@/components/settings/compose-revision-notice";
 import { InstanceCard } from "@/components/settings/instance-card";
 import { PinDigits, saveSettingsPin, type PinDigitsHandle } from "@/components/settings/pin-digits";
 import { showsUpdatedLine } from "@/lib/update-status";
@@ -116,6 +116,7 @@ export default function SettingsPage() {
   const isOnline = useIsOnline();
   const { data: version } = useVersionCheck();
   const { data: updateStatus } = useUpdateStatus();
+  const { data: updateHold } = useUpdateHold();
   const { data: pushReset } = usePushReset(!!family);
   const { data: composeRevision } = useComposeRevision();
   const realtimeStatus = useRealtimeStatusStore((s) => s.status);
@@ -1091,6 +1092,8 @@ export default function SettingsPage() {
           </p>
           {/* The one-file install's compose.yml is older than this image needs (RFC-023 §4.6). */}
           <ComposeRevisionNotice status={composeRevision} />
+          {/* kinboard-updater held a release that needs a newer compose.yml (RFC-023 §4.11.3). */}
+          <ComposeHoldNotice status={updateHold} />
           {updateStatus && showsUpdatedLine(updateStatus, new Date()) && (
             <p data-testid="settings-updated-line">
               {t("updateStatus.updatedLine", {

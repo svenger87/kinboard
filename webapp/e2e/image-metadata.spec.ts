@@ -96,13 +96,15 @@ test.describe("OCI labels and annotations, from one place", () => {
     expect(metaSteps("merge")[0].env?.DOCKER_METADATA_ANNOTATIONS_LEVELS).toBe("index");
   });
 
-  test("the image name is set once", () => {
+  test("the image name is set once, and the updater's", () => {
     const text = read(".github/workflows/docker.yml");
     expect(workflow.env.IMAGE_NAME).toBe("${{ github.repository_owner }}/kinboard");
+    expect(workflow.env.UPDATER_IMAGE_NAME).toBe("${{ github.repository_owner }}/kinboard-updater");
     expect(text.match(/^\s*IMAGE_NAME:/gm)).toHaveLength(1);
+    expect(text.match(/^\s*UPDATER_IMAGE_NAME:/gm)).toHaveLength(1);
     // Every other mention goes through the variable: no step spells it out.
     const code = text.split("\n").filter((l) => !l.trim().startsWith("#"));
-    expect(code.filter((l) => /\/kinboard\b(?![./])/.test(l) && !/\bIMAGE_NAME:/.test(l))).toEqual([]);
+    expect(code.filter((l) => /\/kinboard\b(?![./])/.test(l) && !/^\s*(UPDATER_)?IMAGE_NAME:/.test(l))).toEqual([]);
   });
 
   test("the platform images get labels and annotations, the list gets annotations", () => {
@@ -112,6 +114,62 @@ test.describe("OCI labels and annotations, from one place", () => {
     const create = workflow.jobs.merge.steps.find((s) => s.run?.includes("imagetools create"));
     expect(create?.run).toContain("--annotation");
     expect(create?.run).toContain(".annotations[]");
+  });
+});
+
+test.describe("kinboard-updater, published beside the webapp (RFC-023 §4.11.3)", () => {
+  const job = workflow.jobs.updater;
+  const step = (uses: string) => job.steps.find((s) => s.uses?.startsWith(uses));
+
+  test("its own job, gated like the webapp's build", () => {
+    expect(job, "an updater job").toBeTruthy();
+    expect(job.needs).toEqual(workflow.jobs.build.needs);
+    expect(job.if).toBe(workflow.jobs.build.if);
+    expect(workflow.jobs.release.needs, "the release's compose.yml names its image").toContain("updater");
+  });
+
+  test("multi-arch from Dockerfile.webhook, with the webapp's tags, provenance and SBOM", () => {
+    const build = step("docker/build-push-action@");
+    expect(build?.with?.file).toBe("webapp/docker/Dockerfile.webhook");
+    expect(build?.with?.context).toBe("webapp/docker");
+    expect(build?.with?.platforms).toBe("linux/amd64,linux/arm64");
+    expect(String(build?.with?.push)).toBe("true");
+    expect(build?.with?.provenance).toBe("mode=max");
+    expect(String(build?.with?.sbom)).toBe("true");
+    const meta = step("docker/metadata-action@");
+    expect(meta?.with?.images).toBe("${{ env.REGISTRY }}/${{ env.UPDATER_IMAGE_NAME }}");
+    expect(meta?.with?.tags, "the same tags as the webapp").toBe("${{ env.IMAGE_TAGS }}");
+    expect(meta?.with?.labels).toBe("${{ steps.oci.outputs.metadata }}");
+    expect(meta?.env?.DOCKER_METADATA_ANNOTATIONS_LEVELS).toBe("manifest,index");
+    expect(build?.with?.labels).toBe("${{ steps.meta.outputs.labels }}");
+    expect(build?.with?.annotations).toBe("${{ steps.meta.outputs.annotations }}");
+  });
+
+  test("its metadata: its own title and description, the licence from package.json, checked after the push", () => {
+    const um = Object.fromEntries(
+      workflow.env.UPDATER_METADATA.trim().split("\n").map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)]),
+    );
+    expect(um["org.opencontainers.image.title"]).toBe("Kinboard updater");
+    expect(um["org.opencontainers.image.description"]).toBeTruthy();
+    expect(um["org.opencontainers.image.licenses"]).toBeUndefined();
+    const oci = job.steps.find((s) => s.id === "oci");
+    expect(oci?.run).toContain("webapp/package.json");
+    expect(oci?.run).toContain("$UPDATER_METADATA");
+    const check = job.steps.find((s) => s.run?.includes("check-image-metadata.sh"));
+    expect(check?.run).toContain("${{ env.UPDATER_IMAGE_NAME }}");
+    expect(check?.run).toContain('<<< "$UPDATER_METADATA"');
+  });
+
+  test("the image has the health check the metadata check asks for, and runs the script it carries", () => {
+    const df = read("webapp/docker/Dockerfile.webhook");
+    expect(df).toMatch(/^HEALTHCHECK /m);
+    expect(df).toContain("COPY kinboard-self-update.sh /usr/local/bin/kinboard-self-update.sh");
+    expect(df).toContain("'export KINBOARD_UPDATER=1'");
+    // Git installs keep the webhook as the entrypoint (docker-compose.diun.yml builds this file).
+    expect(df).toMatch(/^ENTRYPOINT \["\/usr\/local\/bin\/webhook"\]$/m);
+    const diun = read("webapp/docker/docker-compose.diun.yml");
+    expect(diun).toContain("dockerfile: Dockerfile.webhook");
+    expect(diun).toContain("image: kinboard-webhook:local");
   });
 });
 
@@ -320,7 +378,7 @@ echo "unexpected gh $*" >&2; exit 9
       );
       execFileSync("bash", [script, tag], {
         env: cleanEnv({ PATH: `${bin}:${process.env.PATH}`, REPO: "owner/repo", RELEASE_ROOT: root,
-          REGISTRY: "ghcr.io", IMAGE_NAME: "owner/kinboard",
+          REGISTRY: "ghcr.io", IMAGE_NAME: "owner/kinboard", UPDATER_IMAGE_NAME: "owner/kinboard-updater",
           FAKE_RELEASES: JSON.stringify([
             { tagName: "v1.17.0", isDraft: false },
             ...(opts.existing ? [{ tagName: tag, isDraft: opts.existing === "draft" }] : []),
@@ -364,6 +422,7 @@ echo "unexpected gh $*" >&2; exit 9
     const stable = publish("v1.18.0", { handwritten: "x", compose });
     expect(stable).toMatch(/^ARGS release create v1\.18\.0 .* \S*\/compose\.yml$/m);
     expect(stable).toContain("ASSET compose.yml\n# compose.yml from Kinboard v1.18.0, revision ");
+    expect(stable, "the updater's name from docker.yml").toContain("${KINBOARD_UPDATER_IMAGE:-ghcr.io/owner/kinboard-updater}:${KINBOARD_TAG:-latest}");
     expect(stable).toContain("x-kinboard-image: &kinboard-image ${KINBOARD_IMAGE:-ghcr.io/owner/kinboard}:${KINBOARD_TAG:-latest}");
     const rc = publish("v1.18.1-rc.1", { compose });
     expect(rc).toContain("${KINBOARD_IMAGE:-ghcr.io/owner/kinboard}:${KINBOARD_TAG:-next}");

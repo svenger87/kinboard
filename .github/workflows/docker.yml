@@ -6,6 +6,8 @@ name: Docker image
 # of building locally.
 #
 # Image: ghcr.io/svenger87/kinboard
+# Also: ghcr.io/svenger87/kinboard-updater (the `updater` job), compose.yml's
+# automatic updater (RFC-023 §4.11.3), with the same tags.
 #
 # Every name the image is published under and every label and annotation it
 # carries come from the `env` block below, read by both jobs (RFC-024 §4.5,
@@ -41,6 +43,10 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/kinboard
+  # kinboard-updater (RFC-023 §4.11.3): webapp/docker/Dockerfile.webhook,
+  # published for compose.yml's `autoupdate` profile. Named here and nowhere
+  # else, like IMAGE_NAME; the release's compose.yml takes it from here.
+  UPDATER_IMAGE_NAME: ${{ github.repository_owner }}/kinboard-updater
   # OCI labels on each platform image and annotations on the image and on the
   # manifest list. metadata-action adds description (the repository's),
   # source, version, revision and created itself; these override or add.
@@ -53,7 +59,14 @@ env:
     org.opencontainers.image.url=https://kinboard.app
     org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/wiki
     org.opencontainers.image.vendor=${{ github.repository_owner }}
-  # The tags, for both jobs. `latest` means "newest stable release", not
+  # The same for kinboard-updater, with its own title and description.
+  UPDATER_METADATA: |
+    org.opencontainers.image.title=Kinboard updater
+    org.opencontainers.image.description=Automatic updates for a Kinboard install that runs compose.yml (the autoupdate profile)
+    org.opencontainers.image.url=https://kinboard.app
+    org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/wiki/Compose-UIs
+    org.opencontainers.image.vendor=${{ github.repository_owner }}
+  # The tags, for every job. `latest` means "newest stable release", not
   # "newest commit on main". It used to be attached to every main push, so a
   # release-candidate version bump -- an ordinary push to main -- moved it:
   # after v1.7.0 shipped, `latest` pointed at 1.7.1-rc.1 and every self-hoster
@@ -297,6 +310,77 @@ jobs:
             <<< "$IMAGE_METADATA"
         # It reads the expected licence from webapp/package.json itself.
 
+  # kinboard-updater (RFC-023 §4.11.3): a small Alpine image, so one job
+  # builds both platforms (arm64 under QEMU: apk and curl only, no Node
+  # build). The same tags, labels, provenance, SBOM and metadata check as the
+  # webapp. Git installs keep building it locally as kinboard-webhook:local
+  # (docker-compose.diun.yml); this does not touch that.
+  updater:
+    name: Build + push kinboard-updater
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # UPDATER_METADATA plus the licence from webapp/package.json, as the
+      # webapp's "Image metadata" step.
+      - name: Image metadata
+        id: oci
+        run: |
+          spdx="$(jq -er '.license | select(type == "string" and . != "")' webapp/package.json)"
+          {
+            echo "metadata<<OCI_METADATA_EOF"
+            printf '%s\n' "$UPDATER_METADATA" | sed '/^[[:space:]]*$/d'
+            echo "org.opencontainers.image.licenses=$spdx"
+            echo "OCI_METADATA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Extract Docker metadata (labels + annotations)
+        id: meta
+        uses: docker/metadata-action@v5
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.UPDATER_IMAGE_NAME }}
+          tags: ${{ env.IMAGE_TAGS }}
+          labels: ${{ steps.oci.outputs.metadata }}
+          annotations: ${{ steps.oci.outputs.metadata }}
+
+      - name: Build + push (amd64, arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: webapp/docker
+          file: webapp/docker/Dockerfile.webhook
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=updater
+          cache-to: type=gha,scope=updater,mode=max
+
+      - name: Check annotations, SBOM and provenance
+        run: |
+          webapp/docker/check-image-metadata.sh \
+            "${{ env.REGISTRY }}/${{ env.UPDATER_IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
+            <<< "$UPDATER_METADATA"
+
   # The GitHub release for every version tag (RFC-024 §6), by
   # scripts/publish-release.sh: a release candidate is published as a
   # pre-release with its CHANGELOG.md notes; a stable release is published
@@ -305,13 +389,15 @@ jobs:
   # that already exists, draft or not, is never touched.
   #
   # Every new release carries compose.yml as an asset (RFC-023 §4.6): the
-  # tagged file with this workflow's REGISTRY/IMAGE_NAME as the image and the
+  # tagged file with this workflow's REGISTRY/IMAGE_NAME (and
+  # UPDATER_IMAGE_NAME for the updater) as the images and the
   # release's channel (latest or next) as the default tag
   # (scripts/release-compose.mjs). The script reads both from the env above.
   release:
     name: Publish GitHub release
     runs-on: ubuntu-latest
-    needs: [changes, merge]
+    # The updater too: the release's compose.yml names its image.
+    needs: [changes, merge, updater]
     if: >-
       needs.changes.outputs.build == 'true' &&
       github.event_name == 'push' &&

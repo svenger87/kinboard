@@ -20,6 +20,12 @@ import { join, resolve } from "node:path";
  *
  * Used by self-update-recreates-only-changes.spec.ts and
  * self-update-health-rollback.spec.ts.
+ *
+ * For kinboard-updater (RFC-023 §4.11.3, `updater` in the scenario) it also
+ * has a stub `curl` that answers the registry's manifest HEADs from `remote`
+ * (with `offline`, `ratelimit` and a token realm), the RepoDigests each image
+ * id was pulled as, the compose revision label of each image, and the
+ * sibling container the updater runs its tick in.
  */
 
 export const SCRIPT = resolve("docker/kinboard-self-update.sh");
@@ -62,7 +68,20 @@ if [ "$1" = compose ]; then
         --images) awk '{ print $2 }' ./stack.txt ;;
         --hash=*) [ -f "$STUB/hashfail" ] && exit 1; awk '{ print $1, $3 }' ./stack.txt ;;
         "") echo "name: t"; echo "services:"
-            awk '{ print "  " $1 ":"; print "    environment:"; print "      NOTE: \"image: not-this\""; print "    image: " $2 }' ./stack.txt
+            rev="$(cat "$STUB/file-revision" 2>/dev/null || true)"
+            awk -v rev="$rev" '{ print "  " $1 ":"; print "    environment:"
+              if ($1 == "webapp" && rev != "") print "      KINBOARD_COMPOSE_REVISION: \"" rev "\""
+              print "      NOTE: \"image: not-this\""; print "    image: " $2 }' ./stack.txt > "$STUB/cfg.tmp"
+            # each service's volumes, as its container mounts them (or as cfgvol/ says the file now has them)
+            awk -v stub="$STUB" '{ print }
+              /^    image: / {
+                f = stub "/cfgvol/" svc; g = stub "/mounts/" svc; src = ""
+                if ((getline l < f) > 0) { src = f; close(f) } else if ((getline l < g) > 0) { src = g; close(g) }
+                if (src != "") { print "    volumes:"
+                  while ((getline l < src) > 0) { split(l, a, " "); t = (a[2] ~ /^\//) ? "bind" : "volume"
+                    print "      - type: " t; print "        source: " a[2]; print "        target: " a[1] }
+                  close(src) } }
+              /^  [^ ][^ ]*:$/ { svc = substr($0, 3, length($0) - 3) }' "$STUB/cfg.tmp"
             echo "networks:"; echo "  kinboard:"; echo "    image: not-a-service" ;;
       esac ;;
     ps) [ -f "$STUB/containers/$last" ] && echo "cid-$last-g$(cat "$STUB/gen-$last" 2>/dev/null || echo 0)" ;;
@@ -71,7 +90,7 @@ if [ "$1" = compose ]; then
         echo 'Error response from daemon: Get "https://ghcr.io/v2/": dial tcp: lookup ghcr.io: no such host' >&2
         exit 1
       fi
-      if [ -f "$STUB/ratelimit" ]; then
+      if [ -f "$STUB/ratelimit" ] || [ -f "$STUB/pullfail" ]; then
         echo 'Error response from daemon: toomanyrequests: retry-after: 0.001s' >&2
         exit 1
       fi
@@ -102,7 +121,10 @@ case "$1" in
     for f in "$STUB"/labels/*; do
       [ -f "$f" ] || continue
       n="$(basename "$f")"
-      case "$*" in *service=webapp*) [ "$n" = webapp ] || continue ;; esac
+      case "$*" in *compose.service=*)
+        want_svc="$(printf '%s' "$*" | sed -n 's/.*compose\.service=\([^ ]*\).*/\1/p')"
+        [ "$n" = "$want_svc" ] || continue ;;
+      esac
       case "$*" in *compose.project=*)
         want="$(printf '%s' "$*" | sed -n 's/.*compose\.project=\([^ ]*\).*/\1/p')"
         [ "$(cut -d'|' -f1 "$f")" = "$want" ] || continue ;;
@@ -112,10 +134,15 @@ case "$1" in
   inspect)
     case "$3" in
       *com.docker.compose.project*) cat "$STUB/labels/$(cid "$4")" 2>/dev/null || exit 1; exit 0 ;;
+      *com.docker.compose.service*) cid "$4"; echo; exit 0 ;;
     esac
+    # the updater's own container (the sibling's image)
+    if [ "$(cid "$4")" = updater ] && [ ! -f "$STUB/containers/updater" ]; then echo "sha256:updater-image"; exit 0; fi
     f="$STUB/containers/$(cid "$4")"; [ -f "$f" ] || exit 1
     IFS='|' read -r ref id created < "$f"
     case "$3" in
+      *"{{range .Mounts}}{{.Destination}} "*)
+        awk '{ if ($2 ~ /^\//) print $1, "bind", $2; else print $1, "volume", $2 }' "$STUB/mounts/$(cid "$4")" 2>/dev/null ;;
       *Destination*)
         dest="$(printf '%s' "$3" | sed -n 's/.*eq .Destination "\([^"]*\)".*/\1/p')"
         awk -v d="$dest" '$1 == d { print $2 }' "$STUB/mounts/$(cid "$4")" 2>/dev/null ;;
@@ -126,8 +153,10 @@ case "$1" in
     esac ;;
   image)
     case "$4" in
+      *compose-revision*) cat "$STUB/revisions/$(esc "$5")" 2>/dev/null || echo "<no value>" ;;
       *Labels*) cat "$STUB/versions/$(esc "$5")" 2>/dev/null || echo "<no value>" ;;
-      *RepoDigests*) echo "" ;;
+      *"join .RepoDigests"*) cat "$STUB/digests/$(esc "$5")" 2>/dev/null || echo "" ;;
+      *RepoDigests*) tr ' ' '\n' < "$STUB/digests/$(esc "$5")" 2>/dev/null || true ;;
       *)
         case "$5" in
           sha256:*) [ -f "$STUB/gone/$(esc "$5")" ] && exit 1; echo "$5" ;;
@@ -149,7 +178,7 @@ case "$1" in
         echo "CREATE SCHEMA auth;"; i=0; while [ $i -lt 60 ]; do echo "CREATE TABLE t$i ();"; i=$((i + 1)); done ;;
       *psql*)
         case "$*" in *" -i "*) cat >> "$STUB/psql" ;; esac
-        for a in "$@"; do case "$a" in v=*) printf '%s' "$a" | cut -c3- > "$STUB/status" ;; esac; done
+        for a in "$@"; do case "$a" in v=*) printf '%s' "$a" | cut -c3- > "$STUB/status" ;; k=*) printf '%s' "$a" | cut -c3- > "$STUB/status-key" ;; esac; done
         case "$*" in
           *"DELETE"*update_retry*RETURNING*)
             [ -f "$STUB/retry-delete-fails" ] && exit 1
@@ -158,6 +187,12 @@ case "$1" in
     esac ;;
   run)
     echo "$*" >> "$STUB/runs"
+    case "$*" in *app.kinboard.updater-tick=1*)
+      # The updater's sibling: Docker refuses a bind mount of a path the host
+      # does not have (a Portainer web-editor stack).
+      if [ -f "$STUB/hop-missing" ]; then echo 'docker: Error response from daemon: invalid mount config for type "bind": bind source path does not exist: /data/compose/3' >&2; exit 125; fi
+      exit "$(cat "$STUB/hop-rc" 2>/dev/null || echo 0)" ;;
+    esac
     case "$*" in *" -i "*) cat > /dev/null ;; esac
     case "$*" in *"grep -vc"* | *"wc -l"*) echo 0 ;; esac
     case "$*" in *"[ -d /data/config ]"*) [ -f "$STUB/config-dir" ] && echo present ;; esac
@@ -166,6 +201,36 @@ case "$1" in
       cat "$STUB/config-out" 2>/dev/null || echo "files=7" ;;
     esac ;;
 esac
+exit 0
+`;
+
+/** The registry, for the updater's manifest HEADs: what `curl -sS -I … <url>` prints. */
+const STUB_CURL = String.raw`#!/bin/sh
+echo "curl $*" >> "$STUB/curls"
+url=""; auth=""; get=""
+prev=""
+for a in "$@"; do
+  case "$prev" in -H) case "$a" in "Authorization: Bearer "*) auth="$(printf '%s' "$a" | sed 's/^Authorization: Bearer //')" ;; esac ;; esac
+  case "$a" in -G) get=1 ;; http://* | https://*) url="$a" ;; esac
+  prev="$a"
+done
+if [ -f "$STUB/offline" ]; then echo "curl: (6) Could not resolve host: ghcr.io" >&2; exit 6; fi
+if [ -n "$get" ]; then
+  # the token realm
+  echo '{"token":"stub-token","access_token":"stub-token","expires_in":300}'
+  exit 0
+fi
+if [ -f "$STUB/ratelimit" ]; then printf 'HTTP/1.1 429 Too Many Requests\r\nRetry-After: 60\r\n\r\n'; exit 0; fi
+key="$(printf '%s' "$url" | sed 's|^[a-z]*://||; s|/v2/|/|; s|/manifests/|:|' | tr '/:@' '___')"
+if [ -f "$STUB/remote-auth" ] && [ "$auth" != stub-token ]; then
+  printf 'HTTP/1.1 401 Unauthorized\r\nWww-Authenticate: Bearer realm="https://auth.example/token",service="registry.example",scope="repository:x:pull"\r\n\r\n'
+  exit 0
+fi
+if [ -f "$STUB/remote/$key" ]; then
+  printf 'HTTP/2 200\r\ncontent-type: application/vnd.oci.image.index.v1+json\r\ndocker-content-digest: %s\r\n\r\n' "$(cat "$STUB/remote/$key")"
+else
+  printf 'HTTP/2 404\r\n\r\n'
+fi
 exit 0
 `;
 
@@ -205,6 +270,13 @@ export type Scenario = {
   legacyLabels?: boolean;
   /** PROJECT_DIR has no .git: a compose.yml in a plain folder. */
   noGit?: boolean;
+  /**
+   * kinboard-updater (RFC-023 §4.11.3): the run is the published updater's,
+   * KINBOARD_UPDATER=1, with its own container (service `updater`) labelled
+   * as part of a compose.yml stack and its state in a config folder. Implies
+   * compose and no git.
+   */
+  updater?: boolean;
 };
 
 export type Health = { status: string; health?: string; restarts?: number; code?: number; policy?: string };
@@ -221,6 +293,8 @@ export type RunResult = {
   state: string;
   /** The status record written in this run, parsed, if any. */
   record: Record<string, unknown> | null;
+  /** The instance_settings key the record was written under (update_status, or the updater's update_hold). */
+  recordKey: string | null;
   /** `docker tag` calls in this run: "<id> <reference>". */
   tags: string[];
   log: string;
@@ -230,6 +304,8 @@ export type RunResult = {
   globals: string[];
   /** The TZ every `docker compose` call saw ("<unset>" when none), de-duplicated. */
   tz: string[];
+  /** Every `curl` (the updater's registry HEADs and token requests), its arguments on one line. */
+  curls: string[];
 };
 
 export const stackTxt = (stack: Record<string, Service>) =>
@@ -259,10 +335,16 @@ export class Rig {
         cwd,
         stdio: "pipe",
       });
-    for (const d of ["containers", "images", "registry", "health", "health-svc", "versions", "logs", "gone", "smoke", "mounts", "labels"]) mkdirSync(join(this.stub, d), { recursive: true });
+    if (sc.updater) {
+      sc.compose ??= {};
+      sc.noGit = true;
+    }
+    for (const d of ["containers", "images", "registry", "health", "health-svc", "versions", "logs", "gone", "smoke", "mounts", "labels", "remote", "digests", "revisions"]) mkdirSync(join(this.stub, d), { recursive: true });
     mkdirSync(this.bin, { recursive: true });
     writeFileSync(join(this.bin, "docker"), STUB_DOCKER);
     chmodSync(join(this.bin, "docker"), 0o755);
+    writeFileSync(join(this.bin, "curl"), STUB_CURL);
+    chmodSync(join(this.bin, "curl"), 0o755);
     if (opts.failHashes) writeFileSync(join(this.stub, "hashfail"), "");
     for (const [ref, id] of Object.entries(sc.images)) writeFileSync(join(this.stub, "images", esc(ref)), `${id}\n`);
     this.setRegistry(sc.registry ?? {});
@@ -324,7 +406,9 @@ export class Rig {
 
   /** Compose labels, "project|working_dir|config_files|environment_file", on every container (and the webhook's). */
   setLabels(line: string) {
-    for (const svc of [...Object.keys(this.sc.containers), "webhook"]) writeFileSync(join(this.stub, "labels", svc), `${line}\n`);
+    // The webhook's labels on a git install (the overlay), the updater's on a one-file one.
+    const own = this.sc.updater ? "updater" : "webhook";
+    for (const svc of new Set([...Object.keys(this.sc.containers), own])) writeFileSync(join(this.stub, "labels", svc), `${line}\n`);
   }
   /** What service svc's container mounts at dest: a volume name or a host folder. */
   setMount(svc: string, dest: string, source: string) {
@@ -341,7 +425,52 @@ export class Rig {
     return join(this.proj, ".git", "kinboard-update-hashes");
   }
   get statePath() {
-    return join(this.proj, ".git", "kinboard-update-state");
+    return this.sc.updater ? join(this.updaterDir, "state") : join(this.proj, ".git", "kinboard-update-state");
+  }
+  /** The updater's folder in the config volume (state, lock, log). */
+  get updaterDir() {
+    return join(this.dir, "config", "updater");
+  }
+
+  /** The registry's digest for reference ref now (the updater's manifest HEAD). */
+  setRemote(ref: string, digest: string) {
+    writeFileSync(join(this.stub, "remote", esc(ref)), `${digest}\n`);
+  }
+  /** The registry digests image id was pulled as ("repo@sha256:…"). */
+  setDigests(id: string, digests: string[]) {
+    writeFileSync(join(this.stub, "digests", esc(id)), `${digests.join(" ")}\n`);
+  }
+  /** The compose revision image id says it ships (its app.kinboard.compose-revision label). */
+  setImageRevision(id: string, revision: string) {
+    writeFileSync(join(this.stub, "revisions", esc(id)), `${revision}\n`);
+  }
+  /** The KINBOARD_COMPOSE_REVISION the stack's file declares for the webapp; null for none. */
+  setFileRevision(revision: string | null) {
+    const p = join(this.stub, "file-revision");
+    if (revision === null) rmSync(p, { force: true });
+    else writeFileSync(p, `${revision}\n`);
+  }
+  /** The registry asks for a token first (as GHCR and Docker Hub do), from its realm, without credentials. */
+  setRemoteAuth(on: boolean) {
+    const p = join(this.stub, "remote-auth");
+    if (on) writeFileSync(p, "");
+    else rmSync(p, { force: true });
+  }
+  /** The pull fails while the registry still answers its HEADs (a 429 on the layers, a full disk). */
+  setPullFails(on: boolean) {
+    const p = join(this.stub, "pullfail");
+    if (on) writeFileSync(p, "");
+    else rmSync(p, { force: true });
+  }
+  /** What the compose file says service svc mounts now ("dest source" lines), unlike its container. */
+  setConfigMounts(svc: string, lines: string[]) {
+    mkdirSync(join(this.stub, "cfgvol"), { recursive: true });
+    writeFileSync(join(this.stub, "cfgvol", svc), lines.join("\n") + "\n");
+  }
+  /** The sibling's `docker run`: refused as for a path the host lacks, or ending with this status. */
+  setHop(h: { missing?: boolean; rc?: number }) {
+    if (h.missing) writeFileSync(join(this.stub, "hop-missing"), "");
+    if (h.rc !== undefined) writeFileSync(join(this.stub, "hop-rc"), String(h.rc));
   }
 
   /** The stack as .env and the compose files name it now, without a commit (a hand edit of .env). */
@@ -421,8 +550,9 @@ export class Rig {
 
   run(args: string[] = [], env: Record<string, string> = {}): RunResult {
     const read = (p: string) => (existsSync(p) ? readFileSync(p, "utf8") : "");
-    for (const f of ["recreated", "calls", "pulls", "status", "tags", "psql", "runs", "globals", "tz"]) rmSync(join(this.stub, f), { force: true });
-    const logBefore = read(this.logFile).length;
+    for (const f of ["recreated", "calls", "pulls", "status", "status-key", "tags", "psql", "runs", "globals", "tz", "curls"]) rmSync(join(this.stub, f), { force: true });
+    const logFile = this.sc.updater ? join(this.updaterDir, "update.log") : this.logFile;
+    const logBefore = read(logFile).length;
     const lock = join(this.proj, ".git", "kinboard-update.lock");
     const res = spawnSync(
       "sh",
@@ -453,6 +583,17 @@ export class Rig {
           LOG_FILE: this.logFile,
           KINBOARD_HEALTH_TIMEOUT: "3",
           KINBOARD_HEALTH_POLL: "0.1",
+          ...(this.sc.updater
+            ? {
+                KINBOARD_UPDATER: "1",
+                KINBOARD_UPDATER_DIR: this.updaterDir,
+                KINBOARD_SELF_CONTAINER: "cid-updater-g0",
+                // The default, the config volume's updater/update.log.
+                LOG_FILE: "",
+                PROJECT_DIR: "",
+                COMPOSE_FILES: "",
+              }
+            : {}),
           ...env,
         },
       },
@@ -467,11 +608,13 @@ export class Rig {
       hashesFile: existsSync(this.hashesPath) ? readFileSync(this.hashesPath, "utf8") : null,
       state: read(this.statePath),
       record: status ? (JSON.parse(status) as Record<string, unknown>) : null,
+      recordKey: read(join(this.stub, "status-key")).trim() || (status ? "update_status" : null),
       tags: read(join(this.stub, "tags")).split("\n").filter(Boolean),
-      log: read(this.logFile).slice(logBefore),
+      log: read(logFile).slice(logBefore),
       runs: read(join(this.stub, "runs")),
       globals: [...new Set(read(join(this.stub, "globals")).split("\n").filter(Boolean))],
       tz: [...new Set(read(join(this.stub, "tz")).split("\n").filter(Boolean))],
+      curls: read(join(this.stub, "curls")).split("\n").filter(Boolean),
     };
   }
 

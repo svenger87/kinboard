@@ -114,6 +114,21 @@ test.describe("the config archive (CONFIG_ARCHIVE_SH, real tar)", () => {
     expect(readdirSync(out), "no half-written file left behind").toEqual(["pre-upgrade-x-config.tar.gz"]);
   });
 
+  test("leaves out updater/, kinboard-updater's state and log, which it writes while this runs (RFC-023 §4.11.3)", () => {
+    const upd = join(src, "updater");
+    mkdirSync(upd);
+    writeFileSync(join(upd, "state"), "baseline 2026-11-26T00:00:00Z\n");
+    writeFileSync(join(upd, "update.log"), "[…] === tick ===\n");
+    // Not a plain file: archived, it would refuse the whole backup.
+    symlinkSync("/dev/null", join(upd, "lock-link"));
+    const res = run();
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.stdout.trim(), "the secrets only").toBe(`files=${files}`);
+    const list = spawnSync("tar", ["-tzf", join(out, "pre-upgrade-x-config.tar.gz")], { encoding: "utf8" }).stdout;
+    expect(list).toContain("./secrets/jwt_secret");
+    expect(list).not.toContain("updater");
+  });
+
   test("never world-readable, even under a permissive umask and while it is written", () => {
     // umask 000 outside: the script sets its own before the first byte.
     const res = spawnSync("sh", ["-c", `umask 000; sh -c "$0" sh pre-upgrade-x-config.tar.gz`, ARCHIVE], {

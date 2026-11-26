@@ -2800,6 +2800,9 @@
       "inService": "(service {service})",
       "whatChanged": "Ce qui a changé",
       "currentFile": "Le compose.yml actuel",
+      "heldBody": "Kinboard {version} est sorti, mais il demande la révision {needed} du fichier compose, et le vôtre est en révision {declared}. La mise à jour automatique ne l'a donc pas installé, pour que rien ne tourne à moitié compatible : Kinboard {current} continue de tourner.",
+      "heldBodyUnknown": "Kinboard {version} est sorti, mais il n'indique pas quel fichier compose il demande, et le vôtre est en révision {declared}. La mise à jour automatique ne l'a pas installé : Kinboard {current} continue de tourner.",
+      "heldHow": "Pour l'obtenir, remplacez votre fichier compose par la version actuelle en gardant vos propres réglages (port, dossiers, fuseau horaire), puis faites Pull et Up. Les mises à jour automatiques reprennent ensuite.",
       "changes": {}
     },
     "itemNewsLabel": "Sources d'actualités",

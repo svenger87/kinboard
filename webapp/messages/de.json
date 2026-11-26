@@ -2800,6 +2800,9 @@
       "inService": "(Dienst {service})",
       "whatChanged": "Was sich geändert hat",
       "currentFile": "Die aktuelle compose.yml",
+      "heldBody": "Kinboard {version} ist erschienen, braucht aber die Compose-Datei in Revision {needed}; deine hat Revision {declared}. Das automatische Update hat es deshalb nicht installiert, damit nichts halb Passendes läuft: Kinboard {current} läuft weiter.",
+      "heldBodyUnknown": "Kinboard {version} ist erschienen, sagt aber nicht, welche Compose-Datei es braucht; deine hat Revision {declared}. Das automatische Update hat es nicht installiert: Kinboard {current} läuft weiter.",
+      "heldHow": "Um es zu bekommen, ersetze deine Compose-Datei durch die aktuelle und behalte deine eigenen Einstellungen (Port, Ordner, Zeitzone), dann Pull und Up. Danach laufen die automatischen Updates weiter.",
       "changes": {}
     },
     "itemNewsLabel": "Nachrichtenquellen",

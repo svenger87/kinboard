@@ -119,6 +119,7 @@ in a terminal they go into a file called `.env` next to `compose.yml`.
 | `PUID`, `PGID` | empty | the user and group that own the uploaded files, when they sit in a NAS folder: `99` and `100` on Unraid, usually `1000` and `1000` elsewhere |
 | `INSTANCE_ADMIN_FAMILY_ID` | empty | on an install with several families, the one that sees the install's own notices (below) |
 | `KINBOARD_IMAGE` | `ghcr.io/svenger87/kinboard` | the image without its tag, for a mirror |
+| `KINBOARD_UPDATER_IMAGE` | `ghcr.io/svenger87/kinboard-updater` | the same for the automatic updater, which starts only with `COMPOSE_PROFILES=autoupdate` ([Automatic updates](#automatic-updates)) |
 
 Eight more, `KINBOARD_POSTGRES_PASSWORD` and the other `KINBOARD_`-named
 secrets in the file's header, are only for
@@ -144,8 +145,9 @@ docker compose pull && docker compose up -d
 `KINBOARD_TAG=latest` (or unset) moves to each new release; a version number
 stays where it is until you change it.
 
-Automatic updates are not available for this file yet. The bottom of Settings
-says when a newer release is out, as *"Update available"*.
+The bottom of Settings says when a newer release is out, as *"Update
+available"*. To have Kinboard update itself, see
+[Automatic updates](#automatic-updates).
 
 ### Which version am I running?
 
@@ -175,6 +177,98 @@ where they are, in your tool or in `.env`, so nothing of yours is lost.
 The notice is shown to the install's own household only: on an install with
 one family, that family; with several, the family whose id is in
 `INSTANCE_ADMIN_FAMILY_ID`.
+
+## Automatic updates
+
+Off unless you turn it on. One variable does it:
+
+```
+COMPOSE_PROFILES=autoupdate
+```
+
+Put it with your other variables (each tool's section says where), then
+press **Up** again. A seventh container appears, `kinboard-updater`. In a
+terminal, either put the line into `.env` or run
+`docker compose --profile autoupdate up -d`.
+
+**What it does.** Two minutes after it starts, and then every 30 minutes, it
+asks the registry whether the tag you follow (`KINBOARD_TAG`, `latest` by
+default) has a newer Kinboard image. When it has:
+
+1. it pulls the new image;
+2. it checks that the new version fits your compose file (below);
+3. it takes a backup and checks it: the database, the uploaded files and the
+   config volume, the same three things as [Backups](#backups). No checked
+   backup, no update;
+4. it recreates only `kinboard-init`, `kinboard-db-init` and
+   `kinboard-webapp`. The database, PostgREST and go2rtc keep running;
+5. it waits up to 10 minutes for the new version to come up healthy and to
+   pass a check of its database tables. If it doesn't, it goes back to the
+   version that ran before, on its own, and skips the broken one until a
+   newer one is published. The top of Settings then says
+   *"The update to … didn't start, so Kinboard went back to …"*;
+6. it writes one line per step into its log, and Settings shows
+   *"Updated automatically to … on …"* under the version.
+
+**The first check only looks.** It notes what runs and changes nothing; the
+one after it is the first that can update.
+
+**A version number never moves.** With `KINBOARD_TAG=1.18.0` the updater
+never even asks the registry. If you change `KINBOARD_TAG` (back to `latest`,
+say) and press Up, Up already did it; if you change it without Up, the next
+check applies it, with the backup first.
+
+**When the release needs a newer compose file.** The updater never edits
+your file: it may hold your port and folders. When a new version needs a
+newer file than yours (the
+[revision](#your-compose-file-is-older-than-this-version-of-kinboard-expects)
+differs), it installs nothing, keeps the current version running, and
+Settings shows *"Your compose file is older than this version of Kinboard
+expects"* under the version. Replace the file with the current one, keep your
+variables, and press Up; the updater carries on from there.
+
+**When the registry can't be reached**, or says it is busy (HTTP 429), the
+check changes nothing and the next one waits longer: 30 minutes, then an
+hour, two, up to six.
+
+**What it leaves to you.** It only ever updates the Kinboard image. A new
+version of the database, PostgREST or go2rtc comes with a new compose file,
+which you start with Up yourself. It leaves the stack alone while you have
+stopped the webapp. And it reads your settings from the same place your tool
+does, the file and its variables (or `.env`): if you once started the stack
+with a variable typed into a terminal instead, and the folders it would get
+differ from the ones the containers have, it changes nothing and its log
+says so. Press Up once from your tool and it carries on.
+
+**Where the backups go:** into the Docker volume `kinboard-backups`, or, when
+your files are in a folder, beside it (`…/kinboard/backups` next to
+`…/kinboard/storage`). `KINBOARD_BACKUP_DIR` names another folder. The last
+five are kept.
+
+**Its log:** `docker logs kinboard-updater` (every tool shows a container's
+log), and `updater/update.log` in the config volume or folder.
+
+**The Docker socket.** To pull and recreate containers, the updater needs
+Docker's socket, and whoever holds that controls the machine. It is the only
+container in this file that gets it, and only when you turn automatic
+updates on. It opens no port and takes no requests.
+
+**To pause it**, add `KINBOARD_UPDATE_TICK=off` to your variables (read at
+every check; no Up needed). **To remove it**, take `COMPOSE_PROFILES` out of
+your variables and remove the container: `docker rm -f kinboard-updater`.
+
+**Updating the updater itself:** Pull and Up, as for the rest. It never
+replaces its own container while it runs.
+
+**Which tools:** OpenMediaVault, Unraid's Compose Manager, Dockge and a
+terminal keep `compose.yml` on the server's disk, and the updater works
+there. **Portainer's web editor** keeps the file inside Portainer, where the
+updater can't read it: there it starts, says so in its log at every check,
+and changes nothing. Updating Portainer stacks comes later; until then, use
+Portainer's **Update the stack**. **CasaOS** is not supported.
+
+Diun isn't needed. If you already run it, it can keep sending you a
+notification; the updater doesn't depend on it.
 
 ## Backups
 
@@ -255,7 +349,9 @@ The **Compose** plugin (`openmediavault-compose`), OMV 7 or newer.
   Compose → Settings*, **Docker storage**). For folders on a data disk, use
   the disk's full path, such as
   `KINBOARD_DB_DIR=/srv/dev-disk-by-uuid-…/appdata/kinboard/db`.
-- **Update:** select the file, **Pull**, then **Up**.
+- **Update:** select the file, **Pull**, then **Up**. For
+  [automatic updates](#automatic-updates), `COMPOSE_PROFILES=autoupdate` in
+  the **Environment** box.
 - **Check:** *Services → Compose → Containers* lists `kinboard-init` and
   `kinboard-db-init` as exited, and the other four as running.
 
@@ -273,7 +369,8 @@ Portainer CE, a stack from the **Web editor**.
   folders: in Portainer CE's web editor, a relative path ends up inside
   Portainer's own data, not next to anything you can find.
 - **Update:** open the stack, **Editor**, **Update the stack**, with **Re-pull
-  image and redeploy** switched on.
+  image and redeploy** switched on. [Automatic updates](#automatic-updates)
+  can't read a web-editor stack yet.
 - **Version:** *Containers → kinboard-webapp* shows the image and its tag;
   the version itself is at the bottom of Kinboard's Settings.
 
@@ -302,7 +399,9 @@ The **Docker Compose Manager** plugin, from *Apps*.
   sight and gone when the vDisk is recreated. `appdata` is where Unraid
   expects container data, and its backup tools look there.
 - **Start:** **Compose Up**.
-- **Update:** **Update Stack** (it pulls, then starts).
+- **Update:** **Update Stack** (it pulls, then starts). For
+  [automatic updates](#automatic-updates), `COMPOSE_PROFILES=autoupdate` in
+  the **ENV File**.
 
 ## Dockge
 
@@ -310,7 +409,9 @@ The **Docker Compose Manager** plugin, from *Apps*.
   editor. Variables go into the `.env` editor beside it. **Deploy**.
 - **Data:** the volumes; the stack's own folder is `/opt/stacks/kinboard`
   (Dockge's stacks folder). Absolute paths for folders here too.
-- **Update:** **Update** (it pulls, then starts).
+- **Update:** **Update** (it pulls, then starts). For
+  [automatic updates](#automatic-updates), `COMPOSE_PROFILES=autoupdate` in
+  the `.env` editor.
 
 As with OpenMediaVault, Dockge's `global.env` reaches every stack, and that
 is harmless.

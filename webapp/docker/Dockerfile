@@ -282,4 +282,10 @@ ENV HOSTNAME "0.0.0.0"
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
   CMD curl -sf -o /dev/null "http://127.0.0.1:${PORT:-3000}/api/health" || exit 1
 
+# Which compose.yml revision this release ships (RFC-023 §4.6): the newest in
+# src/lib/compose-revision.ts, which e2e/compose-file.spec.ts holds this to.
+# kinboard-updater reads it before it applies an image to a one-file install,
+# and holds a release whose revision is not the household's file's (§4.11.3).
+LABEL app.kinboard.compose-revision="1"
+
 ENTRYPOINT ["./webapp-entrypoint.sh"]
