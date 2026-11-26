@@ -69,10 +69,14 @@ function run(
 ): Run {
   const base: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined && k !== "KINBOARD_RIG") base[k] = v;
+  // The parent's environment minus KINBOARD_RIG, with the logging stand-ins
+  // first on PATH. Cast because the project's ProcessEnv declares NODE_ENV,
+  // which a child shell has no use for.
+  const childEnv: Record<string, string> = { ...base, PATH: `${sb.bin}:/usr/bin:/bin`, RIG_DATA: join(sb.dir, "rig-data"), ...env };
   const r = spawnSync("bash", [script, ...args], {
     encoding: "utf8",
     cwd: cwd ?? sb.dir,
-    env: { ...base, PATH: `${sb.bin}:/usr/bin:/bin`, RIG_DATA: join(sb.dir, "rig-data"), ...env },
+    env: childEnv as NodeJS.ProcessEnv,
     timeout: 20_000,
   });
   const calls = readFileSync(sb.log, "utf8").split("\n").filter(Boolean);
@@ -112,7 +116,7 @@ test("the rigs are where rigs.yml expects them, and none is left next to start.s
 test("the stub at the old path refuses, exits non-zero and runs nothing", () => {
   const sb = sandbox();
   try {
-    for (const env of [{}, { KINBOARD_RIG: "1" }]) {
+    for (const env of [{}, { KINBOARD_RIG: "1" }] as Record<string, string>[]) {
       const r = run(sb, STUB, ["--rollback", "--i-am-testing"], env, join(REPO, "webapp/docker"));
       expect(r.code).toBe(2);
       expectNotAnUpdater(r.out);
@@ -130,7 +134,7 @@ for (const rig of RIG_SCRIPTS) {
     try {
       // An installed copy's .env next to it: the refusal must come first.
       const root = fakeCheckout(sb, "PROJECT_NAME=kinboard\nDATA_DIR=/srv/kinboard\n");
-      for (const env of [{}, { KINBOARD_RIG: "0" }, { KINBOARD_RIG: "yes" }]) {
+      for (const env of [{}, { KINBOARD_RIG: "0" }, { KINBOARD_RIG: "yes" }] as Record<string, string>[]) {
         const r = run(sb, join(root, "scripts/rigs", rig), ["--rollback"], env);
         expect(r.code, r.out).toBe(2);
         expectNotAnUpdater(r.out);
@@ -150,7 +154,11 @@ for (const rig of RIG_SCRIPTS) {
     try {
       const env = 'PROJECT_NAME="kinboard"\nDATA_DIR=/srv/kinboard\nCOMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml"\n';
       const root = fakeCheckout(sb, env);
-      for (const how of [{ args: ["--i-am-testing"], env: {} }, { args: [], env: { KINBOARD_RIG: "1" } }]) {
+      const hows: { args: string[]; env: Record<string, string> }[] = [
+        { args: ["--i-am-testing"], env: {} },
+        { args: [], env: { KINBOARD_RIG: "1" } },
+      ];
+      for (const how of hows) {
         const r = run(sb, join(root, "scripts/rigs", rig), how.args, how.env);
         expect(r.code, r.out).toBe(1);
         expect(r.out).toContain("belongs to an install (PROJECT_NAME=kinboard)");
