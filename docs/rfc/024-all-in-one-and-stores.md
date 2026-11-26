@@ -77,6 +77,9 @@ for a submission or depends on one (§9).
   templates, plus a documented Synology path, all generated from **one
   metadata file** (§7).
 - A first-run flow in the app that replaces `setup.sh`'s questions (§8).
+- Finally, no Supabase left in the app: `postgrest-js` in place of `supabase-js`,
+  neutral variable names with fallbacks, and a decision for each Supabase name
+  inside the database (§4.6).
 
 **Non-goals**
 
@@ -118,24 +121,130 @@ top of it:
 - **s6-overlay v3** as the supervisor, from Alpine's package
   (`s6-overlay-3.2.3.0`) or the upstream release tarball.
 
-**Why stock PostgreSQL, not `supabase/postgres`.** The schema needs very
-little of what that image adds (checked against `init.sql` and all 88
-migrations):
+**Why stock PostgreSQL, not `supabase/postgres`.** Kinboard's isolation
+between families is plain PostgreSQL row-level security. Nothing in it is
+Supabase's.
 
-- the roles `anon`, `authenticated`, `service_role`, `authenticator` and
-  `supabase_admin`;
-- the publication `supabase_realtime`, which 78 statements add tables to;
+- **The policies.** Every family policy compares a row's family with
+  `public.current_family_id()`, defined in
+  `migrations/049_row_level_security.sql:82`. The function reads
+  `current_setting('request.jwt.claims', true)::jsonb ->> 'family_id'`, which
+  PostgREST sets from the verified JWT on each request
+  (https://docs.postgrest.org/en/v14/references/transactions.html).
+  `049` creates the shared `FOR ALL` policy for every table in its
+  `direct_tables` list (`:107-127`) and the family table's own policies
+  (`:153-157`); later migrations add 17 more.
+- **No Supabase functions.** No policy calls `auth.uid()` or `auth.jwt()`.
+  `049:20` still says `auth.jwt()` in its prose, which is stale wording.
+- **On the development database**, read-only, after the full migration run:
+  - 64 tables in `public`, 57 with RLS enabled, none forced;
+  - 57 policies on 53 tables, 54 of them keyed on `current_family_id()`;
+  - the other three are `school_holidays`' `source = 'manual'` policies for
+    `anon, authenticated`;
+  - 0 policies reference `auth.`;
+  - the seven tables without RLS (`domain_events`, `integration_clients`,
+    `integration_idempotency`, `integration_tokens`,
+    `oauth_authorization_requests`, `oauth_clients`, `system_heartbeats`) have
+    no grant at all to `anon` or `authenticated`.
+
+Beyond that, the schema needs very little of what the image adds (checked
+against `init.sql` and all 88 migrations):
+
+- the roles, with exactly the attributes in §4.2.1;
+- the publication `supabase_realtime`, named 78 times in 20 files that add tables to it;
 - `uuid-ossp`.
 
-`pg_cron` is created (`init.sql:6`) but nothing schedules a job with it, and
-`auth.jwt` appears only in a comment (`migrations/049_row_level_security.sql:20`).
-A bootstrap of about twenty lines, run before `init.sql`, creates the roles and
-the publication. `init.sql`'s `CREATE EXTENSION pg_cron` becomes conditional on
-the extension being available. Alpine does package it
-(`postgresql-pg_cron`), but loading an unused extension through
-`shared_preload_libraries` buys nothing. The legacy compose runs `init.sql` only
-on fresh databases, so the change reaches nobody's existing data. That avoids a 1.67 GB
-Nix-built image inside the container.
+`pg_cron` is created (`init.sql:6`) but nothing schedules a job with it. No
+schema object uses `pgcrypto` or `supabase_vault`; `gen_random_uuid()` is core
+PostgreSQL. `init.sql`'s `CREATE EXTENSION pg_cron` becomes conditional on the
+extension being available. Alpine does package it (`postgresql-pg_cron`), but
+loading an unused extension through `shared_preload_libraries` buys nothing.
+The legacy compose runs `init.sql` only on fresh databases, so the change
+reaches nobody's existing data. That avoids a 1.67 GB Nix-built image inside
+the container.
+
+#### 4.2.1 What the role bootstrap must reproduce exactly
+
+This is the part where a mistake is silent. Two examples:
+
+- **A wrong `BYPASSRLS`.** If `service_role` lacks it, every API route sees
+  nothing. If `authenticated` has it, every family sees everything.
+- **A wrong `INHERIT`.** If `authenticator` inherits, its sessions carry its
+  members' rights before PostgREST switches roles.
+
+So the bootstrap copies the values read from `supabase/postgres:15.14.1.159`
+on the development database (`pg_roles`, `pg_auth_members`,
+`pg_db_role_setting`, `pg_default_acl`, `pg_namespace.nspacl`; read-only,
+2026-11-26).
+
+**Role attributes** (all with `rolconnlimit = -1`, none with `CREATEDB` or
+`CREATEROLE` unless shown):
+
+| Role | Superuser | Inherit | BypassRLS | Login | Other | Settings |
+|---|---|---|---|---|---|---|
+| `anon` | no | yes | no | no | — | `statement_timeout=3s` |
+| `authenticated` | no | yes | no | no | — | `statement_timeout=8s` |
+| `service_role` | no | yes | **yes** | no | — | — |
+| `authenticator` | no | **no** | no | **yes** | — | `statement_timeout=8s`, `lock_timeout=8s`, `session_preload_libraries=supautils, safeupdate` |
+| `postgres` | **no** | yes | **yes** | yes | `CREATEROLE`, `CREATEDB`, `REPLICATION` | `search_path="$user", public, extensions` |
+| `supabase_admin` | **yes** | yes | yes | yes | all | — |
+
+**Memberships**:
+
+- `authenticator` is a member of `anon`, `authenticated` and `service_role`,
+  without admin option. That is PostgREST's role switch
+  (https://docs.postgrest.org/en/v14/references/auth.html).
+- `postgres` is a member of `anon`, `authenticated`, `service_role`,
+  `pg_monitor`, `pg_read_all_data` and `pg_signal_backend`, and of two
+  Supabase-only roles (`supabase_privileged_role`, `supabase_realtime_admin`)
+  that nothing of Kinboard's uses (inferred; the comparison in §6.5 confirms
+  it or fails).
+
+**Default privileges in `public`**, which make isolation rest on RLS plus
+explicit `REVOKE`s:
+
+- For objects created by `postgres` and by `supabase_admin`, every new table
+  gets `arwdDxt`, every sequence `rwU` and every function `X`, granted to
+  `anon`, `authenticated`, `service_role` and `postgres`.
+- Kinboard's migrations rely on this. `camera-takeover-grants` and
+  `school-holidays-grants` say so in their headers
+  (`webapp/e2e/camera-takeover-grants.spec.ts:1-8`,
+  `school-holidays-grants.spec.ts:1-8`).
+- A bootstrap that forgets these doesn't open anything: every new table is
+  simply closed to the browser. One that grants more than this opens tables
+  that rely on a later `REVOKE`. Either way, the comparison in §6.5 catches it.
+
+**Schema usage**: `USAGE` on `public` for `anon`, `authenticated` and
+`service_role`.
+
+**On stock PostgreSQL, the bootstrap:**
+
+- **The superuser.** The image's own superuser is created as `supabase_admin`
+  (`POSTGRES_USER=supabase_admin`), so backups, restore and the slot cleanup
+  connect as they do today (`kinboard-self-update.sh:137`,
+  `test-backup-restore.sh:199`, `webapp-entrypoint.sh:120`).
+- **The roles.** It creates `postgres` and the four API roles with the
+  attributes, memberships, settings and default privileges above.
+- **`supautils`.** Leaves it out. It is Supabase's extension guard and has
+  nothing to guard here.
+- **`safeupdate` needs a replacement, not an omission.** On
+  `supabase/postgres` it makes every session through `authenticator` refuse an
+  `UPDATE` or `DELETE` without a `WHERE` clause. That includes the service
+  role, which bypasses RLS, so it is what stops a filterless server-side
+  delete from emptying a table across all families. Alpine 3.24 doesn't
+  package it (`apk search safeupdate`: nothing). Two layers:
+  - the all-in-one image builds `pg-safeupdate` from source in a build stage,
+    since it is one small C file;
+  - the shared fetch layer of both clients refuses a `PATCH` or `DELETE`
+    through PostgREST that carries no filter, which also covers TrueNAS's stock
+    sidecar, where no extension can be added.
+
+  The CI check in §6.5 proves the refusal on every shape.
+- **The publication.** Creates `supabase_realtime`, empty, so every
+  `ALTER PUBLICATION … ADD TABLE` in `init.sql` and the migrations succeeds. A publication without
+  a subscriber holds no slot and costs nothing.
+
+#### 4.2.2 Services, shutdown and health
 
 **Services**, as s6-rc definitions with dependencies:
 
@@ -275,6 +384,111 @@ How they share code:
 - **One version and one changelog.** Tags carry the same version:
   `kinboard:1.18.0` and `kinboard-aio:1.18.0`, with `latest` and `next`
   following the same rules (`docker.yml:133-158`).
+
+### 4.6 The last phase: Supabase removed
+
+Since 1.15 Kinboard runs no Supabase service. What is left is a client
+library, some variable names, and names inside the database. This phase
+removes the first two and decides each of the third, after stock PostgreSQL
+(phase 3) and without changing anything for an existing install. Each step is
+its own PR.
+
+**What `supabase-js` still does for us.** It is imported in two files of the
+app, `src/lib/supabase/client.ts:1` (`createBrowserClient` from
+`@supabase/ssr`) and `src/lib/supabase/server.ts:1-2` (`createServerClient`,
+`createClient`). Four e2e specs also import it: `event-series-live`,
+`same-origin-api`, `creature-shop-live` and `point-rewards-live`. Through those
+two factories, used from about 200 files, it does:
+
+| Feature | Used | Evidence |
+|---|---|---|
+| PostgREST query builder (`from().select()…`, filters, `.rpc()`) | **yes**: the whole data layer, 31 `.rpc()` calls | this is `@supabase/postgrest-js` inside supabase-js |
+| Default headers: `apikey` and `Authorization: Bearer <key>`, `X-Client-Info` | yes, implicitly | the browser's custom `fetch` replaces `Authorization` with the family token when there is one (`client.ts:91-109`) |
+| Auth (GoTrue): sessions, refresh, `.auth.*` | **no**. 0 calls; the admin client turns it off (`server.ts:58-60`) | `grep '\.auth\.'`: 0 |
+| Realtime (`.channel()`) | **no**, since 1.15 (`client.ts:69-71`) | `grep '\.channel('`: 0 |
+| Storage (`.storage.from()`) | **no** | 0 |
+| Cookie-bound server client (`@supabase/ssr` `createServerClient`) | **no**. `server.ts`'s `createClient` has 0 importers | `grep`: 0 |
+
+**Replace it with `@supabase/postgrest-js`.** It is the same query builder
+with the same `Database` generic, so the ~200 call sites don't change. It is
+wrapped by two factories that keep today's names and behaviour:
+
+- **The browser** gets the family-token `fetch` from `client.ts`.
+- **The server** gets the service key and the `x-kinboard-actor` header
+  (`server.ts:64`).
+
+A thin client of our own was considered and not proposed. The query builder's
+types are most of the value, and it would mean rewriting them.
+
+**No anon key at all, which is better than renaming one.** PostgREST runs a
+request with no `Authorization` header as its anon role
+(`PGRST_DB_ANON_ROLE=anon`, `docker-compose.yml:149`). Checked on the
+development stack: no header → 200, as `anon`, and `families` returns `[]`.
+`supabase-js` insists on a key; `postgrest-js` doesn't.
+
+Once the browser sends no key before it has a family token,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` has no reader. The trap that Next inlines
+`NEXT_PUBLIC_*` values at build time, so a stray `.env.local` ends up in the
+bundle (`webapp/docker/docker-compose.build.yml:8-11`), disappears with it: a
+value baked into an old source build has nothing left to override.
+
+**Variables, renamed with a fallback.** The repository's precedent for a
+fallback is a second name read after the first: `JWT_SECRET ||
+PGRST_JWT_SECRET` (`src/lib/family-jwt.ts:43`), `VAPID_PUBLIC_KEY ||
+NEXT_PUBLIC_VAPID_PUBLIC_KEY` (`src/lib/push-sender.ts:67`). I found no
+existing `KINBOARD_*` rename with a fallback; this phase adds one helper,
+`env(newName, ...oldNames)`, which logs once at start when only an old name is
+set.
+
+| Today | After | Read by today | Fallback |
+|---|---|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | `KINBOARD_SERVICE_ROLE_KEY` | `src/lib/supabase/server.ts:49-55`; CI (`e2e.yml:232-266`) | the old name, then derived from `JWT_SECRET` (RFC-023 §4.1) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | retired | `layout.tsx:81` → `window.__ENV`; `client.ts:22-28`; `rest/v1/[...path]/route.ts:35`; Dockerfile build arg (`:45-46, 72-77`); `docker-compose.build.yml` | still read for one release by the legacy Kong path only. Then the build arg and the `window.__ENV` key go. The client keeps accepting the old `window.__ENV` key for one more release, because a service worker can serve HTML rendered before the update |
+| `NEXT_PUBLIC_SUPABASE_URL` | retired | `api-base.ts:31-38` (always `same-origin` since RFC-018), `client.ts:16-28` | the same |
+| `SUPABASE_URL` | stays, read-only, as "the pre-1.15 Kong address" | `api-base.ts:54`, `rest/v1/[...path]/route.ts:69`, `storage/v1/object/public/[...path]/route.ts:59` | removed in the release after the last 1.14 install could plausibly still upgrade; the owner's call |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` in e2e (14 specs) | `KINBOARD_URL`, none | `e2e/secrets.spec.ts:47` and others | the old names, in the test helpers only |
+| `ANON_KEY`, `SERVICE_ROLE_KEY` in `.env` | unchanged | compose interpolation | they are the `.env` names, not Supabase's; RFC-023 keeps reading them |
+
+**Names inside the database, decided one by one:**
+
+| Name | Decision | Why |
+|---|---|---|
+| Roles `anon`, `authenticated`, `service_role`, `authenticator` | **keep** | They are PostgREST's documented role pattern as much as Supabase's. 140, 135, 90 and 1 references across `init.sql` and the migrations. A rename on existing databases is `ALTER ROLE … RENAME`, but `migrate.sh` re-applies a changed migration and every one after it (`migrate.sh:84-96`), and those files name the old roles, so the next edited migration would fail on every renamed install |
+| `supabase_admin` | **keep** | the operational superuser on both images (§4.2.1). Backups, restore, slot cleanup and `db-init` connect as it. A rename would split every script by shape for no household-visible gain |
+| Publication `supabase_realtime` | **keep, stop adding to it** | Nothing has read it since 1.15 (live updates are a trigger, `084_change_feed.sql`), but 78 references in 20 files add tables to it, and re-applied migrations would fail on a renamed one. New migrations stop adding tables, and a CI check refuses new `ADD TABLE` lines. Dropping it is a later, separate migration once no re-applied file names it |
+| `iss: "supabase"` in old installs' `ANON_KEY` and `SERVICE_ROLE_KEY` (`setup.sh:272`) | **no dual acceptance needed** | PostgREST v14 doesn't check `iss`. Checked on the development stack: tokens with `iss` `supabase`, `kinboard` and `something-else` all got 200; only a wrong signature got 401. Family tokens already say `kinboard` (`src/lib/family-jwt.ts:80`); derived keys (RFC-023) do too; old keys keep working until rotated |
+| `auth`, `storage`, `realtime`, `_realtime`, `graphql_public` schemas on existing databases | **keep** | They belong to `supabase/postgres` and hold nothing of Kinboard's since 1.15. `PGRST_DB_SCHEMAS` still lists `graphql_public` (`docker-compose.yml:148`); stock installs create it empty, or the setting drops it in the same PR |
+| The directory `src/lib/supabase/` | rename to `src/lib/db/` in the last PR | a mechanical import change across ~200 files, kept separate from any behaviour change |
+
+**`db:generate`.** The script (`package.json:18`) runs `supabase gen types
+typescript --local > src/lib/database.types.ts`. It is already dead:
+
+- the types live in `src/types/database.ts` (1,924 lines, imported from 111
+  files, last edited by hand in #485);
+- `src/lib/database.types.ts` doesn't exist;
+- the Supabase CLI is not a dependency.
+
+**Proposal:** run the same generator against the migrated database by URL,
+`npx supabase@<pinned> gen types typescript --db-url …`, as a dev-only tool.
+Its output is exactly the `Database` shape `postgrest-js` is typed by. CI
+regenerates the file from a fresh migration run and fails on a difference, so
+the hand edits stop.
+
+The alternative, a generator of our own over `information_schema`, is about
+200 lines. It is worth writing only if the CLI ever stops supporting
+`--db-url`. Open question §11.13.
+
+**Order, one PR each, nothing changing for an existing install:**
+
+1. the `env()` helper and `KINBOARD_SERVICE_ROLE_KEY` with fallback;
+2. `@supabase/postgrest-js` in place of `supabase-js` and `@supabase/ssr` in
+   the two factories, plus the four e2e specs;
+3. the browser stops sending a key before the family token; the anon key's
+   readers retire, with the one-release `window.__ENV` overlap;
+4. `db:generate` replaced and the drift check added;
+5. the publication guard (no new `ADD TABLE`);
+6. `src/lib/supabase/` renamed;
+7. one release later, the legacy `SUPABASE_URL` and anon-key paths removed.
 
 ## 5. The stores
 
@@ -513,6 +727,9 @@ A new workflow, `images.yml`, on pull requests that touch the Dockerfile,
 | Upgrade the previous release's image of each shape to this one on the same data; data fingerprint unchanged (the `test-upgrade.sh` fingerprint) | ✓ | ✓ |
 | Export from compose, import into all-in-one, and back; data, files and VAPID public key unchanged | ✓ | — |
 | Render every store listing from the metadata file (§7) and validate it: XML schema for CA, `docker compose config` for the compose-based stores, the store's own linter where one exists | ✓ | — |
+| **RLS on stock PostgreSQL, mandatory.** A database set up fresh on `postgres:17` with the bootstrap (§4.2.1) and the full migration run, then: every spec that uses the database helper (`e2e/whole-database.ts`; 59 specs, among them `families-grants`, `camera-takeover-grants`, `pocket-money-grants`, `school-holidays-grants`, `layouts-db`, `family-delete-db`), pointed at it with `KINBOARD_DB_CONTAINER`; the static RLS specs (`rls-coverage`, `family-scope`); and a new `rls-matrix` spec over `/rest/v1` for **every** table with RLS. Through `/rest/v1`, the `rls-matrix` spec checks that family A's token reads none of family B's rows, can't insert a row for B, and changes 0 of B's rows on update or delete; that the bare anon role (no `Authorization`) reads 0 rows from every family table; and that the service role reads exactly the row counts a superuser `count(*)` gives, as today | ✓ | ✓ |
+| **Identical policies.** After the full migration run on `supabase/postgres:15.14.1.159`, on `postgres:15` and on `postgres:17`, dump and compare: `pg_policies` (table, name, permissive, roles, command, `qual`, `with_check`); `relrowsecurity`/`relforcerowsecurity` for every `public` table; `information_schema.role_table_grants` and `routine_privileges` for `anon`, `authenticated` and `service_role`; `pg_roles` attributes, `pg_auth_members` and `pg_db_role_setting` for the roles of §4.2.1; `pg_default_acl`. Any difference fails. Two comparisons: the first pair isolates the image's differences from the version's, the second the version's. A deparse difference between majors in a `qual` is reviewed once and then fails like any other | ✓ | — |
+| **Filterless writes refused.** As the service role, a `DELETE` and a `PATCH` without a filter through `/rest/v1` and through the server client are refused on every shape (§4.2.1, `safeupdate`) | ✓ | — |
 
 The arm64 jobs run on the `ubuntu-24.04-arm` runners the build already uses
 (`docker.yml:98`).
@@ -602,16 +819,18 @@ required for Kinboard to work.
 ## 9. Phases
 
 Each phase ships on its own. None depends on a store accepting anything.
+Phase 7 doesn't wait for phase 6: it needs only phase 3.
 
 | Phase | What | Needs |
 |---|---|---|
 | 0 | RFC-023, built and rehearsed | — |
 | 1 | **The professional bar on today's image:** labels and annotations, `HEALTHCHECK`, SBOM, release notes from the changelog, PUID/PGID in the compose image, the resource measurements | — (independent of 0) |
 | 2 | **The first-run sequence** (§8) | RFC-023's keys in Settings |
-| 3 | **Stock PostgreSQL for new installs:** the role bootstrap in `kinboard-db-init`; the fresh-install rig run against `postgres:17` | 0 |
+| 3 | **Stock PostgreSQL for new installs:** the role bootstrap in `kinboard-db-init`; the fresh-install rig run against `postgres:17`; the RLS, policy-comparison and filterless-write checks of §6.5 green, which is the gate for any stock-PostgreSQL install | 0 |
 | 4 | **The metadata file and the compose listings** for TrueNAS, CasaOS/ZimaOS, Umbrel and Portainer, generated and validated in CI, each installed by hand on that system (§10) | 0, 3 |
 | 5 | **The all-in-one image** as `kinboard-aio:next`: the second Dockerfile stage, s6, `kinboard export`/`import`, its CI jobs (§6.5); then two release cycles on `next`, the Pi measurements, a rehearsed PostgreSQL major upgrade on a copy of real data, then `latest`. Plus the Unraid template, installable by template URL | 3 |
 | 6 | **Submissions**, one store at a time, **when the owner decides** (§11.1). Each has its own checklist in §5. A submission that is refused or delayed blocks nothing else. Unraid CA also needs §11.2 resolved | 4 (compose stores), 5 (Unraid) |
+| 7 | **Supabase removed** (§4.6): seven PRs in the order given there. Existing installs unaffected; each step keeps the old name working for at least one release | 3 |
 
 ## 10. Rehearsal before any listing
 
@@ -628,6 +847,11 @@ virtual DSM):
 4. Uninstall and reinstall with the data kept. The family is still there.
 5. Write down every place the store's UI needed explanation; that goes into
    the listing text or the wiki.
+6. **For any listing on stock PostgreSQL, mandatory:** on that installed
+   instance, the `rls-matrix` spec (§6.5) runs against its address. Two
+   families are created, and each one's token is tried against the other's
+   rows on every table, plus the bare anon role and a filterless delete. A
+   single readable row from another family stops the listing.
 
 ## 11. Open questions for the owner
 
@@ -670,6 +894,13 @@ virtual DSM):
     review, so Umbrel households can try Kinboard before any submission?
 11. **TrueNAS's stock PostgreSQL for new store installs** (§4.5): agreed, given
     that existing compose installs stay on `supabase/postgres` 15?
+12. **`safeupdate` on stock PostgreSQL** (§4.2.1): build it into the all-in-one
+    image and add the client-side refusal everywhere (proposed), or only the
+    client-side refusal?
+13. **`db:generate`** (§4.6): the Supabase CLI as a pinned dev-only generator
+    (proposed), or a generator of our own now?
+14. **When the legacy `SUPABASE_URL` path goes** (§4.6 step 7): which release
+    may assume no 1.14 install still upgrades?
 
 ## 12. Not in this RFC
 
@@ -688,6 +919,9 @@ development machine.
 | Image sizes | `docker image ls` | `supabase/postgres:15.14.1.159` 1.67 GB, `alexxit/go2rtc:1.9.14` 362 MB, the webapp (`:latest` on this machine) 313 MB, `postgrest/postgrest:v14.16` 28 MB, ofelia 39 MB |
 | Idle memory | `docker stats --no-stream` on the development stack | db 58.97 MiB, rest 48.47 MiB |
 | PostgreSQL majors and packages in Alpine | `apk search` in `alpine:3` (3.24.3); `node:22-alpine` is Alpine 3.24.4 | `postgresql16`, `postgresql17`, `postgresql18`; no `postgresql15`; `postgresql-pg_cron-1.6.7`; `s6-overlay-3.2.3.0`, `s6-rc-0.6.1.1` |
+| Role attributes, memberships, settings, default privileges, policies | `docker exec -i kbfresh-db psql -U supabase_admin` with `SELECT … FROM pg_roles`, `pg_auth_members`, `pg_db_role_setting`, `pg_default_acl`, `pg_namespace`, `pg_policies`, `pg_class`, `information_schema.role_table_grants`, read-only | as in §4.2.1: 64 tables, 57 with RLS, 0 forced; 57 policies on 53 tables, 54 on `current_family_id()`, 0 on `auth.`; the 7 non-RLS tables have no `anon`/`authenticated` grant; `safeupdate` and `supautils` preloaded for `authenticator` |
+| PostgREST and `iss`; requests without a key | tokens signed with the development stack's secret, sent to its PostgREST on loopback (the secret never printed) | `iss` `supabase`, `kinboard`, `something-else`: 200; wrong signature: 401; no `Authorization`: 200 as `anon`, `families` → `[]` |
+| Where supabase-js is used | `grep` over `src`, `e2e`, `scripts` | imports in `src/lib/supabase/client.ts:1`, `server.ts:1-2` and four e2e specs; 0 `.auth.`, `.channel(`, `.storage.from(`; 31 `.rpc(`; `server.ts`'s `createClient` has 0 importers; `db:generate` writes a file nothing imports |
 | What the schema needs from the database image | `grep` over `init.sql` and `migrations/*.sql`; `pg_extension` on the development database | extensions created: `uuid-ossp`, `pg_cron`; no `cron.schedule`; supabase roles referenced: anon (140), authenticated (135), service_role (90), supabase_admin (3), authenticator (1); `supabase_realtime` 78 times; `auth.jwt` once, in a comment; no `pgcrypto` or `vault` use |
 
 **Assumed, not verified:**
@@ -697,6 +931,9 @@ development machine.
   bootstrap;
 - the all-in-one image size;
 - the SBOM surviving the digest merge;
+- that the role bootstrap on stock PostgreSQL reproduces §4.2.1 exactly (the
+  comparison in §6.5 proves or refutes it);
+- that the two Supabase-only memberships of `postgres` matter to nothing;
 - that an Unraid household can install a template by URL without CA (§5.1);
 - Synology's project page and publishing rules, which couldn't be fetched
   (§5.6);
