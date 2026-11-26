@@ -34,21 +34,22 @@ You need a project with the Google Calendar API enabled. The free tier is plenty
    - Google accepts only **https with a domain name**, or **`http://localhost`**. A LAN address such as `http://192.168.1.20:3001` or `http://server.local:3001` is refused in Cloud Console. You only have to connect **once**, so either open Kinboard on the server itself at `http://localhost:3001` (or through an SSH tunnel: `ssh -L 3001:localhost:3001 you@server`, then `http://localhost:3001` on your own computer), register that address and connect there, or use your https address. After that every screen syncs, whatever address it uses.
 6. Save the **Client ID** and **Client secret**.
 
-### 2. Add to webapp/docker/.env
+### 2. Enter it in Settings
+
+Open **Settings → Google Calendar** and paste the Client ID and Client secret into **Google OAuth client**, then **Save**. They are stored for your family on the server; the secret is never shown again in full.
+
+**Or for the whole install, in `webapp/docker/.env`:**
 
 ```
 GOOGLE_CLIENT_ID=<paste from Cloud Console>
 GOOGLE_CLIENT_SECRET=<paste from Cloud Console>
 ```
 
+A family's own client wins over the server's. A connection belongs to the client it was made with, so after changing the client, connect again.
+
 `GOOGLE_REDIRECT_URI` is optional: leave it out and the redirect URI follows the address you open Kinboard on. Set it only to pin one address for every screen (then the Settings card says so).
 
-Restart the webapp:
-
-```bash
-cd webapp/docker
-./start.sh restart
-```
+After changing `.env`, recreate the webapp (`cd webapp/docker && ./start.sh up`); a restart does not load changed variables.
 
 ### 3. Connect from the app
 

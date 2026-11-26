@@ -36,22 +36,19 @@ Open https://openweathermap.org/api → sign up (free) → confirm email → gra
 
 The free tier gives you 60 calls/min and 1M calls/month, more than enough.
 
-### 2. Add to env
+### 2. Enter it in Settings
 
-`webapp/docker/.env`:
+Open **Settings → Weather** and paste the key into **OpenWeatherMap API key**, then **Save**. It is stored for your family on the server and never shown again in full; the card shows its last four characters. A new key can take up to two hours before OpenWeatherMap accepts it.
+
+**Or for the whole install, in `webapp/docker/.env`:**
 
 ```
 OPENWEATHERMAP_API_KEY=<your key>
 ```
 
-Restart:
+Then recreate the webapp (`cd webapp/docker && ./start.sh up`); a restart does not load changed variables.
 
-```bash
-cd webapp/docker
-./start.sh restart
-```
-
-> Note: This is a host-level env var, **not** per-family. If you self-host for multiple families, all families share the key.
+A family's own key wins over the server's. The card says which one is in use: **Set for this family**, **From the server**, or **Not set**. **Remove and use the server's** goes back to the `.env` key.
 
 ### 3. Configure the location per family
 

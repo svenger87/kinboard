@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { WizardProgress } from "@/components/setup/wizard-progress";
 import { WizardStepFooter } from "@/components/setup/wizard-step-footer";
 import { useUpdateSetting, useWeather, type WeatherLocation } from "@/hooks";
-import { IntegrationConfigHint } from "@/components/integration-config-hint";
+import { WeatherKeyCard } from "@/components/settings/install-key-cards";
 import { CityLocationPicker } from "@/components/settings/city-location-picker";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
@@ -57,13 +57,8 @@ export default function SetupWeatherPage() {
         <h1 className="text-2xl font-display tracking-tight mb-2">{t("title")}</h1>
         <p className="text-muted-foreground text-sm mb-6">{t("description")}</p>
 
-        {apiKeyMissing && (
-          <IntegrationConfigHint
-            title={t("apiKeyTitle")}
-            description={t("apiKeyBody")}
-            envKey="OPENWEATHERMAP_API_KEY"
-          />
-        )}
+        {/* Set here, for this family, when the server has no key (RFC-023 §4.4). */}
+        {apiKeyMissing && <WeatherKeyCard />}
 
         <CityLocationPicker value={locationValue} onChange={setLocationValue} />
       </CardContent></Card>

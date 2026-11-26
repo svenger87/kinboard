@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
+import { resolveGoogleClient } from "@/lib/api-keys";
 
 interface GoogleCalendarSettings {
   access_token: string;
@@ -15,10 +16,9 @@ export async function getGoogleOAuth2Client(familyId: string) {
   const credentials = await getMergedSetting<GoogleCalendarSettings>(familyId, "google_calendar");
   if (!credentials?.access_token) return null;
 
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-  );
+  // The family's own OAuth client from Settings, else the server's (lib/api-keys.ts).
+  const client = await resolveGoogleClient(familyId);
+  const oauth2Client = new google.auth.OAuth2(client?.clientId, client?.clientSecret);
   oauth2Client.setCredentials({
     access_token: credentials.access_token,
     refresh_token: credentials.refresh_token,

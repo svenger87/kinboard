@@ -19,7 +19,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Weather } from "@/components/widgets/weather";
 import { PageHeader } from "@/components/page-header";
-import { IntegrationConfigHint } from "@/components/integration-config-hint";
+import { WeatherKeyCard } from "@/components/settings/install-key-cards";
 import { CityLocationPicker } from "@/components/settings/city-location-picker";
 import { WeatherEffectsSettings } from "@/components/settings/weather-effects-settings";
 
@@ -43,9 +43,10 @@ export default function WeatherSettingsPage() {
   const t = useTranslations("settings.weather");
   const { data: savedLocation, isLoading: locationLoading } = useWeatherLocation();
   const { data: weatherData, refetch: refetchWeather } = useWeather();
-  // Detect "OPENWEATHERMAP_API_KEY missing" — the hook returns null
-  // (not an error) when the API responds with { configured: false }.
-  // Loading-state suppresses the hint until the first fetch resolves.
+  // Detect "no OpenWeatherMap key" (neither this family's nor the server's)
+  // — the hook returns null (not an error) when the API responds with
+  // { configured: false }. Loading-state keeps the key card at the bottom
+  // until the first fetch resolves.
   const weatherUnconfigured = weatherData === null;
   const updateSetting = useUpdateSetting();
   const { system: unitSystem } = useWeatherUnits();
@@ -142,15 +143,8 @@ export default function WeatherSettingsPage() {
           className="mb-8"
         />
 
-        {weatherUnconfigured && (
-          <IntegrationConfigHint
-            title={t("notConfiguredTitle")}
-            description={t("notConfiguredDescription")}
-            envKey="OPENWEATHERMAP_API_KEY"
-            docsHref="https://github.com/svenger87/kinboard/wiki/OpenWeatherMap"
-            docsLabel={t("notConfiguredDocsLabel")}
-          />
-        )}
+        {/* Without a key nothing else here works, so the card comes first. */}
+        {weatherUnconfigured && <WeatherKeyCard id="api-key" />}
 
         <CityLocationPicker value={locationValue} onChange={handleLocationChange} />
 
@@ -258,6 +252,12 @@ export default function WeatherSettingsPage() {
           </div>
           <Weather />
         </motion.div>
+
+        {!weatherUnconfigured && (
+          <div className="mt-6">
+            <WeatherKeyCard id="api-key" />
+          </div>
+        )}
       </div>
     </main>
   );

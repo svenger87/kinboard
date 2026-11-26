@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { API_KEY_FIELDS } from "@/lib/api-key-status";
 
 // Placeholder returned to the browser instead of a stored secret. Truthy,
 // so existing `!!settings?.access_token`-style connected-checks keep
@@ -39,6 +40,11 @@ export const SECRET_FIELDS: Record<string, string[]> = {
     "cameras.*.auth.password",
     "cameras.*.webrtc_config.turn_password",
   ],
+  // The install keys a family may set in Settings (RFC-023 §4.4,
+  // lib/api-keys.ts). Like calendar_feed they live only here, never in
+  // `settings`; listed so upsertSecrets keeps their fields, and so
+  // /api/settings refuses them (DEDICATED_ROUTE_KEYS there).
+  ...Object.fromEntries(Object.entries(API_KEY_FIELDS).map(([name, fields]) => [name, [...fields]])),
 };
 
 type JsonObject = Record<string, unknown>;

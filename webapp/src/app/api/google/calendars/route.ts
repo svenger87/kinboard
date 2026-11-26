@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
+import { resolveGoogleClient } from "@/lib/api-keys";
 import { createAdminClient } from "@/lib/supabase/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";
 import { reconcileGoogleCalendars } from "@/lib/google-calendar-reconcile";
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
 interface GoogleCalendarSettings {
   access_token: string;
@@ -23,9 +22,12 @@ async function getOAuth2Client(familyId: string) {
     return null;
   }
 
+  const client = await resolveGoogleClient(familyId);
   const oauth2Client = new google.auth.OAuth2(
-    GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET
+    // The family's own OAuth client from Settings, else the server's
+    // (lib/api-keys.ts); none at all behaves as before, until a refresh.
+    client?.clientId,
+    client?.clientSecret,
   );
 
   oauth2Client.setCredentials({

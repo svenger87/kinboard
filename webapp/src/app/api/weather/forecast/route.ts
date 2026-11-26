@@ -13,12 +13,12 @@ import {
   withoutPartialLastDay,
   mapCondition,
   middayItem,
-  openWeatherApiKey,
   OpenWeatherError,
   placeFrom,
   weatherLang,
   type OpenWeatherForecast,
 } from "@/lib/weather-provider";
+import { openWeatherKeyForRequest } from "@/lib/api-keys";
 
 // No default locale: every caller passes one, and a default of "de-DE" meant a
 // missing parameter silently produced German day names for everybody.
@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
   const city = searchParams.get("city");
   const lang = weatherLang(searchParams.get("lang"));
   const units = toUnitSystem(searchParams.get("units"));
-  const apiKey = openWeatherApiKey();
+  // The family's own key from Settings, else the server's (lib/api-keys.ts).
+  const apiKey = await openWeatherKeyForRequest(request);
 
   if (!apiKey) {
     return NextResponse.json({ configured: false }, { status: 200 });

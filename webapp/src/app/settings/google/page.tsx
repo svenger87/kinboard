@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/page-header";
-import { IntegrationConfigHint } from "@/components/integration-config-hint";
+import { GoogleClientCard } from "@/components/settings/install-key-cards";
 import { GoogleRedirectHint } from "@/components/settings/google-redirect-hint";
 import { toast } from "sonner";
 import {
@@ -309,15 +309,8 @@ export default function GoogleSettingsPage() {
             className="mb-8"
           />
 
-          {isUnconfigured && (
-            <IntegrationConfigHint
-              title={t("notConfiguredTitle")}
-              description={t("notConfiguredDescription")}
-              envKey="GOOGLE_CLIENT_ID"
-              docsHref="https://github.com/svenger87/kinboard/wiki/Google-Calendar"
-              docsLabel={t("notConfiguredDocsLabel")}
-            />
-          )}
+          {/* Without a client there is nothing to connect, so the card comes first. */}
+          {isUnconfigured && <GoogleClientCard id="oauth-client" />}
 
           <IntegrationStatusBanner
             connected={isConnected && !googleStatus?.needs_reauth}
@@ -838,6 +831,12 @@ export default function GoogleSettingsPage() {
               </div>
             </div>
           </motion.div>
+
+          {googleConfigured === true && (
+            <div className="mt-6">
+              <GoogleClientCard id="oauth-client" />
+            </div>
+          )}
         </div>
       </main>
     </TooltipProvider>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/require-session";
-import { timingSafeEqual } from "node:crypto";
+import { presenceSensorToken, tokensMatch } from "@/lib/api-keys";
 
 // In-memory presence state (per device)
 interface PresenceState {
@@ -55,39 +55,50 @@ export async function GET(request: NextRequest) {
 }
 
 // POST: Update presence state from Pi sensor
+//
+// The sensor authenticates with a bearer token. Which token: the one of the
+// family the reported device belongs to, set in Settings -> Devices, else the
+// server's PRESENCE_SENSOR_TOKEN (lib/api-keys.ts, RFC-023 §4.4). So the body
+// is read before the token is checked, to know the device; nothing in it is
+// acted on until the token matches, and the comparison stays constant-time.
 export async function POST(request: NextRequest) {
-  const expected = process.env.PRESENCE_SENSOR_TOKEN;
+  const body = (await request.json().catch(() => null)) as
+    | { device_id?: unknown; presence?: unknown; distance?: unknown }
+    | null;
+
+  let expected: string | null;
+  try {
+    expected = await presenceSensorToken(body?.device_id);
+  } catch (err) {
+    // Not the server's token as a fallback: the family may have replaced it
+    // so that it stops working (presenceSensorToken).
+    console.error("presence: could not look up the sensor token:", err);
+    return NextResponse.json({ error: "presence sensor check failed" }, { status: 503 });
+  }
   if (!expected) return NextResponse.json({ error: "presence sensor not configured" }, { status: 503 });
   const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-  const actualBytes = Buffer.from(supplied);
-  const expectedBytes = Buffer.from(expected);
-  if (actualBytes.length !== expectedBytes.length || !timingSafeEqual(actualBytes, expectedBytes)) {
+  if (!tokensMatch(supplied, expected)) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
-  try {
-    const body = await request.json();
-    const { device_id, presence, distance } = body;
 
-    if (!device_id || typeof presence !== "boolean") {
-      return NextResponse.json(
-        { error: "device_id and presence (boolean) required" },
-        { status: 400 }
-      );
-    }
-
-    presenceStates.set(device_id, {
-      detected: presence,
-      lastSeen: Date.now(),
-      distance: distance ?? undefined,
-    });
-
-    return NextResponse.json({ success: true });
-  } catch {
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+  const { device_id, presence, distance } = body;
+  if (!device_id || typeof device_id !== "string" || typeof presence !== "boolean") {
     return NextResponse.json(
-      { error: "Invalid request body" },
+      { error: "device_id and presence (boolean) required" },
       { status: 400 }
     );
   }
+
+  presenceStates.set(device_id, {
+    detected: presence,
+    lastSeen: Date.now(),
+    distance: typeof distance === "number" ? distance : undefined,
+  });
+
+  return NextResponse.json({ success: true });
 }
 
 // DELETE: Clear presence state for a device (for testing/debugging)

@@ -30,8 +30,8 @@ export interface WeatherIo {
   setting: (key: string) => Promise<unknown>;
   /** The family's IANA time zone. */
   timeZone: () => Promise<string>;
-  /** The OpenWeatherMap key, or undefined when the server has none. */
-  apiKey: () => string | undefined;
+  /** The OpenWeatherMap key (the family's, else the server's), or undefined when neither has one. */
+  apiKey: () => Promise<string | undefined> | string | undefined;
   fetch: typeof fetch;
   now: () => Date;
 }
@@ -148,8 +148,8 @@ function shapeCurrent(data: OpenWeatherCurrent, lang: string, units: UnitSystem)
 }
 
 export async function readFamilyWeather(io: WeatherIo): Promise<WeatherResult> {
-  const apiKey = io.apiKey();
-  if (!apiKey) return notConfigured("this Kinboard server has no OpenWeatherMap API key.");
+  const apiKey = await io.apiKey();
+  if (!apiKey) return notConfigured("no OpenWeatherMap API key is set, in Settings or on the server.");
 
   const [location, unitSetting, localeSetting, timeZone] = await Promise.all([
     io.setting(SETTINGS_KEYS.weatherLocation),

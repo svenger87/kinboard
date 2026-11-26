@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const OPENWEATHERMAP_API_KEY = process.env.OPENWEATHERMAP_API_KEY;
+import { openWeatherKeyForRequest } from "@/lib/api-keys";
 
 // The layer keys the UI uses. The mapping to OpenWeatherMap's own names
 // (`precipitation_new` and friends) belongs to the tile proxy, which is
@@ -44,7 +43,7 @@ export async function GET(request: NextRequest) {
   // whatever the server's configuration, and answering 500 for it sent
   // people looking for a server fault that wasn't there. 503 rather than
   // 500 — the service isn't broken, it isn't set up.
-  if (!OPENWEATHERMAP_API_KEY) {
+  if (!(await openWeatherKeyForRequest(request))) {
     return NextResponse.json(
       { error: "Weather API not configured" },
       { status: 503 },

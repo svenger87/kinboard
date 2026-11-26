@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { openWeatherKeyForRequest } from "@/lib/api-keys";
 
-const OPENWEATHERMAP_API_KEY = process.env.OPENWEATHERMAP_API_KEY;
 // Geo endpoint is at a different path tier than the weather/forecast API
 // (`/geo/1.0` vs `/data/2.5`), so it gets its own override. In production
 // neither env var is set and we hit the real OWM. In demo / CI the demo
@@ -25,12 +25,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json([]);
   }
 
-  if (!OPENWEATHERMAP_API_KEY) {
+  // The family's own key from Settings, else the server's (lib/api-keys.ts).
+  const apiKey = await openWeatherKeyForRequest(request);
+  if (!apiKey) {
     return NextResponse.json({ configured: false }, { status: 200 });
   }
 
   try {
-    const url = `${OPENWEATHERMAP_GEO_URL}/direct?q=${encodeURIComponent(query)}&limit=5&appid=${OPENWEATHERMAP_API_KEY}`;
+    const url = `${OPENWEATHERMAP_GEO_URL}/direct?q=${encodeURIComponent(query)}&limit=5&appid=${encodeURIComponent(apiKey)}`;
 
     const response = await fetch(url, {
       next: { revalidate: 3600 }, // Cache for 1 hour

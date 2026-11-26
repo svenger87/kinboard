@@ -40,14 +40,21 @@ API_URL = os.environ.get("KINBOARD_URL", "http://localhost:3001").rstrip("/") + 
 SENSOR_TOKEN = os.environ.get("KINBOARD_PRESENCE_TOKEN", "")
 ```
 
-Run `./setup.sh --non-interactive` from the repository root to add
-`PRESENCE_SENSOR_TOKEN` to `webapp/docker/.env`. Setup keeps an existing value
-on later runs unless you pass `--force`. On a manual install, generate one with
-`openssl rand -hex 32`.
-Put the same value in `KINBOARD_PRESENCE_TOKEN` on the kiosk. Recreate the webapp
-with your usual Docker Compose files after changing `.env`; a container restart
+The sensor proves itself with a token. Make one in **Settings → Devices →
+Presence sensor token → New token** (the card appears once a screen has
+*Presence sensor* switched on). It is shown once; copy it then. Making a new
+one later replaces it, and the sensor is refused until it has the new one.
+
+Or use the install-wide token: `./setup.sh --non-interactive` adds
+`PRESENCE_SENSOR_TOKEN` to `webapp/docker/.env` and keeps an existing value on
+later runs unless you pass `--force`; on a manual install, generate one with
+`openssl rand -hex 32`. A family that has made its own token uses that one, and
+the server's no longer works for its screens.
+
+Put the token in `KINBOARD_PRESENCE_TOKEN` on the kiosk. If you changed `.env`,
+recreate the webapp with your usual Docker Compose files; a container restart
 does not load changed environment variables. The API rejects sensor updates
-until the token is configured.
+until a token is configured.
 
 For a manual Windows run, set the token and Kinboard address in PowerShell
 before starting the script:

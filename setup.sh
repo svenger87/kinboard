@@ -18,7 +18,7 @@
 #                       the address Kinboard was opened from.
 #   --force, -f         regenerate everything from scratch (re-prompts for keys)
 #   --non-interactive   never prompt; useful for CI / Docker entrypoint use
-#   --advanced          also prompt for Immich, Bring, camera, SMTP server
+#   --advanced          also prompt for the go2rtc example cameras
 #   --help, -h          show this help
 
 set -euo pipefail
@@ -319,7 +319,12 @@ fi
 # Idempotent: each prompt skips if the key is already set in .env. Pass
 # --force to re-prompt. Pass --non-interactive to skip the entire block
 # (useful for CI / Docker entrypoint). Pass --advanced to also prompt
-# for Immich, Bring, camera credentials, and SMTP server config.
+# for the camera credentials go2rtc's example streams use.
+#
+# The OpenWeatherMap key and the Google client asked for here are the
+# install-wide defaults; a family can also set its own in Settings, which
+# wins (RFC-023 §4.4). Immich, Bring! and the SMTP server are no longer
+# asked for: nothing reads them (they are marked unused in .env.example).
 
 prompt_for_key() {
   # $1 = .env key name
@@ -390,7 +395,7 @@ EOF
   fi
 
   prompt_for_key OPENWEATHERMAP_API_KEY \
-    "OpenWeatherMap API key — for the weather widget" \
+    "OpenWeatherMap API key — for the weather widget (or set it later in Settings -> Weather)" \
     "Free tier: https://openweathermap.org/api  (sign up, copy from dashboard)"
 
   echo
@@ -398,7 +403,7 @@ EOF
   echo "  Get a CLIENT_ID + CLIENT_SECRET from a Google Cloud project:"
   echo "    https://console.cloud.google.com/apis/credentials → Create OAuth client ID"
   echo "  Walkthrough: https://github.com/svenger87/kinboard/wiki/Google-Calendar"
-  echo "  Skip both fields to disable Google Calendar entirely."
+  echo "  Skip both fields to leave it to Settings -> Google Calendar, per family."
   prompt_for_key GOOGLE_CLIENT_ID "Google OAuth client ID"
   prompt_for_key GOOGLE_CLIENT_SECRET "Google OAuth client secret"
 
@@ -406,16 +411,10 @@ EOF
     cat <<EOF
 
   ── advanced ──
-  These have per-family in-app UIs at /settings/<integration> — only
-  prefill them in .env if you want a stack-wide default that doesn't
-  depend on per-family setup.
+  Credentials for the example camera streams in go2rtc.yaml. Cameras
+  you add in Settings -> Cameras keep their own.
 
 EOF
-    prompt_for_key IMMICH_API_URL \
-      "Immich API URL — fallback default for the photo screensaver"
-    prompt_for_key IMMICH_API_KEY "Immich API key"
-    prompt_for_key BRING_EMAIL "Bring! email — fallback default for shopping sync (legacy)"
-    prompt_for_key BRING_PASSWORD "Bring! password"
     prompt_for_key CAMERA_USER \
       "Default RTSP camera username — used by go2rtc.yaml's camera entries"
     prompt_for_key CAMERA_PASS \
@@ -423,12 +422,6 @@ EOF
       "URL-encode special chars: '#' → '%23', '@' → '%40'"
     prompt_for_key HIKVISION_HOST "Hikvision camera host (LAN IP)"
     prompt_for_key AMCREST_HOST "Amcrest/Dahua camera host (LAN IP)"
-    prompt_for_key SMTP_HOST \
-      "SMTP server host" \
-      "Only needed if you actually use supabase auth's email features — the device-cookie auth model doesn't"
-    prompt_for_key SMTP_PORT "SMTP server port (e.g. 587 for STARTTLS, 465 for TLS)"
-    prompt_for_key SMTP_USER "SMTP username"
-    prompt_for_key SMTP_PASS "SMTP password / app token"
   fi
 
 elif [[ $non_interactive -eq 1 ]]; then
@@ -495,8 +488,9 @@ EOF
 
 if [[ ${#unset_keys[@]} -gt 0 ]]; then
   cat <<EOF
-  1. (Optional) Fill in the keys you skipped — edit webapp/docker/.env
-     directly, or re-run ./setup.sh to be prompted again:
+  1. (Optional) Fill in the keys you skipped — in Kinboard's Settings
+     (Weather, Google Calendar) once it runs, or in webapp/docker/.env
+     (edit it, or re-run ./setup.sh to be prompted again):
 EOF
   for key in "${unset_keys[@]}"; do
     case "$key" in

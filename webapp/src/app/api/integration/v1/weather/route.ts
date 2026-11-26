@@ -3,7 +3,7 @@ import { withIntegrationAuth } from "@/lib/integration-route";
 import { createAdminClient } from "@/lib/supabase/server";
 import { logApiError } from "@/lib/api-error";
 import { familyTimeZone } from "@/lib/family-time";
-import { openWeatherApiKey } from "@/lib/weather-provider";
+import { resolveOpenWeatherKey } from "@/lib/api-keys";
 import { readFamilyWeather, type WeatherIo } from "@/lib/integration-weather";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,8 @@ function liveWeatherIo(familyId: string): WeatherIo {
       return data?.value ?? null;
     },
     timeZone: () => familyTimeZone(familyId, db),
-    apiKey: openWeatherApiKey,
+    // The family's own key from Settings, else the server's (lib/api-keys.ts).
+    apiKey: () => resolveOpenWeatherKey(familyId),
     fetch: (input, init) => fetch(input, init),
     now: () => new Date(),
   };

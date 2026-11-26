@@ -44,6 +44,10 @@ const PRIVILEGED = [
   // the route's behalf, like the secrets helpers above.
   "createOAuthStore",
   "registerDcrClient",
+  // A family's own install keys (RFC-023 §4.4, lib/api-keys.ts): these take a
+  // family id and read its stored key with the service-role client.
+  "resolveOpenWeatherKey",
+  "resolveGoogleClient",
 ];
 
 /**
@@ -299,6 +303,13 @@ test("a route that still takes family_id checks it against the session", () => {
     // Presence takes a device id, then looks it up with the family id from
     // the session. The request never supplies a family id.
     "presence/route.ts",
+    // The family's install keys (RFC-023 §4.4). The regex matches the
+    // `familyId` of auth.session, the only family the route acts on; the
+    // body carries a key name and its values, never a family id.
+    "settings/keys/route.ts",
+    // "Is Google set up here": the regex matches auth.session.familyId, whose
+    // OAuth client it asks about; the request is a bare GET.
+    "google/configured/route.ts",
     // The live-updates stream. The regex matches the local `familyId`, taken
     // from auth.session.familyId, which the hub filters on; the request is a
     // bare GET with nothing but the session cookie
