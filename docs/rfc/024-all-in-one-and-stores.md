@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Proposed 2026-11-26, for the owner's review. Decided 2026-11-26: §11.12 (`safeupdate` in both the database and the app); automatic updates on every shape (§4.7, with RFC-023 §4.11) |
+| **Status** | Accepted 2026-11-26. Decided: §11.3–5, 7–12, and automatic updates on every shape (§4.7). With the owner: §11.1, 2, 6 (submissions, license, forum thread). Open until phase 7: §11.13–14 |
 | **Date** | 2026-11-26 |
 | **Depends on** | [RFC-023](023-one-file-install.md) (#540): the secrets store and its init step, the base schema in the image, the job schedule in the image, `compose.yml`. This RFC adds nothing RFC-023 would have to change |
 | **Discussion** | #539 |
@@ -215,7 +215,7 @@ explicit `REVOKE`s:
   that rely on a later `REVOKE`. Either way, the comparison in §6.5 catches it.
 
 **Schema usage**: `USAGE` on `public` for `anon`, `authenticated` and
-`service_role`.
+`service_role`; on `extensions` the same.
 
 **On stock PostgreSQL, the bootstrap:**
 
@@ -321,9 +321,37 @@ explicit `REVOKE`s:
 
   The CI checks in §6.5 prove both layers on every shape, and prove that each
   fails when its protection is removed.
-- **The publication.** Creates `supabase_realtime`, empty, so every
-  `ALTER PUBLICATION … ADD TABLE` in `init.sql` and the migrations succeeds. A publication without
-  a subscriber holds no slot and costs nothing.
+- **The publication.** Creates `supabase_realtime`, empty, **owned by
+  `postgres`**, as it is on `supabase/postgres`. Every
+  `ALTER PUBLICATION … ADD TABLE` in `init.sql` and the migrations then
+  succeeds. A publication without a subscriber holds no slot and costs
+  nothing.
+- **`uuid-ossp` in an `extensions` schema**, as `supabase/postgres` has it,
+  with `USAGE` for the API roles and `postgres`'s
+  `search_path="$user", public, extensions`. Created in `public` instead,
+  the default privileges hand its 10 functions to `anon`, `authenticated` and
+  `service_role`.
+
+**Verified 2026-11-26** (Appendix A). On a throwaway `postgres:17-alpine`,
+with a draft of this bootstrap, then `init.sql` under `--single-transaction`
+(`pg_cron` conditional), then all 88 migrations as `postgres`, the §6.5
+comparison was run against a throwaway `supabase/postgres:15.14.1.159` set up
+the same way:
+
+- **Identical:** 57 policies; the RLS flags of 63 tables; 906 table grants;
+  the five roles' attributes; the 9 memberships; the per-role settings except
+  the preload list; 88 migrations recorded.
+- **Caught by the comparison:**
+  - The first run of the draft failed at `001_base.sql` with "must be owner of
+    publication supabase_realtime", which is why the owner line above exists.
+  - Two differences remained:
+    - 30 routine grants on `uuid-ossp`'s functions, which is the
+      `extensions` line above;
+    - `authenticator`'s `session_preload_libraries`, which is expected:
+      `supautils` dropped, and `safeupdate` comes with `kinboard-postgres`.
+
+  Both are now part of the contract, so the CI check starts from zero
+  differences.
 
 #### 4.2.2 Services, shutdown and health
 
@@ -418,9 +446,9 @@ proves that a dump from yesterday's version restores into today's. Later, the
 same archive is what a "download a full backup" button in Settings produces
 (RFC-023 §11.10).
 
-**Open question §11.4:** move the compose file to the same stock PostgreSQL,
-which makes data directories portable but costs every compose install one dump
-and restore. Not proposed now.
+**Decided (§11.4):** existing compose installs stay on `supabase/postgres` 15.
+Moving them to stock PostgreSQL would make data directories portable, but at
+the cost of one dump and restore each, so it is not done.
 
 ### 4.5 Recommendation
 
@@ -455,7 +483,7 @@ publication only when they are missing, which makes it a no-op on
 
 That lets every new store install run stock PostgreSQL 17, the major the
 all-in-one image uses, while existing compose installs keep `supabase/postgres`
-15 (§11.4).
+15, with no forced dump and restore (decided, §11.4).
 
 How they share code:
 
@@ -465,6 +493,11 @@ How they share code:
 - **The secrets init step, the database init, the scheduler and the health
   route are the same files.** Only the s6 service definitions exist in the
   all-in-one stage alone.
+- **Image names come from one place.** Every image this work publishes
+  (`kinboard-updater` from RFC-023, `kinboard-postgres`, `kinboard-aio`) takes
+  its name from one setting in `docker.yml`, shared with the metadata file
+  (§7). Each can later be published under additional names, the same way the
+  main image may be.
 - **One version and one changelog.** Tags carry the same version:
   `kinboard:1.18.0` and `kinboard-aio:1.18.0`, with `latest` and `next`
   following the same rules (`docker.yml:133-158`).
@@ -560,7 +593,7 @@ the hand edits stop.
 
 The alternative, a generator of our own over `information_schema`, is about
 200 lines. It is worth writing only if the CLI ever stops supporting
-`--db-url`. Open question §11.13.
+`--db-url`. Open (§11.13), for when phase 7 starts.
 
 **Order, one PR each, nothing changing for an existing install:**
 
@@ -673,7 +706,7 @@ Sources:
 |---|---|---|
 | **License** | "an OSI-approved `LICENSE` file at the repository root" (read, submit/help) | **not met**: PolyForm Noncommercial. §11.2 |
 | Shape | one XML file per app, one container per template (`<Container version="2">`, one `Repository`) (read). A compose package type (`AppTemplateType=compose`, `ComposeProjectPath`, `ComposeSourceRepository`, `ComposeSourceCommit` as a full 40-character SHA) is in the field reference "for Unraid 8"; its contract page answered 404 (read; contract unverified) | the all-in-one image (§4.2). The compose type once its contract is published |
-| Repository | a public, active GitHub repository with `ca_profile.xml` at the root (a non-empty `<Profile>`), templates under `templates/`; submitted at https://ca.unraid.net/submit (validate, scan, duplicate sweep, review); "Approved apps appear after the next catalog build" (read) | a new repository, `kinboard-unraid`, holding only generated files (§7), so the main repository needs no CA-specific layout. Open question: or `templates/` in the main repository |
+| Repository | a public, active GitHub repository with `ca_profile.xml` at the root (a non-empty `<Profile>`), templates under `templates/`; submitted at https://ca.unraid.net/submit (validate, scan, duplicate sweep, review); "Approved apps appear after the next catalog build" (read) | a new repository, `kinboard-unraid`, holding only generated files (§7), so the main repository needs no CA-specific layout. Decided (§11.9): the separate repository, created only when phase 5 needs it |
 | Fields | minimum `Name`, `Repository`; recommended `Category`, `Icon`, `Overview`, `Project`, `Support`, `TemplateURL`; then `Registry`, `WebUI` (`http://[IP]:[PORT:3000]`, always the container port), `Config` entries (`Type="Port|Path|Variable"`, `Target`, `Default`, `Mode`, `Display="always|advanced"`, `Required`, `Mask`), `ExtraParams`, `Requires`, `Beta`, `Changes`, `Screenshot`, `ReadMe` (read) | all generated. `Mask="true"` for any secret a household sets by hand. `ExtraParams` carries `--stop-timeout=60` (§4.2), which CA may "rewrite or reject" (read), to be confirmed at review |
 | Paths, user | `/mnt/user/appdata/<app>`; `PUID` 99, `PGID` 100 in the starter (read) | `/data` → `/mnt/user/appdata/kinboard`; `PUID=99`, `PGID=100` (§6.3) |
 | Icon, screenshots | an icon URL, no animated icons, the placeholder is rejected; no published size (read) | `assets/logos/kinboard-logo-icon-512.png` from raw.githubusercontent; screenshots optional |
@@ -920,7 +953,7 @@ edit, and every store shows the same thing.
 | `ports` | `3000/tcp`, web UI, default host port 3001 | all |
 | `volumes` | `db`, `storage`, `config`, each with a per-store default path: Unraid `/mnt/user/appdata/kinboard/…`, CasaOS `/DATA/AppData/kinboard/…`, Umbrel `${APP_DATA_DIR}/data/…`, Synology `/volume1/docker/kinboard/…`; the all-in-one image's single `/data` | all |
 | `env` | the optional variables of RFC-023 §4.6, with labels and which are advanced. `PUID`/`PGID` with per-store defaults | CA `Config`, TrueNAS `questions.yaml`, Portainer `env` |
-| `images` | filled at release time with each image's index digest | Umbrel and TrueNAS pins |
+| `images` | the image names, the one source `docker.yml` also reads (§4.5), and at release time each image's index digest | Umbrel and TrueNAS pins; the workflow's image names |
 
 **Generated, never edited by hand:**
 
@@ -940,7 +973,8 @@ automatically.
 (`assets/logos/`, `webapp/public/icons/`). The wiki has 83 screenshots
 (`docs/wiki/images/`), light and dark, at wiki sizes. No store found here
 publishes required pixel sizes; Umbrel and TrueNAS take images in review.
-§11.8 decides between reusing them and a dedicated set.
+Decided (§11.8): a dedicated set generated from the screen matrix later; the
+wiki images meanwhile.
 
 ## 8. First run in the app, instead of `setup.sh`'s questions
 
@@ -1028,58 +1062,45 @@ virtual DSM):
      fail after the dump. `/data/db` is untouched, and the previous tag starts
      on it.
 
-## 11. Open questions for the owner
+## 11. Decided (2026-11-26), and what stays with the owner
 
-1. **When to submit, and to which stores first.** The date is the owner's.
-   Proposed order once phase 4 is done:
-   - CasaOS/ZimaOS (the lightest review, multi-container welcome);
-   - Umbrel (strict, but its rules match the compose shape);
-   - TrueNAS (open an issue first; inclusion at its discretion);
-   - Unraid CA once §11.2 allows it. Until then, Unraid gets the template URL
-     and the Compose Manager page.
-2. **The license and the stores.** Unraid CA requires an OSI-approved license
-   (§5.1), and Kinboard's PolyForm Noncommercial license is not one. The other
-   stores' contribution rules, as read, set no license condition, but each
-   review may still ask. Options:
-   - list where the rules allow and leave CA out;
-   - ask CA's maintainers whether an exception exists (the help page names
-     none);
-   - wait until the license changes, if it does.
+The owner approved the RFC on 2026-11-26. Three questions stay with the
+owner; nothing in this work waits on them.
 
-   A license change is the owner's decision and not part of this RFC.
-3. **The all-in-one image's name**: `kinboard-aio`, or `kinboard` with an
-   `-aio` tag suffix (`1.18.0-aio`)? A separate repository keeps `latest`
-   meaning one thing per image.
-4. **Stock PostgreSQL for compose too** (§4.4): portable data directories in
-   exchange for one dump and restore per compose install?
-5. **go2rtc**: out of the all-in-one image (proposed), or in it, for about
-   360 MB more?
-6. **The Unraid forum support thread** (§5.1): CA's portal asks only for a
-   support link, and GitHub Discussions satisfies that. A forum thread is what
-   Unraid users expect. Open one, and who watches it?
-7. **PUID/PGID default** in the image: 1000:1000 (proposed), with Unraid's
-   template setting 99:100?
-8. **Screenshots for listings**: reuse the wiki's (83 in `docs/wiki/images`,
-   light and dark), or a dedicated set at each store's sizes, from the screen
-   matrix?
-9. **Where the Unraid template lives**: a separate `kinboard-unraid`
-   repository with only generated files (proposed), or `templates/` and
-   `ca_profile.xml` in the main repository?
-10. **Umbrel's community app store** (§5.4): publish one early, without
-    review, so Umbrel households can try Kinboard before any submission?
-11. **TrueNAS's stock PostgreSQL for new store installs** (§4.5): agreed, given
-    that existing compose installs stay on `supabase/postgres` 15?
-12. **Decided 2026-11-26: `safeupdate` in both, the database and the app.**
+1. **Stays with the owner: when to submit, and to which stores first.** No
+   submission is part of this work. Phase 6 starts when the owner says so (§9).
+2. **Stays with the owner: the license.** Unraid CA requires an OSI-approved
+   license (§5.1); PolyForm Noncommercial is not one. Listings are prepared
+   (phases 4 and 5) whatever the outcome.
+3. **Decided: a separate image, `kinboard-aio`**, with the same version and
+   channel tags as `kinboard` (§4.5).
+4. **Decided: existing compose installs stay on `supabase/postgres` 15.**
+   Stock PostgreSQL (`kinboard-postgres:17`) is for new installs only, with no
+   forced dump and restore (§4.4, §4.5).
+5. **Decided: go2rtc stays out of the all-in-one image** (§4.2).
+6. **Stays with the owner: the Unraid forum support thread.** GitHub
+   Discussions is the support link until then (§5.1).
+7. **Decided: PUID/PGID default 1000:1000 in the images; the Unraid template
+   sets 99:100** (§6.3).
+8. **Decided: screenshots come from a dedicated set** generated from the
+   screen matrix later; the wiki's images serve meanwhile (§7).
+9. **Decided: the Unraid template lives in a separate, generated
+   `kinboard-unraid` repository**, created only when phase 5 needs it (§5.1).
+10. **Decided: Umbrel's community app store comes later, at submission time**
+    (§5.4), not ahead of it.
+11. **Decided with 4:** new store installs, TrueNAS's included, run
+    `kinboard-postgres:17` (§4.5, §5.2).
+12. **Decided: `safeupdate` in both, the database and the app.**
     `pg-safeupdate` 1.7 is built into the all-in-one image and into
     `kinboard-postgres:17` for the stock compose shape, and preloaded for
     `authenticator`. The app's PostgREST client refuses an unfiltered
     `update()`/`delete()` before sending, with an explicit, reviewed
     `allowUnfiltered`. No shape is weaker than `supabase/postgres` today
     (§4.2.1, §6.5).
-13. **`db:generate`** (§4.6): the Supabase CLI as a pinned dev-only generator
-    (proposed), or a generator of our own now?
-14. **When the legacy `SUPABASE_URL` path goes** (§4.6 step 7): which release
-    may assume no 1.14 install still upgrades?
+13. **Open until phase 7 starts: `db:generate`** (§4.6). The Supabase CLI as a
+    pinned dev-only generator is proposed.
+14. **Open until phase 7's last step: when the legacy `SUPABASE_URL` path
+    goes** (§4.6 step 7).
 
 ## 12. Not in this RFC
 
@@ -1104,6 +1125,7 @@ development machine.
 | Role attributes, memberships, settings, default privileges, policies | `docker exec -i kbfresh-db psql -U supabase_admin` with `SELECT … FROM pg_roles`, `pg_auth_members`, `pg_db_role_setting`, `pg_default_acl`, `pg_namespace`, `pg_policies`, `pg_class`, `information_schema.role_table_grants`, read-only | as in §4.2.1: 64 tables, 57 with RLS, 0 forced; 57 policies on 53 tables, 54 on `current_family_id()`, 0 on `auth.`; the 7 non-RLS tables have no `anon`/`authenticated` grant; `safeupdate` and `supautils` preloaded for `authenticator` |
 | PostgREST and `iss`; requests without a key | tokens signed with the development stack's secret, sent to its PostgREST on loopback (the secret never printed) | `iss` `supabase`, `kinboard`, `something-else`: 200; wrong signature: 401; no `Authorization`: 200 as `anon`, `families` → `[]` |
 | Where supabase-js is used | `grep` over `src`, `e2e`, `scripts` | imports in `src/lib/supabase/client.ts:1`, `server.ts:1-2` and four e2e specs; 0 `.auth.`, `.channel(`, `.storage.from(`; 31 `.rpc(`; `server.ts`'s `createClient` has 0 importers; `db:generate` writes a file nothing imports |
+| The bootstrap on stock PostgreSQL 17, and RLS identical | throwaway `supabase/postgres:15.14.1.159` and `postgres:17-alpine` (pulled for the check, removed afterwards). The latter with `POSTGRES_USER=supabase_admin` and a draft bootstrap. On both: `init.sql` under `--single-transaction` (failure injected once, then for real), `migrate.sh` as `postgres`, then the §6.5 dump compared with `diff` | both: 88 migrations applied; an injected failure left no tables, no extension, no publication members. Identical: 57 policies, 63 RLS flags, 906 table grants, 5 roles, 9 memberships. The draft first failed at `001` ("must be owner of publication"); after the fix, 32 diff lines remained: 30 `uuid-ossp` routine grants and the preload list (§4.2.1) |
 | What the schema needs from the database image | `grep` over `init.sql` and `migrations/*.sql`; `pg_extension` on the development database | extensions created: `uuid-ossp`, `pg_cron`; no `cron.schedule`; supabase roles referenced: anon (140), authenticated (135), service_role (90), supabase_admin (3), authenticator (1); `supabase_realtime` 78 times; `auth.jwt` once, in a comment; no `pgcrypto` or `vault` use |
 
 **Assumed, not verified:**
