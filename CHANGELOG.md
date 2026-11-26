@@ -10,6 +10,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **A database update can no longer take away something the previous version needs.** When an update doesn't start, going back to the previous version only works if it still finds every table and column it uses. That has always been the rule for Kinboard's database updates, but nothing checked it. Now every change is checked before it can be merged: removing or renaming a table or column, changing a column's type, emptying a table and similar changes are refused unless they are written down as a reviewed exception. A test also starts the previous release on the newest database and joins, reads and writes a task with it, so the way back is tried, not assumed.
 
+### Security
+
+- **Kinboard refuses to change or delete every row of a table by mistake.** A change or removal that names no row, the kind that would wipe a whole list for every family at once, is now stopped inside Kinboard before it reaches the database, on the tablets and phones as well as on the server, with an error that names the table (in the server log when the server made the request). The database already refuses such a request on today's installs; this is a second net in front of it, so a future install without that database safeguard is no weaker. Nothing in Kinboard writes that way today, so nothing a family does changes (RFC-024 §4.2.1).
+
 ## [1.17.0] - 2026-11-25
 
 ### Added
