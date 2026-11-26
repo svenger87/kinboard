@@ -28,6 +28,15 @@
 # self-updater needs to git pull). For the project-dir layout to make
 # sense, your project root should be one directory above webapp/docker.
 #
+# A git install that runs the root compose.yml (RFC-023 §5.2) uses this
+# overlay too, with absolute paths, from the checkout's root, and with
+# KINBOARD_PROJECT_DIR and DIUN_WEBHOOK_SECRET in the root's .env:
+#
+#   docker compose -f compose.yml -f "$PWD/webapp/docker/docker-compose.diun.yml" up -d --build
+#
+# The self-update reads which files the stack was started with from its
+# containers' Compose labels, so COMPOSE_FILES needs no change for it.
+#
 # Tail the update log:
 #   tail -f /var/lib/kinboard-update/kinboard-update.log
 #
@@ -70,8 +79,12 @@ services:
       LOG_LEVEL: info
       DIUN_WEBHOOK_SECRET: ${DIUN_WEBHOOK_SECRET}
     volumes:
-      - ./diun/diun.yml:/diun.yml:ro
-      - ./data/diun:/data
+      # Absolute, from KINBOARD_PROJECT_DIR: a relative path is read from the
+      # folder of the FIRST compose file, which is webapp/docker for
+      # docker-compose.yml but the checkout's root for compose.yml (RFC-023
+      # §4.11.2). For docker-compose.yml both name the same folder.
+      - ${KINBOARD_PROJECT_DIR}/webapp/docker/diun/diun.yml:/diun.yml:ro
+      - ${KINBOARD_PROJECT_DIR}/webapp/docker/data/diun:/data
       # Read-only docker socket — Diun only needs to inspect labels
       # + image digests; it does not exec or restart anything.
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -100,7 +113,8 @@ services:
     # kinboard-self-update.sh needs both. The custom image weighs ~70 MB
     # and is a one-time build during `docker compose up`.
     build:
-      context: .
+      # Absolute for the same reason as diun's volumes above.
+      context: ${KINBOARD_PROJECT_DIR}/webapp/docker
       dockerfile: Dockerfile.webhook
     image: kinboard-webhook:local
     container_name: ${PROJECT_NAME:-kinboard}-webhook
@@ -160,7 +174,7 @@ services:
       # 17 Sep had never once executed there. Nothing refreshed it, because
       # the self-update deliberately never recreates this container.
       # Directory mounts do see replaced files.
-      - ./diun:/etc/webhook:ro
+      - ${KINBOARD_PROJECT_DIR}/webapp/docker/diun:/etc/webhook:ro
       # Bind-mount the project root at THE SAME PATH inside as outside.
       # Set KINBOARD_PROJECT_DIR=/absolute/host/path in .env (e.g.
       # /opt/kinboard, /root/kinboard, /mnt/user/appdata/kinboard).
