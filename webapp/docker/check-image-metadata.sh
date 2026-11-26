@@ -5,7 +5,9 @@
 #   - the manifest list's annotations: every key=value read from stdin (the
 #     IMAGE_METADATA block in .github/workflows/docker.yml), plus a version,
 #     revision, created, source and description, and a licenses equal to
-#     webapp/package.json's "license" (PACKAGE_JSON overrides the path);
+#     webapp/package.json's "license" (PACKAGE_JSON overrides the path), or to
+#     EXPECTED_LICENSE when set: an image that carries other projects' code
+#     (kinboard-postgres: PostgreSQL and pg-safeupdate) states all of them;
 #   - each platform image: the same key=value pairs as OCI labels, and a
 #     HEALTHCHECK (read by pulling that image, the one check that downloads);
 #   - each platform: an SPDX SBOM with packages in it, and SLSA provenance in
@@ -23,8 +25,12 @@ ref="${1:?usage: check-image-metadata.sh <image ref> < key=value lines}"
 # The licence is not taken from stdin: it must be the SPDX id the source
 # states, webapp/package.json's "license".
 package_json="${PACKAGE_JSON:-$(cd "$(dirname "$0")/.." && pwd)/package.json}"
-license="$(jq -er '.license | select(type == "string" and . != "")' "$package_json")" \
-  || { echo "no license in $package_json" >&2; exit 2; }
+if [ -n "${EXPECTED_LICENSE:-}" ]; then
+  license="$EXPECTED_LICENSE"
+else
+  license="$(jq -er '.license | select(type == "string" and . != "")' "$package_json")" \
+    || { echo "no license in $package_json" >&2; exit 2; }
+fi
 failures=0
 ok()   { printf '  ok    %s\n' "$*"; }
 bad()  { printf '  FAIL  %s\n' "$*"; failures=$((failures + 1)); }
@@ -65,7 +71,7 @@ for key in version revision created source description; do
   got="$(jq -r --arg k "org.opencontainers.image.$key" '.annotations[$k] // empty' <<< "$raw")"
   [ -n "$got" ] && ok "org.opencontainers.image.$key present" || bad "org.opencontainers.image.$key missing"
 done
-echo "  (licenses expected from $(basename "$(dirname "$package_json")")/package.json: $license)"
+echo "  (licenses expected: $license${EXPECTED_LICENSE:+, from EXPECTED_LICENSE})"
 
 for p in $platforms; do
   echo "$p"

@@ -257,6 +257,8 @@ COPY --chown=nextjs:nodejs docker/migrate.sh docker/webapp-entrypoint.sh docker/
 # (e2e/kinboard-init.spec.ts and test-fresh-install.sh check that).
 COPY docker/kinboard-init.mjs docker/kinboard-db-init.sh ./
 COPY docker/init.sql ./initdb/init.sql
+# The role bootstrap kinboard-db-init runs on stock PostgreSQL only (RFC-024 §4.2.1).
+COPY docker/stock-postgres-bootstrap.sql ./initdb/stock-postgres-bootstrap.sql
 USER root
 RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh ./cron-call.sh ./kinboard-db-init.sh \
  && printf '#!/bin/sh\nexec node /app/kinboard-init.mjs "$@"\n' > /usr/local/bin/kinboard-init \

@@ -8,6 +8,9 @@ name: Docker image
 # Image: ghcr.io/svenger87/kinboard
 # Also: ghcr.io/svenger87/kinboard-updater (the `updater` job), compose.yml's
 # automatic updater (RFC-023 §4.11.3), with the same tags.
+# And: ghcr.io/svenger87/kinboard-postgres (the `postgres-*` jobs), stock
+# PostgreSQL 17 plus pg-safeupdate, the database of new installs on stock
+# PostgreSQL (RFC-024 §4.2.1), built from webapp/docker/postgres/.
 #
 # Every name the image is published under and every label and annotation it
 # carries come from the `env` block below, read by both jobs (RFC-024 §4.5,
@@ -47,6 +50,9 @@ env:
   # published for compose.yml's `autoupdate` profile. Named here and nowhere
   # else, like IMAGE_NAME; the release's compose.yml takes it from here.
   UPDATER_IMAGE_NAME: ${{ github.repository_owner }}/kinboard-updater
+  # The database image of new installs on stock PostgreSQL (RFC-024 §4.2.1).
+  # Named here and nowhere else; the store listings take it from here (§4.5).
+  POSTGRES_IMAGE_NAME: ${{ github.repository_owner }}/kinboard-postgres
   # OCI labels on each platform image and annotations on the image and on the
   # manifest list. metadata-action adds description (the repository's),
   # source, version, revision and created itself; these override or add.
@@ -86,6 +92,24 @@ env:
     type=sha,prefix=sha-,format=short
     type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
     type=raw,value=next,enable=${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-') }}
+
+  # kinboard-postgres: its own title and description; the rest as above.
+  POSTGRES_IMAGE_METADATA: |
+    org.opencontainers.image.title=Kinboard PostgreSQL
+    org.opencontainers.image.description=PostgreSQL 17 (postgres:17-alpine) with pg-safeupdate, for new Kinboard installs on stock PostgreSQL
+    org.opencontainers.image.url=https://kinboard.app
+    org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/wiki
+    org.opencontainers.image.vendor=${{ github.repository_owner }}
+  # Its tags carry the PostgreSQL major first, so a later major is a new tag
+  # and never moves an install's data folder: `17` follows stable releases
+  # only (what a store listing pins), `17-next` release candidates, `17-main`
+  # and `17-sha-<short>` every build of main.
+  POSTGRES_IMAGE_TAGS: |
+    type=raw,value=17-main,enable=${{ github.ref == 'refs/heads/main' }}
+    type=sha,prefix=17-sha-,format=short
+    type=semver,pattern={{version}},prefix=17-
+    type=raw,value=17,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
+    type=raw,value=17-next,enable=${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-') }}
 
 jobs:
   # Decide whether this push actually needs an image build. Docs-/changelog-
@@ -380,6 +404,160 @@ jobs:
           webapp/docker/check-image-metadata.sh \
             "${{ env.REGISTRY }}/${{ env.UPDATER_IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
             <<< "$UPDATER_METADATA"
+
+  # kinboard-postgres, the same way as the webapp: one native build per
+  # platform pushed by digest, then one manifest list with the annotations,
+  # provenance (max) and SBOM checked by the same script. Small: one C file
+  # compiled against the pinned postgres:17-alpine.
+  postgres-build:
+    name: kinboard-postgres (${{ matrix.platform }})
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runs-on: ubuntu-latest
+          - platform: linux/arm64
+            runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute platform-pair safe name
+        id: platform
+        run: |
+          platform=${{ matrix.platform }}
+          echo "pair=${platform//\//-}" >> "$GITHUB_OUTPUT"
+
+      # PostgreSQL's licence and pg-safeupdate's, then Kinboard's for the two
+      # scripts of its own the image carries.
+      - name: Image metadata
+        id: oci
+        run: |
+          spdx="$(jq -er '.license | select(type == "string" and . != "")' webapp/package.json)"
+          {
+            echo "metadata<<OCI_METADATA_EOF"
+            printf '%s\n' "$POSTGRES_IMAGE_METADATA" | sed '/^[[:space:]]*$/d'
+            echo "org.opencontainers.image.licenses=PostgreSQL AND ISC AND $spdx"
+            echo "OCI_METADATA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Extract Docker metadata (labels + annotations)
+        id: meta
+        uses: docker/metadata-action@v5
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.POSTGRES_IMAGE_NAME }}
+          tags: ${{ env.POSTGRES_IMAGE_TAGS }}
+          labels: ${{ steps.oci.outputs.metadata }}
+          annotations: ${{ steps.oci.outputs.metadata }}
+
+      - name: Build per-platform image (push as digest)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: webapp/docker/postgres
+          file: webapp/docker/postgres/Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: mode=max
+          sbom: true
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.POSTGRES_IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=postgres-${{ matrix.platform }}
+          cache-to: type=gha,scope=postgres-${{ matrix.platform }},mode=max
+
+      - name: Export digest for merge job
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: postgres-digest-${{ steps.platform.outputs.pair }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  postgres-merge:
+    name: Merge kinboard-postgres manifest
+    runs-on: ubuntu-latest
+    needs: [changes, postgres-build]
+    if: needs.changes.outputs.build == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: postgres-digest-*
+          merge-multiple: true
+
+      - name: Image metadata
+        id: oci
+        run: |
+          spdx="$(jq -er '.license | select(type == "string" and . != "")' webapp/package.json)"
+          {
+            echo "license=PostgreSQL AND ISC AND $spdx"
+            echo "metadata<<OCI_METADATA_EOF"
+            printf '%s\n' "$POSTGRES_IMAGE_METADATA" | sed '/^[[:space:]]*$/d'
+            echo "org.opencontainers.image.licenses=PostgreSQL AND ISC AND $spdx"
+            echo "OCI_METADATA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Re-extract metadata (same tags as build job)
+        id: meta
+        uses: docker/metadata-action@v5
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.POSTGRES_IMAGE_NAME }}
+          tags: ${{ env.POSTGRES_IMAGE_TAGS }}
+          labels: ${{ steps.oci.outputs.metadata }}
+          annotations: ${{ steps.oci.outputs.metadata }}
+
+      - name: Create + push manifest list
+        working-directory: /tmp/digests
+        run: |
+          args=()
+          while IFS= read -r tag; do args+=(-t "$tag"); done \
+            < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          while IFS= read -r annotation; do args+=(--annotation "$annotation"); done \
+            < <(jq -r '.annotations[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          for digest in *; do args+=("$REGISTRY/$POSTGRES_IMAGE_NAME@sha256:$digest"); done
+          docker buildx imagetools create "${args[@]}"
+
+      - name: Check annotations, SBOM and provenance
+        env:
+          EXPECTED_LICENSE: ${{ steps.oci.outputs.license }}
+        run: |
+          webapp/docker/check-image-metadata.sh \
+            "${{ env.REGISTRY }}/${{ env.POSTGRES_IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
+            <<< "$POSTGRES_IMAGE_METADATA"
 
   # The GitHub release for every version tag (RFC-024 §6), by
   # scripts/publish-release.sh: a release candidate is published as a

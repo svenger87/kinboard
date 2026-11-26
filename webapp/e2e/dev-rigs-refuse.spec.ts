@@ -10,6 +10,7 @@ import {
   readFileSync,
   rmSync,
   writeFileSync,
+  statSync,
 } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
@@ -88,7 +89,8 @@ function fakeCheckout(sb: ReturnType<typeof sandbox>, env: string | null) {
   const root = join(sb.dir, "repo");
   mkdirSync(join(root, "scripts/rigs"), { recursive: true });
   mkdirSync(join(root, "webapp/docker"), { recursive: true });
-  for (const f of readdirSync(RIGS)) copyFileSync(join(RIGS, f), join(root, "scripts/rigs", f));
+  // Files only: scripts/rigs/stock-postgres/ holds test-stock-postgres.sh's data.
+  for (const f of readdirSync(RIGS)) if (statSync(join(RIGS, f)).isFile()) copyFileSync(join(RIGS, f), join(root, "scripts/rigs", f));
   if (env !== null) writeFileSync(join(root, "webapp/docker/.env"), env);
   return root;
 }
@@ -106,6 +108,7 @@ test("the rigs are where rigs.yml expects them, and none is left next to start.s
     "test-fresh-install.sh",
     "test-integration-api.sh",
     "test-one-file.sh",
+    "test-stock-postgres.sh",
     "test-upgrade.sh",
   ]);
   const docker = readdirSync(join(REPO, "webapp/docker"));
@@ -150,9 +153,9 @@ for (const rig of RIG_SCRIPTS) {
     }
   });
 
-  // The one-file rig never reads or writes webapp/docker/.env; its guard is the
-  // host's own one-file install (below).
-  if (rig === "test-one-file.sh") continue;
+  // The one-file and stock PostgreSQL rigs never read or write
+  // webapp/docker/.env; their guard is the host's own one-file install (below).
+  if (rig === "test-one-file.sh" || rig === "test-stock-postgres.sh") continue;
   test(`${rig}, run on purpose, still will not rewrite an installed copy's .env`, () => {
     const sb = sandbox();
     try {

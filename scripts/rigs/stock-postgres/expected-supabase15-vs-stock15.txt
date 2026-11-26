@@ -1,0 +1,43 @@
+# Reviewed differences between supabase/postgres:15.14.1.159 (left, "<") and
+# kinboard-postgres built on postgres:15 (right, ">"), after the bootstrap,
+# init.sql and every migration (RFC-024 §6.5). This pair isolates what the
+# image changes from what the major version changes.
+#
+# Each line: a direction and an extended regex for one line of the security
+# dump (security-dump.sql). A difference no line allows fails the comparison;
+# so does a line here that allows nothing, so this file can't go stale.
+#
+# "<" lines are things supabase/postgres has and stock PostgreSQL does not.
+# None of them is a grant, policy or attribute on anything Kinboard owns.
+# ">" lines are things only stock PostgreSQL has: each is reviewed below.
+
+# supabase/postgres's own schemas (Auth, Storage, Realtime, pg_graphql,
+# pg_cron, Vault). Kinboard uses none of them since 1.15.
+< ^defacl\|[a-z_]+\|(auth|cron|graphql|graphql_public|realtime|storage)\|
+< ^nspacl\|(auth|graphql|storage|vault)\|(anon|authenticated|service_role)\|USAGE\|f$
+
+# Extensions supabase/postgres installs and Kinboard never calls (RFC-024
+# §4.2: no schema object uses pgcrypto or Vault, nothing schedules a pg_cron
+# job; init.sql creates pg_cron only where the image ships it). Their
+# functions and views are in `extensions`, executable by PUBLIC there.
+< ^extension\|(pg_cron|pg_stat_statements|pgcrypto|supabase_vault)\|
+< ^procacl\|extensions\.[a-z0-9_]+\(.*\)\|PUBLIC\|EXECUTE\|f\|f$
+< ^relacl\|v\|extensions\.pg_stat_statements(_info)?\|PUBLIC\|SELECT\|f$
+
+# Memberships of roles that exist only on supabase/postgres ("inferred" in
+# RFC-024 §4.2.1; confirmed here: nothing of Kinboard's needs them).
+< ^member\|postgres\|in\|supabase_privileged_role\|admin=false\|
+< ^member\|supabase_storage_admin\|in\|authenticator\|admin=false\|
+
+# supautils is dropped; safeupdate stays (RFC-024 §4.2.1, §11.12).
+< ^setting\|authenticator\|\*\|session_preload_libraries=supautils, safeupdate$
+> ^setting\|authenticator\|\*\|session_preload_libraries=safeupdate$
+
+# supabase/postgres stores these search paths with a literal backslash,
+# `"\$user"`, so its first entry names a schema called `\$user` that never
+# exists. The bootstrap writes the `"$user"` it was meant to be. No schema
+# is named after either role, so both resolve to `public, …` alike.
+< ^setting\|postgres\|\*\|search_path="\\\$user", public, extensions$
+> ^setting\|postgres\|\*\|search_path="\$user", public, extensions$
+< ^setting\|supabase_admin\|\*\|search_path="\\\$user", public, auth, extensions$
+> ^setting\|supabase_admin\|\*\|search_path="\$user", public, auth, extensions$

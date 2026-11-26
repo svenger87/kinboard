@@ -461,6 +461,55 @@ A developer test in the repository, `scripts/rigs/test-backup-restore.sh`, runs 
 destroy, rebuild, restore, compare every table's row count — against the
 current schema, so the procedure above is verified rather than remembered.
 
+### Installs on stock PostgreSQL
+
+Every install so far, the git install and the one-file `compose.yml`, runs the
+database image `supabase/postgres` 15, and keeps it: nothing moves an existing
+install to another database (RFC-024 §11.4). New installs from the app-store
+listings (planned) run `ghcr.io/svenger87/kinboard-postgres:17` instead: plain
+PostgreSQL 17 plus the one extension Kinboard relies on, `safeupdate`, which
+makes the database refuse an `UPDATE` or `DELETE` that has no `WHERE`. The
+first start creates the roles Kinboard's row-level security needs, and every
+start checks them; a database whose roles are wrong is refused with the reason.
+
+For backups, nothing changes: the superuser is called `supabase_admin` there
+too, so the `pg_dump` and restore commands above work as written. One thing
+does: there is no `auth` schema (nor `storage` or `realtime`), so a backup
+script of your own that checks a dump for `CREATE SCHEMA auth` rejects every
+good dump of such an install. Check for Kinboard's own tables instead:
+
+```bash
+docker exec -i kinboard-db pg_restore -l < /backups/kinboard-$(date +%F).pgdump | grep -cE '^[0-9]+; [0-9]+ [0-9]+ TABLE public '
+# a healthy dump lists about 63; a failed one, none
+```
+
+A database folder belongs to the image that created it. `kinboard-postgres`
+refuses a folder written by `supabase/postgres` (another PostgreSQL version,
+built against another C library, whose text indexes would be silently out of
+order) and says so in the database container's log, changing nothing.
+`supabase/postgres` refuses a PostgreSQL 17 folder the same way.
+
+### Moving an install to PostgreSQL 17
+
+Not needed, and nothing will make you: `supabase/postgres` 15 stays supported
+for every install that has it. If you want to move anyway, the move is a dump
+and a restore into a new install, never the same folder:
+
+1. On the old install, take the three backups above: the database dump, the
+   uploaded files and, for a one-file install, the config folder.
+2. Set up the new install with an **empty** database folder (a new volume, or
+   a new `KINBOARD_DB_DIR`), the database image
+   `ghcr.io/svenger87/kinboard-postgres:17`, and the old config folder put
+   back before the first start, so the secrets (and with them the push keys)
+   stay the same.
+3. Start it and wait until `/api/health` answers, then restore the dump and
+   the files exactly as in [Restoring one](#restoring-one).
+
+If the database container instead logs `REFUSED: the database folder was
+created by PostgreSQL 15`, the new install is pointing at the old folder:
+nothing in it was changed, and step 2 wants an empty one. A one-step
+`kinboard export` and `kinboard import` for this move is planned (RFC-024 §4.4).
+
 ## Updates
 
 **A one-file install** (`compose.yml`, from 1.18): **Pull**, then **Up**, in whatever runs it; in a terminal, in the folder with `compose.yml`:

@@ -104,7 +104,8 @@ test.describe("OCI labels and annotations, from one place", () => {
     expect(text.match(/^\s*UPDATER_IMAGE_NAME:/gm)).toHaveLength(1);
     // Every other mention goes through the variable: no step spells it out.
     const code = text.split("\n").filter((l) => !l.trim().startsWith("#"));
-    expect(code.filter((l) => /\/kinboard\b(?![./])/.test(l) && !/^\s*(UPDATER_)?IMAGE_NAME:/.test(l))).toEqual([]);
+    // (UPDATER_ and POSTGRES_IMAGE_NAME are the other images' one places, beside it.)
+    expect(code.filter((l) => /\/kinboard\b(?![./])/.test(l) && !/^\s*(UPDATER_|POSTGRES_)?IMAGE_NAME:/.test(l))).toEqual([]);
   });
 
   test("the platform images get labels and annotations, the list gets annotations", () => {
