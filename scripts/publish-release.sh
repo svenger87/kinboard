@@ -16,7 +16,7 @@
 # Every new release also carries compose.yml as an asset (RFC-023 §4.6), so
 # releases/latest/download/compose.yml is a stable link: the repository's file
 # at the tag, made by scripts/release-compose.mjs with the image name from
-# docker.yml (REGISTRY and IMAGE_NAME, the workflow's env) and the release's
+# docker.yml (REGISTRY, IMAGE_NAME and UPDATER_IMAGE_NAME, the workflow's env) and the release's
 # channel as the default tag. A file it can't make stops the release before
 # anything is created. A tagged tree without compose.yml (older than the
 # one-file install) gets a release without the asset.
@@ -70,7 +70,9 @@ fi
 files=()
 if [ -f "$root/compose.yml" ]; then
   image="${REGISTRY:?set REGISTRY (docker.yml)}/${IMAGE_NAME:?set IMAGE_NAME (docker.yml)}"
-  REPO="$repo" node "$here/release-compose.mjs" "$tag" "$image" "$root/compose.yml" "$assets/compose.yml"
+  # The updater's image (RFC-023 §4.11.3), from docker.yml as well.
+  updater="${REGISTRY}/${UPDATER_IMAGE_NAME:?set UPDATER_IMAGE_NAME (docker.yml)}"
+  REPO="$repo" UPDATER_IMAGE="$updater" node "$here/release-compose.mjs" "$tag" "$image" "$root/compose.yml" "$assets/compose.yml"
   files+=("$assets/compose.yml")
 else
   echo "::notice::no compose.yml in this tree; $tag gets no compose.yml asset"

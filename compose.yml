@@ -27,6 +27,10 @@
 #   INSTANCE_ADMIN_FAMILY_ID
 #                      the family that sees this install's update notices,
 #                      when there is more than one family
+#   COMPOSE_PROFILES   autoupdate: automatic updates (the `updater` service
+#                      at the end of this file). Off unless set
+#   KINBOARD_UPDATER_IMAGE
+#                      the updater's image, without its tag, for a mirror
 #
 # Only when an existing install moves to this file: its secrets, each under
 # a KINBOARD_ name so another app's POSTGRES_PASSWORD in a UI's shared
@@ -43,6 +47,8 @@
 
 # The Kinboard image, named once. init, db-init and webapp all run it.
 x-kinboard-image: &kinboard-image ${KINBOARD_IMAGE:-ghcr.io/svenger87/kinboard}:${KINBOARD_TAG:-latest}
+# The automatic updater's image (the `autoupdate` profile only), named once.
+x-kinboard-updater-image: &kinboard-updater-image ${KINBOARD_UPDATER_IMAGE:-ghcr.io/svenger87/kinboard-updater}:${KINBOARD_TAG:-latest}
 
 # 10 MB x 3 files per container, so logs never fill the disk.
 x-logging: &logging
@@ -216,6 +222,40 @@ services:
     environment:
       TZ: ${TZ:-Europe/Berlin}
       WEBRTC_LAN_IP: ${WEBRTC_LAN_IP:-}
+    networks:
+      - kinboard
+
+  # Automatic updates, only with the `autoupdate` profile: set the variable
+  # COMPOSE_PROFILES=autoupdate in your UI (or .env), or run
+  # `docker compose --profile autoupdate up -d`. Without it, this service is
+  # never started and no container of this stack has the Docker socket.
+  #
+  # Every 30 minutes it asks the registry whether KINBOARD_TAG has a newer
+  # Kinboard image. If so: a verified backup (database, files, config), then
+  # only the Kinboard containers are recreated, and if the new version
+  # doesn't come up healthy it goes back to the one before. A pinned version
+  # (KINBOARD_TAG=1.18.0) never moves; a release that needs a newer version
+  # of this file is held until you replace the file, and Settings says so.
+  # Its log: updater/update.log in the config volume, and the container's.
+  updater:
+    image: *kinboard-updater-image
+    container_name: kinboard-updater
+    profiles: ["autoupdate"]
+    restart: unless-stopped
+    logging: *logging
+    entrypoint: ["kinboard-updater"]
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      # Image-only updates, no git; also for a check run by hand with
+      # `docker exec kinboard-updater kinboard-self-update.sh`.
+      KINBOARD_UPDATER: "1"
+    volumes:
+      # Whoever holds the socket controls the host: this one container has it,
+      # and only when you turn automatic updates on. It needs it to pull and
+      # recreate. It exposes no port and takes no requests.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Its state and log, in updater/.
+      - ${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard
     networks:
       - kinboard
 

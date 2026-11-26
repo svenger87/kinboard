@@ -4,14 +4,17 @@ import { requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { isInstallOperator as operator } from "@/lib/install-operator";
 import {
+  UPDATE_HOLD_KEY,
   UPDATE_RETRY_KEY,
   UPDATE_RETRY_LAST_KEY,
   UPDATE_STATUS_KEY,
   dismissUpdateStatus,
   parseUpdateStatus,
   retryAllowed,
+  showsComposeHold,
   withoutDetails,
 } from "@/lib/update-status";
+import { parseComposeRevision } from "@/lib/compose-revision";
 
 export const dynamic = "force-dynamic";
 
@@ -66,13 +69,20 @@ export async function GET(request: NextRequest) {
   const auth = await requireSession(request);
   if (!auth.ok) return auth.response;
   try {
-    if (!(await operator(auth.session.familyId))) return NextResponse.json({ status: null });
-    const [raw, retry] = await Promise.all([readKey(UPDATE_STATUS_KEY), readKey(UPDATE_RETRY_KEY)]);
-    const status = raw ? parseUpdateStatus(raw, retry ? "pending" : "") : null;
-    if (!status) return NextResponse.json({ status: null });
+    if (!(await operator(auth.session.familyId))) return NextResponse.json({ status: null, hold: null });
+    const [raw, retry, rawHold] = await Promise.all([readKey(UPDATE_STATUS_KEY), readKey(UPDATE_RETRY_KEY), readKey(UPDATE_HOLD_KEY)]);
+    // kinboard-updater's hold for a newer compose file, while the install
+    // still runs the file revision it was held for (the household replaces
+    // the file and starts it, and it is over).
+    const declared = parseComposeRevision(process.env.KINBOARD_COMPOSE_REVISION);
+    const parsedHold = rawHold ? parseUpdateStatus(rawHold) : null;
+    const hold = showsComposeHold(parsedHold, declared === null ? null : String(declared)) ? withoutDetails(parsedHold!) : null;
+    const parsed = raw ? parseUpdateStatus(raw, retry ? "pending" : "") : null;
+    const status = parsed && parsed.status !== "held_compose" ? parsed : null;
+    if (!status) return NextResponse.json({ status: null, hold });
     // The log excerpt and the host paths only with the settings unlocked.
     const locked = await requireSettingsUnlock(auth.session);
-    return NextResponse.json({ status: locked ? withoutDetails(status) : status, details: !locked });
+    return NextResponse.json({ status: locked ? withoutDetails(status) : status, hold, details: !locked });
   } catch (err) {
     console.error("update-status: read failed:", err);
     return NextResponse.json({ status: null });

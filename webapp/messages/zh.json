@@ -2800,6 +2800,9 @@
       "inService": "（服务 {service}）",
       "whatChanged": "更改内容",
       "currentFile": "当前的 compose.yml",
+      "heldBody": "Kinboard {version} 已发布，但它需要第 {needed} 版的 compose 文件，而你的是第 {declared} 版。为避免运行不匹配的组合，自动更新没有安装它：Kinboard {current} 继续运行。",
+      "heldBodyUnknown": "Kinboard {version} 已发布，但它没有说明需要哪一版 compose 文件，而你的是第 {declared} 版。自动更新没有安装它：Kinboard {current} 继续运行。",
+      "heldHow": "要获取它，请用当前的 compose 文件替换你的文件，并保留你自己的设置（端口、文件夹、时区），然后执行 Pull 和 Up。之后自动更新会继续。",
       "changes": {}
     },
     "itemNewsLabel": "新闻来源",

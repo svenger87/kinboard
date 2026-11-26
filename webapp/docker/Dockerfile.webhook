@@ -6,8 +6,16 @@
 # webhook binary on a busybox base, so it can't actually `git pull` or
 # `docker compose` — exactly the things the update script needs to do.
 #
-# Built locally on `compose up` against the Diun overlay; small enough
-# (~70 MB) that the bring-up overhead is negligible.
+# Two uses of one image:
+#
+#   - Git installs build it locally on `compose up` against the Diun overlay
+#     (kinboard-webhook:local); the webhook there runs the checkout's own
+#     kinboard-self-update.sh through the project mount, as always.
+#   - docker.yml publishes it multi-arch as kinboard-updater (RFC-023
+#     §4.11.3): compose.yml's `updater` service, under the `autoupdate`
+#     profile, for an install with no git checkout. That has no script of
+#     its own on disk, so the image carries it, and `kinboard-updater` runs
+#     its loop.
 
 FROM alpine:3.20
 
@@ -33,6 +41,23 @@ RUN curl -fsSL "https://github.com/adnanh/webhook/releases/download/${WEBHOOK_VE
  && mv "/tmp/webhook-linux-${TARGETARCH}/webhook" /usr/local/bin/webhook \
  && chmod +x /usr/local/bin/webhook \
  && rm -rf /tmp/webhook-linux-${TARGETARCH}
+
+# The script, for kinboard-updater. A git install's webhook never runs this
+# copy: its hook runs the checkout's (diun/hooks.yaml), which `git pull`
+# keeps current.
+COPY kinboard-self-update.sh /usr/local/bin/kinboard-self-update.sh
+RUN chmod 0755 /usr/local/bin/kinboard-self-update.sh \
+ && printf '%s\n' '#!/bin/sh' \
+      '# kinboard-updater: automatic image-only updates of a one-file install (RFC-023 §4.11.3).' \
+      'export KINBOARD_UPDATER=1' \
+      'exec sh /usr/local/bin/kinboard-self-update.sh --tick-loop' \
+      > /usr/local/bin/kinboard-updater \
+ && chmod 0755 /usr/local/bin/kinboard-updater
+
+# Healthy while its loop (the updater) or the webhook (a git install) runs.
+# `[.]` keeps the pattern from matching this check's own command line.
+HEALTHCHECK --interval=5m --timeout=10s --start-period=1m --retries=2 \
+  CMD pgrep -f 'kinboard-self-update[.]sh --tick-loop' >/dev/null || pgrep -x webhook >/dev/null || exit 1
 
 EXPOSE 9000
 

@@ -75,9 +75,22 @@
 
 set -eu
 
-LOG_FILE="${LOG_FILE:-/var/log/kinboard-update.log}"
-PROJECT_DIR="${PROJECT_DIR:-/project}"
-COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml}"
+# KINBOARD_UPDATER=1: this is the published kinboard-updater (RFC-023
+# §4.11.3), the `updater` service of compose.yml's `autoupdate` profile, on an
+# install with no git checkout: image-only updates. See "The updater" below.
+UPDATER="${KINBOARD_UPDATER:-}"
+if [ -n "$UPDATER" ]; then
+  # Its state, lock and log live in the config volume, which exists without
+  # git and survives a recreated updater.
+  UPDATER_DIR="${KINBOARD_UPDATER_DIR:-/kinboard/updater}"
+  LOG_FILE="${LOG_FILE:-$UPDATER_DIR/update.log}"
+  PROJECT_DIR="$UPDATER_DIR"
+  COMPOSE_FILES="${COMPOSE_FILES:-}"
+else
+  LOG_FILE="${LOG_FILE:-/var/log/kinboard-update.log}"
+  PROJECT_DIR="${PROJECT_DIR:-/project}"
+  COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml}"
+fi
 
 MODE=update
 case "${1:-}" in
@@ -86,6 +99,17 @@ case "${1:-}" in
   --tick-loop) MODE=loop ;;
   *) echo "usage: $0 [--tick | --tick-loop]" >&2; exit 2 ;;
 esac
+# The updater has no git and no setup.sh to run: every run of it is a tick
+# (`docker exec kinboard-updater kinboard-self-update.sh` runs one now).
+if [ -n "$UPDATER" ] && [ "$MODE" = update ]; then MODE=tick; fi
+if [ -n "$UPDATER" ]; then
+  ( umask 077; mkdir -p "$UPDATER_DIR" ) 2>/dev/null || true
+  # One log per install, kept from growing without end: the previous one is
+  # kept beside it.
+  if [ -f "$LOG_FILE" ] && [ "$(wc -c < "$LOG_FILE")" -gt "${KINBOARD_LOG_MAX:-2000000}" ]; then
+    mv -f "$LOG_FILE" "$LOG_FILE.1" 2>/dev/null || true
+  fi
+fi
 
 # Ensure the log file is writable. If the host-side bind-mount target
 # wasn't pre-created (typical), Docker auto-creates it as root:755 —
@@ -195,12 +219,15 @@ fail() {
 }
 [ -d "$src" ] || fail "no folder at $src"
 rm -f "$part"
-tar --numeric-owner -czf "$part" -C "$src" . || fail "tar could not write the archive"
+# updater/ holds the state, lock and log of kinboard-updater (RFC-023
+# §4.11.3), written while this runs; not a secret, and not something to
+# restore.
+tar --numeric-owner --exclude=./updater -czf "$part" -C "$src" . || fail "tar could not write the archive"
 chmod 0600 "$part" 2>/dev/null || true
 chk="$(mktemp -d)" || fail "no temporary folder to verify in"
 tar --numeric-owner -xzpf "$part" -C "$chk" || fail "the archive does not extract"
 n=0
-list="$(cd "$src" && find . -print)" || fail "cannot list $src"
+list="$(cd "$src" && find . -path ./updater -prune -o -print)" || fail "cannot list $src"
 while IFS= read -r e; do
   case "$e" in "" | .) continue ;; esac
   if [ -L "$src/$e" ] || { [ ! -f "$src/$e" ] && [ ! -d "$src/$e" ]; }; then
@@ -636,8 +663,12 @@ is_held() {
 }
 
 # $1 image id, $2 reference.
+# The updater adds the registry digest the image was pulled as, so that its
+# next tick need not pull it again to recognise it.
 hold_back() {
-  is_held "$1" || echo "held $1 $2 $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$STATE_FILE"
+  d=""
+  [ -z "$UPDATER" ] || d="$(image_digest "$1" "$(ref_repo "$2")")"
+  is_held "$1" || echo "held $1 $2 $(date -u +%Y-%m-%dT%H:%M:%SZ)${d:+ $d}" >> "$STATE_FILE"
 }
 
 # $1: a reference whose held versions no longer matter (a newer image under it
@@ -685,13 +716,13 @@ write_status() {
   fi
   # A psql variable, never pasted into the SQL: the record holds a log
   # excerpt. Variables are not interpolated in -c, hence stdin.
-  if printf '%s\n' "INSERT INTO public.instance_settings (key, value) VALUES ('update_status', :'v')
+  if printf '%s\n' "INSERT INTO public.instance_settings (key, value) VALUES (:'k', :'v')
     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();" \
-     | docker exec -i "$db" psql -U supabase_admin -d postgres -q -v ON_ERROR_STOP=1 -v "v=$1" >>"$LOG_FILE" 2>&1; then
+     | docker exec -i "$db" psql -U supabase_admin -d postgres -q -v ON_ERROR_STOP=1 -v "k=${STATUS_KEY:-update_status}" -v "v=$1" >>"$LOG_FILE" 2>&1; then
     log "status for Settings: $2"
-  elif [ -n "${3:-}" ] && [ "$3" != "$1" ] && printf '%s\n' "INSERT INTO public.instance_settings (key, value) VALUES ('update_status', :'v')
+  elif [ -n "${3:-}" ] && [ "$3" != "$1" ] && printf '%s\n' "INSERT INTO public.instance_settings (key, value) VALUES (:'k', :'v')
     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();" \
-     | docker exec -i "$db" psql -U supabase_admin -d postgres -q -v ON_ERROR_STOP=1 -v "v=$3" >>"$LOG_FILE" 2>&1; then
+     | docker exec -i "$db" psql -U supabase_admin -d postgres -q -v ON_ERROR_STOP=1 -v "k=${STATUS_KEY:-update_status}" -v "v=$3" >>"$LOG_FILE" 2>&1; then
     log "status for Settings, without the log excerpt: $2"
   else
     log "WARN: could not record the status for Settings: $2"
@@ -1032,6 +1063,9 @@ tick_switch() {
 }
 
 run_tick_loop() {
+  if [ -n "$UPDATER" ]; then
+    run_updater_loop
+  fi
   [ "$(tick_switch)" != off ] || exit 0
   command -v flock >/dev/null 2>&1 || exit 0
   # One loop per container.
@@ -1044,6 +1078,21 @@ run_tick_loop() {
       sh "$PROJECT_DIR/webapp/docker/kinboard-self-update.sh" --tick </dev/null >/dev/null 2>&1 8>&- || true
     fi
     sleep $(( TICK_INTERVAL + $(awk 'BEGIN { srand(); print int(rand() * 300) }') ))
+  done
+}
+
+# The updater's loop: the container's main process. Its ticks write to the
+# container's log as well as to the log file, so a Compose UI shows them.
+# The waits are in the background so that `docker stop` ends it at once.
+run_updater_loop() {
+  trap 'exit 0' TERM INT
+  log "kinboard-updater: the first check is in ${KINBOARD_TICK_FIRST:-120} s, then every $((TICK_INTERVAL / 60)) minutes (log: $LOG_FILE)"
+  sleep "${KINBOARD_TICK_FIRST:-120}" & wait $! || true
+  while :; do
+    if [ "${KINBOARD_UPDATE_TICK:-on}" != off ]; then
+      sh "$0" --tick </dev/null || true
+    fi
+    sleep $(( TICK_INTERVAL + $(awk 'BEGIN { srand(); print int(rand() * 300) }') )) & wait $! || true
   done
 }
 
@@ -1104,11 +1153,13 @@ tick_backoff() {
 # Only a missing .git counts. A .git that git refuses to read (a checkout
 # owned by another user) goes on as before and fails at `git fetch`, loudly.
 # ---------------------------------------------------------------------------
-if [ ! -d "$PROJECT_DIR" ]; then
+# The updater (KINBOARD_UPDATER) is that published image: it has no git
+# checkout by design and never runs git; see "The updater" below.
+if [ -z "$UPDATER" ] && [ ! -d "$PROJECT_DIR" ]; then
   log "ERROR: PROJECT_DIR=$PROJECT_DIR is not a folder here; nothing was changed"
   exit 1
 fi
-if [ ! -e "$PROJECT_DIR/.git" ]; then
+if [ -z "$UPDATER" ] && [ ! -e "$PROJECT_DIR/.git" ]; then
   log "this install has no git checkout ($PROJECT_DIR has no .git), so it is not updated from here; nothing was pulled, run or changed. Update it with Pull and Up in your Compose UI, or: docker compose pull && docker compose up -d"
   exit 0
 fi
@@ -1117,7 +1168,7 @@ fi
 # compose.yml in it. Its `origin main` is the household's own repository.
 # Only a checkout git can read is judged here; one it refuses (owned by
 # another user) goes on and fails at `git fetch`, as it always has.
-if git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1 \
+if [ -z "$UPDATER" ] && git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1 \
    && ! git -C "$PROJECT_DIR" ls-files --error-unmatch webapp/docker/kinboard-self-update.sh >/dev/null 2>&1; then
   log "$PROJECT_DIR is a git checkout, but not of Kinboard (it does not track webapp/docker/kinboard-self-update.sh), so it is not updated from here; nothing was pulled, run or changed. Update it with Pull and Up in your Compose UI, or: docker compose pull && docker compose up -d"
   exit 0
@@ -1242,6 +1293,16 @@ EOF
       *"/webapp/docker/docker-compose.yml,"* | *",docker-compose.yml,"*) ;;
       *"/compose.yml,"* | *"/compose.yaml,"* | *",compose.yml,"* | *",compose.yaml,"*) l_kind=compose ;;
     esac
+    # The updater runs only beside compose.yml, whatever a UI names the file
+    # (Unraid's Compose Manager: docker-compose.yml; OpenMediaVault:
+    # <name>.yml). Only the git install's own file is legacy. Later the
+    # webapp's KINBOARD_COMPOSE_REVISION confirms it is the one-file stack.
+    if [ -n "$UPDATER" ] && [ "$l_kind" = legacy ]; then
+      case ",$l_files," in
+        *"/webapp/docker/docker-compose.yml,"*) ;;
+        *) l_kind=compose ;;
+      esac
+    fi
   fi
   # A git install on the legacy file: nothing here changes anything.
   if [ -z "$cf_compose" ] && [ "$l_kind" != compose ]; then
@@ -1319,8 +1380,441 @@ EOF
 }
 STACK_NOTE=""
 
+# ---------------------------------------------------------------------------
+# The updater (RFC-023 §4.11.3): automatic updates for a one-file install.
+#
+# compose.yml's `updater` service, started only with the `autoupdate` profile,
+# runs this script from the published kinboard-updater image with
+# KINBOARD_UPDATER=1. Such an install has no git checkout and no setup.sh, so
+# an update there is images only: everything a release changes ships in the
+# image (§2), and what does not (a new pin, a new service) raises the file's
+# KINBOARD_COMPOSE_REVISION, which the updater checks before it applies
+# anything. Every run is a tick; the loop runs one 2 minutes after the
+# container starts and then every 30 minutes, with 0-5 minutes of jitter.
+#
+#   - The stack comes from the updater's own Compose labels (resolve_stack,
+#     KINBOARD_SELF_CONTAINER). The files they name are on the host, not in
+#     this container, so the tick runs in a sibling container that mounts
+#     each of their folders read-only at the same path, shares this
+#     container's network and volumes (the socket, the config volume) and
+#     runs this same image ("compose-file mode"). A path that is not on the
+#     host (Portainer's web editor keeps its stacks inside its own volume) is
+#     container mode, which comes later (PR 14): logged, nothing touched.
+#   - State, lock and log are in the config volume (updater/), never in git.
+#   - The first tick records a baseline and changes nothing.
+#   - Then, for each running service: a reference that differs from what the
+#     file and its variables name now (a KINBOARD_TAG changed) is applied, as
+#     on a git install's tick; and for the Kinboard image under a floating
+#     tag (latest, next, main, 1.18, ...) the registry is asked for the
+#     tag's digest with one manifest HEAD. A digest the running image was not
+#     pulled as is an update. A pinned tag (1.18.0, sha-..., a digest) never
+#     moves, and is never asked about. The other images (database,
+#     PostgREST, go2rtc) are pins in the file: they change with the file.
+#   - A registry that cannot be reached, or answers 429, ends the tick before
+#     anything is pulled or touched, and the next tick waits longer (30, 60,
+#     120 minutes ... up to 6 hours).
+#   - After the pull, the new image's compose revision (its label
+#     app.kinboard.compose-revision) must equal the file's. Otherwise the
+#     update is held: the tag goes back to what runs, nothing is backed up or
+#     recreated, the log says so at every tick, and Settings shows the
+#     "older compose file" notice once.
+#   - Then the same steps as every run: a verified backup (database, files,
+#     config), only the changed services recreated, health wait, smoke check,
+#     rollback, the status record.
+# ---------------------------------------------------------------------------
+
+# The container this updater runs in: KINBOARD_SELF_CONTAINER (the sibling
+# gets it), else this container's id. The id is read from the mounts Docker
+# gives every container (/etc/hostname comes from .../containers/<id>/), not
+# from the hostname, which is the host's under `network_mode: host`.
+updater_self() {
+  if [ -n "${KINBOARD_SELF_CONTAINER:-}" ]; then
+    printf '%s\n' "$KINBOARD_SELF_CONTAINER"
+    return 0
+  fi
+  [ -f /.dockerenv ] || return 0
+  id="$(grep -o '/containers/[0-9a-f]\{64\}/' /proc/self/mountinfo 2>/dev/null | head -n1 | cut -d/ -f3 || true)"
+  if [ -n "$id" ]; then printf '%s\n' "$id"; else hostname 2>/dev/null || true; fi
+}
+
+# What a tick reads from its environment, handed on to the sibling.
+UPDATER_PASS_ENV="KINBOARD_UPDATE_TICK KINBOARD_HEALTH_TIMEOUT KINBOARD_HEALTH_POLL KINBOARD_SMOKE_TIMEOUT KINBOARD_TICK_INTERVAL KINBOARD_BACKUP_DIR BACKUP_KEEP KINBOARD_INSECURE_REGISTRIES KINBOARD_REGISTRY_TIMEOUT KINBOARD_UPDATER_DIR KINBOARD_LOG_MAX LOG_FILE"
+
+# Runs this tick in the sibling container (see above) and exits with its
+# status; returns when the stack's files can already be read here.
+updater_hop() {
+  self="$(updater_self)"
+  labels=""
+  [ -z "$self" ] || labels="$(stack_labels "$self")"
+  IFS='|' read -r h_project h_workdir h_files h_envfiles <<HOP
+$labels
+HOP
+  if [ -z "$h_project" ] || [ -z "$h_files" ]; then
+    log "ERROR: the updater cannot read its own Compose labels (container ${self:-unknown}); start it with docker compose from compose.yml, with the autoupdate profile. Nothing was changed"
+    exit 1
+  fi
+  case "$h_workdir|$h_files|$h_envfiles" in
+    *[[:space:]]*)
+      log "ERROR: the stack's folder or file names contain a space ($h_files); the updater cannot pass them to docker compose. Nothing was changed"
+      exit 1 ;;
+  esac
+  paths=""
+  readable=1
+  for f in $(printf '%s,%s' "$h_files" "$h_envfiles" | tr ',' ' '); do
+    case "$f" in /*) ;; *) f="${h_workdir%/}/$f" ;; esac
+    paths="$paths $f"
+    [ -r "$f" ] || readable=""
+  done
+  [ -z "$readable" ] || return 0
+  dirs="$( { for f in $paths; do dirname "$f"; done; [ -z "$h_workdir" ] || echo "$h_workdir"; } | sort -u)"
+  image="$(docker inspect -f '{{.Image}}' "$self" 2>/dev/null || true)"
+  if [ -z "$image" ]; then
+    log "ERROR: cannot read the updater's own image; nothing was changed"
+    exit 1
+  fi
+  # A fixed name per stack: a tick still running blocks a second one.
+  set -- --rm --name "$h_project-updater-tick" --network "container:$self" --volumes-from "$self" --label app.kinboard.updater-tick=1 \
+    -e KINBOARD_UPDATER=1 -e KINBOARD_UPDATER_SIBLING=1 -e "KINBOARD_SELF_CONTAINER=$self"
+  for d in $dirs; do set -- "$@" --mount "type=bind,source=$d,target=$d,readonly"; done
+  for v in $UPDATER_PASS_ENV; do
+    val="$(printenv "$v" 2>/dev/null || true)"
+    [ -z "$val" ] || set -- "$@" -e "$v=$val"
+  done
+  hop_err="${TMPDIR:-/tmp}/kinboard-updater-hop.$$"
+  rc=0
+  docker run "$@" --entrypoint sh "$image" /usr/local/bin/kinboard-self-update.sh --tick 2>"$hop_err" || rc=$?
+  if [ "$rc" = 125 ] && grep -q 'bind source path does not exist' "$hop_err" 2>/dev/null; then
+    rm -f "$hop_err"
+    log "=== tick skipped: the stack's compose file ($h_files) is not on this host's disk (a Portainer web-editor stack keeps it inside Portainer). Updating such a stack from its containers comes with a later release; until then update it with Pull and Up in your Compose UI. Nothing was changed ==="
+    exit 0
+  fi
+  if [ "$rc" = 125 ]; then
+    log "ERROR: could not start the tick's container: $(grep -v '^[[:space:]]*$' "$hop_err" | tail -n1); nothing was changed"
+  fi
+  cat "$hop_err" >&2 2>/dev/null || true
+  rm -f "$hop_err"
+  exit "$rc"
+}
+
+# The repository of reference $1, without tag or digest (a registry port
+# stays: localhost:5000/kinboard).
+ref_repo() {
+  r="${1%%@*}"
+  case "${r##*/}" in *:*) r="${r%:*}" ;; esac
+  printf '%s\n' "$r"
+}
+
+# The tag of reference $1 (latest when it names none).
+ref_tag() {
+  r="${1%%@*}"
+  case "${r##*/}" in *:*) printf '%s\n' "${r##*:}" ;; *) echo latest ;; esac
+}
+
+# Whether reference $1 is pinned: a digest, an exact version (1.18.0,
+# v1.18.0-rc.2) or a sha-<commit> build. Those never move, so the updater
+# never asks the registry about them (RFC-023 §4.11.5, "The cadence").
+ref_pinned() {
+  case "$1" in *@*) return 0 ;; esac
+  printf '%s\n' "$(ref_tag "$1")" | grep -Eq '^(v?[0-9]+\.[0-9]+\.[0-9]+([-+.].*)?|sha-[0-9a-f]+)$'
+}
+
+# The digest the registry serves for reference $1 now, from one manifest HEAD,
+# in REMOTE_DIGEST; or 1 with the reason in REMOTE_ERR. Anonymous: a registry
+# that wants a token gets one from its own realm without credentials, as
+# `docker pull` of a public image does.
+remote_digest() {
+  REMOTE_DIGEST=""
+  REMOTE_ERR=""
+  # Transient (no network, 429, 5xx): the tick ends and backs off. Anything
+  # else (401, 404, no digest) is about this one reference only.
+  REMOTE_TRANSIENT=1
+  repo="$(ref_repo "$1")"
+  tag="$(ref_tag "$1")"
+  first="${repo%%/*}"
+  case "$repo" in
+    */*)
+      case "$first" in
+        docker.io | index.docker.io) host=registry-1.docker.io; path="${repo#*/}" ;;
+        *.* | *:* | localhost) host="$first"; path="${repo#*/}" ;;
+        *) host=registry-1.docker.io; path="$repo" ;;
+      esac ;;
+    *) host=registry-1.docker.io; path="library/$repo" ;;
+  esac
+  case "$host/$path" in registry-1.docker.io/*/*) ;; registry-1.docker.io/*) path="library/$path" ;; esac
+  scheme=https
+  case "$host" in localhost | localhost:* | 127.* | "[::1]"*) scheme=http ;; esac
+  for h in $(printf '%s' "${KINBOARD_INSECURE_REGISTRIES:-}" | tr ',' ' '); do
+    [ "$h" != "$host" ] || scheme=http
+  done
+  url="$scheme://$host/v2/$path/manifests/$tag"
+  t="${KINBOARD_REGISTRY_TIMEOUT:-20}"
+  accept="application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json"
+  auth=""
+  for attempt in 1 2; do
+    if [ -n "$auth" ]; then
+      hdr="$(curl -sS -I --proto '=http,https' -m "$t" -H "Accept: $accept" -H "Authorization: Bearer $auth" "$url" 2>&1)" || {
+        REMOTE_ERR="the registry $host could not be reached ($(printf '%s\n' "$hdr" | tr -d '\r' | grep -v '^[[:space:]]*$' | tail -n1))"
+        return 1
+      }
+    else
+      hdr="$(curl -sS -I --proto '=http,https' -m "$t" -H "Accept: $accept" "$url" 2>&1)" || {
+        REMOTE_ERR="the registry $host could not be reached ($(printf '%s\n' "$hdr" | tr -d '\r' | grep -v '^[[:space:]]*$' | tail -n1))"
+        return 1
+      }
+    fi
+    hdr="$(printf '%s\n' "$hdr" | tr -d '\r')"
+    code="$(printf '%s\n' "$hdr" | awk 'toupper($1) ~ /^HTTP\// { c = $2 } END { print c }')"
+    case "$code" in
+      200)
+        REMOTE_DIGEST="$(printf '%s\n' "$hdr" | sed -n 's/^[Dd][Oo][Cc][Kk][Ee][Rr]-[Cc][Oo][Nn][Tt][Ee][Nn][Tt]-[Dd][Ii][Gg][Ee][Ss][Tt]: *\(sha256:[0-9a-f]\{64\}\).*$/\1/p' | tail -n1)"
+        if [ -z "$REMOTE_DIGEST" ]; then
+          REMOTE_ERR="the registry $host gave no digest for $1"
+          REMOTE_TRANSIENT=""
+          return 1
+        fi
+        return 0 ;;
+      401)
+        [ "$attempt" = 1 ] || break
+        www="$(printf '%s\n' "$hdr" | sed -n 's/^[Ww][Ww][Ww]-[Aa][Uu][Tt][Hh][Ee][Nn][Tt][Ii][Cc][Aa][Tt][Ee]: *[Bb]earer *//p' | tail -n1)"
+        realm="$(printf '%s' "$www" | sed -n 's/.*realm="\([^"]*\)".*/\1/p')"
+        service="$(printf '%s' "$www" | sed -n 's/.*service="\([^"]*\)".*/\1/p')"
+        scope="$(printf '%s' "$www" | sed -n 's/.*scope="\([^"]*\)".*/\1/p')"
+        [ -n "$scope" ] || scope="repository:$path:pull"
+        # Only https, unless the registry itself is plain http (a local one).
+        case "$scheme|$realm" in https\|https://* | http\|https://* | http\|http://*) ;; *) break ;; esac
+        auth="$(curl -sS -G --proto '=http,https' -m "$t" --data-urlencode "service=$service" --data-urlencode "scope=$scope" "$realm" 2>/dev/null \
+          | tr ',' '\n' | sed -n 's/^.*"token" *: *"\([^"]*\)".*$/\1/p' | head -n1 || true)"
+        [ -n "$auth" ] || break ;;
+      429)
+        REMOTE_ERR="the registry is rate-limiting (HTTP 429 from $host)"
+        return 1 ;;
+      5??)
+        REMOTE_ERR="the registry $host answered HTTP $code for $1"
+        return 1 ;;
+      *)
+        REMOTE_ERR="the registry $host answered HTTP ${code:-nothing} for $1"
+        REMOTE_TRANSIENT=""
+        return 1 ;;
+    esac
+  done
+  REMOTE_ERR="the registry $host wants credentials for $1 (HTTP 401); the updater reads public images only"
+  REMOTE_TRANSIENT=""
+  return 1
+}
+
+# The registry digest image $1 was pulled as, under repository $2 (any, when
+# none is under $2), or nothing.
+image_digest() {
+  docker image inspect -f '{{range .RepoDigests}}{{println .}}{{end}}' "$1" 2>/dev/null \
+    | awk -v r="$2" -F@ 'NF == 2 { if ($1 == r) { mine = $2 } else if (any == "") { any = $2 } } END { print (mine != "" ? mine : any) }' || true
+}
+
+# The value service $1 sets for environment variable $2 in the stack's
+# configuration (`docker compose config`), quotes removed; or nothing.
+config_env() {
+  # shellcheck disable=SC2086
+  docker compose $COMPOSE_FILES config 2>/dev/null | awk -v s="$1" -v k="$2" '
+    /^services:/ { in_services = 1; next }
+    /^[^ ]/ { in_services = 0 }
+    in_services && /^  [^ ][^ ]*:$/ { svc = substr($0, 3, length($0) - 3); next }
+    in_services && svc == s && /^    [^ ]/ { in_env = ($0 == "    environment:") ; next }
+    in_services && svc == s && in_env && index($0, "      " k ":") == 1 {
+      v = substr($0, length(k) + 8); gsub(/^ +| +$/, "", v); gsub(/^["'"'"']|["'"'"']$/, "", v); print v; exit
+    }' || true
+}
+
+# Whether a rollback held back the image the registry serves as digest $1.
+held_digest() {
+  [ -n "$1" ] && awk -v d="$1" '$1 == "held" && $5 == d { found = 1 } END { exit !found }' "$STATE_FILE" 2>/dev/null
+}
+
+# For service $1, whose container $3 runs reference $2 while the file and its
+# variables name $4: sets WATCH to
+#   pull      apply it: another reference (a KINBOARD_TAG changed without
+#             Up), or another digest under the same tag in the registry
+#   current   it runs what the registry has
+#   pinned    a pinned tag: never asked about
+#   other     not the Kinboard image (the database, PostgREST, go2rtc): it
+#             changes only with the household's own Up
+#   held      a rollback held this digest back
+#   compose   held for a newer compose file, which has not changed since
+#   fail      the registry could not be reached or is rate-limiting
+#   unwatched the registry cannot say for this reference (401, 404)
+# WATCH_WHY says the digest or the reason. Each reference is asked about once
+# per tick.
+REMOTE_SEEN=""
+updater_watch() {
+  WATCH=current
+  WATCH_WHY=""
+  if [ "$(ref_repo "$4")" != "$KB_REPO" ]; then WATCH=other; return 0; fi
+  hold="$(state_get compose_hold)"
+  hold_digest="${hold%%|*}"
+  hold_rev="$(printf '%s' "$hold" | cut -d'|' -f2)"
+  hold_ref="$(printf '%s' "$hold" | cut -d'|' -f5)"
+  held_here=""
+  [ -z "$hold" ] || [ "$hold_ref" != "$4" ] || [ "$hold_rev" != "$FILE_REVISION" ] || held_here=1
+  if ref_pinned "$4"; then
+    if [ "$2" = "$4" ]; then WATCH=pinned; return 0; fi
+    # A changed pin names one image for good: held by its name.
+    if [ -n "$held_here" ]; then WATCH=compose; WATCH_WHY="$4"; return 0; fi
+    WATCH=pull; WATCH_WHY="$4"
+    return 0
+  fi
+  digest="$(printf '%s\n' "$REMOTE_SEEN" | awk -v r="$4" '$1 == r { print $2; exit }')"
+  if [ -z "$digest" ]; then
+    if ! remote_digest "$4"; then
+      WATCH_WHY="$REMOTE_ERR"
+      if [ -n "$REMOTE_TRANSIENT" ]; then WATCH=fail; else WATCH=unwatched; fi
+      return 0
+    fi
+    digest="$REMOTE_DIGEST"
+    REMOTE_SEEN="$REMOTE_SEEN$4 $digest
+"
+  fi
+  WATCH_WHY="$digest"
+  if [ -n "$held_here" ] && [ "$hold_digest" = "$digest" ]; then WATCH=compose; return 0; fi
+  if [ "$2" != "$4" ]; then WATCH=pull; return 0; fi
+  running="$(docker inspect -f '{{.Image}}' "$3" 2>/dev/null || true)"
+  case " $(docker image inspect -f '{{join .RepoDigests " "}}' "$running" 2>/dev/null || true) " in
+    *"@$digest "*) WATCH=current; return 0 ;;
+  esac
+  if held_digest "$digest"; then WATCH=held; return 0; fi
+  WATCH=pull
+}
+
+# Where the household finds the updater's log, for the status record.
+updater_log_location() {
+  # The config volume is mounted one level above updater/ (/kinboard).
+  root="$(dirname "$UPDATER_DIR")"
+  case "$LOG_FILE" in
+    "$root"/*) ;;
+    *) printf '%s\n' "$LOG_FILE"; return 0 ;;
+  esac
+  src="$(mount_source webapp /kinboard)"
+  rel="${LOG_FILE#"$root"/}"
+  case "$src" in
+    /*) printf '%s/%s\n' "${src%/}" "$rel" ;;
+    "") printf '%s (in the config volume; also: docker logs kinboard-updater)\n' "$rel" ;;
+    *) printf '%s in the Docker volume %s (also: docker logs kinboard-updater)\n' "$rel" "$src" ;;
+  esac
+}
+
+# After the pull: whether the Kinboard image this tick brought fits the
+# compose file (RFC-023 §4.6, §4.11.3). Returns 1 when it does not; then the
+# tag is pointed back at what runs, the hold is in the state file, the log
+# says why, and Settings is told the first time.
+updater_revision_ok() {
+  kref="$(field_for webapp "$CONFIG_IMAGES")"
+  [ -n "$kref" ] || return 0
+  pulled=""
+  for s in $PULL_SVCS; do
+    [ "$(field_for "$s" "$CONFIG_IMAGES")" != "$kref" ] || pulled=1
+  done
+  [ -n "$pulled" ] || return 0
+  new_id="$(docker image inspect -f '{{.Id}}' "$kref" 2>/dev/null || true)"
+  # shellcheck disable=SC2086
+  wcid="$(docker compose $COMPOSE_FILES ps -aq webapp 2>/dev/null | head -n1 || true)"
+  run_id="$(docker inspect -f '{{.Image}}' "$wcid" 2>/dev/null || true)"
+  run_ref="$(docker inspect -f '{{.Config.Image}}' "$wcid" 2>/dev/null || true)"
+  [ -n "$new_id" ] && [ "$new_id" != "$run_id" ] || return 0
+  needed="$(docker image inspect -f '{{index .Config.Labels "app.kinboard.compose-revision"}}' "$new_id" 2>/dev/null || true)"
+  case "$needed" in "<no value>") needed="" ;; esac
+  if [ -n "$needed" ] && [ "$needed" = "$FILE_REVISION" ]; then
+    if [ -n "$(state_get compose_hold)" ]; then
+      state_set compose_hold ""
+      clear_hold_record
+    fi
+    return 0
+  fi
+  to="$(image_version "$new_id" "$kref")"
+  from="$(image_version "$run_id" "$run_ref")"
+  # Point the tag back at what runs, so that an Up by hand starts nothing
+  # half-matching. Only when the webapp runs that very tag: after a
+  # KINBOARD_TAG change the new tag never named the running image.
+  if [ -n "$run_id" ] && [ "$run_ref" = "$kref" ] && docker tag "$run_id" "$kref" >>"$LOG_FILE" 2>&1; then
+    log "$kref points at the image the webapp runs again ($run_id), not the held one"
+  fi
+  if [ -z "$needed" ]; then
+    why="it does not say which compose file revision it needs"
+  else
+    why="it needs compose file revision $needed; this file declares $FILE_REVISION"
+  fi
+  log "held: Kinboard $to ($new_id) is not applied: $why. Nothing was backed up or recreated; $from keeps running. Replace the compose file with the current one (keep your port, folders and time zone), then Pull and Up; Settings says the same"
+  digest="$(image_digest "$new_id" "$(ref_repo "$kref")")"
+  hold="${digest:-$new_id}|$FILE_REVISION|${needed:-none}|$to|$kref"
+  if [ "$(state_get compose_hold)" != "$hold" ]; then
+    state_set compose_hold "$hold"
+    # Its own key: a rollback notice still showing in Settings stays.
+    record="{\"status\":\"held_compose\",\"at\":$(json_str "$(date -u +%Y-%m-%dT%H:%M:%SZ)"),\"from\":$(json_str "$from"),\"to\":$(json_str "$to"),\"file_revision\":$(json_str "$FILE_REVISION"),\"needed_revision\":$(json_str "${needed:-}"),\"services\":\"\",\"backup\":\"\",\"backup_dir\":\"\",\"backup_at\":\"\",\"migration\":\"\",\"severe\":false,\"log_file\":$(json_str "$(updater_log_location)"),\"log\":\"\"}"
+    STATUS_KEY=update_hold write_status "$record" "held_compose ($from → $to, compose file revision $FILE_REVISION, needs ${needed:-unknown})"
+  fi
+  return 1
+}
+
+# The held_compose record goes once the hold is over.
+clear_hold_record() {
+  db="$(db_container)"
+  [ -n "$db" ] || return 0
+  docker exec "$db" psql -U supabase_admin -d postgres -q -c "DELETE FROM public.instance_settings WHERE key = 'update_hold'" >>"$LOG_FILE" 2>&1 \
+    || log "WARN: could not remove the compose-file notice from Settings"
+}
+
+# "<target> <type> <source>" for each mount of service $1 as the file and its
+# variables describe it now (`docker compose config`); a named volume by its
+# Docker name.
+config_mounts() {
+  # shellcheck disable=SC2086
+  docker compose $COMPOSE_FILES config 2>/dev/null | awk -v s="$1" '
+    /^services:/ { sec = "s"; next }
+    /^volumes:/ { sec = "v"; next }
+    /^[^ ]/ { sec = ""; next }
+    sec == "v" && /^  [^ ][^ ]*:$/ { vk = substr($0, 3, length($0) - 3); vn[vk] = vk; next }
+    sec == "v" && /^    name: / { v = substr($0, 11); gsub(/"/, "", v); vn[vk] = v; next }
+    sec == "s" && /^  [^ ][^ ]*:$/ { svc = substr($0, 3, length($0) - 3); invol = 0; next }
+    sec == "s" && svc == s && /^    [^ ]/ { invol = ($0 == "    volumes:"); next }
+    sec == "s" && svc == s && invol && /^      - type: / { n++; ty[n] = substr($0, 15); next }
+    sec == "s" && svc == s && invol && /^        source: / { src[n] = substr($0, 17); next }
+    sec == "s" && svc == s && invol && /^        target: / { tg[n] = substr($0, 17); next }
+    END { for (i = 1; i <= n; i++) { x = src[i]; if (ty[i] == "volume" && (x in vn)) x = vn[x]; print tg[i], ty[i], x } }
+  ' | sort || true
+}
+
+# The same for the running container $1.
+running_mounts() {
+  docker inspect -f '{{range .Mounts}}{{.Destination}} {{if eq .Type "volume"}}volume {{.Name}}{{else}}{{.Type}} {{.Source}}{{end}}{{println}}{{end}}' "$1" 2>/dev/null \
+    | grep -v '^[[:space:]]*$' | sort || true
+}
+
+# Whether every service about to be recreated would get the folders and
+# volumes it has now. A stack started with variables the updater cannot see
+# (KINBOARD_*_DIR typed in a shell, not in .env) would otherwise be recreated
+# on other data: on empty volumes, with new secrets.
+updater_mounts_match() {
+  for svc in $RECREATE; do
+    # shellcheck disable=SC2086
+    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+    [ -n "$cid" ] || continue
+    want="$(config_mounts "$svc")"
+    have="$(running_mounts "$cid")"
+    if [ "$want" != "$have" ]; then
+      log "ERROR: $svc would be recreated with other folders or volumes than it has now (file: $(printf '%s' "$want" | tr '\n' ';'); running: $(printf '%s' "$have" | tr '\n' ';')). Was the stack started with variables that are not in its .env or the UI's variables? Nothing was changed; start it once with Up from your UI so the updater sees the same settings"
+      return 1
+    fi
+  done
+  return 0
+}
+
 if [ "$MODE" = loop ]; then
   run_tick_loop
+fi
+
+# The updater reads the stack's files where they are on the host: from a
+# sibling container (see "The updater"). Before the lock, which the sibling
+# takes.
+if [ -n "$UPDATER" ] && [ -z "${KINBOARD_UPDATER_SIBLING:-}" ]; then
+  updater_hop
+  # The files are readable here: resolve_stack reads this same container.
+  KINBOARD_SELF_CONTAINER="$(updater_self)"
 fi
 
 cd "$PROJECT_DIR"
@@ -1333,8 +1827,16 @@ else
   log "COMPOSE_FILES=$COMPOSE_FILES"
 fi
 
-GIT_DIR_ABS="$(git rev-parse --absolute-git-dir 2>/dev/null || echo "$PROJECT_DIR/.git")"
-STATE_FILE="$GIT_DIR_ABS/kinboard-update-state"
+if [ -n "$UPDATER" ]; then
+  # No git: the config volume's updater/ folder, which outlives the
+  # container (RFC-023 §4.11.3). The lock and the tick marker below go there
+  # too, so the loop's tick and one started by hand never run together.
+  GIT_DIR_ABS="$UPDATER_DIR"
+  STATE_FILE="$UPDATER_DIR/state"
+else
+  GIT_DIR_ABS="$(git rev-parse --absolute-git-dir 2>/dev/null || echo "$PROJECT_DIR/.git")"
+  STATE_FILE="$GIT_DIR_ABS/kinboard-update-state"
+fi
 
 # One run at a time. A second one (Diun firing during a hand-started run)
 # would read the first one's hash file, recreate what the first is already
@@ -1384,6 +1886,30 @@ fi
 if ! resolve_stack; then
   if [ "$MODE" = tick ]; then log "=== tick skipped ==="; else log "=== self-update skipped ==="; fi
   exit 1
+fi
+# Services no run ever recreates: the Diun overlay's two, and the container
+# this runs from (the updater's own service: recreating it would end the run
+# halfway). The updater's image moves when the household pulls the stack.
+NEVER_RECREATE='^(webhook|diun)$'
+if [ -n "$UPDATER" ]; then
+  if [ "$STACK_MODE" != compose ]; then
+    log "ERROR: kinboard-updater updates a stack started from compose.yml; this one was started from other files. A git install updates with the Diun overlay instead. Nothing was changed"
+    log "=== tick skipped ==="
+    exit 1
+  fi
+  SELF_SERVICE="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.service"}}' "$(updater_self)" 2>/dev/null | sed 's/<no value>//' || true)"
+  case "$SELF_SERVICE" in
+    "" | *[!A-Za-z0-9._-]*) SELF_SERVICE=updater ;;
+  esac
+  # A git install on compose.yml with the Diun overlay updates itself through
+  # its webhook; two updaters with two locks must not run on one stack.
+  project="$(stack_labels "$(updater_self)" | cut -d'|' -f1)"
+  if [ -n "$project" ] && [ -n "$(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter label=com.docker.compose.service=webhook 2>/dev/null || true)" ]; then
+    log "ERROR: this stack also runs the Diun overlay's webhook, which updates it; kinboard-updater leaves it to that one. Remove one of the two. Nothing was changed"
+    log "=== tick skipped ==="
+    exit 1
+  fi
+  NEVER_RECREATE="^(webhook|diun|$(printf '%s' "$SELF_SERVICE" | sed 's/[.]/[.]/g'))\$"
 fi
 if [ "$STACK_MODE" = compose ] && [ "$MODE" = tick ] && [ "$(tick_switch)" = off ]; then
   log "=== tick: switched off (KINBOARD_UPDATE_TICK=off) ==="
@@ -1500,7 +2026,8 @@ if [ "$MODE" = update ]; then
 fi
 
 # 3. + 4. compose pull + up -d
-cd webapp/docker
+# (The updater has no checkout: its compose flags are absolute.)
+[ -n "$UPDATER" ] || cd webapp/docker
 
 take_retry_request
 
@@ -1509,7 +2036,7 @@ take_retry_request
 if [ "$MODE" = tick ] && [ -z "$(state_get baseline)" ]; then
   CONFIG_IMAGES="$(config_images)"
   # shellcheck disable=SC2086
-  for svc in $(docker compose $COMPOSE_FILES config --services 2>/dev/null | grep -vE '^(webhook|diun)$' || true); do
+  for svc in $(docker compose $COMPOSE_FILES config --services 2>/dev/null | grep -vE "$NEVER_RECREATE" || true); do
     # shellcheck disable=SC2086
     cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
     ref=""; running=""
@@ -1521,6 +2048,15 @@ if [ "$MODE" = tick ] && [ -z "$(state_get baseline)" ]; then
     log "tick baseline: $svc runs ${ref:-nothing} ${running}"
     if [ -n "$want" ] && [ -n "$ref" ] && [ "$want" != "$ref" ]; then
       log "tick baseline: $svc: the compose files and .env name $want; the next tick applies it"
+    fi
+    if [ -n "$UPDATER" ] && [ -n "$want" ]; then
+      if [ "$(ref_repo "$want")" != "$(ref_repo "$(field_for webapp "$CONFIG_IMAGES")")" ]; then
+        log "tick baseline: $svc: $want moves only with the compose file"
+      elif ref_pinned "$want"; then
+        log "tick baseline: $svc: $want is pinned; it never moves"
+      else
+        log "tick baseline: $svc: $want is watched in the registry from the next tick"
+      fi
     fi
   done
   state_set baseline "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -1538,8 +2074,29 @@ fi
 PULL_SVCS=""
 if [ "$MODE" = tick ]; then
   CONFIG_IMAGES="$(config_images)"
+  if [ -n "$UPDATER" ]; then
+    # The Kinboard image (init, db-init and the webapp run it), and which
+    # compose file revision the file declares (RFC-023 §4.6).
+    KB_REPO="$(ref_repo "$(field_for webapp "$CONFIG_IMAGES")")"
+    FILE_REVISION="$(config_env webapp KINBOARD_COMPOSE_REVISION)"
+    REGISTRY_FAIL=""
+    REGISTRY_ASKED=""
+    UNWATCHED=""
+    if [ -z "$FILE_REVISION" ]; then
+      log "ERROR: this stack's webapp declares no KINBOARD_COMPOSE_REVISION, so it is not the one-file compose.yml kinboard-updater is for. Nothing was changed"
+      exit 1
+    fi
+    # The one-shots run the webapp's image and go with it: a webapp someone
+    # stopped keeps all three as they are.
+    # shellcheck disable=SC2086
+    wcid="$(docker compose $COMPOSE_FILES ps -q webapp 2>/dev/null | head -n1 || true)"
+    if [ -z "$wcid" ] || [ "$(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}' "$wcid" 2>/dev/null | cut -d'|' -f1 || true)" != running ]; then
+      log "=== tick: the webapp is not running; nothing is updated until it is ==="
+      exit 0
+    fi
+  fi
   # shellcheck disable=SC2086
-  for svc in $(docker compose $COMPOSE_FILES config --services 2>/dev/null | grep -vE '^(webhook|diun)$' || true); do
+  for svc in $(docker compose $COMPOSE_FILES config --services 2>/dev/null | grep -vE "$NEVER_RECREATE" || true); do
     # shellcheck disable=SC2086
     cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
     [ -n "$cid" ] || continue
@@ -1550,11 +2107,45 @@ if [ "$MODE" = tick ]; then
     esac
     ref="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null || true)"
     want="$(field_for "$svc" "$CONFIG_IMAGES")"
-    if [ -n "$ref" ] && [ -n "$want" ] && [ "$ref" != "$want" ]; then
+    if [ -n "$UPDATER" ]; then
+      # The updater decides for itself (see "The updater"): the Kinboard
+      # image only, by reference and by the registry's digest.
+      [ -n "$ref" ] && [ -n "$want" ] && [ -z "$REGISTRY_FAIL" ] || continue
+      updater_watch "$svc" "$ref" "$cid" "$want"
+      case "$WATCH" in
+        pull)
+          if [ "$ref" != "$want" ]; then
+            log "tick: $svc runs $ref; the compose files and .env name $want"
+          else
+            log "tick: $svc runs $ref, and the registry has a newer image under it ($WATCH_WHY)"
+          fi
+          PULL_SVCS="$PULL_SVCS $svc" ;;
+        current) REGISTRY_ASKED=1 ;;
+        other)
+          [ "$ref" = "$want" ] || log "tick: $svc runs $ref; the file names $want, which changes only with your own Up (not applied here)" ;;
+        held) log "held $svc: the registry's $want ($WATCH_WHY) was rolled back before; waiting for a newer one" ;;
+        compose) log "held $svc: $want ($WATCH_WHY) needs a newer compose file than this one (revision $FILE_REVISION); waiting for the file to change or a newer image" ;;
+        fail) REGISTRY_FAIL="$WATCH_WHY" ;;
+        unwatched)
+          case " $UNWATCHED " in *" $want "*) ;; *) UNWATCHED="$UNWATCHED $want"; log "WARN: cannot watch $want: $WATCH_WHY" ;; esac ;;
+      esac
+    elif [ -n "$ref" ] && [ -n "$want" ] && [ "$ref" != "$want" ]; then
       log "tick: $svc runs $ref; the compose files and .env name $want"
       PULL_SVCS="$PULL_SVCS $svc"
     fi
   done
+  if [ -n "$UPDATER" ] && [ -n "$REGISTRY_FAIL" ]; then
+    # Nothing has been pulled or touched; a reference change found above
+    # waits for the next tick too, so that one tick never does half.
+    tick_backoff "$REGISTRY_FAIL"
+    exit 0
+  fi
+  # Only when there is nothing to pull: a pull that then fails must still
+  # count as one more failure in a row.
+  if [ -n "$UPDATER" ] && [ -n "$REGISTRY_ASKED" ] && [ -z "$PULL_SVCS" ] && [ -n "$(state_get failures)" ]; then
+    state_set failures ""
+    state_set backoff_until ""
+  fi
   if [ -z "$PULL_SVCS" ]; then
     log "=== tick: nothing to do ==="
     exit 0
@@ -1608,6 +2199,13 @@ state_set backoff_until ""
 
 IMAGES_AFTER="$(images_now)"
 
+# The updater: a release that needs a newer compose file is held, before any
+# backup or recreate (see updater_revision_ok).
+if [ -n "$UPDATER" ] && ! updater_revision_ok; then
+  log "=== tick: held for a newer compose file; nothing was changed ==="
+  exit 0
+fi
+
 # Changes to THIS script do not need that out-of-band step any more: the hook
 # runs it through the project directory mount (diun/hooks.yaml), so the next
 # run after a `git pull` executes the new version. It used to run a copy
@@ -1622,7 +2220,7 @@ IMAGES_AFTER="$(images_now)"
 # up -d webhook diun` from the host when their definitions change.
 # shellcheck disable=SC2086
 SERVICES=$(docker compose $COMPOSE_FILES config --services 2>/dev/null \
-            | grep -vE '^(webhook|diun)$' \
+            | grep -vE "$NEVER_RECREATE" \
             | tr '\n' ' ')
 
 # The services whose image or definition changed (see "What to recreate").
@@ -1675,6 +2273,22 @@ fi
 if [ "$MODE" = tick ] && [ -z "$RECREATE" ]; then
   log "=== tick: nothing to do ==="
   exit 0
+fi
+
+# The updater: the services it is about to recreate must keep their data
+# (see updater_mounts_match). If not, the pulled tags go back to what runs.
+if [ -n "$UPDATER" ] && ! updater_mounts_match; then
+  for svc in $RECREATE; do
+    # shellcheck disable=SC2086
+    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+    running="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true)"
+    run_ref="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null || true)"
+    [ -n "$running" ] && [ "$run_ref" = "$(field_for "$svc" "$CONFIG_IMAGES")" ] || continue
+    [ "$(docker image inspect -f '{{.Id}}' "$run_ref" 2>/dev/null || true)" != "$running" ] || continue
+    docker tag "$running" "$run_ref" >>"$LOG_FILE" 2>&1 || true
+  done
+  log "=== tick skipped: nothing was backed up or recreated ==="
+  exit 1
 fi
 
 # What runs now, before anything is touched: the rollback target. In the
@@ -1946,6 +2560,7 @@ elif [ "$OUTCOME" != none ]; then
   # The webhook container's log, as the household finds it on the host
   # (docker-compose.diun.yml mounts /var/lib/kinboard-update there).
   [ "$LOG_FILE" != /var/log/kinboard-update.log ] || shown_log=/var/lib/kinboard-update/kinboard-update.log
+  [ -z "$UPDATER" ] || shown_log="$(updater_log_location)"
   record="{\"status\":$(json_str "$OUTCOME"),\"at\":$(json_str "$(date -u +%Y-%m-%dT%H:%M:%SZ)"),\"from\":$(json_str "$FROM_VERSION"),\"to\":$(json_str "$TO_VERSION"),\"services\":$(json_str "$RECREATE"),\"backup\":$(json_str "$BACKUP_FILE"),\"backup_dir\":$(json_str "$BACKUP_DIR"),\"backup_at\":$(json_str "$BACKUP_AT"),\"migration\":$(json_str "$MIGRATION"),\"severe\":$severe,\"log_file\":$(json_str "$shown_log"),\"log\":$(json_str "$EXCERPT")}"
   write_status "$record" "$OUTCOME ($FROM_VERSION → $TO_VERSION)" \
     "$(printf '%s' "$record" | sed 's/,"log":".*"}$/,"log":""}/')"

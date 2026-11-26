@@ -12,10 +12,22 @@
  */
 
 export const UPDATE_STATUS_KEY = "update_status";
+/**
+ * kinboard-updater's held_compose record (RFC-023 §4.11.3), under its own key
+ * so that it never replaces a rollback notice still showing. The updater
+ * removes it once the hold is over.
+ */
+export const UPDATE_HOLD_KEY = "update_hold";
 /** Written by "Try again now"; the next run or tick of the self-update reads and removes it. */
 export const UPDATE_RETRY_KEY = "update_retry";
 
-export type UpdateOutcome = "updated" | "rolled_back" | "rollback_failed";
+/**
+ * `held_compose`: kinboard-updater found a release whose compose file revision
+ * is not the install's file's, and applied nothing (RFC-023 §4.11.3). Settings
+ * shows it under the version, with the "older compose file" notice, for as
+ * long as the install still runs the file revision it was held for.
+ */
+export type UpdateOutcome = "updated" | "rolled_back" | "rollback_failed" | "held_compose";
 
 export interface UpdateStatus {
   status: UpdateOutcome;
@@ -42,9 +54,12 @@ export interface UpdateStatus {
   dismissedAt: string;
   /** When "Try again now" was pressed and not yet picked up; empty otherwise. */
   retryRequestedAt: string;
+  /** held_compose: the compose file revision the install runs, and the one the held release needs ("" when it says none). */
+  fileRevision: string;
+  neededRevision: string;
 }
 
-const OUTCOMES: readonly UpdateOutcome[] = ["updated", "rolled_back", "rollback_failed"];
+const OUTCOMES: readonly UpdateOutcome[] = ["updated", "rolled_back", "rollback_failed", "held_compose"];
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 
@@ -77,6 +92,8 @@ export function parseUpdateStatus(raw: unknown, retryRequestedAt = ""): UpdateSt
     log: str(o.log),
     dismissedAt: str(o.dismissed_at),
     retryRequestedAt,
+    fileRevision: str(o.file_revision),
+    neededRevision: str(o.needed_revision),
   };
 }
 
@@ -93,7 +110,18 @@ export function dismissUpdateStatus(raw: string, now: Date): string | null {
 
 /** Whether Settings shows the rollback notice at the top. */
 export function showsRollbackNotice(s: UpdateStatus | null | undefined): boolean {
-  return !!s && s.status !== "updated" && !s.dismissedAt;
+  return !!s && (s.status === "rolled_back" || s.status === "rollback_failed") && !s.dismissedAt;
+}
+
+/**
+ * Whether Settings shows that an automatic update is held for a newer compose
+ * file: a held_compose record made while the install ran the file revision it
+ * still runs (`declared`, KINBOARD_COMPOSE_REVISION). Once the household has
+ * replaced the file and started it, the revision differs and the notice goes
+ * by itself.
+ */
+export function showsComposeHold(s: UpdateStatus | null | undefined, declared: string | null | undefined): boolean {
+  return !!s && s.status === "held_compose" && !!declared && s.fileRevision === declared;
 }
 
 /** How long a successful update is mentioned under the version. */

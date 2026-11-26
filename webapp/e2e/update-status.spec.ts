@@ -7,6 +7,7 @@ import {
   decideOperator,
   parseUpdateStatus,
   retryAllowed,
+  showsComposeHold,
   showsRollbackNotice,
   showsUpdatedLine,
   withoutDetails,
@@ -120,7 +121,7 @@ test.describe("the route", () => {
 
   test("reading needs a session, and anyone but the operator gets nothing, before anything is read", () => {
     expect(get).toContain("requireSession(request)");
-    const gate = get.indexOf("if (!(await operator(auth.session.familyId))) return NextResponse.json({ status: null })");
+    const gate = get.indexOf("if (!(await operator(auth.session.familyId))) return NextResponse.json({ status: null, hold: null })");
     expect(gate, "the operator gate").toBeGreaterThan(-1);
     expect(gate).toBeLessThan(get.indexOf("readKey("));
   });
@@ -167,7 +168,12 @@ test.describe("the route", () => {
     const lib = readFileSync("src/lib/update-status.ts", "utf8");
     expect(lib).toContain('UPDATE_STATUS_KEY = "update_status"');
     expect(lib).toContain('UPDATE_RETRY_KEY = "update_retry"');
-    expect(script).toContain("VALUES ('update_status'");
+    // update_status by default; kinboard-updater's hold under its own key.
+    expect(script).toContain("VALUES (:'k', :'v')");
+    expect(script).toContain('-v "k=${STATUS_KEY:-update_status}"');
+    expect(lib).toContain('UPDATE_HOLD_KEY = "update_hold"');
+    expect(script).toContain("STATUS_KEY=update_hold write_status");
+    expect(script).toContain("WHERE key = 'update_hold'");
     expect(script).toContain("WHERE key = 'update_retry'");
   });
 });
@@ -233,5 +239,63 @@ test.describe("the deep health check's schema comparison", () => {
     const deep = src.slice(src.indexOf('get("deep")'), src.indexOf("const [version, dbOk"));
     expect(deep).toContain("`Bearer ${secret}`");
     expect(deep).toContain("status: 401");
+  });
+});
+
+// What kinboard-updater writes when a release needs a newer compose file (RFC-023 §4.11.3).
+const HELD =
+  '{"status":"held_compose","at":"2026-11-26T03:12:00Z","from":"1.18.0","to":"1.19.0","file_revision":"1","needed_revision":"2",' +
+  '"services":"","backup":"","backup_dir":"","backup_at":"","migration":"","severe":false,"log_file":"updater/update.log in the Docker volume kinboard-config","log":""}';
+
+test.describe("a release held for a newer compose file (kinboard-updater)", () => {
+  test("is read with both revisions", () => {
+    expect(parseUpdateStatus(HELD)).toMatchObject({ status: "held_compose", from: "1.18.0", to: "1.19.0", fileRevision: "1", neededRevision: "2" });
+  });
+
+  test("is never the rollback notice at the top; it shows under the version while the install runs the revision it was held for", () => {
+    const s = parseUpdateStatus(HELD);
+    expect(showsRollbackNotice(s)).toBe(false);
+    expect(showsUpdatedLine(s, new Date("2026-11-26T04:00:00Z"))).toBe(false);
+    expect(showsComposeHold(s, "1")).toBe(true);
+    expect(showsComposeHold(s, "2"), "the file was replaced and started").toBe(false);
+    expect(showsComposeHold(s, null), "a git install").toBe(false);
+    expect(showsComposeHold(parseUpdateStatus(ROLLED_BACK), "1")).toBe(false);
+  });
+
+  test("the route drops a hold the install has moved past, after the operator gate", () => {
+    const src = readFileSync("src/app/api/update-status/route.ts", "utf8");
+    const get = src.slice(src.indexOf("export async function GET"), src.indexOf("export async function POST"));
+    const drop = get.indexOf("showsComposeHold(parsedHold,");
+    expect(drop).toBeGreaterThan(get.indexOf("if (!(await operator("));
+    expect(get).toContain("readKey(UPDATE_HOLD_KEY)");
+    expect(get).toContain("parseComposeRevision(process.env.KINBOARD_COMPOSE_REVISION)");
+    // the hold never stands in for the rollback record, and goes out without the log path
+    expect(get).toContain('parsed.status !== "held_compose"');
+    expect(get).toContain("withoutDetails(parsedHold!)");
+  });
+
+  test("the script writes the fields the app reads", () => {
+    const script = readFileSync("docker/kinboard-self-update.sh", "utf8");
+    for (const field of ['\\"status\\":\\"held_compose\\"', '\\"file_revision\\":', '\\"needed_revision\\":']) {
+      expect(script, field).toContain(field);
+    }
+  });
+
+  for (const locale of ["en", "de", "fr", "zh"]) {
+    test(`Settings says it in ${locale}, with English's placeholders`, () => {
+      const m = JSON.parse(readFileSync(`messages/${locale}.json`, "utf8")).settings.composeRevision;
+      const en = JSON.parse(readFileSync("messages/en.json", "utf8")).settings.composeRevision;
+      const holes = (x: string) => (x.match(/\{\w+\}/g) ?? []).sort();
+      for (const k of ["title", "heldBody", "heldBodyUnknown", "heldHow", "whatChanged", "currentFile"]) {
+        expect(typeof m?.[k], `${locale} ${k}`).toBe("string");
+        expect(holes(m[k]), `${locale} ${k}`).toEqual(holes(en[k]));
+      }
+    });
+  }
+
+  test("English opens with the RFC's sentence", () => {
+    const en = JSON.parse(readFileSync("messages/en.json", "utf8")).settings.composeRevision;
+    expect(en.title).toBe("Your compose file is older than this version of Kinboard expects.");
+    expect(en.heldHow).toContain("replace your compose file with the current one and keep your own settings (port, folders, time zone)");
   });
 });
