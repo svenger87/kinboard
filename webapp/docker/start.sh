@@ -101,8 +101,9 @@ export BUILD_REVISION
 # THIS IS NOT THE PATH MIGRATIONS NORMALLY TAKE. The webapp container applies
 # them itself on every start (webapp-entrypoint.sh), and refuses to start the
 # app if one fails rather than serving against a half-applied schema. This is
-# the escape hatch for when it could not (no POSTGRES_PASSWORD in the webapp
-# environment), and for a dev box running `next dev` with no webapp container.
+# the escape hatch for when it could not, and for a dev box running `next dev`
+# with no webapp container. (A webapp without POSTGRES_PASSWORD no longer
+# starts at all, since RFC-023's secrets store: it names the missing secret.)
 #
 # Same runner, same files, same order: migrate.sh, reading migrations/NNN_*.sql
 # and recording each in kinboard.schema_migrations. Running it twice is safe;
@@ -149,10 +150,18 @@ wait_for_migrations() {
       return 1
     fi
 
-    if grep -q '\[entrypoint\] POSTGRES_PASSWORD not set' <<<"$logs"; then
-      echo "  warning: the webapp has no POSTGRES_PASSWORD, so it skipped migrations." >&2
-      echo "           Apply them from here instead: ./start.sh migrate" >&2
-      return 0
+    # A secret it cannot start without (POSTGRES_PASSWORD, JWT_SECRET):
+    # neither in its environment nor in the secrets store. The entrypoint
+    # names it and exits before anything else runs (secrets-store.mjs), so
+    # there is nothing to wait for. Before RFC-023 it started without migrations
+    # instead, and this warned.
+    if grep -q '\[entrypoint\] refusing to start' <<<"$logs"; then
+      echo >&2
+      grep -E '\[entrypoint\] ([A-Z_]+ is not set|[A-Z_]+: cannot read|refusing to start)' <<<"$logs" | awk '!seen[$0]++' >&2
+      echo >&2
+      echo "error: the webapp is missing a secret it cannot start without; it has not started." >&2
+      echo "       Set it in webapp/docker/.env, then ./start.sh up again." >&2
+      return 1
     fi
 
     if grep -q '\[entrypoint\] starting Next.js server' <<<"$logs"; then

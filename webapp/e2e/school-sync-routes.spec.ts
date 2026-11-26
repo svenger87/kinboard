@@ -174,7 +174,7 @@ test("the cron route is behind CRON_SECRET, honours the off switch, and only syn
 });
 
 test("the job is wired like sync-ics, and operators can switch it off", () => {
-  expect(read("docker/Dockerfile")).toContain("http://localhost:3000/api/cron/sync-school-holidays");
+  expect(read("docker/Dockerfile")).toContain("exec /app/cron-call.sh sync-school-holidays' >> /usr/local/bin/sync-school-holidays");
   const compose = read("docker/docker-compose.yml");
   expect(compose).toContain('ofelia.job-exec.sync-school-holidays.schedule: "@every 24h"');
   expect(compose).toContain('ofelia.job-exec.sync-school-holidays.command: "/usr/local/bin/sync-school-holidays"');
