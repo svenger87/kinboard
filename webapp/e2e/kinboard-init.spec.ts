@@ -575,14 +575,22 @@ test.describe("wiring", () => {
   test("init.sql reaches the build context: .dockerignore does not exclude it", () => {
     const ignore = readFileSync(join(__dirname, "..", ".dockerignore"), "utf8")
       .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
-    const hits = ignore.filter((p) => !p.startsWith("!") && new RegExp(`^${p.replace(/\./g, "\\.").replace(/\*/g, "[^/]*")}(/.*)?$`).test("docker/init.sql"));
+    // A .dockerignore pattern as a regex: every regex character escaped, then `*` as one path segment's worth.
+    const asRegex = (pattern: string) =>
+      new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\*/g, "[^/]*")}(/.*)?$`);
+    // The matcher itself: it must see the lines that would exclude the file, and only those.
+    for (const p of ["docker/init.sql", "docker/*.sql", "docker", "*", "docker/*"]) expect(asRegex(p).test("docker/init.sql"), p).toBe(true);
+    for (const p of ["docker/.env*", "docker/init+sql", "docker/init.sq", "init.sql", "docker/(init).sql"]) expect(asRegex(p).test("docker/init.sql"), p).toBe(false);
+    const hits = ignore.filter((p) => !p.startsWith("!") && asRegex(p).test("docker/init.sql"));
     expect(hits).toEqual([]);
   });
 
   test("the rig compares the built image's init.sql with the repository's, byte for byte", () => {
-    const rigSh = readFileSync(join(DOCKER, "test-fresh-install.sh"), "utf8");
+    const rigSh = readFileSync(join(__dirname, "..", "..", "scripts", "rigs", "test-fresh-install.sh"), "utf8");
     expect(rigSh).toContain("/app/initdb/init.sql");
-    expect(rigSh).toMatch(/cmp -s/);
+    // Against the repository's file, by a variable the rig actually sets.
+    expect(rigSh).toContain('| cmp -s - "$DOCKER_DIR/init.sql"');
+    expect(rigSh).toMatch(/\nDOCKER_DIR="\$REPO_ROOT\/webapp\/docker"\n/);
   });
 
   test("the legacy compose file has no init service, and its db-init keeps its own image and script", () => {

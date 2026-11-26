@@ -222,7 +222,7 @@ if [ -z "${KINBOARD_TAG:-}" ]; then
   # install's db-init applies, must be the very file this stack bind-mounts
   # into its db: one schema, two readers.
   image="$(compose INSTALL_COMPOSE config --images webapp 2>/dev/null | head -n1)"
-  if ! docker run --rm --entrypoint cat "$image" /app/initdb/init.sql | cmp -s - "$SCRIPT_DIR/init.sql"; then
+  if ! docker run --rm --entrypoint cat "$image" /app/initdb/init.sql | cmp -s - "$DOCKER_DIR/init.sql"; then
     red "the image's /app/initdb/init.sql is not byte-for-byte webapp/docker/init.sql ($image)"; exit 1
   fi
   step "the image's init.sql is byte-for-byte webapp/docker/init.sql"
