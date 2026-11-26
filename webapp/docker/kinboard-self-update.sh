@@ -12,8 +12,9 @@
 #      needs. No-ops when nothing's missing.
 #   3. docker compose pull                — pulls new GHCR images.
 #   3b. BACKUP                             — a verified database dump and
-#      the storage directory, taken only when the pull brought a new image
-#      or a service is about to be recreated, and before anything is. See below.
+#      the storage directory (and the config folder, where the install has
+#      one), taken only when the pull brought a new image or a service is
+#      about to be recreated, and before anything is. See below.
 #   4. docker compose up -d --no-recreate --remove-orphans, then
 #      up -d --no-deps --force-recreate <changed> — recreates only services
 #      whose image or definition changed in this run (decided here, not by
@@ -113,7 +114,131 @@ log() {
 
 BACKUP_KEEP="${BACKUP_KEEP:-5}"
 
-# One dump + one archive, both verified, or a non-zero exit.
+# ---------------------------------------------------------------------------
+# The config folder (RFC-023 §4.1, §6.5).
+#
+# An install on the one-file layout keeps its secrets in files under
+# config/secrets/: the database password, the JWT secret, the VAPID pair. A
+# restored database directory cannot start without them (kinboard-init refuses,
+# because the cluster exists and its password file doesn't), and a restored
+# dump with new VAPID keys silently ends every device's push subscription. So
+# where that folder exists, the backup has a third archive.
+#
+# Git installs on the legacy compose file have no config folder: nothing mounts
+# /kinboard and $DATA_DIR/config does not exist, and for them the backup is
+# exactly what it was. The .env stays out of the backup (RFC-023 §11.7).
+#
+# Both scripts below run inside the helper container (the database image), as
+# root, through `sh -c`. They are variables rather than inline strings so that
+# e2e/self-update-config-backup.spec.ts runs the same text against real files.
+# Paths come from KB_SRC / KB_OUT so the spec can point them at a temporary
+# folder; in the container they default to the mount points.
+# ---------------------------------------------------------------------------
+
+# $1: the archive's file name. Prints "files=<n>". Exits non-zero, with the
+# archive removed, unless every file came back identical and the archive is
+# readable by its owner only.
+#
+# - umask 077 from the first byte: the archive is never readable by anyone but
+#   root, not even while it is being written, and it holds the database
+#   password. It is written under a dot-name and renamed only once verified,
+#   so a cut-short run never leaves something that looks like a backup.
+# - The archive keeps each entry's mode and owner (tar does; root extracts
+#   them as stored), so a restore puts back 0750/0640 root:0 and never wider.
+# - Verified by extracting it into a private folder (in memory: the caller
+#   mounts a tmpfs at /tmp) and comparing every entry
+#   with the source: type, mode, owner, group and, for files, the bytes. A
+#   count alone would pass an archive of empty files.
+# - Only folders and plain files. kinboard-init writes nothing else; a symlink
+#   would be archived as a link, and the backup would hold no secret at all.
+# - A backup folder that does not keep mode 0600 (a share that ignores chmod)
+#   is a refusal: the archive holds every secret of the install, and leaving
+#   it readable to others is worse than updating later. KINBOARD_BACKUP_DIR
+#   points the backup at a folder that keeps modes.
+CONFIG_ARCHIVE_SH='
+set -u
+src="${KB_SRC:-/config}"
+out="${KB_OUT:-/out}"
+name="$1"
+part="$out/.$name.partial"
+chk=""
+umask 077
+fail() {
+  echo "config backup: $*" >&2
+  rm -f "$part"
+  [ -z "$chk" ] || rm -rf "$chk"
+  exit 1
+}
+[ -d "$src" ] || fail "no folder at $src"
+rm -f "$part"
+tar --numeric-owner -czf "$part" -C "$src" . || fail "tar could not write the archive"
+chmod 0600 "$part" 2>/dev/null || true
+chk="$(mktemp -d)" || fail "no temporary folder to verify in"
+tar --numeric-owner -xzpf "$part" -C "$chk" || fail "the archive does not extract"
+n=0
+list="$(cd "$src" && find . -print)" || fail "cannot list $src"
+while IFS= read -r e; do
+  case "$e" in "" | .) continue ;; esac
+  if [ -L "$src/$e" ] || { [ ! -f "$src/$e" ] && [ ! -d "$src/$e" ]; }; then
+    fail "$e is not a plain file or folder; only those are backed up"
+  fi
+  a="$(stat -c "%F %a %u %g" "$src/$e" 2>/dev/null)" || fail "cannot read $e"
+  b="$(stat -c "%F %a %u %g" "$chk/$e" 2>/dev/null)" || fail "$e is missing from the archive"
+  [ "$a" = "$b" ] || fail "$e differs in the archive ($a on disk, $b restored)"
+  if [ -f "$src/$e" ]; then
+    cmp -s "$src/$e" "$chk/$e" || fail "$e differs in the archive (its contents)"
+    n=$((n + 1))
+  fi
+done <<EOF
+$list
+EOF
+rm -rf "$chk"
+chk=""
+mode="$(stat -c %a "$part" 2>/dev/null || echo unknown)"
+[ "$mode" = 600 ] || fail "the archive is mode $mode, not 600: $out does not keep file modes (a share?), and the archive would be readable by others"
+mv "$part" "$out/$name" || fail "could not rename the archive into place"
+echo "files=$n"
+'
+
+# $1: how many backups to keep. Keeps the newest $1 dumps and, with each one it
+# removes, that run's storage and config archives. A half-written config
+# archive left by a run that was killed is removed too.
+PRUNE_SH='
+cd "${KB_OUT:-/out}" 2>/dev/null || exit 0
+ls -1t pre-upgrade-*.sql.gz 2>/dev/null | tail -n +$(($1 + 1)) | while read -r f; do
+  rm -f "$f" "${f%.sql.gz}-storage.tar.gz" "${f%.sql.gz}-config.tar.gz"
+done
+rm -f .pre-upgrade-*.partial
+'
+
+# Where the install keeps its config folder, as something `docker run -v` can
+# mount (a host folder or a named volume), or nothing. In order: what the
+# running stack mounts at /kinboard (any compose file that has a config
+# volume), then $DATA_DIR/config (RFC-023 §5.2's layout for an install that
+# moved its secrets into files). $1: DATA_DIR, $2: the helper image.
+config_source() {
+  for svc in webapp db; do
+    # shellcheck disable=SC2086
+    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+    [ -n "$cid" ] || continue
+    src="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/kinboard"}}{{if eq .Type "volume"}}{{.Name}}{{else}}{{.Source}}{{end}}{{end}}{{end}}' "$cid" 2>/dev/null || true)"
+    if [ -n "$src" ]; then
+      printf '%s\n' "$src"
+      return 0
+    fi
+  done
+  # Printed, not an exit status: a container that fails to start must not read
+  # as "the folder exists".
+  found="$(docker run --rm --user 0:0 --entrypoint sh -v "$1":/data:ro "$2" \
+    -c 'if [ -d /data/config ]; then echo present; fi' 2>/dev/null || true)"
+  if [ "$found" = present ]; then
+    printf '%s\n' "$1/config"
+  fi
+  return 0
+}
+
+# One dump + one archive (+ the config archive where there is a config
+# folder), all verified, or a non-zero exit.
 take_backup() {
   stamp="$(date -u +%Y%m%d-%H%M%S)"
 
@@ -213,13 +338,30 @@ take_backup() {
     return 1
   fi
 
+  # --- the config folder, where there is one (see CONFIG_ARCHIVE_SH) ---
+  config_src="$(config_source "$data_dir" "$tar_image")"
+  if [ -n "$config_src" ]; then
+    # --tmpfs: the verification extracts the secrets once more; into memory,
+    # not into a container layer on disk.
+    if ! config_out="$(docker run --rm --user 0:0 --entrypoint sh --tmpfs /tmp:rw,mode=0700 -v "$config_src":/config:ro -v "$backup_dir":/out "$tar_image" \
+         -c "$CONFIG_ARCHIVE_SH" sh "pre-upgrade-$stamp-config.tar.gz" 2>>"$LOG_FILE")"; then
+      log "ERROR: could not archive and verify the config folder ($config_src) — refusing to upgrade. The reason is in $LOG_FILE; if the backup folder does not keep file modes, set KINBOARD_BACKUP_DIR to one that does"
+      return 1
+    fi
+    config_files="$(printf '%s\n' "$config_out" | sed -n 's/^files=//p' | head -n1)"
+    if [ -z "$config_files" ]; then
+      log "ERROR: the config archive was not confirmed — refusing to upgrade"
+      return 1
+    fi
+    log "backup: pre-upgrade-$stamp-config.tar.gz ($config_files file(s) from $config_src, readable by root only)"
+    if [ "$config_files" = 0 ]; then
+      log "WARN: the config folder $config_src holds no files; the backup has no secrets to restore"
+    fi
+  fi
+
   # Keep the last few, and never prune to empty.
-  docker run --rm -v "$backup_dir":/out "$helper_image" sh -c "
-    cd /out 2>/dev/null || exit 0
-    ls -1t pre-upgrade-*.sql.gz 2>/dev/null | tail -n +$((BACKUP_KEEP + 1)) | while read -r f; do
-      rm -f \"\$f\" \"\${f%.sql.gz}-storage.tar.gz\"
-    done
-  " >>"$LOG_FILE" 2>&1 || true
+  docker run --rm -v "$backup_dir":/out --entrypoint sh "$helper_image" \
+    -c "$PRUNE_SH" sh "$BACKUP_KEEP" >>"$LOG_FILE" 2>&1 || true
 
   # For the status record Settings shows (see write_status).
   BACKUP_FILE="pre-upgrade-$stamp.sql.gz"

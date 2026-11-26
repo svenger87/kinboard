@@ -1141,6 +1141,10 @@ export interface Database {
           auth_key: string;
           user_agent: string | null;
           is_active: boolean;
+          /** The VAPID public key it was made with, as src/lib/push-key.ts fingerprints it; null on rows from before 095. */
+          vapid_key_fingerprint: string | null;
+          /** When a start switched it off because the server's key had changed. */
+          vapid_key_retired_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1153,6 +1157,8 @@ export interface Database {
           auth_key: string;
           user_agent?: string | null;
           is_active?: boolean;
+          vapid_key_fingerprint?: string | null;
+          vapid_key_retired_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1165,6 +1171,8 @@ export interface Database {
           auth_key?: string;
           user_agent?: string | null;
           is_active?: boolean;
+          vapid_key_fingerprint?: string | null;
+          vapid_key_retired_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

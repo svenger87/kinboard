@@ -380,6 +380,16 @@ self.addEventListener('notificationclose', (event) => {
   console.log('[SW] Notification dismissed:', event.notification.tag);
 });
 
+// The VAPID public key a subscription was made with, base64url, or null.
+function serverKeyOf(subscription) {
+  const key = subscription && subscription.options && subscription.options.applicationServerKey;
+  if (!key) return null;
+  const bytes = new Uint8Array(key);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 // Handle push subscription changes (e.g., browser refreshed keys)
 self.addEventListener('pushsubscriptionchange', (event) => {
   console.log('[SW] Push subscription changed');
@@ -419,6 +429,9 @@ self.addEventListener('pushsubscriptionchange', (event) => {
             deviceId,
             familyId,
             resubscribe: true,
+            // The server key it was made with, so a server whose keys have
+            // changed turns it away rather than storing a dead subscription.
+            applicationServerKey: serverKeyOf(subscription),
           }),
         });
 

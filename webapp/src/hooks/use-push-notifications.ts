@@ -72,6 +72,21 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 /**
+ * The VAPID public key a browser subscription was made with, base64url, or
+ * null when the browser doesn't say. Sent with every subscribe call, so the
+ * server can turn away a subscription made with a key it no longer has
+ * (RFC-023 §6.4) instead of showing push as on while nothing arrives.
+ */
+export function subscriptionServerKey(subscription: PushSubscription): string | null {
+  const key = subscription.options?.applicationServerKey;
+  if (!key) return null;
+  const bytes = new Uint8Array(key);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return window.btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/**
  * Check if this device has an active push subscription on the server
  */
 async function checkServerSubscription(deviceId: string, familyId: string): Promise<boolean> {
@@ -199,6 +214,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
                 },
                 deviceId: deviceId,
                 familyId: familyId,
+                applicationServerKey: subscriptionServerKey(subscription),
               }),
             });
 
@@ -256,6 +272,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
               },
               deviceId: deviceId,
               familyId: familyId,
+              applicationServerKey: subscriptionServerKey(subscription),
             }),
           });
 
@@ -389,6 +406,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
           },
           deviceId: device.id,
           familyId: family.id,
+          applicationServerKey: subscriptionServerKey(subscription),
         }),
       });
 

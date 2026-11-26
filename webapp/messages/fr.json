@@ -2783,6 +2783,15 @@
       "retryTooSoon": "Kinboard a déjà été invité à réessayer il y a quelques minutes. Veuillez patienter avant de redemander.",
       "updatedLine": "Mis à jour automatiquement vers {version} le {date}"
     },
+    "pushReset": {
+      "title": "Les notifications push doivent être réactivées",
+      "body": "La clé push de ce serveur a changé (il a été restauré sans son dossier de configuration, ou a reçu de nouvelles clés) : ces appareils ne reçoivent donc plus de notifications. Il faut réactiver le push sur chaque appareil, dans Paramètres → Notifications sur cet appareil.",
+      "devices": "Appareils : {names}",
+      "thisDevice": "{name} (cet appareil)",
+      "open": "Notifications sur cet appareil",
+      "dismiss": "Fermer",
+      "dismissFailed": "Impossible de fermer l'avis."
+    },
     "itemNewsLabel": "Sources d'actualités",
     "itemNewsDescription": "Choisissez quels flux RSS alimentent le widget d'actualités et la page /news",
     "itemPluginsLabel": "Plugins",

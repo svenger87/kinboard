@@ -1145,6 +1145,67 @@ A one-file household without a terminal has no backup path except its UI's
 volume tools. A full backup downloadable from Settings is the real answer, and
 big enough for its own RFC (§3, §11.10).
 
+**Done in PR 6**, with these findings against the text above:
+
+- **Where `config/` is.** The self-update archives what the running `webapp`
+  (or `db`) container mounts at `/kinboard`, a named volume or a folder, and
+  otherwise `$DATA_DIR/config` (§5.2's layout). The legacy file mounts
+  neither, and no `$DATA_DIR/config` exists there, so a git install's backup
+  is the two files it always was; only extra read-only `docker inspect` and
+  `docker run … test -d` calls are new. `.env` is not copied (§11.7).
+- **Verified file by file, not by count.** The archive is written under
+  `umask 077` to a dot-name, extracted into a private temporary folder, and
+  every entry compared with the source (type, mode, owner, group, and the
+  bytes with `cmp`) before it is renamed into place; a count would pass an
+  archive of empty files. Any difference, or an archive that does not
+  extract, refuses the update like a failed dump.
+- **The helper image's tar is busybox** (`supabase/postgres:15.14.1.159` is
+  Alpine-based), not GNU tar. As root it keeps modes and owners on extract
+  whatever the umask; `--numeric-owner` is used on both sides so a restore on
+  another host maps `root:0` by number.
+- **A backup folder that doesn't keep mode `0600`** (a share that ignores
+  `chmod`) is a refusal, unlike §6.3's warning for the config folder itself:
+  the archive is a second copy of every secret in a place chosen for backups,
+  and an update can wait. The log names `KINBOARD_BACKUP_DIR`. Anything in
+  the config folder other than plain files and folders (a symlink) is a
+  refusal too: it would be archived as a link, without the secret. An empty
+  config folder is archived with a warning.
+- **Rotation** removes a run's config archive with its dump, and any
+  half-written `.pre-upgrade-*.partial` a killed run left.
+- **The push key fingerprint is kept per subscription as well as in
+  `instance_settings`** (`push_subscriptions.vapid_key_fingerprint`,
+  migration 095; `push_vapid_key`). The install-wide value alone cannot say
+  which devices had push, and a dump restored into a running install brings
+  its own `instance_settings`. At every start the entrypoint calls
+  `kinboard.push_key_check`: rows without a fingerprint get the recorded one
+  (on the first start, the current one); if subscriptions of another key are
+  still active, they are switched off, and the log says so; rows of another key
+  that were already off are removed. Those are marked (`vapid_key_retired_at`), so that a
+  device which had turned push off before the change is not asked to turn it
+  on again. Settings lists the family's devices with a subscription of an
+  earlier key that was still on, or was switched off by a key change, and none
+  of the current one, computed against the key the
+  server runs with now, so the notice appears without a restart. It goes away
+  as each device turns push on again, or on "dismiss", which deletes the dead
+  subscriptions. The subscribe route answers 409 to a subscription made with an
+  earlier key: by the browser's word when it gives one (it now sends its
+  `applicationServerKey`), otherwise by the stored row, so a device's automatic refresh can't revive one and show push
+  as on while nothing arrives.
+- **One gap:** subscriptions from a dump taken before this release carry no
+  fingerprint. Restored into an install with new keys, they are taken to be
+  the current key's, and no notice appears for them.
+- **The maintainer's nightly backup on the Unraid host** (a script outside
+  this repository) dumps with `-U supabase_admin`, checks for
+  `CREATE SCHEMA auth`, and archives the storage folder from the webapp's
+  `/var/lib/storage` mount. That install runs `supabase/postgres` on the
+  legacy file with its `.env` and has no `/kinboard` mount and no
+  `$DATA_DIR/config` (checked read-only on 2026-11-26), so nothing changes for
+  it. A one-file install with a nightly script of its own needs the third
+  step from Self-hosting → Backups → "The config folder".
+- **The in-app backup is unchanged.** `/api/export` stays a family's data,
+  without secrets, devices or push subscriptions; the full backup from Settings
+  remains its own RFC (§11.10).
+
 ### 6.6 The Docker socket
 
 Today's default stack gives ofelia the socket (`docker-compose.yml:366`). A

@@ -362,7 +362,9 @@
     "is_active",
     "p256dh_key",
     "updated_at",
-    "user_agent"
+    "user_agent",
+    "vapid_key_fingerprint",
+    "vapid_key_retired_at"
   ],
   "recipe_ingredients": [
     "category",

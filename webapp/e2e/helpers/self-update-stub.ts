@@ -90,6 +90,7 @@ case "$1" in
     f="$STUB/containers/$(cid "$4")"; [ -f "$f" ] || exit 1
     IFS='|' read -r ref id created < "$f"
     case "$3" in
+      *Destination*) cat "$STUB/mounts/$(cid "$4")" 2>/dev/null ;;
       *State.Status*) cat "$STUB/health/$(esc "$id")" 2>/dev/null || echo "running|healthy|0|0|unless-stopped" ;;
       *Config.Image*) echo "$ref" ;;
       *Created*) echo "$created" ;;
@@ -126,8 +127,14 @@ case "$1" in
         esac ;;
     esac ;;
   run)
+    echo "$*" >> "$STUB/runs"
     case "$*" in *" -i "*) cat > /dev/null ;; esac
-    case "$*" in *"grep -vc"* | *"wc -l"*) echo 0 ;; esac ;;
+    case "$*" in *"grep -vc"* | *"wc -l"*) echo 0 ;; esac
+    case "$*" in *"[ -d /data/config ]"*) [ -f "$STUB/config-dir" ] && echo present ;; esac
+    case "$*" in *"config backup:"*)
+      [ -f "$STUB/config-fail" ] && { echo "files=7"; echo "config backup: boom" >&2; exit 1; }
+      cat "$STUB/config-out" 2>/dev/null || echo "files=7" ;;
+    esac ;;
 esac
 exit 0
 `;
@@ -175,6 +182,8 @@ export type RunResult = {
   /** `docker tag` calls in this run: "<id> <reference>". */
   tags: string[];
   log: string;
+  /** Every `docker run` in this run, its arguments on one line (a multi-line script spans several). */
+  runs: string;
 };
 
 export const stackTxt = (stack: Record<string, Service>) =>
@@ -204,7 +213,7 @@ export class Rig {
         cwd,
         stdio: "pipe",
       });
-    for (const d of ["containers", "images", "registry", "health", "versions", "logs", "gone", "smoke"]) mkdirSync(join(this.stub, d), { recursive: true });
+    for (const d of ["containers", "images", "registry", "health", "versions", "logs", "gone", "smoke", "mounts"]) mkdirSync(join(this.stub, d), { recursive: true });
     mkdirSync(this.bin, { recursive: true });
     writeFileSync(join(this.bin, "docker"), STUB_DOCKER);
     chmodSync(join(this.bin, "docker"), 0o755);
@@ -261,6 +270,17 @@ export class Rig {
   setVersion(id: string, version: string) {
     writeFileSync(join(this.stub, "versions", esc(id)), `${version}\n`);
   }
+  /**
+   * The config folder (RFC-023 §6.5): `dataDir` makes $DATA_DIR/config exist;
+   * `mount` is what a service's container has at /kinboard (a volume name or a
+   * host folder); `out` is what the archive step prints; `fail` makes it fail.
+   */
+  setConfig(c: { dataDir?: boolean; mount?: { svc: string; source: string }; out?: string; fail?: boolean }) {
+    if (c.dataDir) writeFileSync(join(this.stub, "config-dir"), "");
+    if (c.mount) writeFileSync(join(this.stub, "mounts", c.mount.svc), `${c.mount.source}\n`);
+    if (c.out !== undefined) writeFileSync(join(this.stub, "config-out"), c.out);
+    if (c.fail) writeFileSync(join(this.stub, "config-fail"), "");
+  }
   setLogs(svc: string, text: string) {
     writeFileSync(join(this.stub, "logs", svc), text);
   }
@@ -299,7 +319,7 @@ export class Rig {
 
   run(args: string[] = [], env: Record<string, string> = {}): RunResult {
     const read = (p: string) => (existsSync(p) ? readFileSync(p, "utf8") : "");
-    for (const f of ["recreated", "calls", "pulls", "status", "tags", "psql"]) rmSync(join(this.stub, f), { force: true });
+    for (const f of ["recreated", "calls", "pulls", "status", "tags", "psql", "runs"]) rmSync(join(this.stub, f), { force: true });
     const logBefore = read(this.logFile).length;
     const lock = join(this.proj, ".git", "kinboard-update.lock");
     const res = spawnSync(
@@ -343,6 +363,7 @@ export class Rig {
       record: status ? (JSON.parse(status) as Record<string, unknown>) : null,
       tags: read(join(this.stub, "tags")).split("\n").filter(Boolean),
       log: read(this.logFile).slice(logBefore),
+      runs: read(join(this.stub, "runs")),
     };
   }
 
