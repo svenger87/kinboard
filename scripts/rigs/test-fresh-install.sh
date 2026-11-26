@@ -217,6 +217,15 @@ if [ -z "${KINBOARD_TAG:-}" ]; then
     red "build failed"; exit 1
   fi
   step "built from $(cd "$REPO_ROOT" && git rev-parse --short HEAD) + working tree"
+
+  # The image's copy of the base schema (RFC-023 §4.2), which a one-file
+  # install's db-init applies, must be the very file this stack bind-mounts
+  # into its db: one schema, two readers.
+  image="$(compose INSTALL_COMPOSE config --images webapp 2>/dev/null | head -n1)"
+  if ! docker run --rm --entrypoint cat "$image" /app/initdb/init.sql | cmp -s - "$DOCKER_DIR/init.sql"; then
+    red "the image's /app/initdb/init.sql is not byte-for-byte webapp/docker/init.sql ($image)"; exit 1
+  fi
+  step "the image's init.sql is byte-for-byte webapp/docker/init.sql"
 else
   step "using published image $KINBOARD_TAG — nothing to build"
 fi

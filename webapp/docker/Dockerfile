@@ -250,8 +250,18 @@ RUN test -f ./licenses/NOTICE && test -f ./licenses/date-holidays-LICENSE && tes
 # from the host.
 COPY --chown=nextjs:nodejs docker/migrations/ ./migrations/
 COPY --chown=nextjs:nodejs docker/migrate.sh docker/webapp-entrypoint.sh docker/secrets-store.mjs docker/cron-call.sh ./
+# The one-shot steps of a one-file install (RFC-023 PR 2): kinboard-init fills
+# in the secrets store, kinboard-db-init aligns authenticator's password and
+# applies the base schema to an empty database. init.sql is the same file the
+# legacy compose file bind-mounts into the db container, copied byte for byte
+# (e2e/kinboard-init.spec.ts and test-fresh-install.sh check that).
+COPY docker/kinboard-init.mjs docker/kinboard-db-init.sh ./
+COPY docker/init.sql ./initdb/init.sql
 USER root
-RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh ./cron-call.sh
+RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh ./cron-call.sh ./kinboard-db-init.sh \
+ && printf '#!/bin/sh\nexec node /app/kinboard-init.mjs "$@"\n' > /usr/local/bin/kinboard-init \
+ && printf '#!/bin/sh\nexec sh /app/kinboard-db-init.sh "$@"\n' > /usr/local/bin/kinboard-db-init \
+ && chmod +x /usr/local/bin/kinboard-init /usr/local/bin/kinboard-db-init
 # No `USER nextjs` here: webapp-entrypoint.sh drops to it before starting the
 # server, after the steps that need root (the uploaded-files directory). With
 # PUID/PGID set it drops to those ids instead (RFC-024 §6.3).
