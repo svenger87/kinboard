@@ -1,4 +1,5 @@
 # Kinboard. Paste into your Compose UI and start it; update with Pull, then Up.
+# PRE-RELEASE: needs Kinboard 1.18 or newer, the release that introduces this file. Until 1.18 is out, install with the README's instructions.
 #
 # This one file is the whole install: no git checkout, no .env and no other
 # file next to it. Every secret creates itself on the first start and is kept
@@ -55,7 +56,16 @@ services:
   init:
     image: *kinboard-image
     container_name: kinboard-init
-    command: ["kinboard-init"]
+    # kinboard-init exists from 1.18 on. An older image (a KINBOARD_TAG from
+    # before then) would otherwise start a whole webapp here and never finish,
+    # so the stack would wait forever with no word as to why.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        if [ -x /usr/local/bin/kinboard-init ]; then exec /app/webapp-entrypoint.sh kinboard-init; fi;
+        echo "This Kinboard image is older than 1.18 and can't run the one-file setup. Set KINBOARD_TAG to 1.18 or newer (or leave it unset)." >&2;
+        exit 1
     restart: "no"
     logging: *logging
     healthcheck:

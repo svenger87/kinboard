@@ -196,6 +196,14 @@ test.describe("compose.yml pastes into every Compose UI (RFC-023 §4.6)", () => 
   });
 });
 
+test.describe("before 1.18 is released", () => {
+  // Remove this test with the pre-release line (RELEASE.md, pre-release checklist).
+  test("the file says it needs 1.18, on one line the release can drop", () => {
+    const lines = COMPOSE.split("\n").filter((l) => l.startsWith("# PRE-RELEASE:"));
+    expect(lines).toEqual(["# PRE-RELEASE: needs Kinboard 1.18 or newer, the release that introduces this file. Until 1.18 is out, install with the README's instructions."]);
+  });
+});
+
 test.describe("compose.yml is wired as the RFC says", () => {
   const doc = load(COMPOSE);
   const s = doc.services;
@@ -223,7 +231,11 @@ test.describe("compose.yml is wired as the RFC says", () => {
       expect(s[name].restart, name).toBe("no");
       expect(s[name].healthcheck, `${name}: the image's health check means nothing for a one-shot`).toEqual({ disable: true });
     }
-    expect(s.init.command).toEqual(["kinboard-init"]);
+    // init goes through the image's entrypoint to kinboard-init, or says the image is too old.
+    expect(s.init.command).toBeUndefined();
+    expect(s.init.entrypoint.slice(0, 2)).toEqual(["/bin/sh", "-c"]);
+    expect(s.init.entrypoint[2]).toContain("if [ -x /usr/local/bin/kinboard-init ]; then exec /app/webapp-entrypoint.sh kinboard-init; fi;");
+    expect(s.init.entrypoint[2]).toMatch(/older than 1\.18 [\s\S]*KINBOARD_TAG[\s\S]*exit 1$/);
     expect(s["db-init"].command).toEqual(["kinboard-db-init"]);
     for (const name of ["db", "rest", "webapp", "go2rtc"]) expect(s[name].restart, name).toBe("unless-stopped");
   });
