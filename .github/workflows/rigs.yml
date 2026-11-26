@@ -22,7 +22,7 @@ on:
         description: Which rig to run
         type: choice
         default: all
-        options: [all, fresh-install, upgrade, rollback, backup-restore, integration-api]
+        options: [all, fresh-install, upgrade, rollback, backup-restore, integration-api, one-file]
       iterations:
         description: Iterations for the repeating rigs (fresh install, backup/restore)
         type: string
@@ -53,7 +53,7 @@ jobs:
         run: |
           want="${{ github.event.inputs.rig || 'all' }}"
           if [ "$want" = "all" ]; then
-            echo 'rigs=["fresh-install","upgrade","rollback","backup-restore","integration-api"]' >> "$GITHUB_OUTPUT"
+            echo 'rigs=["fresh-install","upgrade","rollback","backup-restore","integration-api","one-file"]' >> "$GITHUB_OUTPUT"
           else
             echo "rigs=[\"$want\"]" >> "$GITHUB_OUTPUT"
           fi
@@ -115,6 +115,10 @@ jobs:
             # (RFC-023 §4.11.4). Tags come from the full checkout above.
             rollback)        scripts/rigs/test-upgrade.sh --rollback ;;
             integration-api) scripts/rigs/test-integration-api.sh ;;
+            # compose.yml alone in an empty folder, no .env, no checkout: the
+            # file every new install runs (RFC-023 §8.1 A1/A3), then an
+            # upgrade onto this build from the previous published image.
+            one-file)        scripts/rigs/test-one-file.sh ;;
           esac
 
       # A rig that fails has already printed why, but the stack's own logs are
@@ -128,6 +132,13 @@ jobs:
               echo "===== $p ====="
               docker ps -a --filter "name=${p}-" --format '  {{.Names}}\t{{.Status}}'
               docker logs "${p}-webapp" 2>&1 | tail -80 || true
+            fi
+          done
+          # The one-file rig runs compose.yml's own fixed names (kinboard-*).
+          for c in kinboard-init kinboard-db-init kinboard-webapp; do
+            if docker container inspect "$c" >/dev/null 2>&1; then
+              echo "===== $c ====="
+              docker logs "$c" 2>&1 | tail -80 || true
             fi
           done
 
@@ -145,3 +156,8 @@ jobs:
           done
           docker ps -a --format '{{.Names}}' | grep -E '^(kbinstall|kbupg|kbbak)-' \
             | xargs -r docker rm -f >/dev/null 2>&1 || true
+          # The one-file rig: compose.yml's fixed names. A runner has no real
+          # install, so these are the rig's.
+          docker rm -f kinboard-init kinboard-db kinboard-db-init kinboard-rest \
+            kinboard-webapp kinboard-go2rtc >/dev/null 2>&1 || true
+          docker volume rm kinboard-db kinboard-storage kinboard-config >/dev/null 2>&1 || true

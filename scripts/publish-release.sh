@@ -13,8 +13,17 @@
 #     with that file as its body. Without it, it is created as a DRAFT with
 #     the changelog section, to be edited and published by hand.
 #
-# RELEASE_ROOT (default: the repository root) is where CHANGELOG.md and
-# docs/release-notes/ are read from; the spec points it at a fixture.
+# Every new release also carries compose.yml as an asset (RFC-023 §4.6), so
+# releases/latest/download/compose.yml is a stable link: the repository's file
+# at the tag, made by scripts/release-compose.mjs with the image name from
+# docker.yml (REGISTRY and IMAGE_NAME, the workflow's env) and the release's
+# channel as the default tag. A file it can't make stops the release before
+# anything is created. A tagged tree without compose.yml (older than the
+# one-file install) gets a release without the asset.
+#
+# RELEASE_ROOT (default: the repository root) is where CHANGELOG.md,
+# compose.yml and docs/release-notes/ are read from; the spec points it at a
+# fixture.
 set -euo pipefail
 
 tag="${1:?usage: publish-release.sh <tag>}"
@@ -22,7 +31,8 @@ repo="${REPO:?set REPO=owner/name}"
 here="$(cd "$(dirname "$0")" && pwd)"
 root="${RELEASE_ROOT:-$here/..}"
 notes="$(mktemp)"
-trap 'rm -f "$notes"' EXIT
+assets="$(mktemp -d)"
+trap 'rm -rf "$notes" "$assets"' EXIT
 
 # `gh release view <tag>` does not find drafts (a draft has no release under
 # the tag yet), so the list, which includes drafts, is what is asked.
@@ -57,4 +67,13 @@ else
   fi
 fi
 
-gh release create "$tag" --repo "$repo" --verify-tag "${args[@]}"
+files=()
+if [ -f "$root/compose.yml" ]; then
+  image="${REGISTRY:?set REGISTRY (docker.yml)}/${IMAGE_NAME:?set IMAGE_NAME (docker.yml)}"
+  REPO="$repo" node "$here/release-compose.mjs" "$tag" "$image" "$root/compose.yml" "$assets/compose.yml"
+  files+=("$assets/compose.yml")
+else
+  echo "::notice::no compose.yml in this tree; $tag gets no compose.yml asset"
+fi
+
+gh release create "$tag" --repo "$repo" --verify-tag "${args[@]}" "${files[@]}"

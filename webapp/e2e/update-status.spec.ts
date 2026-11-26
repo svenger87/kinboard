@@ -130,7 +130,11 @@ test.describe("the route", () => {
   });
 
   test("the operator is recorded once and then compared, not recounted", () => {
-    const fn = src.slice(src.indexOf("async function operator("), src.indexOf("export async function GET"));
+    // The gate lives in lib/install-operator.ts, shared with the compose
+    // revision notice; the route takes it under its old name.
+    expect(src).toContain('import { isInstallOperator as operator } from "@/lib/install-operator"');
+    const lib = readFileSync("src/lib/install-operator.ts", "utf8");
+    const fn = lib.slice(lib.indexOf("export async function isInstallOperator("));
     expect(fn).toContain("readKey(UPDATE_OPERATOR_KEY)");
     expect(fn).toContain("if (decision.record) await writeKey(UPDATE_OPERATOR_KEY, familyId)");
   });

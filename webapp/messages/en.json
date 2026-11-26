@@ -2792,6 +2792,16 @@
       "dismiss": "Dismiss",
       "dismissFailed": "Couldn't dismiss the notice."
     },
+    "composeRevision": {
+      "title": "Your compose file is older than this version of Kinboard expects.",
+      "body": "Kinboard keeps running. To get what changed, replace your compose file with the current one and keep your own settings (port, folders, time zone).",
+      "revisions": "Your file is revision {declared}; this version expects revision {required} or newer.",
+      "linesIntro": "Or change these lines in your file yourself:",
+      "inService": "(service {service})",
+      "whatChanged": "What changed",
+      "currentFile": "The current compose.yml",
+      "changes": {}
+    },
     "itemNewsLabel": "News sources",
     "itemNewsDescription": "Pick which RSS feeds populate the news widget and the /news page",
     "itemPluginsLabel": "Plugins",

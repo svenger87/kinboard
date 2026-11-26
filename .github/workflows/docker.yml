@@ -303,6 +303,11 @@ jobs:
   # with docs/release-notes/vX.Y.Z.md when that exists, and otherwise created
   # as a draft with its changelog section, to be edited by hand. A release
   # that already exists, draft or not, is never touched.
+  #
+  # Every new release carries compose.yml as an asset (RFC-023 §4.6): the
+  # tagged file with this workflow's REGISTRY/IMAGE_NAME as the image and the
+  # release's channel (latest or next) as the default tag
+  # (scripts/release-compose.mjs). The script reads both from the env above.
   release:
     name: Publish GitHub release
     runs-on: ubuntu-latest

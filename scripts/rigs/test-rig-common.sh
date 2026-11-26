@@ -20,6 +20,9 @@
 #     and /mnt/user/appdata/kinboard-fresh-data the devbox's own stack uses —
 #     a rig teardown there is `down -v` plus deleting the data directory)
 #   backup/restore   kbbak       3041      5472      8140  10.222.0.0/24
+#   one-file install kbone,      3051         -         -  Docker's choice
+#                    kbpaste     (compose.yml's fixed kinboard-* names and
+#     volumes, and 8555/udp; test-one-file.sh refuses a host that has them)
 #
 # Kong left the stack in 1.15. Its port column stays for the upgrade rig,
 # whose "before" half still runs a release that has Kong.

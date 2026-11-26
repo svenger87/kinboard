@@ -2792,6 +2792,16 @@
       "dismiss": "Fermer",
       "dismissFailed": "Impossible de fermer l'avis."
     },
+    "composeRevision": {
+      "title": "Votre fichier compose est plus ancien que ce qu'attend cette version de Kinboard.",
+      "body": "Kinboard continue de fonctionner. Pour profiter des changements, remplacez votre fichier compose par la version actuelle en gardant vos propres réglages (port, dossiers, fuseau horaire).",
+      "revisions": "Votre fichier est à la révision {declared} ; cette version attend la révision {required} ou plus récente.",
+      "linesIntro": "Ou modifiez vous-même ces lignes de votre fichier :",
+      "inService": "(service {service})",
+      "whatChanged": "Ce qui a changé",
+      "currentFile": "Le compose.yml actuel",
+      "changes": {}
+    },
     "itemNewsLabel": "Sources d'actualités",
     "itemNewsDescription": "Choisissez quels flux RSS alimentent le widget d'actualités et la page /news",
     "itemPluginsLabel": "Plugins",

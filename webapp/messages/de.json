@@ -2792,6 +2792,16 @@
       "dismiss": "Schließen",
       "dismissFailed": "Der Hinweis konnte nicht geschlossen werden."
     },
+    "composeRevision": {
+      "title": "Deine Compose-Datei ist älter, als diese Kinboard-Version erwartet.",
+      "body": "Kinboard läuft weiter. Damit die Änderungen ankommen, ersetze deine Compose-Datei durch die aktuelle und übernimm deine eigenen Einstellungen (Port, Ordner, Zeitzone).",
+      "revisions": "Deine Datei hat Revision {declared}; diese Version erwartet Revision {required} oder neuer.",
+      "linesIntro": "Oder ändere diese Zeilen in deiner Datei selbst:",
+      "inService": "(Dienst {service})",
+      "whatChanged": "Was sich geändert hat",
+      "currentFile": "Die aktuelle compose.yml",
+      "changes": {}
+    },
     "itemNewsLabel": "Nachrichtenquellen",
     "itemNewsDescription": "Welche RSS-Feeds das News-Widget und die /news-Seite befüllen",
     "itemPluginsLabel": "Plugins",

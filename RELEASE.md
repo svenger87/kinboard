@@ -110,6 +110,7 @@ Before tagging:
 - [ ] If schema changed: a `migrations/NNN_topic.sql` file landed and is idempotent
 - [ ] No new env vars without `.env.example` entries
 - [ ] If a breaking change: it's flagged prominently in CHANGELOG and a migration note exists in the wiki
+- [ ] **1.18.0 only:** remove the `# PRE-RELEASE:` line at the top of `compose.yml` and its test in `webapp/e2e/compose-file.spec.ts` ("before 1.18 is released"), and drop this item. It tells people who find the file on main that it needs the release that ships it (RFC-023)
 
 ## Cutting the release
 

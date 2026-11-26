@@ -2792,6 +2792,16 @@
       "dismiss": "关闭",
       "dismissFailed": "无法关闭此提示。"
     },
+    "composeRevision": {
+      "title": "你的 compose 文件比此版本的 Kinboard 所需的旧。",
+      "body": "Kinboard 会继续运行。要获得这些更改，请用当前版本替换你的 compose 文件，并保留你自己的设置（端口、文件夹、时区）。",
+      "revisions": "你的文件是第 {declared} 版；此版本需要第 {required} 版或更新。",
+      "linesIntro": "或者自行修改文件中的以下几行：",
+      "inService": "（服务 {service}）",
+      "whatChanged": "更改内容",
+      "currentFile": "当前的 compose.yml",
+      "changes": {}
+    },
     "itemNewsLabel": "新闻来源",
     "itemNewsDescription": "选择哪些 RSS 订阅源填充新闻小组件和 /news 页面",
     "itemPluginsLabel": "插件",

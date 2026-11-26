@@ -47,6 +47,8 @@ import { useUpdateStatus } from "@/hooks/use-update-status";
 import { UpdateStatusNotice } from "@/components/settings/update-status-notice";
 import { usePushReset } from "@/hooks/use-push-reset";
 import { PushResetNotice } from "@/components/settings/push-reset-notice";
+import { useComposeRevision } from "@/hooks/use-compose-revision";
+import { ComposeRevisionNotice } from "@/components/settings/compose-revision-notice";
 import { showsUpdatedLine } from "@/lib/update-status";
 import { usePWA } from "@/hooks/use-pwa";
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
@@ -113,6 +115,7 @@ export default function SettingsPage() {
   const { data: version } = useVersionCheck();
   const { data: updateStatus } = useUpdateStatus();
   const { data: pushReset } = usePushReset(!!family);
+  const { data: composeRevision } = useComposeRevision();
   const realtimeStatus = useRealtimeStatusStore((s) => s.status);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
@@ -1124,6 +1127,8 @@ export default function SettingsPage() {
               {t("sourceCode")}
             </a>
           </p>
+          {/* The one-file install's compose.yml is older than this image needs (RFC-023 §4.6). */}
+          <ComposeRevisionNotice status={composeRevision} />
           {updateStatus && showsUpdatedLine(updateStatus, new Date()) && (
             <p data-testid="settings-updated-line">
               {t("updateStatus.updatedLine", {

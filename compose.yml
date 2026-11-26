@@ -1,0 +1,232 @@
+# Kinboard. Paste into your Compose UI and start it; update with Pull, then Up.
+# PRE-RELEASE: needs Kinboard 1.18 or newer, the release that introduces this file. Until 1.18 is out, install with the README's instructions.
+#
+# This one file is the whole install: no git checkout, no .env and no other
+# file next to it. Every secret creates itself on the first start and is kept
+# in the kinboard-config volume. Open http://<this machine>:3001 afterwards.
+#
+# Two services show as "exited" once they are done, and that is what success
+# looks like: `init` (creates missing secrets, checks where the data lives)
+# and `db-init` (prepares an empty database).
+#
+# Every variable below is optional. Set them in your UI's variables or in a
+# .env file next to this one:
+#
+#   WEBAPP_PORT        the port families open                (3001)
+#   TZ                 your time zone                        (Europe/Berlin)
+#   KINBOARD_TAG       latest; `next` for release candidates; or a version
+#   KINBOARD_DB_DIR, KINBOARD_STORAGE_DIR, KINBOARD_CONFIG_DIR
+#                      an absolute host folder for the database, the uploaded
+#                      files and the secrets, instead of a Docker volume
+#                      (on Unraid: folders under /mnt/user/appdata)
+#   SITE_URL           the address other apps get in links (calendar feed)
+#   WEBRTC_LAN_IP      this machine's LAN address, for cameras over WebRTC
+#   KINBOARD_IMAGE     the Kinboard image, without its tag, for a mirror
+#   PUID, PGID         the user and group that own the uploaded files, for a
+#                      folder on a NAS share (Unraid: 99 and 100)
+#   INSTANCE_ADMIN_FAMILY_ID
+#                      the family that sees this install's update notices,
+#                      when there is more than one family
+#
+# Only when an existing install moves to this file: its secrets, each under
+# a KINBOARD_ name so another app's POSTGRES_PASSWORD in a UI's shared
+# variables (OMV's and Dockge's global.env) can't reach Kinboard:
+# KINBOARD_POSTGRES_PASSWORD, KINBOARD_JWT_SECRET, KINBOARD_CRON_SECRET,
+# KINBOARD_PRESENCE_SENSOR_TOKEN, KINBOARD_VAPID_PUBLIC_KEY,
+# KINBOARD_VAPID_PRIVATE_KEY, KINBOARD_ANON_KEY, KINBOARD_SERVICE_ROLE_KEY.
+#
+# Whoever can read the data can read everything, secrets included: back up
+# all three volumes (or folders) and keep the backups private.
+#
+# Design: docs/rfc/023-one-file-install.md. The file for git installs is
+# webapp/docker/docker-compose.yml, which this one does not replace.
+
+# The Kinboard image, named once. init, db-init and webapp all run it.
+x-kinboard-image: &kinboard-image ${KINBOARD_IMAGE:-ghcr.io/svenger87/kinboard}:${KINBOARD_TAG:-latest}
+
+# 10 MB x 3 files per container, so logs never fill the disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # Creates the missing secrets, checks the data location, then exits.
+  init:
+    image: *kinboard-image
+    container_name: kinboard-init
+    # kinboard-init exists from 1.18 on. An older image (a KINBOARD_TAG from
+    # before then) would otherwise start a whole webapp here and never finish,
+    # so the stack would wait forever with no word as to why.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        if [ -x /usr/local/bin/kinboard-init ]; then exec /app/webapp-entrypoint.sh kinboard-init; fi;
+        echo "This Kinboard image is older than 1.18 and can't run the one-file setup. Set KINBOARD_TAG to 1.18 or newer (or leave it unset)." >&2;
+        exit 1
+    restart: "no"
+    logging: *logging
+    healthcheck:
+      disable: true
+    environment:
+      # Empty unless an existing install moves to this file; a value set here
+      # is written into the secrets store and wins over the stored one.
+      POSTGRES_PASSWORD: ${KINBOARD_POSTGRES_PASSWORD:-}
+      JWT_SECRET: ${KINBOARD_JWT_SECRET:-}
+      CRON_SECRET: ${KINBOARD_CRON_SECRET:-}
+      PRESENCE_SENSOR_TOKEN: ${KINBOARD_PRESENCE_SENSOR_TOKEN:-}
+      VAPID_PUBLIC_KEY: ${KINBOARD_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${KINBOARD_VAPID_PRIVATE_KEY:-}
+    volumes:
+      - ${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard
+      - ${KINBOARD_DB_DIR:-kinboard-db}:/kinboard-db:ro
+    networks:
+      - kinboard
+
+  db:
+    image: supabase/postgres:15.14.1.159
+    container_name: kinboard-db
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      # Read at the database's first start only; never set POSTGRES_PASSWORD
+      # here as well, or the container refuses to start.
+      POSTGRES_PASSWORD_FILE: /kinboard/secrets/postgres_password
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+      PGDATABASE: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - ${KINBOARD_DB_DIR:-kinboard-db}:/var/lib/postgresql/data
+      - ${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard:ro
+    # No ports: nothing outside the stack needs the database.
+    networks:
+      - kinboard
+
+  # Aligns PostgREST's database password and applies the base schema to an
+  # empty database, then exits.
+  db-init:
+    image: *kinboard-image
+    container_name: kinboard-db-init
+    command: ["kinboard-db-init"]
+    restart: "no"
+    logging: *logging
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard:ro
+    networks:
+      - kinboard
+
+  rest:
+    image: postgrest/postgrest:v14.16
+    container_name: kinboard-rest
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      db:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      # "@file": PostgREST reads both from the secrets store.
+      PGRST_DB_URI: "@/kinboard/secrets/db_uri"
+      PGRST_JWT_SECRET: "@/kinboard/secrets/jwt_secret"
+      PGRST_DB_SCHEMAS: public,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+    command: "postgrest"
+    volumes:
+      - ${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard:ro
+    networks:
+      - kinboard
+
+  webapp:
+    image: *kinboard-image
+    container_name: kinboard-webapp
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      db:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+      rest:
+        condition: service_started
+    ports:
+      - "${WEBAPP_PORT:-3001}:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      SITE_URL: ${SITE_URL:-}
+      # The scheduled jobs run inside the webapp; no ofelia, no Docker socket.
+      KINBOARD_SCHEDULER: internal
+      # Which version of this file this is. Raised only when the file itself
+      # must change; Settings says when the image wants a newer one.
+      KINBOARD_COMPOSE_REVISION: "1"
+      POSTGREST_URL: http://rest:3000
+      FILES_DIR: /var/lib/storage/files
+      GO2RTC_URL: http://go2rtc:1984
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      # Empty: derived from the stored JWT secret. Only an install that moved
+      # here from the git setup sets them, to keep its old keys.
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${KINBOARD_ANON_KEY:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${KINBOARD_SERVICE_ROLE_KEY:-}
+      PUID: ${PUID:-}
+      PGID: ${PGID:-}
+      INSTANCE_ADMIN_FAMILY_ID: ${INSTANCE_ADMIN_FAMILY_ID:-}
+    volumes:
+      - ${KINBOARD_STORAGE_DIR:-kinboard-storage}:/var/lib/storage
+      - ${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard:ro
+    networks:
+      - kinboard
+
+  # Camera streams. Cameras are added in Kinboard's settings by URL; this
+  # config only says where browsers on the LAN reach go2rtc for WebRTC.
+  go2rtc:
+    image: alexxit/go2rtc:1.9.14
+    container_name: kinboard-go2rtc
+    restart: unless-stopped
+    logging: *logging
+    # `$$` leaves the variable for go2rtc to fill in, with its own syntax.
+    command: ["go2rtc", "-config", "{webrtc: {candidates: ['$${WEBRTC_LAN_IP:}:8555', 'stun:8555']}}"]
+    ports:
+      - "8555:8555/udp"
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      WEBRTC_LAN_IP: ${WEBRTC_LAN_IP:-}
+    networks:
+      - kinboard
+
+networks:
+  kinboard: {}
+
+# Fixed names, so renaming the stack in a UI keeps the same data.
+volumes:
+  kinboard-db:
+    name: kinboard-db
+  kinboard-storage:
+    name: kinboard-storage
+  kinboard-config:
+    name: kinboard-config
