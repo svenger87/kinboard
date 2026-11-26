@@ -32,9 +32,29 @@ class MemoryStorage {
   removeItem(k: string) { this.store.delete(k); }
 }
 
+//
+// Both globals go again after each test. A Playwright worker runs many spec
+// files one after another in the same process, and a `window` left behind
+// makes every later file in that worker look like a browser: the Supabase
+// browser client then reads `window.location.origin` and throws, which is
+// how unfiltered-write-guard.spec.ts failed only when it happened to land in
+// the same worker after this file.
+const g = globalThis as unknown as { window?: unknown; sessionStorage?: unknown };
+const hadWindow = "window" in g;
+const hadSessionStorage = "sessionStorage" in g;
+const priorWindow = g.window;
+const priorSessionStorage = g.sessionStorage;
+
 test.beforeEach(() => {
-  (globalThis as unknown as { window: unknown }).window = globalThis;
-  (globalThis as unknown as { sessionStorage: MemoryStorage }).sessionStorage = new MemoryStorage();
+  g.window = globalThis;
+  g.sessionStorage = new MemoryStorage();
+});
+
+test.afterEach(() => {
+  if (hadWindow) g.window = priorWindow;
+  else delete g.window;
+  if (hadSessionStorage) g.sessionStorage = priorSessionStorage;
+  else delete g.sessionStorage;
 });
 
 const FAMILY = "fam-1";
