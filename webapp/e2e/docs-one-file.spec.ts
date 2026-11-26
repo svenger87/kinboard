@@ -172,12 +172,16 @@ test("the messages the docs quote are the ones the code prints", () => {
 
 /* ------------------------------------------------------------------ links */
 
-/** GitHub's heading anchor: lower case, punctuation dropped, each space a hyphen. */
+/**
+ * GitHub's heading anchor: lower case, punctuation dropped, each space a
+ * hyphen. No tag stripping: GitHub slugs the heading's text, and the wiki's
+ * headings carry no HTML, only code spans such as `<id>`, whose text stays
+ * (the brackets go with the other punctuation).
+ */
 function slug(heading: string): string {
   return heading
     .trim()
     .toLowerCase()
-    .replace(/<[^>]+>/g, "")
     .replace(/[^\p{L}\p{N}\s_-]/gu, "")
     .replace(/\s/g, "-");
 }
@@ -244,6 +248,7 @@ test.describe("wiki links", () => {
     expect(slug("CasaOS (should work, not supported)")).toBe("casaos-should-work-not-supported");
     expect(slug("The config folder (installs that have one)")).toBe("the-config-folder-installs-that-have-one");
     expect(slug("Doorbell → camera")).toBe("doorbell--camera");
+    expect(slug("1. The manifest — `webapp/src/plugins/<id>/index.ts`")).toBe("1-the-manifest--webappsrcpluginsidindexts");
   });
 
   test("from the install and operations pages resolve, page and heading", () => {
