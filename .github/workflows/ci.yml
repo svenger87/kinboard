@@ -202,6 +202,12 @@ jobs:
         run: corepack enable npm
       - name: Check migration apply order
         run: node webapp/docker/check-migration-order.mjs
+      # An update that doesn't come up falls back to the previous image on
+      # the schema the new one already migrated (RFC-023 §4.11.4); that only
+      # works while migrations are additive. Exceptions are reviewed in
+      # webapp/docker/migrations-not-additive.json.
+      - name: Check migrations are additive
+        run: node webapp/docker/check-additive-migrations.mjs
 
   changelog:
     name: Changelog entry

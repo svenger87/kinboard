@@ -28,16 +28,41 @@
 # It never touches the production stack or kbaudit. Nothing here is
 # destructive to anything outside RIG_DATA.
 #
+# The rollback case (--rollback, RFC-023 §4.11.4) runs the other direction:
+#   1. boots HEAD's image on HEAD's compose files, so the database carries
+#      every migration HEAD has, and writes a task through it
+#   2. swaps only the webapp image back to the previous release's PUBLISHED
+#      image, as the updater's rollback does: same compose files, same
+#      database, nothing else recreated
+#   3. asserts it comes up healthy without touching the migrations, then joins,
+#      reads HEAD's task and writes and completes one of its own
+#   4. rolls forward to HEAD again and checks both tasks are there
+# It is what keeps "migrations are additive, so the older image runs on the
+# newer schema" (UPGRADING.md) true in practice; check-additive-migrations.mjs
+# keeps it true on paper.
+#
 # Usage:
 #   ./test-upgrade.sh                 # last two stable versions
 #   ./test-upgrade.sh 1.7.0           # one specific version
 #   KEEP_UP=1 ./test-upgrade.sh 1.7.0 # leave the stack running to poke at
+#   ./test-upgrade.sh --rollback      # previous release on HEAD's schema
+#   ./test-upgrade.sh --rollback 1.16.0
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$SCRIPT_DIR"
+
+MODE=upgrade
+if [ "${1:-}" = "--rollback" ]; then
+  MODE=rollback
+  shift
+  # The newest stable release: the one an update to HEAD would fall back to.
+  ROLLBACK_TO="${1:-$(git -C "$REPO_ROOT" tag --list 'v[0-9]*' --sort=-v:refname | grep -v -- - | head -1 | sed 's/^v//')}"
+  [ -n "$ROLLBACK_TO" ] || { echo "no stable v* tag to roll back to; fetch tags or name a version" >&2; exit 2; }
+  set --
+fi
 
 FROM_VERSIONS=("$@")
 if [ ${#FROM_VERSIONS[@]} -eq 0 ]; then
@@ -71,6 +96,10 @@ RIG_DEMO_CODE="UPGR01"
 # docker-compose.image.yml, whose `pull_policy: always` would send docker
 # to GHCR looking for a tag that only exists on this machine.
 AFTER_OVERLAY="$SCRIPT_DIR/docker-compose.upgrade-target.yml"
+# The rollback case's "back" half: HEAD's compose files, the previous
+# release's published image. Generated, gitignored, removed on teardown.
+ROLLBACK_OVERLAY="$SCRIPT_DIR/docker-compose.rollback-target.yml"
+ROLLBACK_COMPOSE=(-f docker-compose.yml -f "$ROLLBACK_OVERLAY")
 
 IMAGE_COMPOSE=(-f docker-compose.yml -f docker-compose.image.yml)
 AFTER_COMPOSE=(-f docker-compose.yml -f "$AFTER_OVERLAY")
@@ -91,6 +120,7 @@ teardown() {
         down -v --remove-orphans >/dev/null 2>&1 ) || true
   fi
   compose AFTER_COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true
+  rm -f "$ROLLBACK_OVERLAY"
   git -C "$REPO_ROOT" worktree remove --force "$OLD_CHECKOUT" >/dev/null 2>&1 || true
   rm -rf "$OLD_CHECKOUT" "$SCRATCH"
 }
@@ -344,14 +374,218 @@ test_path() {
   fi
 }
 
+# ---------------------------------------------------------------- rollback
+
+# Join the seeded family as a new device and fetch the family token the
+# browser uses for /rest/v1. Leaves "$SCRATCH/$1.jar" and "$SCRATCH/$1.token".
+join_device() {
+  local who="$1"
+  curl -s -c "$SCRATCH/$who.jar" -X POST "$BASE_URL/api/session/join" -H 'content-type: application/json' \
+    -d "{\"joinCode\":\"DEMO01\",\"hardwareId\":\"claude-rollback-$who\",\"deviceName\":\"claude-rollback-$who\"}" \
+    >"$SCRATCH/$who.join.json"
+  local fam
+  fam=$(sed -n 's/.*"family":{"id":"\([^"]*\)".*/\1/p' "$SCRATCH/$who.join.json")
+  [ -n "$fam" ] || { fail "$who: could not join DEMO01: $(head -c 200 "$SCRATCH/$who.join.json")"; return 1; }
+  echo "$fam" >"$SCRATCH/family"
+  curl -s -b "$SCRATCH/$who.jar" "$BASE_URL/api/session/token" \
+    | sed -n 's/.*"token":"\([^"]*\)".*/\1/p' >"$SCRATCH/$who.token"
+  [ -s "$SCRATCH/$who.token" ] || { fail "$who: joined, but /api/session/token handed out no token"; return 1; }
+  pass "$who: joined DEMO01 and got a family token"
+}
+
+# rest <who> <method> <path> [json] -> prints "<status> <body>"
+rest() {
+  local who="$1" method="$2" path="$3" body="${4:-}"
+  local args=(-s -o "$SCRATCH/rest.out" -w '%{http_code}' -X "$method"
+              -H "Authorization: Bearer $(cat "$SCRATCH/$who.token")"
+              -H 'content-type: application/json' -H 'Prefer: return=representation')
+  [ -n "$body" ] && args+=(-d "$body")
+  local code
+  code=$(curl "${args[@]}" "$BASE_URL/rest/v1/$path")
+  printf '%s %s' "$code" "$(cat "$SCRATCH/rest.out")"
+}
+
+write_task() {
+  local who="$1" title="$2" out
+  out=$(rest "$who" POST todos "{\"family_id\":\"$(cat "$SCRATCH/family")\",\"title\":\"$title\"}")
+  [ "${out%% *}" = "201" ] || { fail "$who: writing task '$title' answered ${out:0:200}"; return 1; }
+  local id
+  id=$(printf '%s' "$out" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p' | head -1)
+  out=$(rest "$who" PATCH "todos?id=eq.$id" '{"completed":true}')
+  [ "${out%% *}" = "200" ] && printf '%s' "$out" | grep -q '"completed":true' \
+    && pass "$who: wrote task '$title' and completed it" \
+    || { fail "$who: completing '$title' answered ${out:0:200}"; return 1; }
+}
+
+read_tasks() {
+  local who="$1" out
+  out=$(rest "$who" GET "todos?select=title&title=like.rollback-rig*&order=title")
+  [ "${out%% *}" = "200" ] || { fail "$who: reading tasks answered ${out:0:200}"; return 1; }
+  printf '%s' "${out#* }" | grep -o '"title":"[^"]*"' | sed 's/"title":"//; s/"$//' | tr '\n' ' ' | sed 's/ $//'
+}
+
+# Wait for Docker's own health verdict on the webapp (the /api/health probe,
+# which includes the database), as the updater does (§4.11.4).
+wait_docker_healthy() {
+  local label="$1" budget="${2:-60}" st=""
+  for i in $(seq 1 "$budget"); do
+    st=$(docker inspect -f '{{.State.Health.Status}}' "${RIG_PROJECT}-webapp" 2>/dev/null || echo gone)
+    [ "$st" = "healthy" ] && { pass "$label: container healthy after $((i*5))s"; return 0; }
+    sleep 5
+  done
+  fail "$label: container health is '$st' after $((budget*5))s"
+  return 1
+}
+
+test_rollback() {
+  local prev="$1" prev_image="ghcr.io/svenger87/kinboard:$1"
+  say "ROLLBACK:  HEAD's schema  ->  $prev_image"
+  teardown
+  rig_destroy_data
+  mkdir -p "$RIG_DATA" "$SCRATCH"
+  rm -f "$SCRATCH"/*.jar "$SCRATCH"/*.token
+
+  # What the older image will meet: migrations it has never seen, and any it
+  # has whose content HEAD changed (its runner re-applies those, and every
+  # file after them, in its own older version).
+  local newer edited
+  newer=$(comm -13 <(git -C "$REPO_ROOT" ls-tree --name-only "v$prev" webapp/docker/migrations/ 2>/dev/null | xargs -rn1 basename | sort) \
+                   <(ls "$SCRIPT_DIR"/migrations/ | grep -E '^[0-9]+_.*\.sql$' | sort) | tr '\n' ' ')
+  edited=$(git -C "$REPO_ROOT" diff --name-only --diff-filter=M "v$prev" -- webapp/docker/migrations/ 2>/dev/null | xargs -rn1 basename | tr '\n' ' ')
+  step "migrations HEAD has that $prev lacks: ${newer:-none}"
+  step "migrations HEAD changed since $prev:  ${edited:-none}"
+  [ -n "$newer$edited" ] || step "note: same migrations on both sides, so this run checks the rollback mechanics, not a schema difference"
+
+  step "pulling $prev_image"
+  docker pull -q "$prev_image" >/dev/null || { fail "could not pull $prev_image"; return 1; }
+  cat > "$ROLLBACK_OVERLAY" <<YAML
+# Generated by test-upgrade.sh --rollback: the previous release's image on
+# HEAD's compose files, as the updater's rollback runs it.
+services:
+  webapp:
+    image: ${prev_image}
+    pull_policy: never
+YAML
+
+  say "Booting HEAD ($HEAD_IMAGE) on a fresh database"
+  local t0=$SECONDS
+  ( cd "$SCRIPT_DIR" && COMPOSE_FILES="-f docker-compose.yml -f docker-compose.upgrade-target.yml" \
+      ./start.sh up >/dev/null 2>&1 ) || { fail "HEAD: start.sh up failed"; teardown; return 1; }
+  rig_wait_healthy "HEAD" || { teardown; return 1; }
+  ( cd "$SCRIPT_DIR" && COMPOSE_FILES="-f docker-compose.yml -f docker-compose.upgrade-target.yml" \
+      ./start.sh seed-demo >/dev/null 2>&1 ) || step "seed-demo reported a problem (continuing)"
+  local recorded files
+  recorded=$(psql_rig -c "SELECT count(*) FROM kinboard.schema_migrations")
+  files=$(ls "$SCRIPT_DIR"/migrations/[0-9]*.sql | wc -l)
+  [ "$recorded" = "$files" ] && pass "HEAD applied all $files migrations" \
+                             || { fail "HEAD recorded $recorded of $files migrations"; teardown; return 1; }
+  join_device head && write_task head "rollback-rig 1 written by HEAD" || { teardown; return 1; }
+  # Proving the case non-vacuous: apply a destructive change as if it were a
+  # HEAD migration, and the checks on the older image must go red.
+  #   ROLLBACK_INJECT_SQL='ALTER TABLE public.todos RENAME COLUMN completed TO done' \
+  #     ./test-upgrade.sh --rollback
+  if [ -n "${ROLLBACK_INJECT_SQL:-}" ]; then
+    step "ROLLBACK_INJECT_SQL: $ROLLBACK_INJECT_SQL"
+    psql_rig -v ON_ERROR_STOP=1 -c "$ROLLBACK_INJECT_SQL" -c "NOTIFY pgrst, 'reload schema'" >/dev/null \
+      || { fail "ROLLBACK_INJECT_SQL did not apply"; teardown; return 1; }
+  fi
+  local sums_before db_before
+  sums_before=$(psql_rig -c "SELECT md5(string_agg(name || checksum, ',' ORDER BY name)) FROM kinboard.schema_migrations")
+  db_before=$(docker inspect -f '{{.Id}}' "${RIG_PROJECT}-db")
+  step "HEAD up and written to in $((SECONDS - t0))s"
+
+  say "Rolling the webapp back to $prev (image only, HEAD's compose files)"
+  t0=$SECONDS
+  compose ROLLBACK_COMPOSE up -d --no-deps webapp >/dev/null 2>&1 \
+    || { fail "rollback: compose up failed"; teardown; return 1; }
+  rig_wait_healthy "$prev on HEAD's schema" || { teardown; return 1; }
+  wait_docker_healthy "$prev" || { teardown; return 1; }
+  step "back on $prev in $((SECONDS - t0))s"
+
+  local running
+  running=$(docker inspect -f '{{.Config.Image}}' "${RIG_PROJECT}-webapp")
+  [ "$running" = "$prev_image" ] && pass "running $running" || fail "running '$running', expected $prev_image"
+  [ "$(docker inspect -f '{{.Id}}' "${RIG_PROJECT}-db")" = "$db_before" ] \
+    && pass "database container untouched by the rollback" || fail "the rollback recreated the database container"
+  local code
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$BASE_URL/api/health")
+  [ "$code" = "200" ] && pass "/api/health 200 on $prev" || fail "/api/health answered $code on $prev"
+
+  local logs
+  logs=$(compose ROLLBACK_COMPOSE logs webapp 2>&1 || true)
+  if grep -q 'GIVING UP\|\[migrate\] FAILED' <<<"$logs"; then
+    fail "$prev's migration runner failed on HEAD's schema"
+    grep -n 'FAILED\|GIVING UP' <<<"$logs" | head -5 | sed 's/^/     /'
+  else
+    pass "$prev's migration runner did not fail"
+  fi
+  grep -o '\[migrate\] done: .*' <<<"$logs" | tail -1 | sed 's/^/   /'
+  local reapplied
+  reapplied=$(grep -c '\[migrate\] re-applying' <<<"$logs" || true)
+  [ "$reapplied" = "0" ] || step "note: $prev re-applied $reapplied migration(s) in its own version (edited since $prev)"
+  recorded=$(psql_rig -c "SELECT count(*) FROM kinboard.schema_migrations")
+  [ "$recorded" = "$files" ] && pass "schema_migrations still lists all $files" \
+                             || fail "schema_migrations has $recorded rows after the rollback, $files before"
+
+  say "Smoke on $prev: join, read, write"
+  join_device prev || { teardown; return 1; }
+  local seen
+  seen=$(read_tasks prev)
+  [ "$seen" = "rollback-rig 1 written by HEAD" ] && pass "$prev reads HEAD's task" \
+                                                || fail "$prev read tasks '$seen'"
+  write_task prev "rollback-rig 2 written by $prev" || true
+  seen=$(read_tasks prev)
+  [ "$seen" = "rollback-rig 1 written by HEAD rollback-rig 2 written by $prev" ] \
+    && pass "$prev reads both tasks back" || fail "$prev read back '$seen'"
+
+  say "Rolling forward to HEAD again"
+  t0=$SECONDS
+  compose AFTER_COMPOSE up -d --no-deps webapp >/dev/null 2>&1 \
+    || { fail "roll forward: compose up failed"; teardown; return 1; }
+  rig_wait_healthy "HEAD again" || { teardown; return 1; }
+  wait_docker_healthy "HEAD again" || { teardown; return 1; }
+  step "HEAD again in $((SECONDS - t0))s"
+  local sums_after
+  sums_after=$(psql_rig -c "SELECT md5(string_agg(name || checksum, ',' ORDER BY name)) FROM kinboard.schema_migrations")
+  [ "$sums_after" = "$sums_before" ] && pass "migration records identical to before the rollback" \
+                                     || fail "migration records differ after rolling forward"
+  seen=$(read_tasks head)
+  [ "$seen" = "rollback-rig 1 written by HEAD rollback-rig 2 written by $prev" ] \
+    && pass "HEAD reads the task $prev wrote" || fail "HEAD read back '$seen'"
+
+  if [ "${KEEP_UP:-0}" = "1" ]; then
+    say "KEEP_UP=1 — leaving the stack up at $BASE_URL"
+  else
+    teardown
+  fi
+}
+
 # ---------------------------------------------------------------- main
 
-say "Kinboard upgrade-path test"
-step "from: ${FROM_VERSIONS[*]}  ->  HEAD ($(cd "$REPO_ROOT" && git rev-parse --short HEAD))"
+if [ "$MODE" = "rollback" ]; then
+  say "Kinboard rollback test"
+  step "HEAD ($(cd "$REPO_ROOT" && git rev-parse --short HEAD))  ->  $ROLLBACK_TO"
+else
+  say "Kinboard upgrade-path test"
+  step "from: ${FROM_VERSIONS[*]}  ->  HEAD ($(cd "$REPO_ROOT" && git rev-parse --short HEAD))"
+fi
 
 rig_prepare_env
 write_after_overlay
 build_head_image
+
+if [ "$MODE" = "rollback" ]; then
+  RIG_T0=$SECONDS
+  test_rollback "$ROLLBACK_TO" || fail "rollback to $ROLLBACK_TO: aborted"
+  say "Result"
+  if [ ${#FAILURES[@]} -eq 0 ]; then
+    grn "Rollback passed: $ROLLBACK_TO runs on HEAD's schema ($((SECONDS - RIG_T0))s)"
+    exit 0
+  fi
+  red "${#FAILURES[@]} failure(s):"
+  for f in "${FAILURES[@]}"; do red "  - $f"; done
+  exit 1
+fi
 
 for v in "${FROM_VERSIONS[@]}"; do
   test_path "$v" || fail "$v -> HEAD: path aborted"
