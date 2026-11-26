@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Proposed 2026-11-26, for the owner's review. Decided 2026-11-26: automatic updates on every shape (§4.11, §11.3) |
+| **Status** | Accepted 2026-11-26; every open question decided (§11) |
 | **Date** | 2026-11-26 |
 | **Depends on** | The 1.15 stack (no Kong, the webapp serves `/rest/v1` and the files itself); the migration runner in the image (`migrate.sh`, `webapp-entrypoint.sh`); the published image `ghcr.io/svenger87/kinboard` |
 | **Discussion** | #539, #282, #106 |
@@ -233,9 +233,16 @@ Three ways to drop the repo file:
 
 - It applies `init.sql` as `supabase_admin` **only when `public.families` does
   not exist**, with `--single-transaction`, so that a failed run leaves nothing
-  behind that the check would mistake for a finished schema. That
-  `CREATE EXTENSION pg_cron` and the publication changes run inside one
-  transaction is to be verified in the PR.
+  behind that the check would mistake for a finished schema. **Verified
+  2026-11-26** on a throwaway `supabase/postgres:15.14.1.159` (Appendix A).
+  - `init.sql` as it is, with `CREATE EXTENSION pg_cron` and the 21
+    publication statements, runs under `--single-transaction` without an
+    error, and the 88 migrations then apply as `postgres`.
+  - The same file with a failure injected at its very end leaves nothing
+    behind: `public.families` absent, no `pg_cron` extension, 0 tables in the
+    publication.
+  - On stock `postgres:17-alpine` with RFC-024's bootstrap, the same holds,
+    with `pg_cron` made conditional.
 - On an existing database the check is false and nothing runs.
 - On a fresh one, the same file runs as the same user it runs as today. It runs
   after supabase's own init has created `authenticator`, which `db-init`
@@ -316,7 +323,7 @@ live per family, and the plumbing exists. An install-wide store, such as
 `instance_settings`, which is service-role only (`065_instance_settings.sql:13-30`),
 would raise the question of which family's settings PIN may change a key that
 every family uses. Almost every install has one family, so per family costs
-nothing. Open question §11.4.
+nothing. Decided: per family (§11.4).
 
 As today, secrets in the database are stored as plain text, readable only by
 the service role (wiki `Security-and-Threat-Model.md:41`). This RFC does not
@@ -355,8 +362,7 @@ the other fails.
 (`docker-compose.yml:367-368`), so its fixed-time jobs fire in UTC:
 `todo-reminders` at 08:00 UTC, `birthday-reminders` at 07:00 UTC. This is
 inferred: ofelia uses the container's local time, and the image sets no zone.
-The internal runner must keep UTC for parity. Whether those should become the
-household's local time is open question §11.1b.
+The internal runner must keep UTC for parity. Decided: UTC parity (§11.1b).
 
 ### 4.6 The compose file
 
@@ -613,7 +619,7 @@ Compose Manager, with `KINBOARD_*_DIR` under `/mnt/user/appdata/kinboard`.
 - **New: "Compose UIs"** (`docs/wiki/Compose-UIs.md`), one section per UI:
   - where to paste the file;
   - which variables to set, and whether absolute paths are required (Unraid:
-    yes; CasaOS: replace the variables with literal values before importing);
+    yes; CasaOS: replace the variables with literal values before importing, and listed as "should work, not supported" until rehearsed on a real box, §11.8);
   - what "exited" means for `init` and `db-init`;
   - how to update;
   - where the data is;
@@ -703,6 +709,12 @@ directory, so PR 10 gives the overlay absolute paths from
 (§5.2, "Not yet").
 
 #### 4.11.3 One-file installs: the `kinboard-updater` image
+
+**Image names come from one place.** Every image this work publishes
+(`kinboard-updater` here; `kinboard-postgres` and `kinboard-aio` in RFC-024)
+takes its name from one setting in `docker.yml`, shared with the metadata file
+of RFC-024 §7. Each can later be published under additional names, the same
+way the main image may be.
 
 **The image.** `ghcr.io/svenger87/kinboard-updater` is today's
 `Dockerfile.webhook` (Alpine, `git`, `docker-cli`, `docker-cli-compose`,
@@ -1264,8 +1276,9 @@ what it adds.
 | 9 | Optional: `setup.sh` generates VAPID through the image (no Node); `./start.sh adopt` | `setup.sh` users without Node gain push |
 | 10 | The self-update understands `compose.yml` (absolute overlay paths); the no-git guard | — |
 | 11 | **Health wait and rollback** in `kinboard-self-update.sh`, with the status record and the Settings notice (§4.11.4); the reconciliation tick in the webhook container (§4.11.5). Lands on today's git installs too | yes: an update that doesn't come up healthy now rolls back instead of staying down |
-| 12 | **`kinboard-updater`**: `Dockerfile.webhook` published multi-arch; compose-file and container modes; the `autoupdate` profile in `compose.yml`; state, backoff, first-tick baseline (§4.11.3) | no: opt-in |
+| 12 | **`kinboard-updater`, compose-file mode** (decided 2026-11-26, §11.3): `Dockerfile.webhook` published multi-arch; compose-file and container modes; the `autoupdate` profile in `compose.yml`; state, backoff, first-tick baseline (§4.11.3) | no: opt-in |
 | 13 | **The additive-migrations lint** and the rollback test in the upgrade rig (§4.11.4) | no |
+| 14 | **`kinboard-updater`, container mode** (Portainer's web-editor stacks), after 12 has run on real installs (§11.3) | no: opt-in |
 
 Order: 1 → 2 → 3 → 4, then 5–9 in any order. 7 and 8 need 4. 11 and 13 need
 nothing and can land first, which makes today's git installs safer at once.
@@ -1286,38 +1299,39 @@ Rehearsal D (§8.4) runs on 11 and 12. The release ships after all four.
 - **The internal scheduler is new code** for something ofelia has done
   reliably. It is small, the job routes don't change, and the parity test and
   rehearsal A watch it, but it is the largest new piece here.
-- **`--single-transaction` around `init.sql`** is unverified (§4.2). If
-  `pg_cron` or the publication refuses it, `db-init` needs a cleanup instead:
-  drop the half-made schema on failure.
+- **`--single-transaction` around `init.sql`**: verified on 2026-11-26
+  (§4.2, Appendix A); no longer a risk.
 
-## 11. Open questions for the owner
+## 11. Decided (2026-11-26)
+
+The owner approved the RFC on 2026-11-26 and settled every open question.
+Each decision below is the one the design above already assumes, unless it
+says otherwise.
 
 1. **The scheduler.**
-   - a. Move the jobs into the image for `compose.yml` (proposed), or keep
-     ofelia with labels and accept that pasted files miss new jobs until
-     re-pasted?
-   - b. Keep the fixed-time jobs at UTC as ofelia runs them today (proposed,
-     for parity), or move them to the household's zone?
-2. **The default data location**: named volumes (proposed), or `./data` as
-   today, which works in OMV, Dockge and a terminal but lands on the flash
-   drive in Unraid and in a non-obvious place in Portainer?
-3. **Decided 2026-11-26 (owner): automatic updates are required on every
-   shape.** `kinboard-updater` is published, specified in §4.11. Still open
-   within it: the health time limit (10 minutes proposed), and whether
-   container mode (Portainer's web-editor stacks) ships in the first version
-   or after compose-file mode.
-4. **API keys per family** (proposed) **or per install** (`instance_settings`)?
-5. **Where `compose.yml` lives**: the repo root plus a release asset
-   (proposed), or only the release asset?
-6. **When does `webapp/docker/docker-compose.yml` retire**, if ever? Not
-   proposed here; the parity tests are the price of keeping it.
-7. **Should the self-update's backup also copy `.env`?** Today a disk loss
-   takes both. It is a change for existing installs, so not proposed.
-8. **CasaOS**: support it, with literals instead of variables, or list it as
-   "should work, not supported" until rehearsed on a real box?
-9. **Unraid**: a Compose Manager page now (proposed). The CA template and the
-   other stores are decided in [RFC-024](024-all-in-one-and-stores.md).
-10. **A full backup downloadable from Settings**: worth an RFC of its own?
+   - a. **The jobs move into the image** for `compose.yml` (§4.5), behind
+     `KINBOARD_SCHEDULER=internal`; git installs keep ofelia.
+   - b. **UTC parity:** the fixed-time jobs keep firing at the UTC times ofelia
+     uses today.
+2. **Named volumes by default** (§4.6). A folder is one variable away.
+3. **Automatic updates on every shape** (§4.11). The health limit is **10
+   minutes**. **Compose-file mode ships first** (PR 12); container mode, for
+   Portainer's web-editor stacks, follows in a later PR (PR 14).
+4. **API keys per family** (§4.4), with `.env` as the install-wide fallback.
+5. **`compose.yml` at the repository root, plus a release asset** (§4.6).
+6. **The legacy `webapp/docker/docker-compose.yml` stays, with no retirement
+   date.** The parity tests (§4.5, §10) are the price.
+7. **The self-update does not copy `.env`** into its backup. Existing installs'
+   backups stay as they are.
+8. **CasaOS is listed as "should work, not supported"** on the Compose UIs
+   page until it has been rehearsed on a real box (§8.1 A3).
+9. **Unraid gets a Compose Manager page now**, as part of the Compose UIs page
+   (§4.10). The CA template is RFC-024's.
+10. **A full backup downloadable from Settings is out of scope here**; it gets
+    its own RFC later.
+
+Also verified on the same day: `init.sql` under `--single-transaction` (§4.2,
+Appendix A).
 
 ## 12. Not in this RFC
 
@@ -1341,6 +1355,7 @@ afterwards); no stack was changed.
 | a trailing newline in the JWT secret file | the file written with `printf '%s\n'` | 200 |
 | PostgREST and file modes | the same secret as `root:root` `0600`, `0640`, `0644` | `0600`: `permission denied`, exit 1; `0640` and `0644`: 200 |
 | go2rtc 1.9.14 with only an inline config | `go2rtc -config '{webrtc: …}'` | starts, listens on 1984/8554/8555; `/api/config` 410; `PUT /api/streams` 400 |
+| `init.sql` under `--single-transaction` | a throwaway `supabase/postgres:15.14.1.159` with only `POSTGRES_PASSWORD`, no `init.sql` mounted. Once `authenticator` existed: `psql -U supabase_admin -v ON_ERROR_STOP=1 --single-transaction` with a copy of `init.sql` ending in `SELECT 1/0`, then with `init.sql` itself, then `migrate.sh` as `postgres`. The same on `postgres:17-alpine` after RFC-024's bootstrap, `pg_cron` conditional. Pulled for the check and removed | the failure left `public.families` absent, `pg_cron` not installed and 0 publication tables on both; the real file applied with 0 errors on both (21 publication tables); all 88 migrations applied on both |
 | a volume source that defaults to a named volume | `docker compose config` on `${DATA_DIR:-kinboard}-db` | unset: a named volume; set to `/srv/kb`: a bind of `/srv/kb-db` |
 
 **Assumed, not verified here:**
@@ -1349,7 +1364,6 @@ afterwards); no stack was changed.
 - where Portainer CE puts relative paths (a user report and the docs on the
   Business Edition feature);
 - that ofelia runs the fixed-time jobs in UTC;
-- `--single-transaction` with `pg_cron` and the publication;
 - go2rtc's candidate list from an inline config.
 
 Each has a rehearsal step in §8.
