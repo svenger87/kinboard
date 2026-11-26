@@ -49,6 +49,8 @@ import { usePushReset } from "@/hooks/use-push-reset";
 import { PushResetNotice } from "@/components/settings/push-reset-notice";
 import { useComposeRevision } from "@/hooks/use-compose-revision";
 import { ComposeRevisionNotice } from "@/components/settings/compose-revision-notice";
+import { InstanceCard } from "@/components/settings/instance-card";
+import { PinDigits, saveSettingsPin, type PinDigitsHandle } from "@/components/settings/pin-digits";
 import { showsUpdatedLine } from "@/lib/update-status";
 import { usePWA } from "@/hooks/use-pwa";
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
@@ -172,8 +174,7 @@ export default function SettingsPage() {
   );
   const menuVisibility = useMemo(() => ({ pluginEnabled }), [pluginEnabled]);
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
-  const [pinDigits, setPinDigits] = useState<string[]>(["", "", "", ""]);
-  const pinInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const pinDigitsRef = useRef<PinDigitsHandle>(null);
   const locale = useLocale();
   const dateLocale = getDateFnsLocale(locale);
   const regenerateJoinCode = useRegenerateJoinCode();
@@ -366,52 +367,28 @@ export default function SettingsPage() {
     }
   };
 
-  const handlePinDigitChange = (index: number, value: string) => {
-    const digit = value.replace(/\D/g, "").slice(-1);
-    const newDigits = [...pinDigits];
-    newDigits[index] = digit;
-    setPinDigits(newDigits);
-
-    if (digit && index < 3) {
-      pinInputRefs.current[index + 1]?.focus();
-    }
-
-    // Auto-save when all 4 digits entered
-    const entered = newDigits.join("");
-    if (entered.length === 4 && family?.id && !pinSaving) {
-      setPinSaving(true);
-      fetch("/api/pin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ family_id: family.id, action: "set", pin: entered }),
-      })
-        .then(async (res) => {
-          if (await isPinRequired(res)) {
-            setPinDialogOpen(false);
-            setPinDigits(["", "", "", ""]);
-            relockSettings();
-            return;
-          }
-          if (!res.ok) throw new Error(`PIN save failed: ${res.status}`);
-          // Refresh the unlock session so the new PIN becomes the current session proof
-          try { sessionStorage.setItem("kinboard_settings_unlock", "unlocked"); } catch { /* noop */ }
-          toast.success(t("pinSavedToastTitle"), { description: t("pinSavedToastDescription") });
+  // The four boxes are shared with the setup wizard's PIN step (RFC-024 §8).
+  const handlePinComplete = (entered: string) => {
+    if (!family?.id || pinSaving) return;
+    setPinSaving(true);
+    saveSettingsPin(family.id, entered)
+      .then((result) => {
+        if (result === "pin_required") {
           setPinDialogOpen(false);
-          setPinDigits(["", "", "", ""]);
-          queryClient.invalidateQueries({ queryKey: ["pin-status", family.id] });
-        })
-        .catch((err) => {
-          console.error("settings: PIN save failed:", err);
-          toast.error(t("pinSaveFailed"));
-        })
-        .finally(() => setPinSaving(false));
-    }
-  };
-
-  const handlePinKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !pinDigits[index] && index > 0) {
-      pinInputRefs.current[index - 1]?.focus();
-    }
+          relockSettings();
+          return;
+        }
+        toast.success(t("pinSavedToastTitle"), { description: t("pinSavedToastDescription") });
+        setPinDialogOpen(false);
+        queryClient.invalidateQueries({ queryKey: ["pin-status", family.id] });
+        queryClient.invalidateQueries({ queryKey: ["setup-state"] });
+      })
+      .catch((err) => {
+        console.error("settings: PIN save failed:", err);
+        toast.error(t("pinSaveFailed"));
+        pinDigitsRef.current?.reset();
+      })
+      .finally(() => setPinSaving(false));
   };
 
   const handleRemovePin = () => {
@@ -715,10 +692,7 @@ export default function SettingsPage() {
                 )}
                 <Dialog open={pinDialogOpen} onOpenChange={(open) => {
                   setPinDialogOpen(open);
-                  if (open) {
-                    setPinDigits(["", "", "", ""]);
-                    setTimeout(() => pinInputRefs.current[0]?.focus(), 100);
-                  }
+                  if (open) setTimeout(() => pinDigitsRef.current?.reset(), 100);
                 }}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
@@ -733,22 +707,7 @@ export default function SettingsPage() {
                       <p className="text-sm text-muted-foreground text-center">
                         {t("pinDialogDescription")}
                       </p>
-                      <div className="flex gap-3">
-                        {pinDigits.map((digit, i) => (
-                          <input
-                            key={i}
-                            ref={(el) => { pinInputRefs.current[i] = el; }}
-                            type="password"
-                            inputMode="numeric"
-                            maxLength={1}
-                            value={digit}
-                            onChange={(e) => handlePinDigitChange(i, e.target.value)}
-                            onKeyDown={(e) => handlePinKeyDown(i, e)}
-                            className="w-14 h-16 text-center text-2xl font-mono rounded-xl border-2 bg-background/50 outline-none transition-all duration-200 border-border focus:border-primary/60"
-                            autoComplete="off"
-                          />
-                        ))}
-                      </div>
+                      <PinDigits ref={pinDigitsRef} onComplete={handlePinComplete} disabled={pinSaving} />
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -756,6 +715,9 @@ export default function SettingsPage() {
             </div>
           </Card>
         </motion.div>
+
+        {/* The install's own settings, for its operator only (RFC-024 §8). */}
+        <InstanceCard />
 
         {/* Network Status */}
         <motion.div

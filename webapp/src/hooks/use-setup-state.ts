@@ -11,6 +11,8 @@ export interface SetupState {
   has_calendar: boolean;
   has_home_assistant: boolean;
   has_weather_location: boolean;
+  /** Absent from a server older than RFC-024 §8's PIN step. */
+  has_pin?: boolean;
 }
 
 export function useSetupState() {

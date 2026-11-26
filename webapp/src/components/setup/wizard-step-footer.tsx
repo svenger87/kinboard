@@ -4,11 +4,15 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
+import type { WizardStep } from "@/lib/first-run";
+import { useWizardNav } from "@/components/setup/use-wizard-nav";
 
 interface Props {
-  backHref?: string;
-  nextHref: string;
+  /** The step this footer is on; Back and Continue follow the family's step list (lib/first-run.ts). */
+  step: WizardStep;
   onNextClick?: () => void | Promise<void>;
+  /** Runs on Skip as well as after a successful Continue, before leaving; never stops the user. */
+  onLeave?: () => void | Promise<void>;
   nextLabel?: string;
   /** Render the "Skip for now" button — defaults to true. Pass false for the
    *  final step where there's nothing to skip. */
@@ -18,15 +22,26 @@ interface Props {
 }
 
 export function WizardStepFooter({
-  backHref,
-  nextHref,
+  step,
   onNextClick,
+  onLeave,
   nextLabel,
   showSkip = true,
   disabled,
 }: Props) {
   const t = useTranslations("setup");
   const router = useRouter();
+  const { back: backHref, next: nextHref } = useWizardNav(step);
+
+  const leave = async () => {
+    try {
+      if (onLeave) await onLeave();
+    } catch (err) {
+      // Never a reason to keep someone on a skippable step.
+      console.error(`setup/${step}: leaving failed:`, err);
+    }
+    router.push(nextHref);
+  };
 
   const goNext = async () => {
     try {
@@ -36,7 +51,7 @@ export function WizardStepFooter({
       // (toast, inline message, etc.) and stay on the current page.
       return;
     }
-    router.push(nextHref);
+    await leave();
   };
 
   // The footer wraps rather than overflowing: all three buttons are
@@ -50,7 +65,7 @@ export function WizardStepFooter({
     <div className="flex flex-wrap items-center justify-between gap-2 mt-8">
       <div className="flex items-center gap-2">
         {backHref ? (
-          <Button variant="ghost" size="sm" onClick={() => router.push(backHref)}>
+          <Button variant="ghost" size="sm" onClick={() => router.push(backHref)} data-testid="wizard-back">
             <ArrowLeft className="size-4 mr-2" />
             {t("back")}
           </Button>
@@ -63,14 +78,15 @@ export function WizardStepFooter({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push(nextHref)}
+            onClick={leave}
             disabled={disabled}
+            data-testid="wizard-skip"
           >
             <X className="size-4 mr-2" />
             {t("skipStep")}
           </Button>
         )}
-        <Button onClick={goNext} disabled={disabled}>
+        <Button onClick={goNext} disabled={disabled} data-testid="wizard-continue">
           {nextLabel ?? t("continue")}
           <ArrowRight className="size-4 ml-2" />
         </Button>

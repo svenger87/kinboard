@@ -3660,6 +3660,13 @@
       "presenceNone": "No token is set, here or on the server, so the sensor's reports are refused.",
       "presenceTokenLabel": "Or enter your own token",
       "presenceTokenPlaceholder": "At least 16 characters"
+    },
+    "instance": {
+      "title": "This install",
+      "description": "Settings of this Kinboard server rather than of a family. Only the family that runs it sees them.",
+      "save": "Save",
+      "saved": "Saved",
+      "saveFailed": "Couldn't save. Try again."
     }
   },
   "settingsSearch": {
@@ -5139,13 +5146,18 @@
       "item_weather": "Set your weather location",
       "item_homeassistant": "Connect Home Assistant (optional)",
       "resume": "Resume setup",
-      "finish": "Finish"
+      "finish": "Finish",
+      "item_pin": "Protect Settings with a PIN"
     },
     "region": {
       "title": "Where do you live?",
       "description": "Public holidays and days without school depend on your country and state. Kinboard shows the ones for where you live.",
       "preselectedHint": "Suggested from your time zone. Change it if it's wrong.",
-      "saveError": "Couldn't save where you live. Try again."
+      "saveError": "Couldn't save where you live. Try again.",
+      "languageLabel": "Language",
+      "timeZoneLabel": "Time zone",
+      "timeZoneDescription": "Clocks, reminders and the day's start follow it. Automatic means this server's own zone.",
+      "regionLabel": "Where you live (for holidays)"
     },
     "people": {
       "title": "Who's in your family?",
@@ -5207,6 +5219,42 @@
       "title": "All set — welcome to Kinboard",
       "description": "We've stored your family, your people, and your integrations. The dashboard is ready. You can revisit Settings any time.",
       "cta": "Go to dashboard"
+    },
+    "install": {
+      "title": "Set up this install",
+      "description": "Two things that belong to this Kinboard server rather than to your family. You see them because you created its first family. Skip anything; all of it is in Settings later.",
+      "addressLabel": "Address",
+      "addressBody": "Kinboard puts this address in links it hands out, such as the calendar subscription link. It's the address this page was opened at. Change it if other devices reach Kinboard under another name.",
+      "addressPlaceholder": "http://192.168.1.20:3000",
+      "addressFromEnvironment": "Set on the server (SITE_URL): {value}. That setting wins; change it there.",
+      "addressInvalid": "That isn't an address like http://192.168.1.20:3000: a scheme, a host and a port, nothing after them.",
+      "dataTitle": "Where your data lives",
+      "dataBody": "Everything stays on this server. Calendars, lists, people and settings are in its database; photos and other uploads are files beside it. Both are in the install's data folder (<code>DATA_DIR</code>, <code>./data</code> next to the compose file unless you chose another). Back up that folder, or download a copy any time under Settings → Data & backup.",
+      "saveError": "Couldn't save the address. Try again."
+    },
+    "push": {
+      "title": "Notifications",
+      "ready": "Push notifications to phones and browsers work already: this install made its own keys.",
+      "notReady": "Push isn't available yet: this server has no push keys. Everything else works without them.",
+      "contactLabel": "Contact for push services (optional)",
+      "contactBody": "Push services such as Google's, Apple's and Mozilla's may write to this address if notifications from this server cause trouble. Without one they get admin@example.com.",
+      "contactPlaceholder": "you@example.com",
+      "contactFromEnvironment": "Set on the server (VAPID_SUBJECT): {value}. That setting wins; change it there.",
+      "contactInvalid": "Enter an email address, or an https:// address.",
+      "deviceHint": "Each phone or tablet turns notifications on for itself, in Settings → Notifications.",
+      "saveError": "Couldn't save the contact. Try again."
+    },
+    "pin": {
+      "title": "Protect Settings with a PIN",
+      "description": "Anyone in the room can touch a wall screen. With a four-digit PIN, Settings, keys and integrations stay shut until a grown-up enters it. Everything else stays open.",
+      "enter": "Choose four digits",
+      "confirm": "Enter them again",
+      "mismatch": "Those didn't match. Choose four digits again.",
+      "hint": "Every device asks for it before opening Settings. Change or remove it in Settings → Security.",
+      "digitLabel": "PIN digit {position}",
+      "saved": "PIN set",
+      "already": "This family has a PIN already. You can change it in Settings → Security.",
+      "saveError": "Couldn't set the PIN. Try again."
     }
   },
   "einkaufen": {

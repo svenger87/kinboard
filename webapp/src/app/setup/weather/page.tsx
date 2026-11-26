@@ -64,8 +64,7 @@ export default function SetupWeatherPage() {
       </CardContent></Card>
 
       <WizardStepFooter
-        backHref="/setup/homeassistant"
-        nextHref="/setup/done"
+        step="weather"
         onNextClick={handleNext}
         disabled={update.isPending}
       />

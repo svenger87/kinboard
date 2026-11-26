@@ -93,6 +93,16 @@ http://localhost:3001
 
 You'll land on `/join` with a "Welcome — let's set things up" card because the database is empty. Pick a family name, give this device a name, and create the family. You'll get a 6-character join code — write it down. Other devices use it via the same `/join` page.
 
+A short setup follows. Every step can be skipped, and everything in it is in Settings later:
+
+1. **Set up this install** (only for the first family on a new install): the address Kinboard puts in links it hands out, such as the calendar feed, proposed from the address you opened it at, and where your data lives. `SITE_URL` in `.env` still wins when it is set.
+2. **Notifications** (the same): push works already; optionally an email address that push services may write to. `VAPID_SUBJECT` in `.env` still wins when it is set.
+3. **Language, time zone and where you live** (for holidays).
+4. **Your family members**, **a calendar** (with the Google Calendar client's fields when the server has none), **Home Assistant** and **the weather** (with the OpenWeatherMap key's field when the server has none).
+5. **A settings PIN**, so a wall screen's Settings stay shut until a grown-up enters it.
+
+The first two are under **Settings → This install** afterwards, visible only to the family that runs the install (`INSTANCE_ADMIN_FAMILY_ID`, or the first and only family). An install that already had a family before this setup existed never shows them.
+
 ## 4. Configure integrations
 
 Open the menu → **Settings** and walk through the integrations you care about. Each is documented separately:

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { parseRegionSetting } from "@/lib/holidays/region";
+import { familyHasPin } from "@/lib/settings-pin";
 
 // Reports how far through setup a family is — which reveals whether a family
 // exists at that id, whether it has people and calendars, and whether Home
@@ -60,6 +61,12 @@ export async function GET(request: NextRequest) {
   const wx = settingsRows.find((s) => s.key === "weather_location")?.value as { city?: string; lat?: number; lon?: number } | undefined;
   const region = parseRegionSetting(settingsRows.find((s) => s.key === "holiday_region")?.value);
   const ha = await getMergedSetting<{ url?: string; access_token?: string }>(familyId, "home_assistant");
+  // The settings PIN step (RFC-024 §8). Unknown on a failed read: treated as
+  // set, so a wizard never sends anyone to set a PIN that may already exist.
+  const hasPin = await familyHasPin(familyId).catch((err) => {
+    console.error("setup/state: PIN status failed:", err);
+    return true;
+  });
 
   return NextResponse.json({
     setup_completed: !!familyR.data?.setup_completed,
@@ -71,5 +78,6 @@ export async function GET(request: NextRequest) {
     // != null (not truthiness): lat/lon 0 are valid coordinates
     // (equator / prime meridian) now that the wizard can save them.
     has_weather_location: !!(wx?.city || (wx?.lat != null && wx?.lon != null)),
+    has_pin: hasPin,
   });
 }

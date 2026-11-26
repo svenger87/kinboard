@@ -3660,6 +3660,13 @@
       "presenceNone": "Aucun jeton n'est défini, ni ici ni sur le serveur : les signalements du capteur sont refusés.",
       "presenceTokenLabel": "Ou saisissez votre propre jeton",
       "presenceTokenPlaceholder": "Au moins 16 caractères"
+    },
+    "instance": {
+      "title": "Cette installation",
+      "description": "Paramètres de ce serveur Kinboard plutôt que d'une famille. Seule la famille qui le gère les voit.",
+      "save": "Enregistrer",
+      "saved": "Enregistré",
+      "saveFailed": "Impossible d'enregistrer. Réessayez."
     }
   },
   "settingsSearch": {
@@ -5139,13 +5146,18 @@
       "item_weather": "Définir votre emplacement météo",
       "item_homeassistant": "Connecter Home Assistant (optionnel)",
       "resume": "Reprendre l'installation",
-      "finish": "Terminer"
+      "finish": "Terminer",
+      "item_pin": "Protéger les paramètres par un code PIN"
     },
     "region": {
       "title": "Où habitez-vous ?",
       "description": "Les jours fériés et les jours sans école dépendent de votre pays et de votre région. Kinboard affiche ceux de chez vous.",
       "preselectedHint": "Proposé d'après votre fuseau horaire. Modifiez-le s'il est faux.",
-      "saveError": "Impossible d'enregistrer votre lieu de résidence. Réessayez."
+      "saveError": "Impossible d'enregistrer votre lieu de résidence. Réessayez.",
+      "languageLabel": "Langue",
+      "timeZoneLabel": "Fuseau horaire",
+      "timeZoneDescription": "Les horloges, les rappels et le début de la journée le suivent. Automatique signifie le fuseau de ce serveur.",
+      "regionLabel": "Où vous habitez (pour les jours fériés)"
     },
     "people": {
       "title": "Qui compose votre famille ?",
@@ -5207,6 +5219,42 @@
       "title": "Tout est prêt — bienvenue sur Kinboard",
       "description": "Nous avons enregistré votre famille, vos membres et vos intégrations. Le tableau de bord est prêt. Vous pouvez revenir aux Paramètres à tout moment.",
       "cta": "Aller au tableau de bord"
+    },
+    "install": {
+      "title": "Configurer cette installation",
+      "description": "Deux choses qui appartiennent à ce serveur Kinboard plutôt qu'à votre famille. Vous les voyez parce que vous avez créé sa première famille. Tout peut être passé ; tout se retrouve plus tard dans les paramètres.",
+      "addressLabel": "Adresse",
+      "addressBody": "Kinboard met cette adresse dans les liens qu'il donne, comme le lien d'abonnement au calendrier. C'est l'adresse à laquelle cette page a été ouverte. Changez-la si les autres appareils joignent Kinboard sous un autre nom.",
+      "addressPlaceholder": "http://192.168.1.20:3000",
+      "addressFromEnvironment": "Défini sur le serveur (SITE_URL) : {value}. Ce réglage l'emporte ; changez-le là-bas.",
+      "addressInvalid": "Ce n'est pas une adresse comme http://192.168.1.20:3000 : un schéma, un hôte et un port, rien après.",
+      "dataTitle": "Où sont vos données",
+      "dataBody": "Tout reste sur ce serveur. Calendriers, listes, personnes et réglages sont dans sa base de données ; photos et autres fichiers envoyés sont à côté. Les deux se trouvent dans le dossier de données de l'installation (<code>DATA_DIR</code>, <code>./data</code> à côté du fichier compose sauf si vous en avez choisi un autre). Sauvegardez ce dossier, ou téléchargez une copie à tout moment dans Paramètres → Données & sauvegarde.",
+      "saveError": "Impossible d'enregistrer l'adresse. Réessayez."
+    },
+    "push": {
+      "title": "Notifications",
+      "ready": "Les notifications push vers les téléphones et navigateurs fonctionnent déjà : cette installation a créé ses propres clés.",
+      "notReady": "Le push n'est pas encore disponible : ce serveur n'a pas de clés push. Tout le reste fonctionne sans.",
+      "contactLabel": "Contact pour les services push (facultatif)",
+      "contactBody": "Les services push comme ceux de Google, d'Apple et de Mozilla peuvent écrire à cette adresse si les notifications de ce serveur posent problème. Sans adresse, ils reçoivent admin@example.com.",
+      "contactPlaceholder": "vous@example.com",
+      "contactFromEnvironment": "Défini sur le serveur (VAPID_SUBJECT) : {value}. Ce réglage l'emporte ; changez-le là-bas.",
+      "contactInvalid": "Saisissez une adresse e-mail ou une adresse https://.",
+      "deviceHint": "Chaque téléphone ou tablette active les notifications pour lui-même, dans Paramètres → Notifications.",
+      "saveError": "Impossible d'enregistrer le contact. Réessayez."
+    },
+    "pin": {
+      "title": "Protéger les paramètres par un code PIN",
+      "description": "N'importe qui dans la pièce peut toucher un écran mural. Avec un code à quatre chiffres, les paramètres, les clés et les intégrations restent fermés jusqu'à ce qu'un adulte le saisisse. Tout le reste reste ouvert.",
+      "enter": "Choisissez quatre chiffres",
+      "confirm": "Saisissez-les à nouveau",
+      "mismatch": "Ils ne correspondent pas. Choisissez à nouveau quatre chiffres.",
+      "hint": "Chaque appareil le demande avant d'ouvrir les paramètres. Modifiez-le ou supprimez-le dans Paramètres → Sécurité.",
+      "digitLabel": "Chiffre {position} du code",
+      "saved": "Code PIN défini",
+      "already": "Cette famille a déjà un code PIN. Vous pouvez le modifier dans Paramètres → Sécurité.",
+      "saveError": "Impossible de définir le code PIN. Réessayez."
     }
   },
   "einkaufen": {
