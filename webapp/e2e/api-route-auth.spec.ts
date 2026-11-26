@@ -217,6 +217,11 @@ test("a route that still takes family_id checks it against the session", () => {
     "session/token/route.ts",
     // Deletes the caller's own push subscription, scoped to session.familyId.
     "notifications/unsubscribe/route.ts",
+    // Devices that need push turned on again after a key change (RFC-023
+    // §6.4): the regex matches the `family_id` column both queries and the
+    // dismiss are scoped by, from auth.session.familyId; GET carries nothing,
+    // POST an action only.
+    "notifications/push-reset/route.ts",
     // Fetches a URL the user typed and reports what came back. No family.
     "calendar/test-ics/route.ts",
     // Searches the shared catalog and the web. No family-owned rows.

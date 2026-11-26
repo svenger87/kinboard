@@ -2783,6 +2783,15 @@
       "retryTooSoon": "几分钟前已经请求过重试。请稍候再试。",
       "updatedLine": "已于 {date} 自动更新到 {version}"
     },
+    "pushReset": {
+      "title": "需要重新开启推送通知",
+      "body": "此服务器的推送密钥已更改（恢复时没有包含配置文件夹，或生成了新密钥），因此这些设备不再收到通知。需要在每台设备上重新开启推送：在该设备的“设置 → 通知”中开启。",
+      "devices": "设备：{names}",
+      "thisDevice": "{name}（本设备）",
+      "open": "本设备的通知设置",
+      "dismiss": "关闭",
+      "dismissFailed": "无法关闭此提示。"
+    },
     "itemNewsLabel": "新闻来源",
     "itemNewsDescription": "选择哪些 RSS 订阅源填充新闻小组件和 /news 页面",
     "itemPluginsLabel": "插件",

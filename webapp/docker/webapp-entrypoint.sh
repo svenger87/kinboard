@@ -151,6 +151,39 @@ SQL
   then
     echo "[entrypoint] could not record the server's time zone; the database falls back to Europe/Berlin" >&2
   fi
+
+  # The push key (RFC-023 §6.4): which VAPID public key this install runs
+  # with, against the one its push subscriptions were made with. A different
+  # one (a restore without the config folder, regenerated keys) means those
+  # subscriptions can never receive a push again: they are switched off, the
+  # log says so, and Settings asks the family to turn push on again on each
+  # device (migrations/095, src/lib/push-key.ts, which computes the same
+  # fingerprint: SHA-256 of the public key's bytes; nothing secret).
+  push_fp="$(PUSH_PUBLIC_KEY="${VAPID_PUBLIC_KEY:-${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}}" node -e '
+    const s = (process.env.PUSH_PUBLIC_KEY || "").trim();
+    const b = Buffer.from(s, "base64url");
+    if (s && b.length) process.stdout.write("sha256:" + require("node:crypto").createHash("sha256").update(b).digest("hex"));
+  ' 2>/dev/null || true)"
+  if [ -n "$push_fp" ]; then
+    if push_out="$(PGOPTIONS="-c client_min_messages=warning" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+                     -v ON_ERROR_STOP=1 -v fp="$push_fp" -tAq -F ' ' 2>&1 <<'SQL'
+SELECT coalesce(previous, '-'), backfilled, deactivated, removed FROM kinboard.push_key_check(:'fp');
+SQL
+)"; then
+      read -r push_prev push_backfilled push_off push_removed <<EOF
+$push_out
+EOF
+      if [ "${push_off:-0}" != 0 ]; then
+        echo "[entrypoint] push: the VAPID key changed (was ${push_prev}, now ${push_fp}); ${push_off} device subscription(s) made with the old key can't receive notifications any more and were switched off (and ${push_removed:-0} inactive one(s) of that key removed). Push needs to be turned on again on each device; Settings lists them." >&2
+      elif [ "$push_prev" = "-" ]; then
+        echo "[entrypoint] push: recorded the VAPID key's fingerprint (${push_fp}); ${push_backfilled:-0} existing subscription(s) marked with it"
+      elif [ "$push_prev" != "$push_fp" ]; then
+        echo "[entrypoint] push: the VAPID key changed (was ${push_prev}, now ${push_fp}); no device had notifications on with the old key"
+      fi
+    else
+      echo "[entrypoint] could not check the push key against the subscriptions: $push_out" >&2
+    fi
+  fi
 else
   echo "[entrypoint] no migrations directory at $MIGRATIONS_DIR; skipping."
 fi

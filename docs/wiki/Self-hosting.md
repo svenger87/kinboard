@@ -306,6 +306,39 @@ Files are write-once, so this can be `tar`'d while the stack is up.
 
 Per-family settings live in `public.settings` (JSONB) and come along with the `pg_dump`.
 
+### The config folder (installs that have one)
+
+An install on the one-file layout keeps its secrets as files instead of in
+`.env`: the database password, the JWT secret, the cron and presence tokens,
+and the push (VAPID) key pair, under `secrets/` in the config folder
+(`KINBOARD_CONFIG_DIR`, or `${DATA_DIR}/config` for an install moved over from
+the git layout). For such an install that folder is the third part of a backup:
+
+- a restored **database folder** does not start without it: the start step
+  refuses, because the database exists and its password file does not;
+- a **dump** restored into a new install starts with new secrets, but the push
+  keys are new too, so every device has to turn notifications on again.
+
+Archive it as root, so owners and modes are kept, and keep the archive where
+only root can read it, since it holds every secret of the install:
+
+```bash
+umask 077
+sudo tar --numeric-owner -czf /backups/kinboard-config-$(date +%F).tar.gz -C "${DATA_DIR}/config" .
+sudo chmod 600 /backups/kinboard-config-$(date +%F).tar.gz
+```
+
+With named volumes instead of a folder, the same through a container:
+
+```bash
+docker run --rm -v kinboard-config:/config:ro -v /backups:/out --entrypoint sh supabase/postgres:15.14.1.159 \
+  -c 'umask 077; tar --numeric-owner -czf /out/kinboard-config-'"$(date +%F)"'.tar.gz -C /config .'
+```
+
+A git install on the legacy compose file (`webapp/docker/docker-compose.yml`
+with a full `.env`) has no config folder: its secrets are in `.env`, which you
+back up with the checkout as before.
+
 ### Restoring one
 
 Bring the stack up **first**, then restore the data into it:
@@ -326,6 +359,22 @@ docker exec -i kinboard-db pg_restore -U supabase_admin -d postgres \
 # 3. put the uploaded files back
 tar -xzf /backups/kinboard-storage-2026-08-09.tar.gz -C "${DATA_DIR}"
 ```
+
+**An install with a config folder** puts that folder back **before the first
+`up`**, so that the stack starts with its old secrets rather than generating
+new ones. As root, so the archive's owners and modes (`0750`/`0640`, `root:0`)
+come back as they were and never wider:
+
+```bash
+sudo mkdir -p "${DATA_DIR}/config"
+sudo tar --numeric-owner -xzpf /backups/kinboard-config-2026-08-09.tar.gz -C "${DATA_DIR}/config"
+```
+
+The automatic update's own archive (`pre-upgrade-<timestamp>-config.tar.gz`,
+below) restores the same way. Without the config folder the database folder
+cannot be restored (see above), and a dump restored into a fresh install
+works but has new push keys: Settings then lists the devices that need
+notifications turned on again, and the webapp's log says so at start.
 
 The files are served straight from `${DATA_DIR}/storage/files/`, so once they
 are back the pictures load; there is nothing to restart.
@@ -408,6 +457,16 @@ For a remote deploy, `webapp/deploy.sh` syncs the source tree over SSH and runs 
 > `pre-upgrade-<timestamp>-storage.tar.gz`; set `KINBOARD_BACKUP_DIR` to put
 > them elsewhere, and `BACKUP_KEEP` (default 5) for how many to keep. Nothing
 > is dumped on a run where no image changed.
+>
+> An install that keeps its secrets in a [config folder](#the-config-folder-installs-that-have-one)
+> gets a third file, `pre-upgrade-<timestamp>-config.tar.gz`: readable by root
+> only (`0600`), with each file's owner and mode kept, checked file by file
+> against the folder before the update goes on, and kept and pruned with the
+> other two. If the backup folder can't keep that mode (a network share that
+> ignores permissions), the update stops rather than leave the secrets
+> readable there; point `KINBOARD_BACKUP_DIR` at a folder that keeps them. An install without one (every git install on the legacy compose
+> file) gets exactly the two files it always has. `.env` is never copied into
+> a backup.
 >
 > **If your auto-update overlay predates 1.11, recreate the webhook once:**
 >

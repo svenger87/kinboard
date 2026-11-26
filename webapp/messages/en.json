@@ -2783,6 +2783,15 @@
       "retryTooSoon": "Kinboard was asked to try again a few minutes ago. Please wait before asking again.",
       "updatedLine": "Updated automatically to {version} on {date}"
     },
+    "pushReset": {
+      "title": "Push notifications need to be turned on again",
+      "body": "This server's push key has changed (it was restored without its config folder, or got new keys), so these devices no longer receive notifications. Push needs to be turned on again on each device, under Settings → Notifications on that device.",
+      "devices": "Devices: {names}",
+      "thisDevice": "{name} (this device)",
+      "open": "Notifications on this device",
+      "dismiss": "Dismiss",
+      "dismissFailed": "Couldn't dismiss the notice."
+    },
     "itemNewsLabel": "News sources",
     "itemNewsDescription": "Pick which RSS feeds populate the news widget and the /news page",
     "itemPluginsLabel": "Plugins",

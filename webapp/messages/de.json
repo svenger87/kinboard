@@ -2783,6 +2783,15 @@
       "retryTooSoon": "Kinboard wurde vor wenigen Minuten schon gebeten, es erneut zu versuchen. Bitte warte, bevor du es noch einmal versuchst.",
       "updatedLine": "Automatisch auf {version} aktualisiert am {date}"
     },
+    "pushReset": {
+      "title": "Push-Benachrichtigungen müssen wieder eingeschaltet werden",
+      "body": "Der Push-Schlüssel dieses Servers hat sich geändert (er wurde ohne seinen Config-Ordner wiederhergestellt oder hat neue Schlüssel bekommen), deshalb bekommen diese Geräte keine Benachrichtigungen mehr. Push muss auf jedem Gerät wieder eingeschaltet werden, dort unter Einstellungen → Benachrichtigungen.",
+      "devices": "Geräte: {names}",
+      "thisDevice": "{name} (dieses Gerät)",
+      "open": "Benachrichtigungen auf diesem Gerät",
+      "dismiss": "Schließen",
+      "dismissFailed": "Der Hinweis konnte nicht geschlossen werden."
+    },
     "itemNewsLabel": "Nachrichtenquellen",
     "itemNewsDescription": "Welche RSS-Feeds das News-Widget und die /news-Seite befüllen",
     "itemPluginsLabel": "Plugins",

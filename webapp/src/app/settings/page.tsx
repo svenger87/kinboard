@@ -45,6 +45,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVersionCheck } from "@/hooks/use-version-check";
 import { useUpdateStatus } from "@/hooks/use-update-status";
 import { UpdateStatusNotice } from "@/components/settings/update-status-notice";
+import { usePushReset } from "@/hooks/use-push-reset";
+import { PushResetNotice } from "@/components/settings/push-reset-notice";
 import { showsUpdatedLine } from "@/lib/update-status";
 import { usePWA } from "@/hooks/use-pwa";
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
@@ -110,6 +112,7 @@ export default function SettingsPage() {
   const isOnline = useIsOnline();
   const { data: version } = useVersionCheck();
   const { data: updateStatus } = useUpdateStatus();
+  const { data: pushReset } = usePushReset(!!family);
   const realtimeStatus = useRealtimeStatusStore((s) => s.status);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
@@ -504,6 +507,9 @@ export default function SettingsPage() {
 
         {/* An automatic update that did not start and was rolled back (RFC-023 §4.11.4). */}
         <UpdateStatusNotice status={updateStatus} />
+
+        {/* The server's push key changed: devices that need push turned on again (RFC-023 §6.4). */}
+        <PushResetNotice devices={pushReset} currentDeviceId={device?.id} />
 
         {/* The search box. While it holds a query, its results take the place
             of the join code card and the menu below it. */}
