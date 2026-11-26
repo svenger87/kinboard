@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Proposed 2026-11-26, for the owner's review |
+| **Status** | Proposed 2026-11-26, for the owner's review. Decided 2026-11-26: §11.12 (`safeupdate` in both the database and the app); automatic updates on every shape (§4.7, with RFC-023 §4.11) |
 | **Date** | 2026-11-26 |
 | **Depends on** | [RFC-023](023-one-file-install.md) (#540): the secrets store and its init step, the base schema in the image, the job schedule in the image, `compose.yml`. This RFC adds nothing RFC-023 would have to change |
 | **Discussion** | #539 |
@@ -225,21 +225,102 @@ explicit `REVOKE`s:
   `test-backup-restore.sh:199`, `webapp-entrypoint.sh:120`).
 - **The roles.** It creates `postgres` and the four API roles with the
   attributes, memberships, settings and default privileges above.
-- **`supautils`.** Leaves it out. It is Supabase's extension guard and has
-  nothing to guard here.
-- **`safeupdate` needs a replacement, not an omission.** On
-  `supabase/postgres` it makes every session through `authenticator` refuse an
-  `UPDATE` or `DELETE` without a `WHERE` clause. That includes the service
-  role, which bypasses RLS, so it is what stops a filterless server-side
-  delete from emptying a table across all families. Alpine 3.24 doesn't
-  package it (`apk search safeupdate`: nothing). Two layers:
-  - the all-in-one image builds `pg-safeupdate` from source in a build stage,
-    since it is one small C file;
-  - the shared fetch layer of both clients refuses a `PATCH` or `DELETE`
-    through PostgREST that carries no filter, which also covers TrueNAS's stock
-    sidecar, where no extension can be added.
+- **`supautils`.** Leaves it out, and that is no loss on stock PostgreSQL
+  17. On `supabase/postgres` it is preloaded for `authenticator` too, and its
+  settings there (read-only, 2026-11-26) do three things:
+  - `supautils.reserved_roles` stops non-superusers from altering
+    `anon`, `authenticated`, `service_role`, `authenticator` and Supabase's own
+    roles;
+  - `privileged_extensions` lets the non-superuser `postgres` create
+    extensions such as `uuid-ossp` and `pg_cron`;
+  - `policy_grants` covers the `auth`, `storage` and `realtime` schemas.
 
-  The CI check in §6.5 proves the refusal on every shape.
+  None of this applies to API sessions, because `anon`, `authenticated` and
+  `service_role` hold no `CREATEROLE`. Only `postgres`, the migration runner's
+  role, has it. On PostgreSQL 16 and later, `CREATEROLE` alone no longer allows
+  altering a role it doesn't hold `ADMIN OPTION` on
+  (https://www.postgresql.org/docs/16/release-16.html, "Restrict the
+  privileges of CREATEROLE"), and the bootstrap creates the API roles as
+  `supabase_admin` without granting `postgres` that option. Stock 17 gives the
+  `reserved_roles` protection by itself (inferred from the release notes; the
+  role comparison in §6.5 also checks `pg_auth_members.admin_option`).
+  Extensions are created by `db-init` as the superuser, so
+  `privileged_extensions` has nothing to permit.
+
+  Existing installs keep `supabase/postgres` and its `supautils` unchanged.
+- **`safeupdate`, decided 2026-11-26: in the database and in the app** (§11.12).
+  On `supabase/postgres` it makes every session through `authenticator` refuse
+  an `UPDATE` or `DELETE` without a `WHERE` clause. Checked on the
+  development database (`LOAD 'safeupdate'`, a temporary table, rolled back):
+  - `DELETE FROM t` gives "DELETE requires a WHERE clause";
+  - `UPDATE t SET …` gives "UPDATE requires a WHERE clause";
+  - `WHERE true` passes. It checks that a clause exists, not that it narrows
+    anything.
+
+  That includes the service role, which bypasses RLS, so it is what stops a
+  filterless server-side delete from emptying a table across all families. No
+  shape may be weaker than that:
+  - **In the database, on every shape that doesn't run `supabase/postgres`.**
+    `pg-safeupdate` is built from source at a pinned release:
+    - tag `1.7`, commit `37dbc9c4acf5e2504adf2b218e9c6b41751022f3`;
+    - the GitHub tarball `archive/refs/tags/1.7.tar.gz` checked against
+      sha256 `456aa0ceffc412292c41d88aad7c91ada33fb4af05f355ba78e5bcf2cdf56377`
+      (computed 2026-11-26). The build fails on any mismatch.
+
+    It is ISC-licensed and one C file (`safeupdate.c`). At least 1.6 is
+    required, because 1.6 is the release that "Do[es] not block pg_upgrade"
+    (its `NEWS`), which §4.3 needs. Existing installs run 1.4, inside
+    `supabase/postgres`. The bootstrap sets
+    `ALTER ROLE authenticator SET session_preload_libraries = 'safeupdate'`,
+    the same as `supabase/postgres` does today, minus `supautils`. Where it
+    is built:
+    - **the all-in-one image:** a build stage compiles it against Alpine's
+      `postgresql17-dev`, and the runner copies `safeupdate.so` into
+      PostgreSQL's library directory;
+    - **the stock-PostgreSQL compose shape** (new store installs, §4.5): a
+      small database image of our own, `ghcr.io/svenger87/kinboard-postgres:17`.
+      It is `postgres:17-alpine`, pinned by digest, plus that one file, built
+      and published by the same `docker.yml` matrix with the same labels,
+      SBOM and provenance (§6). A derived image was preferred over
+      alternatives:
+      - mounting the library from a volume would put a shared object on a
+        user-writable path;
+      - `LOAD` at session start can't be forced on PostgREST's connections;
+      - relying on the app alone would be weaker than today for any request
+        that reaches `/rest/v1` with a family token.
+    - **TrueNAS** therefore lists this image as a plain service, not through
+      `tpl.deps.postgres`, whose stock image can't load the library. Its data
+      directory is stock PostgreSQL 17's plus one library, so TrueNAS's
+      `postgres-upgrade` image still applies to it (inferred; rehearsed in §10
+      before listing).
+  - **In the app, before a request leaves.** Today's PostgREST client is the
+    `supabase-js` builder, and the removal phase's is the `postgrest-js`
+    wrapper (§4.6). Both go through the custom `fetch` of the two factories in
+    `src/lib/supabase/client.ts:91` and `server.ts`. That `fetch` refuses
+    any `PATCH` or `DELETE` to `/rest/v1/<table>` whose query string carries no
+    filter. "Filter" means any parameter other than `select`, `order`,
+    `limit`, `offset`, `columns` and `on_conflict`. It throws
+    `UnfilteredWriteError` naming the table, before anything is sent. One
+    place covers every call path: the browser's family client, the server's
+    service-role client, the `x-kinboard-actor: integration` client and
+    `.rpc()`, which is a `POST` and unaffected.
+
+    The guard has no access to a function's SQL. A function called through
+    `.rpc()` is still covered by `safeupdate` in the database, which hooks every
+    statement of the session.
+
+    **Deliberate whole-table writes opt out explicitly**, with
+    `.allowUnfiltered("reason")`. That is a wrapper method that sets the header
+    `x-kinboard-allow-unfiltered: <reason>`, which the `fetch` strips before
+    sending. It is greppable, and a CI check lists every use, so each one is
+    seen in review. It doesn't bypass `safeupdate`: a real whole-table write
+    still has to say `WHERE true` (a filter like `id=not.is.null`) on purpose.
+    **Today there are none.** A scan of `src` found 132 `update()` and 65
+    `delete()` calls on `.from()` chains, every one with a filter; its single
+    hit was `Set.delete`, not PostgREST.
+
+  The CI checks in §6.5 prove both layers on every shape, and prove that each
+  fails when its protection is removed.
 - **The publication.** Creates `supabase_realtime`, empty, so every
   `ALTER PUBLICATION … ADD TABLE` in `init.sql` and the migrations succeeds. A publication without
   a subscriber holds no slot and costs nothing.
@@ -298,11 +379,13 @@ The image pins one major version. When a release moves it (17 to 18, say):
 2. At start, `PG_VERSION` in `/data/db` names the old major. `init` takes a
    verified dump into `/data/backups/` first, with the same checks as the
    self-update (`kinboard-self-update.sh:131-160`).
-3. It runs `pg_upgrade` in copy mode, not `--link`, so the old cluster stays
-   intact until the new one has started. It checks for free space for a second
-   copy first and refuses, with a message, if there isn't any.
-4. After the first healthy start on the new major, the old cluster moves to
-   `/data/db.pg15.old`. The app says once in Settings that it can be deleted.
+3. It runs `pg_upgrade` in copy mode, not `--link`, into `/data/db.new`, so
+   the old cluster in `/data/db` stays untouched. It checks for free space for
+   a second copy first and refuses, with a message, if there isn't any.
+4. Only when the new server answers does a rename make `/data/db.new` the
+   live `/data/db` and the old one `/data/db.old`. After the first healthy
+   minute the app says once in Settings that `/data/db.old` can be deleted.
+   Until that minute, a rollback (§4.7) renames them back.
 
 A failed upgrade leaves `/data/db` untouched. The container stops with the
 reason in its log. The previous image tag still runs on it.
@@ -360,9 +443,10 @@ its current license (§5.1). So:
   It is not on the critical path of any compose listing.
 - **The legacy git install** stays as RFC-023 leaves it.
 
-**The database in the store listings.** TrueNAS's catalogue builds a stock
-`postgres` sidecar through its own helper, with its own major-upgrade image
-(§5.2). Umbrel and CasaOS take any image. Stock PostgreSQL works if the
+**The database in the store listings.** Every listing runs
+`kinboard-postgres:17`, stock PostgreSQL 17 plus `safeupdate` (§4.2.1). That
+includes TrueNAS, whose own helper builds a plain `postgres` sidecar that can't
+load the library (§5.2). Stock PostgreSQL works if the
 supabase roles and the `supabase_realtime` publication exist, so the role
 bootstrap from §4.2 moves into RFC-023's `kinboard-db-init`, which runs from
 the webapp image against any PostgreSQL. It creates the roles and the
@@ -490,6 +574,80 @@ The alternative, a generator of our own over `information_schema`, is about
 6. `src/lib/supabase/` renamed;
 7. one release later, the legacy `SUPABASE_URL` and anon-key paths removed.
 
+### 4.7 Updates for the all-in-one image and the store installs
+
+RFC-023 §4.11 states the auto-update contract and its two git/compose shapes:
+
+1. the update arrives without the household doing anything;
+2. a verified backup comes first;
+3. migrations run once;
+4. only what changed is recreated;
+5. the jobs stay current;
+6. the log is clear;
+7. a failed update recovers on its own.
+
+This section applies the contract to the all-in-one image and to installs made
+from a store.
+
+**An all-in-one update is a new container.** The image never replaces itself
+from inside. A process that pulls its own successor and stops itself has no
+one left to roll back when the successor fails. The container is replaced from
+outside, by one of these, per platform:
+
+| Platform | Who replaces the container | What we provide | Contract items covered by us, not the platform |
+|---|---|---|---|
+| **Plain Docker / any Compose UI** | `kinboard-updater` in **container mode** (RFC-023 §4.11.3), opted in with a second container started next to it. Watchtower is not recommended: it was archived upstream in 2024 (`docker-compose.diun.yml:2-5`) and has no backup or health rollback | the updater | all seven |
+| **Unraid** (template by URL; CA when §11.2 allows) | Unraid's Docker page shows "update ready" when the registry digest of the template's tag differs from the local image, and **Apply Update** recreates it from the template (inferred, Unraid's standard behaviour; to confirm in §10). Fully automatic only with the community "Auto Update Applications" plugin, also inferred. Or `kinboard-updater` in container mode | the template's `Repository` tag; `Changes` from `CHANGELOG.md` (§5.1) | backup (2), migrations once (3, in the image), health and rollback (7), by the image's own start checks below; with Unraid's own mechanism, the rollback is the household's (the previous tag in the template) |
+| **TrueNAS** | the catalog: Renovate bumps our app's image versions (§5.2), and TrueNAS offers the app update in its UI | a release with a semver tag and a stable image digest; migrations safe to run unattended (they are: the entrypoint runs them once, `webapp-entrypoint.sh:69-87`); the compose shape, not the all-in-one | 2, 3, 7 by the image; TrueNAS's app upgrade can snapshot its ix-volumes first (inferred, to confirm) |
+| **CasaOS / ZimaOS** | the store, when our listing's `version` changes (§5.3) | the listing regenerated from `dist/kinboard.yaml` with the new version and digest (§7) | 2, 3, 7 by the image |
+| **Umbrel** | a changed manifest `version` offers the update (§5.4, read) | the manifest and compose regenerated per release, images pinned by digest | 2, 3, 7 by the image |
+
+**What the image itself guarantees at every start**, whatever replaced it.
+This is what makes a store's own update button safe:
+
+- **A verified backup before any migration that will run.** The entrypoint
+  asks `migrate.sh` which files are pending, a dry run of the checksum logic
+  at `migrate.sh:76-96`. If any are, it first writes a verified dump to
+  `/data/backups/` (all-in-one) or the config volume's `backups/` (compose),
+  with the self-update's checks (`kinboard-self-update.sh:131-160`), keeping
+  five. No verified dump, no migration, no start. The log says why.
+- **Migrations once**, as today.
+- **A health check** in the image (§6), so every platform's own health display
+  is truthful.
+- **A previous-version record.** The image writes its version and digest to
+  `/data/config/updater/last-good` after its first healthy minute. On a start
+  whose migrations fail, the log and the status record (RFC-023 §4.11.4) name
+  the version to go back to. Settings shows the RFC-023 rollback notice as soon
+  as the previous image runs again.
+
+**PostgreSQL major upgrades in the all-in-one image are never automatic
+without a verified dump** (§4.3). The order:
+
+1. the dump is verified;
+2. `pg_upgrade` writes the new cluster into `/data/db.new`, leaving `/data/db`
+   untouched;
+3. the switch is a rename, done only after the new server answers, keeping
+   the old cluster as `/data/db.old`;
+4. if the first healthy minute doesn't come, the previous image's start
+   renames them back (§4.3 step 4).
+
+A failure at any step leaves `/data/db` as the previous image needs it, so
+rolling back to the previous tag works. Verified in §10.
+
+**How our tags map to the stores' channels**
+(`.github/workflows/docker.yml:133-158`):
+
+| Store | Stable | Release candidates | Pinned | Updates automatically? |
+|---|---|---|---|---|
+| Unraid (template) | `latest` (the default) | `next`, offered through CA's `Branch` element as a second tag (field reference, §5.1) | a version tag entered by the household | no; "update ready", then Apply. Yes with the Auto Update plugin or the updater |
+| TrueNAS | the catalog's version, a pinned `X.Y.Z@sha256` (§5.2) | not offered: the community train lists releases only | the catalog pins anyway | asks the household (inferred) |
+| CasaOS / ZimaOS | the listing's `version`, pinned | not offered | — | asks the household (inferred) |
+| Umbrel | the manifest's `version`, digest-pinned (§5.4) | not offered in the main store; possible in a community store (§11.10) | — | as Umbrel's settings say (inferred) |
+| Portainer templates | `latest` | a second template on `next` | — | no; the updater in container mode |
+| `compose.yml` / plain Docker | `latest` | `next` | `X.Y.Z` | with the updater, yes |
+
+Pinned tags never move, through any of these.
+
 ## 5. The stores
 
 What each store requires, as its own documentation says on 2026-11-26.
@@ -536,14 +694,14 @@ the README's link to `CONTRIBUTING.md` is a 404).
 
 | | Requirement | Kinboard |
 |---|---|---|
-| Shape | Docker Compose, rendered from Jinja2 with TrueNAS's Python library: `ix-dev/community/<app>/` with `app.yaml`, `ix_values.yaml`, `questions.yaml`, `README.md`, `templates/docker-compose.yaml`, `templates/test_values/basic-values.yaml` (required) (read) | the compose shape. PostgreSQL through `tpl.deps.postgres(…)`, as `paperless-ngx`, `mealie` and `immich` do (read) |
+| Shape | Docker Compose, rendered from Jinja2 with TrueNAS's Python library: `ix-dev/community/<app>/` with `app.yaml`, `ix_values.yaml`, `questions.yaml`, `README.md`, `templates/docker-compose.yaml`, `templates/test_values/basic-values.yaml` (required) (read) | the compose shape. PostgreSQL as its own service from `kinboard-postgres:17`. Other apps use `tpl.deps.postgres(…)` (`paperless-ngx`, `mealie`, `immich`, read), but its stock image can't load `safeupdate` (§4.2.1) |
 | Train | new apps go to `community`; `stable` and `enterprise` are iXsystems' (read) | `community` |
 | Images | pinned `tag@sha256`; keys in `ix_values.yaml` end in `image` (read) | the generator pins the index digest of each release |
 | User | `run_as_context` declares uid/gid 568 ("apps"), as metadata (read) | the webapp image honours `PUID`/`PGID` (§6.3); PostgreSQL through TrueNAS's helper |
 | Storage | `ix_volume` by default, `host_path` as an alternative (read) | three volumes, as in RFC-023 |
 | Health | `app.healthcheck.set_test(…)`; best practice, not stated as required (read) | `/api/health` |
 | Icon, screenshots | `icon` and `screenshots` in `app.yaml`; the reviewer uploads them to TrueNAS's CDN (read) | from §7 |
-| PostgreSQL majors | apps ship TrueNAS's `postgres-upgrade` image for major upgrades (read, `paperless-ngx/ix_values.yaml`) | stock PostgreSQL 17 (§4.5); majors handled by TrueNAS's mechanism |
+| PostgreSQL majors | apps ship TrueNAS's `postgres-upgrade` image for major upgrades (read, `paperless-ngx/ix_values.yaml`) | `kinboard-postgres:17` as a plain service rather than `tpl.deps.postgres`, because the stock sidecar can't load `safeupdate` (§4.2.1); TrueNAS's `postgres-upgrade` image to be rehearsed against it before listing |
 | Process | open an issue before the pull request; CI tests, then human review; inclusion at their discretion; apps that use the TrueNAS host API are refused (read) | an issue first, in phase 6 |
 | Updates | "updates are picked up automatically" by their Renovate bot; no version-bump PRs; bump `version` for packaging changes (read) | nothing to do per release. The compose revision (RFC-023 §4.6) becomes a packaging change |
 
@@ -729,7 +887,9 @@ A new workflow, `images.yml`, on pull requests that touch the Dockerfile,
 | Render every store listing from the metadata file (§7) and validate it: XML schema for CA, `docker compose config` for the compose-based stores, the store's own linter where one exists | ✓ | — |
 | **RLS on stock PostgreSQL, mandatory.** A database set up fresh on `postgres:17` with the bootstrap (§4.2.1) and the full migration run, then: every spec that uses the database helper (`e2e/whole-database.ts`; 59 specs, among them `families-grants`, `camera-takeover-grants`, `pocket-money-grants`, `school-holidays-grants`, `layouts-db`, `family-delete-db`), pointed at it with `KINBOARD_DB_CONTAINER`; the static RLS specs (`rls-coverage`, `family-scope`); and a new `rls-matrix` spec over `/rest/v1` for **every** table with RLS. Through `/rest/v1`, the `rls-matrix` spec checks that family A's token reads none of family B's rows, can't insert a row for B, and changes 0 of B's rows on update or delete; that the bare anon role (no `Authorization`) reads 0 rows from every family table; and that the service role reads exactly the row counts a superuser `count(*)` gives, as today | ✓ | ✓ |
 | **Identical policies.** After the full migration run on `supabase/postgres:15.14.1.159`, on `postgres:15` and on `postgres:17`, dump and compare: `pg_policies` (table, name, permissive, roles, command, `qual`, `with_check`); `relrowsecurity`/`relforcerowsecurity` for every `public` table; `information_schema.role_table_grants` and `routine_privileges` for `anon`, `authenticated` and `service_role`; `pg_roles` attributes, `pg_auth_members` and `pg_db_role_setting` for the roles of §4.2.1; `pg_default_acl`. Any difference fails. Two comparisons: the first pair isolates the image's differences from the version's, the second the version's. A deparse difference between majors in a `qual` is reviewed once and then fails like any other | ✓ | — |
-| **Filterless writes refused.** As the service role, a `DELETE` and a `PATCH` without a filter through `/rest/v1` and through the server client are refused on every shape (§4.2.1, `safeupdate`) | ✓ | — |
+| **Filterless writes refused, in the database.** On `supabase/postgres` 15 (today's compose), `kinboard-postgres:17` (the stock compose) and the all-in-one image: as `authenticator` switched to `service_role` and to `authenticated`, an `UPDATE` and a `DELETE` without `WHERE` fail with safeupdate's message, and the row count is unchanged. Sent straight to PostgREST inside the stack, bypassing the app's guard, so the database layer is what's tested. **Proven to fail:** the same job runs once with `session_preload_libraries` reset on `authenticator`, and must then see the rows gone | ✓ | ✓ |
+| **Updates, every shape.** RFC-023 §8.4's two-updates-in-a-row run for the all-in-one image under `kinboard-updater` in container mode: first update backs up and recreates; second does nothing; a broken build rolls back with the notice; a pinned tag stays; offline is skipped and retried. Plus the all-in-one image's own start checks: a pending migration without a verifiable dump refuses to start, and the major-upgrade failure leaves `/data/db` untouched | ✓ | ✓ |
+| **Filterless writes refused, in the app.** A unit test (`unit` project) calls `update()` and `delete()` without a filter on the browser and the server client with a stub `fetch`: `UnfilteredWriteError`, and the stub is never called. With `.allowUnfiltered("test")` the request goes out without the marker header. **Proven to fail:** the test also runs against a client built with the guard disabled (a test-only flag) and asserts the stub *was* called, so a guard that never fires can't pass. A second check lists every `allowUnfiltered(` in `src`; the list is a committed file, and a new use without updating it fails | ✓ | — |
 
 The arm64 jobs run on the `ubuntu-24.04-arm` runners the build already uses
 (`docker.yml:98`).
@@ -824,6 +984,7 @@ Phase 7 doesn't wait for phase 6: it needs only phase 3.
 | Phase | What | Needs |
 |---|---|---|
 | 0 | RFC-023, built and rehearsed | — |
+| 1a | **The app-side guard against filterless writes** (§4.2.1): the `fetch` check, `allowUnfiltered`, the unit test. It lands **first and alone**, on today's `supabase-js` clients, and is independent of every other phase: a cheap second safety net for today's installs, which already have `safeupdate` in `supabase/postgres` | — |
 | 1 | **The professional bar on today's image:** labels and annotations, `HEALTHCHECK`, SBOM, release notes from the changelog, PUID/PGID in the compose image, the resource measurements | — (independent of 0) |
 | 2 | **The first-run sequence** (§8) | RFC-023's keys in Settings |
 | 3 | **Stock PostgreSQL for new installs:** the role bootstrap in `kinboard-db-init`; the fresh-install rig run against `postgres:17`; the RLS, policy-comparison and filterless-write checks of §6.5 green, which is the gate for any stock-PostgreSQL install | 0 |
@@ -852,6 +1013,20 @@ virtual DSM):
    families are created, and each one's token is tried against the other's
    rows on every table, plus the bare anon role and a filterless delete. A
    single readable row from another family stops the listing.
+7. **Two updates in a row through the store's own mechanism** (§4.7), from a
+   local copy of the listing: TrueNAS with a custom catalog, CasaOS/ZimaOS and
+   Umbrel with a third-party/community store, Unraid with a template by URL.
+   - **The first update:** a verified backup appears, and migrations run once.
+   - **The second:** nothing to do.
+   - **A broken build** (an entrypoint that exits, and a migration that fails
+     halfway): the store shows the container unhealthy. Going back to the
+     previous version, through the store or by tag, brings the app back on the
+     newer schema, and Settings shows the notice.
+   - **A pinned version** doesn't move.
+   - **No network** during the update: nothing half-applied.
+   - **For the all-in-one image only:** a PostgreSQL major upgrade forced to
+     fail after the dump. `/data/db` is untouched, and the previous tag starts
+     on it.
 
 ## 11. Open questions for the owner
 
@@ -894,9 +1069,13 @@ virtual DSM):
     review, so Umbrel households can try Kinboard before any submission?
 11. **TrueNAS's stock PostgreSQL for new store installs** (§4.5): agreed, given
     that existing compose installs stay on `supabase/postgres` 15?
-12. **`safeupdate` on stock PostgreSQL** (§4.2.1): build it into the all-in-one
-    image and add the client-side refusal everywhere (proposed), or only the
-    client-side refusal?
+12. **Decided 2026-11-26: `safeupdate` in both, the database and the app.**
+    `pg-safeupdate` 1.7 is built into the all-in-one image and into
+    `kinboard-postgres:17` for the stock compose shape, and preloaded for
+    `authenticator`. The app's PostgREST client refuses an unfiltered
+    `update()`/`delete()` before sending, with an explicit, reviewed
+    `allowUnfiltered`. No shape is weaker than `supabase/postgres` today
+    (§4.2.1, §6.5).
 13. **`db:generate`** (§4.6): the Supabase CLI as a pinned dev-only generator
     (proposed), or a generator of our own now?
 14. **When the legacy `SUPABASE_URL` path goes** (§4.6 step 7): which release
@@ -919,6 +1098,9 @@ development machine.
 | Image sizes | `docker image ls` | `supabase/postgres:15.14.1.159` 1.67 GB, `alexxit/go2rtc:1.9.14` 362 MB, the webapp (`:latest` on this machine) 313 MB, `postgrest/postgrest:v14.16` 28 MB, ofelia 39 MB |
 | Idle memory | `docker stats --no-stream` on the development stack | db 58.97 MiB, rest 48.47 MiB |
 | PostgreSQL majors and packages in Alpine | `apk search` in `alpine:3` (3.24.3); `node:22-alpine` is Alpine 3.24.4 | `postgresql16`, `postgresql17`, `postgresql18`; no `postgresql15`; `postgresql-pg_cron-1.6.7`; `s6-overlay-3.2.3.0`, `s6-rc-0.6.1.1` |
+| `safeupdate` behaviour, release and source | `LOAD 'safeupdate'` in a `psql` session on the development database, against a temporary table inside a rolled-back transaction; `gh api repos/eradman/pg-safeupdate/tags`; the 1.7 tarball downloaded, `sha256sum`, `NEWS` read, then deleted | filterless `DELETE`/`UPDATE` refused, `WHERE true` passes; latest tag 1.7 at `37dbc9c4…`; sha256 `456aa0ce…56377`; 1.6 "Do not block pg_upgrade"; ISC license |
+| `supautils` settings | `pg_settings` on the development database | `reserved_roles` includes the four API roles; `privileged_extensions` includes `uuid-ossp`, `pg_cron`; `superuser = supabase_admin` |
+| Unfiltered writes in the app | a scan of every `.from(…)…update(`/`.delete(` chain in `src` for a filter method before the statement ends | 132 `update`, 65 `delete`; none unfiltered (one false positive, `Set.delete`) |
 | Role attributes, memberships, settings, default privileges, policies | `docker exec -i kbfresh-db psql -U supabase_admin` with `SELECT … FROM pg_roles`, `pg_auth_members`, `pg_db_role_setting`, `pg_default_acl`, `pg_namespace`, `pg_policies`, `pg_class`, `information_schema.role_table_grants`, read-only | as in §4.2.1: 64 tables, 57 with RLS, 0 forced; 57 policies on 53 tables, 54 on `current_family_id()`, 0 on `auth.`; the 7 non-RLS tables have no `anon`/`authenticated` grant; `safeupdate` and `supautils` preloaded for `authenticator` |
 | PostgREST and `iss`; requests without a key | tokens signed with the development stack's secret, sent to its PostgREST on loopback (the secret never printed) | `iss` `supabase`, `kinboard`, `something-else`: 200; wrong signature: 401; no `Authorization`: 200 as `anon`, `families` → `[]` |
 | Where supabase-js is used | `grep` over `src`, `e2e`, `scripts` | imports in `src/lib/supabase/client.ts:1`, `server.ts:1-2` and four e2e specs; 0 `.auth.`, `.channel(`, `.storage.from(`; 31 `.rpc(`; `server.ts`'s `createClient` has 0 importers; `db:generate` writes a file nothing imports |
