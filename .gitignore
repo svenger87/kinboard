@@ -93,7 +93,7 @@ docs/internal/
 # specs. Working notes, not project docs; kept out of the public repo.
 docs/superpowers/
 
-# Generated at runtime by webapp/docker/test-upgrade.sh — the "after" half of
+# Generated at runtime by scripts/rigs/test-upgrade.sh — the "after" half of
 # an upgrade run. Regenerated on every run; never edited by hand.
 webapp/docker/docker-compose.upgrade-target.yml
 webapp/docker/docker-compose.rollback-target.yml

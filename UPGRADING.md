@@ -163,7 +163,7 @@ cd webapp/docker
 Migrations are additive, so the older image runs on the newer schema. CI
 refuses a migration that isn't (`check-additive-migrations.mjs`), and the
 upgrade rig starts the previous release on the newest schema
-(`./test-upgrade.sh --rollback`). Files
+(`scripts/rigs/test-upgrade.sh --rollback`, run in CI). Files
 uploaded while on 1.15 exist only in the new layout and will not show on the
 older version.
 

@@ -1094,7 +1094,7 @@ What exists today:
   (`src/app/api/export/route.ts:31-34`), and the files and secrets entirely.
   It is not a backup of the install and stays that way.
 - **No `kinboard-backup` tool exists in this repo.** The name appears only as a
-  test rig's data folder (`test-backup-restore.sh:50`) and an export filename.
+  test rig's data folder (`scripts/rigs/test-backup-restore.sh:55`) and an export filename.
 
 A one-file household without a terminal has no backup path except its UI's
 volume tools. A full backup downloadable from Settings is the real answer, and
@@ -1136,7 +1136,7 @@ used, is checked against a shared secret, as today (`diun/hooks.yaml`).
 ## 8. Rehearsal
 
 Three rehearsals before the release ships, scripted where the existing rigs
-already do most of the work (`webapp/docker/test-fresh-install.sh`,
+already do most of the work (`scripts/rigs/test-fresh-install.sh`,
 `test-upgrade.sh`, `test-backup-restore.sh`, run by `.github/workflows/rigs.yml`).
 Every check prints its number and fails loudly. Each guard is also broken once
 on purpose and must turn red.

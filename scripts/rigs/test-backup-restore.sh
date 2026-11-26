@@ -34,13 +34,18 @@
 # photograph a household had uploaded. A guard that cannot fail is not a guard.
 #
 # Usage:
-#   ./test-backup-restore.sh          # one full cycle
-#   ./test-backup-restore.sh 3        # repeat, for a flapping failure
+#   KINBOARD_RIG=1 scripts/rigs/test-backup-restore.sh          # one full cycle
+#   KINBOARD_RIG=1 scripts/rigs/test-backup-restore.sh 3        # repeat, for a flapping failure
 set -uo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-cd "$SCRIPT_DIR" || exit 1
+RIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# A developer test, not an updater: nothing below runs unless asked for.
+# shellcheck source=rig-intent.sh
+. "$RIG_DIR/rig-intent.sh"
+rig_require_intent "$@"; set -- "${RIG_ARGS[@]}"
+REPO_ROOT="$(cd "$RIG_DIR/../.." && pwd)"
+DOCKER_DIR="$REPO_ROOT/webapp/docker"
+cd "$DOCKER_DIR" || exit 1
 
 ITERATIONS="${1:-1}"
 
@@ -56,7 +61,7 @@ RIG_NETWORK_SUBNET="10.222.0.0/24"
 RIG_DEMO_CODE="BKUP01"
 
 # shellcheck source=test-rig-common.sh
-. "$SCRIPT_DIR/test-rig-common.sh"
+. "$RIG_DIR/test-rig-common.sh"
 
 RIG_COMPOSE=(-f docker-compose.yml -f docker-compose.build.yml)
 DUMP_DIR="$(mktemp -d)"
@@ -116,6 +121,7 @@ count_files() {
 
 cleanup() { rm -rf "$DUMP_DIR"; }
 trap cleanup EXIT
+rig_at_exit cleanup   # once the stack exists, the teardown trap takes over
 
 # A count per table, as one string. Comparing this before and after is a
 # stronger check than picking a few tables by hand, because it also catches a
@@ -163,7 +169,7 @@ run_cycle() {
   rig_wait_healthy "cycle $n before backup" 60 || return 1
 
   step "seeding the demo family"
-  ( cd "$SCRIPT_DIR" && COMPOSE_FILES="-f docker-compose.yml" \
+  ( cd "$DOCKER_DIR" && COMPOSE_FILES="-f docker-compose.yml" \
       ./start.sh seed-demo >/dev/null 2>&1 ) || step "seed-demo reported a problem (continuing)"
 
   if seed_photo; then

@@ -45,7 +45,7 @@ pass() { grn "   ok:   $*"; }
 
 compose() {
   local -n files=$1; shift
-  ( cd "$SCRIPT_DIR" && \
+  ( cd "$DOCKER_DIR" && \
     COMPOSE_PROJECT_NAME="$RIG_PROJECT" \
     docker compose -p "$RIG_PROJECT" "${files[@]}" "$@" )
 }
@@ -59,6 +59,44 @@ psql_rig() {
 # network in the project is reachable from here.
 rig_teardown() {
   compose BASE_COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true
+}
+
+# Every rig's compose project. start.sh refuses an .env naming one of these
+# unless KINBOARD_RIG=1 (keep the two lists the same).
+RIG_PROJECTS="kbupg kbinstall kbbak"
+
+# A run that fails, is interrupted or is killed must not leave a stack behind.
+# Until #539 an aborted run left its containers up beside the real install, and
+# nothing said how to get rid of them. rig_prepare_env arms this once the rig
+# is about to create something, so a rig that refuses to start (busy ports,
+# someone else's .env) never tears down a stack it did not make.
+#   RIG_TEARDOWN  the function that removes this rig's stack (rig_teardown)
+#   RIG_KEEP=1    leave it up on purpose (KEEP_UP / KEEP_FAILED)
+#   rig_at_exit   queue a rig's own cleanup (temp dirs), run before teardown
+RIG_TEARDOWN="${RIG_TEARDOWN:-rig_teardown}"
+RIG_KEEP="${RIG_KEEP:-0}"
+RIG_AT_EXIT=()
+rig_at_exit() { RIG_AT_EXIT+=("$1"); }
+
+rig_leftover_hint() {
+  step "leftover $RIG_PROJECT containers? docker compose -p $RIG_PROJECT down -v --remove-orphans  (data: $RIG_DATA)"
+}
+
+rig_on_exit() {
+  local rc=$? c
+  trap - EXIT INT TERM
+  for c in "${RIG_AT_EXIT[@]}"; do eval "$c" || true; done
+  if [ "$RIG_KEEP" != "1" ]; then
+    "$RIG_TEARDOWN" || true
+  fi
+  rig_leftover_hint
+  exit "$rc"
+}
+
+rig_arm_teardown() {
+  trap rig_on_exit EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
 }
 
 # Delete the rig's data directory, and be sure it went.
@@ -129,7 +167,24 @@ rig_require_free_ports() {
 
 rig_prepare_env() {
   say "Preparing an isolated .env"
-  if [ ! -f "$SCRIPT_DIR/.env" ]; then
+  # The rig rewrites webapp/docker/.env for its own throwaway stack — project
+  # name, DATA_DIR, ports, subnet — and drops COMPOSE_FILES. In an installed
+  # copy that .env is the install's: after #539's run, the next
+  # `./start.sh up` would have started the rig's empty copy instead of the
+  # family's Kinboard. So only an .env a rig wrote, or none, is used.
+  if [ -f "$DOCKER_DIR/.env" ]; then
+    local owner
+    owner=$(sed -n 's/^PROJECT_NAME=//p' "$DOCKER_DIR/.env" | tail -1 | tr -d "\"' \r")
+    case " $RIG_PROJECTS " in
+      *" ${owner:-kinboard} "*) ;;
+      *)
+        red "REFUSING: $DOCKER_DIR/.env belongs to an install (PROJECT_NAME=${owner:-kinboard})."
+        red "A rig rewrites that file for its throwaway stack. Run rigs in a checkout of their own:"
+        red "  git worktree add ../kinboard-rig origin/main"
+        exit 1 ;;
+    esac
+  fi
+  if [ ! -f "$DOCKER_DIR/.env" ]; then
     # setup.sh substitutes a secret into diun.yml (and, before 1.15, real
     # JWTs into kong.yml).
     # Production marks both skip-worktree so they can never be committed;
@@ -161,14 +216,14 @@ rig_prepare_env() {
   )
   for key in "${!overrides[@]}"; do
     local val="${overrides[$key]}"
-    if grep -q "^${key}=" "$SCRIPT_DIR/.env"; then
-      sed -i "s|^${key}=.*|${key}=${val}|" "$SCRIPT_DIR/.env"
+    if grep -q "^${key}=" "$DOCKER_DIR/.env"; then
+      sed -i "s|^${key}=.*|${key}=${val}|" "$DOCKER_DIR/.env"
     else
-      printf '%s=%s\n' "$key" "$val" >> "$SCRIPT_DIR/.env"
+      printf '%s=%s\n' "$key" "$val" >> "$DOCKER_DIR/.env"
     fi
   done
   # COMPOSE_FILES in .env would override the explicit -f lists the rigs pass.
-  sed -i '/^COMPOSE_FILES=/d' "$SCRIPT_DIR/.env"
+  sed -i '/^COMPOSE_FILES=/d' "$DOCKER_DIR/.env"
 
   # setup.sh copies webapp/.env.example to webapp/.env.local verbatim, and
   # nothing here needs it. Next inlines
@@ -181,4 +236,5 @@ rig_prepare_env() {
   fi
   step "ports: webapp=$RIG_WEBAPP_PORT db=$RIG_POSTGRES_PORT"
   step "data:  $RIG_DATA"
+  rig_arm_teardown
 }

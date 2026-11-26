@@ -26,15 +26,20 @@
 # cluster suggests a cold-cache effect, a scatter suggests a genuine race.
 #
 # Usage:
-#   ./test-fresh-install.sh          # 20 iterations (the exit criterion)
-#   ./test-fresh-install.sh 3        # fewer, while iterating on the rig
-#   KEEP_FAILED=1 ./test-fresh-install.sh   # leave a failed stack up to inspect
+#   KINBOARD_RIG=1 scripts/rigs/test-fresh-install.sh          # 20 iterations (the exit criterion)
+#   KINBOARD_RIG=1 scripts/rigs/test-fresh-install.sh 3        # fewer, while iterating on the rig
+#   KINBOARD_RIG=1 KEEP_FAILED=1 scripts/rigs/test-fresh-install.sh   # leave a failed stack up to inspect
 
 set -uo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-cd "$SCRIPT_DIR"
+RIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# A developer test, not an updater: nothing below runs unless asked for.
+# shellcheck source=rig-intent.sh
+. "$RIG_DIR/rig-intent.sh"
+rig_require_intent "$@"; set -- "${RIG_ARGS[@]}"
+REPO_ROOT="$(cd "$RIG_DIR/../.." && pwd)"
+DOCKER_DIR="$REPO_ROOT/webapp/docker"
+cd "$DOCKER_DIR"
 
 ITERATIONS="${1:-20}"
 
@@ -49,8 +54,11 @@ RIG_GO2RTC_WEBRTC_PORT=8587
 RIG_NETWORK_SUBNET="10.223.0.0/24"
 RIG_DEMO_CODE="FRSH01"
 
+# Torn down on any exit, unless KEEP_FAILED=1 asked to keep a failed run up.
+RIG_KEEP="${KEEP_FAILED:-0}"
+
 # shellcheck source=test-rig-common.sh
-. "$SCRIPT_DIR/test-rig-common.sh"
+. "$RIG_DIR/test-rig-common.sh"
 
 # A fresh install uses whatever this checkout builds, which is the thing under
 # test. Overridable so the same rig can check that a published release still
@@ -89,7 +97,7 @@ assert_schema_complete() {
     || { fail "run $n: the uploaded-files directory is not writable by the server"; ok=0; }
   local recorded
   recorded=$(psql_rig -c "SELECT count(*) FROM kinboard.schema_migrations;" 2>/dev/null)
-  [ "${recorded:-0}" = "$(ls "$SCRIPT_DIR"/migrations/[0-9]*.sql | wc -l)" ] \
+  [ "${recorded:-0}" = "$(ls "$DOCKER_DIR"/migrations/[0-9]*.sql | wc -l)" ] \
     || { fail "run $n: ${recorded:-0} migrations recorded"; ok=0; }
 
   [ "$ok" = "1" ] && step "schema: ${tables} tables, ${policies} policies, ${triggers} triggers, ${recorded} migrations recorded"
@@ -148,7 +156,7 @@ one_install() {
 
   local t0 t1
   t0=$(date +%s)
-  if ! ( cd "$SCRIPT_DIR" && COMPOSE_FILES="${INSTALL_COMPOSE[*]}" ./start.sh up >/dev/null 2>&1 ); then
+  if ! ( cd "$DOCKER_DIR" && COMPOSE_FILES="${INSTALL_COMPOSE[*]}" ./start.sh up >/dev/null 2>&1 ); then
     fail "run $n: start.sh up failed"
     FAILED_RUNS+=("$n")
     [ "${KEEP_FAILED:-0}" = "1" ] && return 1

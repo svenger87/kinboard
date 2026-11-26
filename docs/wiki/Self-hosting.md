@@ -365,7 +365,7 @@ docker exec kinboard-db psql -U postgres -d postgres \
   -c "SELECT count(*) FROM families;" -c "SELECT count(*) FROM events;"
 ```
 
-`webapp/docker/test-backup-restore.sh` runs this whole cycle — seed, dump,
+A developer test in the repository, `scripts/rigs/test-backup-restore.sh`, runs this whole cycle — seed, dump,
 destroy, rebuild, restore, compare every table's row count — against the
 current schema, so the procedure above is verified rather than remembered.
 
@@ -378,6 +378,8 @@ git pull
 cd webapp/docker
 ./start.sh up        # pulls/recreates what changed, removes retired containers
 ```
+
+That is the whole update. `webapp/docker/test-upgrade.sh` is not an updater: it only says so and points here. The test it used to be lives in `scripts/rigs/` with the other developer tests, which build a separate throwaway copy of Kinboard and refuse to run unless a developer asks for one.
 
 `./start.sh restart` pulls (or, with `docker-compose.build.yml`, rebuilds) just the webapp and restarts it and `cron`.
 

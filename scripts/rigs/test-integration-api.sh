@@ -12,14 +12,19 @@
 # own tokens, writes test rows, and tears the whole stack down afterwards.
 #
 # Usage:
-#   ./test-integration-api.sh          # boot, test, tear down
-#   KEEP_UP=1 ./test-integration-api.sh  # leave the stack up to poke at
+#   KINBOARD_RIG=1 scripts/rigs/test-integration-api.sh          # boot, test, tear down
+#   KINBOARD_RIG=1 KEEP_UP=1 scripts/rigs/test-integration-api.sh  # leave the stack up to poke at
 
 set -uo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-cd "$SCRIPT_DIR"
+RIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# A developer test, not an updater: nothing below runs unless asked for.
+# shellcheck source=rig-intent.sh
+. "$RIG_DIR/rig-intent.sh"
+rig_require_intent "$@"; set -- "${RIG_ARGS[@]}"
+REPO_ROOT="$(cd "$RIG_DIR/../.." && pwd)"
+DOCKER_DIR="$REPO_ROOT/webapp/docker"
+cd "$DOCKER_DIR"
 
 RIG_PROJECT="kbinstall"
 # Overridable so the same rig runs on a CI runner, which has no
@@ -32,13 +37,17 @@ RIG_GO2RTC_WEBRTC_PORT=8587
 RIG_NETWORK_SUBNET="10.223.0.0/24"
 RIG_DEMO_CODE="FRSH01"
 
+# Torn down on any exit, failed and interrupted runs included, unless KEEP_UP=1.
+RIG_KEEP="${KEEP_UP:-0}"
+
 # shellcheck source=test-rig-common.sh
-. "$SCRIPT_DIR/test-rig-common.sh"
+. "$RIG_DIR/test-rig-common.sh"
 
 INSTALL_COMPOSE=(-f docker-compose.yml -f docker-compose.build.yml)
 API="$BASE_URL/api/integration/v1"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+rig_at_exit 'rm -rf "$TMP"'   # once the stack exists, the teardown trap takes over
 
 chk() { # name actual expected
   if [ "$2" = "$3" ]; then pass "$1"; else fail "$1 (got $2, want $3)"; fi
@@ -57,10 +66,10 @@ rig_require_free_ports || exit 1
 rig_prepare_env
 compose INSTALL_COMPOSE build webapp >/dev/null 2>&1 || { fail "build"; exit 1; }
 rig_teardown; rig_destroy_data; mkdir -p "$RIG_DATA"
-( cd "$SCRIPT_DIR" && COMPOSE_FILES="-f docker-compose.yml" ./start.sh up >/dev/null 2>&1 ) \
+( cd "$DOCKER_DIR" && COMPOSE_FILES="-f docker-compose.yml" ./start.sh up >/dev/null 2>&1 ) \
   || { fail "start.sh up"; exit 1; }
 rig_wait_healthy "integration api rig" 60 || exit 1
-( cd "$SCRIPT_DIR" && COMPOSE_FILES="-f docker-compose.yml" ./start.sh seed-demo >/dev/null 2>&1 )
+( cd "$DOCKER_DIR" && COMPOSE_FILES="-f docker-compose.yml" ./start.sh seed-demo >/dev/null 2>&1 )
 
 say "Minting two tokens: one broad, one shopping-only"
 node -e '
