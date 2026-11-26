@@ -7,6 +7,49 @@ The releases below are the exceptions.
 
 ---
 
+## 1.18 — a one-file install, and nothing changes for yours
+
+**Nothing to do.** An install made with `git clone`, `setup.sh` or the
+one-line installer updates exactly as before: `git pull` and `./start.sh up`,
+or the Diun auto-update. Its `webapp/docker/docker-compose.yml`, `.env`,
+overlays and data folder are not touched, no new folder appears in `DATA_DIR`,
+and its scheduled jobs stay with the `kinboard-cron` container.
+
+### What is new
+
+1.18 adds a second way to run Kinboard: **`compose.yml`**, one file with the
+whole stack, attached to every release as
+`releases/latest/download/compose.yml`. It is for households that run their
+containers from a Compose UI (OpenMediaVault, Portainer, Unraid's Compose
+Manager, Dockge) or want no git checkout:
+
+- every secret creates itself at the first start (the `kinboard-init` step),
+  in a config volume, so there is no `.env` and no `setup.sh`;
+- the data lives in three Docker volumes, `kinboard-db`, `kinboard-storage`
+  and `kinboard-config`, or in folders you name;
+- the webapp runs the scheduled jobs itself, so no container gets the Docker
+  socket;
+- updating is Pull, then Up.
+
+`install.sh --one-file` sets it up from a terminal. From 1.18 on, a new
+install with the one-line installer gets this file. The wiki's
+[Compose UIs](https://github.com/svenger87/kinboard/wiki/Compose-UIs) page
+has the steps for each tool.
+
+### Moving an existing install to it
+
+Optional, by hand, and only when you want it. Nothing moves on its own. You
+copy your secrets from `.env` into the new file's `KINBOARD_` variables,
+point it at your existing `db` and `storage` folders, stop the old stack and
+start the new one; the database, the devices' sign-ins and push keep working.
+The steps:
+[Compose UIs → Moving a git install to this file](https://github.com/svenger87/kinboard/wiki/Compose-UIs#moving-a-git-install-to-this-file).
+
+Stay where you are if you use the Diun auto-update: it needs the git folder,
+and the automatic update doesn't run `compose.yml` yet.
+
+---
+
 ## 1.15 — the presence sensor needs a token
 
 **Only if a presence sensor (LD2410) posts to Kinboard.** `/api/presence` now

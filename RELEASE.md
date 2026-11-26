@@ -111,7 +111,7 @@ Before tagging:
 - [ ] No new env vars without `.env.example` entries
 - [ ] If a breaking change: it's flagged prominently in CHANGELOG and a migration note exists in the wiki
 - [ ] **1.18.0 only:** remove the `# PRE-RELEASE:` line at the top of `compose.yml` and its test in `webapp/e2e/compose-file.spec.ts` ("before 1.18 is released"), and drop this item. It tells people who find the file on main that it needs the release that ships it (RFC-023)
-- [ ] **1.18.0 only:** make the one-file install `install.sh`'s default: change `INSTALL_MODE="${KINBOARD_INSTALL_MODE:-git}"` to `one-file`, `--git` and `KINBOARD_INSTALL_MODE=git` keep the old path, update the default-path tests in `webapp/e2e/install-sh.spec.ts` and its RELEASE.md test, and point README's install line at it. Until then `--one-file` is an opt-in, because the newest release's image has no `kinboard-init` (RFC-023 §4.9, PR 8)
+- [ ] **1.18.0 only:** remove the "from 1.18" notes in the docs, which keep people on 1.17 from following steps that need 1.18: the "From Kinboard 1.18" box at the top of `docs/wiki/Compose-UIs.md`, the "Needs Kinboard 1.18 or newer" box and the "until 1.18" sentences in `docs/wiki/Quick-start.md`, the "From 1.18"/"from 1.18" and "Until 1.18 is released" words in `README.md`'s Install section, and the "(from 1.18)"/"from 1.18" marks in `docs/wiki/Self-hosting.md`; `grep -rn "1\.18" README.md docs/wiki/` finds them. Keep `UPGRADING.md`'s 1.18 section. Drop this item (RFC-023 §4.10)
 
 ## Cutting the release
 

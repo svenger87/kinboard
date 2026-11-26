@@ -1,5 +1,56 @@
 # Quick start
 
+There are two ways to install Kinboard. From 1.18 the simplest is one file,
+`compose.yml`. Until 1.18 is out, use the git install below.
+
+## The one-file install (from 1.18)
+
+> **Needs Kinboard 1.18 or newer.** Until 1.18 is released, the download
+> below answers "Not Found", and an older image stops at its first step with
+> *"This Kinboard image is older than 1.18 and can't run the one-file
+> setup"*. Use [the git install](#the-git-install) until then.
+
+You need Docker with Compose v2, nothing else: no git, no Node.js, no
+`setup.sh`. The passwords and keys create themselves on the first start.
+
+**With a Compose UI** (OpenMediaVault, Portainer, Unraid's Compose Manager,
+Dockge): paste the file into it and press Up. [Compose UIs](Compose-UIs) has
+the steps for each, where your data lives, and how to update and back up.
+
+**In a terminal:**
+
+```bash
+mkdir kinboard && cd kinboard
+curl -fsSLO https://github.com/svenger87/kinboard/releases/latest/download/compose.yml
+docker compose up -d
+```
+
+Or let the installer do the same, and wait until Kinboard answers:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/svenger87/kinboard/main/install.sh | bash -s -- --one-file
+```
+
+It asks two things, the port (3001) and whether the data goes into Docker
+volumes (the default) or a folder, writes them into a `.env` next to
+`compose.yml` in `./kinboard`, and prints the address. `--port 3001`,
+`--data-dir /srv/kinboard-data` and `--version 1.18.0` answer up front. Until
+1.18 `--one-file` has to be asked for; without it, the installer does the git
+install.
+
+Then open `http://<your server>:3001` and go on with
+[3. Open the app](#3-open-the-app). Updating is
+`docker compose pull && docker compose up -d` in that folder.
+
+The data lives in three Docker volumes, `kinboard-db`, `kinboard-storage` and
+`kinboard-config`, unless you chose a folder; back up all three
+([Compose UIs → Backups](Compose-UIs#backups)).
+
+## The git install
+
+The way Kinboard has been installed so far, and the default of `install.sh`
+until 1.18. The README's one-line installer does all of this for you.
+
 You'll need:
 
 - **Docker** with Compose v2 (`docker compose ...`)
@@ -115,7 +166,9 @@ Open the menu → **Settings** and walk through the integrations you care about.
 
 One address, one port: the family only ever needs `WEBAPP_PORT` (3001).
 
-Bind paths default to `./data/` (relative to `webapp/docker/`): `db/` for Postgres, `storage/` for uploaded files. Override with `DATA_DIR=/some/abs/path` in `.env` for NAS or external storage.
+In a git install, bind paths default to `./data/` (relative to `webapp/docker/`): `db/` for Postgres, `storage/` for uploaded files. Override with `DATA_DIR=/some/abs/path` in `.env` for NAS or external storage.
+
+A one-file install (from 1.18) runs the same containers with three differences: there is no `kinboard-cron`, because the webapp runs the scheduled jobs itself; a second one-shot, `kinboard-init`, creates the secrets and then exits; and only 3001 and 8555/udp are published, not the database's 5432 or go2rtc's 1984. Its data is in the volumes `kinboard-db`, `kinboard-storage` and `kinboard-config`, or the folders you named.
 
 ## Adding more devices
 

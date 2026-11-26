@@ -27,7 +27,25 @@ self-hosted dashboard built for the kitchen wall and every phone in the house.
 
 ## Install
 
-Kinboard needs Linux, Git, OpenSSL, and Docker with Compose v2. The installer
+There are two ways in. **From 1.18**, Kinboard is also one file,
+`compose.yml`: paste it into your Compose UI (OpenMediaVault, Portainer,
+Unraid's Compose Manager, Dockge) and start it, or run it with Docker alone.
+The secrets create themselves, and updating is Pull, then Up. Until 1.18 is
+released, use the installer below.
+
+```bash
+# from 1.18
+mkdir kinboard && cd kinboard
+curl -fsSLO https://github.com/svenger87/kinboard/releases/latest/download/compose.yml
+docker compose up -d
+```
+
+The installer below does the same with `--one-file`, from 1.18:
+`curl -fsSL https://raw.githubusercontent.com/svenger87/kinboard/main/install.sh | bash -s -- --one-file`.
+The steps for each Compose UI, where the data lives and how to back it up:
+[Compose UIs](https://github.com/svenger87/kinboard/wiki/Compose-UIs).
+
+**Today's installer** sets up a git checkout. Kinboard needs Linux, Git, OpenSSL, and Docker with Compose v2. The installer
 downloads the current configuration, generates unique local secrets, walks you
 through optional integrations, and starts the stable multi-architecture image.
 There is no address to configure: every device uses whichever address reaches
