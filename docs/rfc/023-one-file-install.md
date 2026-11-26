@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Proposed 2026-11-26, for the owner's review |
+| **Status** | Proposed 2026-11-26, for the owner's review. Decided 2026-11-26: automatic updates on every shape (§4.11, §11.3) |
 | **Date** | 2026-11-26 |
 | **Depends on** | The 1.15 stack (no Kong, the webapp serves `/rest/v1` and the files itself); the migration runner in the image (`migrate.sh`, `webapp-entrypoint.sh`); the published image `ghcr.io/svenger87/kinboard` |
 | **Discussion** | #539, #282, #106 |
@@ -93,6 +93,9 @@ working exactly as they do (§5).
   OpenMediaVault's Compose plugin, Portainer stacks, Unraid's Compose Manager,
   Dockge or CasaOS and started with no terminal, no git and no `.env`.
 - Updating is Pull + Up in that UI, and nothing else.
+- Households that opt in get automatic updates on every shape, under one
+  contract: a verified backup first, only what changed recreated, and a
+  rollback on their own when the new version doesn't come up (§4.11).
 - Every secret creates itself on first start. A value already in `.env` wins.
 - Every API key can be set in Settings. `.env` is still honoured.
 - `install.sh` produces the same file, so there is one way of running Kinboard.
@@ -101,8 +104,8 @@ working exactly as they do (§5).
 
 **Non-goals**
 
-- Automatic updates for one-file installs. Diun stays optional, and a
-  published updater image is an open question (§11.3).
+- Changing how git installs update. Their Diun self-update keeps working;
+  §4.11 only adds a health wait, a rollback and a reconciliation tick.
 - Retiring `webapp/docker/docker-compose.yml`. It stays the file for git
   installs; when it retires is a later decision.
 - A full backup that can be downloaded from Settings (§6.5 says why it is
@@ -555,8 +558,8 @@ the backup from the volumes the running containers mount (from
 by hand, because the scheduler is in the image. But on a git-less install
 nothing can run it: the webhook image is built from a file that only a git
 checkout has. Publishing that image (`ghcr.io/svenger87/kinboard-updater`)
-would be a new image. Open question §11.3. Until then, a one-file install gets
-the notice, not an automatic update.
+would be a new image. **Decided 2026-11-26 by the owner's auto-update
+requirement: it is published and specified in §4.11.3.**
 
 ### 4.9 `install.sh`, `setup.sh`, `start.sh` and the overlays
 
@@ -622,6 +625,302 @@ Compose Manager, with `KINBOARD_*_DIR` under `/mnt/user/appdata/kinboard`.
   "nothing to do; to move to the one-file install, see …".
 - **README** "Install" (`README.md:28-55`): the two ways in, then the
   Compose UIs link.
+
+### 4.11 The auto-update guarantee
+
+The owner's requirement (2026-11-26): Diun-driven updates must stay perfect
+for every household that opted in, whatever the install shape. That makes
+automatic updates for one-file installs a requirement, no longer a non-goal or
+an open question (§11.3).
+
+#### 4.11.1 The contract
+
+For every install shape that opted in to automatic updates, an update:
+
+1. **Arrives without the household doing anything.**
+2. **Takes a verified backup before any recreate that can migrate**, and
+   refuses to go on if the backup can't be verified. This is today's rule
+   (`kinboard-self-update.sh:28-44`), extended to `config/` (§6.5).
+3. **Applies migrations exactly once.** The webapp's entrypoint is the only
+   runner (`webapp-entrypoint.sh:8-17`). `kinboard.schema_migrations` records
+   every file (`migrate.sh:57-65, 106-109`). The updater never runs
+   migrations itself.
+4. **Recreates only what changed**, by #534's rule: a service is recreated
+   when its image or its definition changed in this run, decided by the
+   updater, not by Compose (`kinboard-self-update.sh:247-280`).
+5. **Keeps the scheduler's jobs current.**
+   - For a git install with ofelia: cron is recreated after a new webapp, as
+     today (`:229-245`).
+   - For the internal scheduler (§4.5): the jobs ship in the webapp image,
+     so a new webapp is a new job list.
+6. **Leaves a clear log**: one file per install, one line per decision.
+7. **Recovers on its own** if the new version doesn't come up healthy
+   (§4.11.4).
+
+Today's self-update meets items 1–6 for git installs. It has **no health wait
+and no rollback** (`grep -i health kinboard-self-update.sh`: nothing), so
+item 7 is new for every shape.
+
+#### 4.11.2 Git installs with the Diun overlay: nothing regresses
+
+**The first update onto this RFC's version runs the old script.** The webhook
+runs `kinboard-self-update.sh` from the project. It does `git pull` and then
+keeps executing the copy it started with: the previous version, as
+`kinboard-entry.sh:8-12` records from the 1.15 upgrade.
+
+So that one run is the *old* script against the *new* files. What it does:
+
+| Step of the old script | Sees | Effect |
+|---|---|---|
+| `git pull` | the new tree: `compose.yml` at the root, the new image's files | nothing runs them. `COMPOSE_FILES` names `webapp/docker/docker-compose.yml` and overlays (`:57`), and the old script never reads the root |
+| `./setup.sh --non-interactive` (the new copy on disk) | the existing `.env` | fills only missing keys, as today (§4.9). It writes no `config/` |
+| hashes before and after `git pull` | `docker-compose.yml` unchanged by this RFC (§5.1) | no service definition changed |
+| `docker compose pull` | a new webapp image | the webapp is recreated for its image; cron after it (`:229-245`) |
+| backup | `DATA_DIR` from `.env` | as today: dump plus storage. No `config/` exists yet, so nothing more |
+| the new image starts | every secret set in the environment | the entrypoint's environment-first rule (§4.1) means the secrets store is never read. `KINBOARD_SCHEDULER` is unset, so the internal scheduler stays off and ofelia keeps the jobs |
+| the `init` service | **not in the legacy file** | never started |
+
+The result is an ordinary release update. That depends on one rule this RFC
+already makes (§5.1): **the release that ships it doesn't change the legacy
+`docker-compose.yml`.** Rehearsal B (§8.2) checks it with the self-update, not
+only with `./start.sh up`.
+
+From the second run on, the new script runs. It is today's script plus four
+things:
+
+1. **A health wait and rollback** (§4.11.4).
+2. **A reconciliation tick.** The webhook container runs the script every 30
+   minutes on its own, besides Diun's call, to catch a tag changed in `.env`
+   (§4.11.5).
+3. **The backup includes `config/`** when present (§6.5).
+4. **A no-git guard** for the one-file case (§4.8).
+
+**Git installs that adopted `compose.yml` (§5.2)** keep using this script,
+with `COMPOSE_FILES="-f ../../compose.yml -f docker-compose.diun.yml"`.
+The overlay's relative `./diun` paths resolve against the first file's
+directory, so PR 10 gives the overlay absolute paths from
+`KINBOARD_PROJECT_DIR`. Until it ships, such installs keep the legacy file
+(§5.2, "Not yet").
+
+#### 4.11.3 One-file installs: the `kinboard-updater` image
+
+**The image.** `ghcr.io/svenger87/kinboard-updater` is today's
+`Dockerfile.webhook` (Alpine, `git`, `docker-cli`, `docker-cli-compose`,
+`webhook` 2.8.2), published multi-arch by `docker.yml` with the same tags as
+the webapp. It carries `kinboard-self-update.sh` itself, so a git-less install
+has the script. Git installs keep building it locally until they switch to the
+published one, which runs the same script.
+
+**Opting in.** The updater is a service in `compose.yml` with
+`profiles: ["autoupdate"]`. It starts only when `COMPOSE_PROFILES=autoupdate`
+is set: Compose reads that variable from the environment and the `.env` file
+(https://docs.docker.com/compose/how-tos/profiles/). Every UI in §4.6 that
+takes variables can set it. Where a UI ignores profiles, the Compose UIs page
+gives the same service as a block to paste. It mounts:
+
+- the Docker socket, which it needs to pull and recreate. This is the one
+  container in the stack with it, and only when opted in (§6.6);
+- `kinboard-config`, read-write, for its state and the status record
+  (§4.11.4);
+- nothing else. It reaches the data through the containers' own mounts.
+
+**What it does, each tick** (every 30 minutes, 0–5 minutes of jitter, and once
+2 minutes after it starts):
+
+1. **Find the stack.** It reads its own container's Compose labels,
+   `com.docker.compose.project`, `…project.working_dir` and
+   `…project.config_files`.
+   - **Compose-file mode.** When the file exists on the host (the CLI, OMV,
+     Dockge, Unraid Compose Manager), every later `docker compose` call runs in
+     a sibling container with that host directory mounted at the same path,
+     the same trick `take_backup` uses for `DATA_DIR`
+     (`kinboard-self-update.sh:80-91`).
+   - **Container mode.** When the path is not a host path (Portainer's web
+     editor keeps stacks in its own volume, §4.6), it recreates each changed
+     container from its own inspected configuration with the new image,
+     keeping every label, so the UI still owns it. That is Watchtower's
+     method. It can only change images, which is enough, because a release
+     changes nothing else (§2).
+2. **Desired against running.**
+   - **Desired:** each service's image reference (`docker compose config
+     --images`, or the containers' configured references in container mode).
+   - **Running:** each container's image ID.
+   - **Remote:** a `HEAD` of each reference's manifest on GHCR.
+
+   A service needs an update when the remote digest, or the reference itself,
+   differs from what runs. A changed `KINBOARD_TAG` counts as a changed
+   reference.
+3. **Nothing differs: log "nothing to do" and stop.** No pull, no backup, no
+   recreate.
+4. **Pull everything first.** A failed pull ends the tick with "skipped:
+   <reason>, retried at the next tick". Nothing has been touched, as today
+   (`:501` under `set -eu`).
+5. **Record what runs:** for each service about to change, its image digest
+   and ID, in `config/updater/state.json`. That is the rollback target.
+6. **Back up**, verified: the database through the db container, plus the
+   storage and config volumes found from the containers' mounts (`docker
+   inspect`), not from `.env`. The checks are today's: tables counted, file
+   count matched (`:144-150, 187-193`). No verified backup, no update.
+7. **Recreate only the changed services**, in dependency order: the database
+   and PostgREST before the webapp. The one-shots (`init`, `db-init`) run again
+   through `up` and find nothing to do. Then wait for health (§4.11.4).
+8. **Log** one summary line: from, to, recreated, backup file, duration.
+
+**Diun is optional for one-file installs.** The updater's own poll is the
+trigger. A household that already runs Diun can point its webhook at the
+updater, which then just runs a tick early.
+
+**GHCR rate limits.** A tick costs one manifest `HEAD` per watched image:
+four for `compose.yml` (webapp, PostgREST, database, go2rtc), eight an hour.
+Diun's existing schedule is the same cadence (`diun/diun.yml`: `*/30 * * * *`,
+`jitter: 30s`). GitHub documents no fixed anonymous limit for ghcr.io
+(https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry;
+inferred from its absence). On HTTP 429 the updater backs off: the next tick
+waits twice as long, up to 6 hours, and the log says so.
+
+**What can still need a compose change.** "Everything a release can change
+lives in the image" (§2) is what makes an image-only updater enough. The rest,
+which only a new `compose.yml` changes:
+
+- an image pin for the database, PostgREST or go2rtc (one week since August,
+  §4.6);
+- a new service, port, volume or health check;
+- the updater's own service block.
+
+Each of these raises `KINBOARD_COMPOSE_REVISION` (§4.6). The updater never
+rewrites a household's file: it may hold their ports and paths. When the image
+needs a newer revision than the file declares, the updater logs it at every
+tick, and Settings shows, under the version, in the same place as "update
+available" (`src/app/settings/page.tsx:1086-1095`):
+
+> **Your compose file is older than this version of Kinboard expects.**
+> Kinboard keeps running. To get *{what changed, one line per item, from the
+> image's revision list}*, replace your compose file with the current one and
+> keep your own settings (port, folders, time zone).
+> [What changed](link to the release notes' compose section) · [The current
+> compose.yml](releases/latest/download/compose.yml)
+
+A database or PostgREST pin never changes on its own: an old file keeps its old
+pins, which the new webapp still supports for at least one release. The
+revision list says which release stops supporting them.
+
+#### 4.11.4 Health and rollback
+
+**After every recreate, the updater waits for health.**
+
+- The waiting is on Docker's own health status, `.State.Health.Status ==
+  healthy`, for every recreated service that has a health check (the webapp's
+  probes `/api/health`, which includes the database, `docker-compose.yml:267-272`).
+  The others need `running`.
+- The time limit is **10 minutes**. The first boot's migrations retry for up to
+  30 seconds (`webapp-entrypoint.sh:75-87`), the health check has a 30-second
+  start period, and a large migration on a Pi needs headroom.
+- A container that exits, restarts more than twice, or is still not healthy at
+  the limit has **failed**.
+
+**On failure, the updater rolls back to the digests it recorded in step 5,**
+on its own:
+
+- it re-tags each previous image ID to the reference and recreates those
+  services with `--pull never`;
+- it waits for health again;
+- it records the failed digest as `skipped` in `state.json`, so the next tick
+  doesn't retry the same broken release. A newer digest, or a household
+  pressing "Try again" in Settings, clears it.
+
+**Why the older image can run.** The rule is written in `UPGRADING.md:163`:
+"Migrations are additive, so the older image runs on the newer schema." It is
+**stated, not enforced.** A grep of all 88 migrations finds no `DROP TABLE`,
+`DROP COLUMN` or `RENAME`, so it holds today, but nothing checks it. This RFC
+adds both a check and a test (PR 13):
+
+- **A migration lint** next to `check-migration-order.mjs`, which refuses
+  `DROP TABLE`, `DROP COLUMN`, `RENAME`, `ALTER … TYPE` and `SET NOT NULL` on
+  an existing column unless the file carries a `-- not-additive: <reason>`
+  line, which a reviewer then has to accept.
+- **A rollback test in the upgrade rig**: the previous release's image is
+  started on HEAD's migrated schema, and `/api/health` and the smoke checks
+  must pass.
+
+**A failed migration is never rolled back quietly.**
+- `migrate.sh` runs a file without a wrapping transaction (`migrate.sh:98`), so
+  a failed file can leave part of itself applied. It stays pending
+  (`migrate.sh:36-37`), and the entrypoint refuses to start the server
+  (`webapp-entrypoint.sh:80-83`).
+- The updater recognises the case from the webapp's log: `[migrate] FAILED:
+  <file>`, `migrate.sh:99`, then `[entrypoint] GIVING UP`.
+- It rolls back as above, but logs at error level: "rolled back after
+  migration <file> failed; the database may hold part of it; the older version
+  runs on it because migrations are additive; the file is retried with the next
+  release".
+- The status record (below) is marked severe.
+
+**Where the household sees it.**
+- The updater writes a status record into `instance_settings` (key
+  `update_status`, service role only, `065_instance_settings.sql:13-30`)
+  through the db container.
+- The webapp reads it on its next start and on the Settings page. A
+  successful update writes one too, so Settings can say "Updated to 1.18.0
+  last night".
+- A rollback shows at the top of Settings until someone dismisses it:
+
+> **The update to {version} didn't start, so Kinboard went back to
+> {previous version}.** Your data is as it was before the update; a backup
+> from {time} is in {folder}. {If a migration failed: "The database update
+> {file} failed partway. Kinboard runs normally on the older version; the
+> next release retries it."} Kinboard will try again when a newer version is
+> published. [Details] (the log excerpt) · [Try again now]
+
+The log, `config/updater/update.log` for one-file installs and
+`/var/lib/kinboard-update/kinboard-update.log` for git installs as today
+(`docker-compose.diun.yml:136`), has the full sequence.
+
+#### 4.11.5 Diun, precisely
+
+**Diun watches the running container's image reference, not `.env`.** Its
+Docker provider reads the image of each labelled container
+(https://github.com/crazy-max/diun/blob/master/docs/providers/docker.md).
+
+So after a deploy pinned to a `sha-…` tag, setting `KINBOARD_TAG=next` in
+`.env` again changes nothing Diun can see. The container still runs the pinned
+tag, which never moves, and updates stay stopped until someone runs one
+`pull && up -d webapp`. The maintainer's own install did exactly this on
+2026-11-26.
+
+The new script's reconciliation tick (§4.11.2) compares `.env`'s desired
+reference with the running one and applies the difference. That is the same
+step 2 as the one-file updater.
+
+**A new tag is silent on its first sighting.**
+- Diun's `firstCheckNotif` defaults to `false`: "Send notification at the very
+  first analysis of an image"
+  (https://github.com/crazy-max/diun/blob/master/docs/config/watch.md).
+  `diun.yml` doesn't set it.
+- When the running reference changes, Diun's first check of it logs "New image
+  found" and calls no webhook. This is right, because nothing needs doing. It
+  is what happened on the maintainer's install on 2026-11-26 at the :00 check
+  after a manual tag switch: nothing was triggered.
+- The cost is that Diun alone can't notice the case above. The tick covers it.
+- The updater follows the same rule on its own first tick. It records what
+  runs as the baseline and recreates nothing unless desired and running
+  differ.
+- `runOnStartup` defaults to `true` (same page), so a restarted Diun checks at
+  once. That is harmless for the same reason.
+
+**The cadence of each tag** (`.github/workflows/docker.yml:133-158`):
+
+| Tag | Moves |
+|---|---|
+| `latest` | only on a stable release tag |
+| `next` | only on a release-candidate tag (`v*-*`) |
+| `X.Y.Z` | never |
+| `sha-<short>` | never |
+| `main` | on every merge |
+
+So a `next` install sees nothing between RCs, and polling every 30 minutes
+mostly finds nothing. That is fine: a `HEAD` per image is the whole cost.
+Pinned tags never move, so the updater never moves them. Changing the tag is
+the household's decision, and the tick then applies it.
 
 ## 5. Existing installs
 
@@ -780,6 +1079,12 @@ the host. `compose.yml` has no container with the socket. Diun, when a
 household adds it, gets it read-only for label and digest reads, or no socket
 at all with the file provider (§4.7).
 
+The one exception is opt-in: `kinboard-updater` (§4.11.3) needs the socket to
+pull and recreate, as the Diun overlay's webhook does today
+(`docker-compose.diun.yml:134`). It runs only under the `autoupdate` profile,
+exposes no port, and accepts no request from the network; a Diun webhook, if
+used, is checked against a shared secret, as today (`diun/hooks.yaml`).
+
 ## 7. Failure modes
 
 | What | What happens | What the household sees |
@@ -797,6 +1102,7 @@ at all with the file provider (§4.7).
 | Two hosts sharing a data folder over the network | **not detected**. Two PostgreSQL servers on one directory corrupt it, and inside containers PostgreSQL's own `postmaster.pid` check can be fooled, because both sides see small, matching PIDs | the Compose UIs page says: never |
 | `db-init` can't apply `init.sql` to an empty database | rolled back (`--single-transaction`); exits non-zero; `rest` and `webapp` wait | the db-init log shows the SQL error. The next Up retries on a still-empty schema |
 | An image needs a newer `compose.yml` | it runs. Settings says so (§4.6) | the notice, with a link |
+| An automatic update doesn't come up healthy | rolled back to the recorded digest; that digest is skipped until a newer one (§4.11.4) | the rollback notice in Settings; the updater's log |
 
 ## 8. Rehearsal
 
@@ -915,6 +1221,31 @@ Negative checks:
 | the directory, without `config/` | `init` refuses with §7's message |
 | a dump into a fresh install without `config/` | starts; Settings shows the push-reset notice |
 
+### 8.4 D. Automatic updates, two in a row
+
+For each shape, built on the A and B rigs:
+- **git with Diun**, from a v1.17.0 install, so the first run is the old
+  script (§4.11.2);
+- **one-file with the updater in compose-file mode**;
+- **one-file with the updater in container mode** (Portainer-like).
+
+The registry is a local `registry:2` holding two consecutive builds tagged the
+same way the real channels are; a rig-only overlay points the stack's image references at it.
+
+| Run | Expected |
+|---|---|
+| **Update 1**: a newer webapp digest appears | exactly one verified backup (dump, storage and config archives, the counts logged); only the webapp (and, on git with ofelia, cron) recreated, every other container ID unchanged; migrations applied once (`kinboard.schema_migrations` rows grow by exactly the new files); `/api/health` healthy within the limit; status record "updated"; jobs: the new job list running (a job added only in the new build is seen firing) |
+| **Update 2**: the next tick, nothing new | "nothing to do"; no backup file; no container ID changed; no pull beyond the manifest `HEAD`s |
+| **A broken release**: a build whose entrypoint exits 1, and separately one whose new migration fails halfway | rolled back to the recorded digest within the limit plus one minute; the app answers on the old version; data fingerprint unchanged (for the migration case: unchanged apart from the half-applied file, which the log names); the Settings notice is shown, with "a database update failed partway" in the second case; the next tick skips the bad digest; a newer good digest is then applied normally |
+| **A pinned tag** (`KINBOARD_TAG=1.17.0`) with newer builds on every channel | nothing pulled, nothing recreated, over three ticks |
+| **A tag change in `.env`** (from a `sha-…` pin back to `next`), with Diun running | the next tick, not Diun, applies it: pulled, backed up, recreated; Diun's first sighting of `next` logs "New image found" and triggers nothing |
+| **No network**: GHCR blocked during a tick, then during a pull halfway through | "skipped: …, retried at the next tick"; no backup taken in the first case, no container recreated in either; after the block lifts, the next tick completes the update |
+| **Rate limit**: the registry answers 429 | backoff logged; the following tick waits twice as long |
+
+**Each guard must be proven red once:** the health wait disabled (the broken
+release then stays down, and the check fails); the bad-digest skip disabled
+(the next tick retries the broken build).
+
 ## 9. Steps and PRs
 
 Each PR can ship alone and changes nothing for an install that doesn't use
@@ -931,10 +1262,15 @@ what it adds.
 | 7 | **Docs**: Compose UIs page, Quick-start, Self-hosting, UPGRADING, README | — |
 | 8 | **`install.sh`** writes `compose.yml` | new installs only |
 | 9 | Optional: `setup.sh` generates VAPID through the image (no Node); `./start.sh adopt` | `setup.sh` users without Node gain push |
-| 10 | Later: the self-update understands `compose.yml`; the no-git guard; the updater image if §11.3 says yes | — |
+| 10 | The self-update understands `compose.yml` (absolute overlay paths); the no-git guard | — |
+| 11 | **Health wait and rollback** in `kinboard-self-update.sh`, with the status record and the Settings notice (§4.11.4); the reconciliation tick in the webhook container (§4.11.5). Lands on today's git installs too | yes: an update that doesn't come up healthy now rolls back instead of staying down |
+| 12 | **`kinboard-updater`**: `Dockerfile.webhook` published multi-arch; compose-file and container modes; the `autoupdate` profile in `compose.yml`; state, backoff, first-tick baseline (§4.11.3) | no: opt-in |
+| 13 | **The additive-migrations lint** and the rollback test in the upgrade rig (§4.11.4) | no |
 
-Order: 1 → 2 → 3 → 4, then 5–9 in any order. 7 and 8 need 4. Rehearsals A and
-B run on 4. Rehearsal C runs on 6. The release ships after all three.
+Order: 1 → 2 → 3 → 4, then 5–9 in any order. 7 and 8 need 4. 11 and 13 need
+nothing and can land first, which makes today's git installs safer at once.
+12 needs 4 and 11. Rehearsals A and B run on 4. Rehearsal C runs on 6.
+Rehearsal D (§8.4) runs on 11 and 12. The release ships after all four.
 
 ## 10. Risks
 
@@ -965,9 +1301,11 @@ B run on 4. Rehearsal C runs on 6. The release ships after all three.
 2. **The default data location**: named volumes (proposed), or `./data` as
    today, which works in OMV, Dockge and a terminal but lands on the flash
    drive in Unraid and in a non-obvious place in Portainer?
-3. **Automatic updates for one-file installs.** Publish the webhook image as
-   `kinboard-updater` and give it an image-only mode, or stay with the notice,
-   Diun notifications and Pull + Up (proposed for this RFC)?
+3. **Decided 2026-11-26 (owner): automatic updates are required on every
+   shape.** `kinboard-updater` is published, specified in §4.11. Still open
+   within it: the health time limit (10 minutes proposed), and whether
+   container mode (Portainer's web-editor stacks) ships in the first version
+   or after compose-file mode.
 4. **API keys per family** (proposed) **or per install** (`instance_settings`)?
 5. **Where `compose.yml` lives**: the repo root plus a release asset
    (proposed), or only the release asset?
