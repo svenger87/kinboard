@@ -1,6 +1,6 @@
 name: Rigs
 
-# The four rigs that build an image and boot a whole stack.
+# The rigs that build an image and boot a whole stack.
 #
 # Deliberately NOT on push. Each one pulls the Supabase image set, builds the
 # webapp, and brings up eleven containers — minutes per run, and the fresh
@@ -22,7 +22,7 @@ on:
         description: Which rig to run
         type: choice
         default: all
-        options: [all, fresh-install, upgrade, backup-restore, integration-api]
+        options: [all, fresh-install, upgrade, rollback, backup-restore, integration-api]
       iterations:
         description: Iterations for the repeating rigs (fresh install, backup/restore)
         type: string
@@ -53,7 +53,7 @@ jobs:
         run: |
           want="${{ github.event.inputs.rig || 'all' }}"
           if [ "$want" = "all" ]; then
-            echo 'rigs=["fresh-install","upgrade","backup-restore","integration-api"]' >> "$GITHUB_OUTPUT"
+            echo 'rigs=["fresh-install","upgrade","rollback","backup-restore","integration-api"]' >> "$GITHUB_OUTPUT"
           else
             echo "rigs=[\"$want\"]" >> "$GITHUB_OUTPUT"
           fi
@@ -107,6 +107,10 @@ jobs:
             # Takes the versions to upgrade *from*; its own defaults are the
             # two most recent, which is what a real user is most likely on.
             upgrade)         ./test-upgrade.sh ;;
+            # The newest stable release's published image on HEAD's migrated
+            # schema: what an update falls back to when it doesn't come up
+            # (RFC-023 §4.11.4). Tags come from the full checkout above.
+            rollback)        ./test-upgrade.sh --rollback ;;
             integration-api) ./test-integration-api.sh ;;
           esac
 
