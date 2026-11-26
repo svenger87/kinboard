@@ -10,6 +10,7 @@ import {
   readFileSync,
   rmSync,
   writeFileSync,
+  statSync,
 } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
@@ -81,7 +82,8 @@ function checkout(opts: { envLocal?: string; skipWorktree?: string } = {}) {
   const root = join(dir, "repo");
   mkdirSync(join(root, "scripts/rigs"), { recursive: true });
   mkdirSync(join(root, "webapp/docker/diun"), { recursive: true });
-  for (const f of readdirSync(RIGS)) copyFileSync(join(RIGS, f), join(root, "scripts/rigs", f));
+  // Files only: scripts/rigs/stock-postgres/ holds test-stock-postgres.sh's data.
+  for (const f of readdirSync(RIGS)) if (statSync(join(RIGS, f)).isFile()) copyFileSync(join(RIGS, f), join(root, "scripts/rigs", f));
   writeFileSync(join(root, "webapp/docker/kong.yml"), KONG);
   writeFileSync(join(root, "webapp/docker/diun/diun.yml"), DIUN);
   writeFileSync(join(root, "setup.sh"), SETUP);
@@ -239,7 +241,7 @@ test.describe("kong.yml and diun.yml skip-worktree with real secrets (the owner'
 test("no rig deletes webapp/.env.local of the checkout it runs in unconditionally", () => {
   // One deletion in all the rigs, and it is the guarded one.
   const rm = /rm -f "\$REPO_ROOT\/webapp\/\.env\.local"/g;
-  const hits = readdirSync(RIGS).flatMap((f) =>
+  const hits = readdirSync(RIGS).filter((f) => statSync(join(RIGS, f)).isFile()).flatMap((f) =>
     [...readFileSync(join(RIGS, f), "utf8").matchAll(rm)].map(() => f),
   );
   expect(hits).toEqual(["test-rig-common.sh"]);

@@ -179,12 +179,14 @@ jobs:
             bash -n "$f"
           done
           # Developer rigs (rigs.yml runs them; here they only have to parse).
-          for f in scripts/rigs/*.sh; do
+          for f in scripts/rigs/*.sh scripts/rigs/stock-postgres/*.sh; do
             echo "checking $f"
             bash -n "$f"
           done
           # POSIX sh: these run inside the Alpine webhook container.
-          for f in webapp/docker/kinboard-self-update.sh webapp/docker/kinboard-entry.sh webapp/docker/migrate.sh webapp/docker/webapp-entrypoint.sh; do
+          # kinboard-db-init and kinboard-postgres's guard run in Alpine images too.
+          for f in webapp/docker/kinboard-self-update.sh webapp/docker/kinboard-entry.sh webapp/docker/migrate.sh webapp/docker/webapp-entrypoint.sh \
+                   webapp/docker/kinboard-db-init.sh webapp/docker/postgres/kinboard-postgres-guard.sh webapp/docker/postgres/00-kinboard-marker.sh; do
             echo "checking $f"
             sh -n "$f"
           done
@@ -347,3 +349,63 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
         run: npm run build
+
+  # RFC-024 §6.5: the gates for stock PostgreSQL, mandatory for any install on
+  # kinboard-postgres (scripts/rigs/test-stock-postgres.sh): the policy, grant
+  # and role comparison of supabase/postgres 15, stock 15 and stock 17;
+  # filterless writes refused on all three; compose.yml on kinboard-postgres:17
+  # with the row-level-security matrix and the 18 database specs; every
+  # protection removed on purpose (red); the legacy install unchanged; the
+  # guard; the documented move. About 25 minutes, every wait inside with its
+  # own deadline. Only when something it guards changed; weekly regardless,
+  # on both architectures (rigs.yml).
+  stock-postgres-decide:
+    name: Stock PostgreSQL gates (decide)
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: decide
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          guarded="webapp/docker/ compose.yml scripts/rigs/test-stock-postgres.sh scripts/rigs/stock-postgres/
+                   webapp/e2e/rls-matrix.spec.ts webapp/e2e/fixtures/rls-matrix-seed.sql webapp/e2e/whole-database.ts
+                   .github/workflows/ci.yml"
+          if [ -z "$BASE" ] || [[ "$BASE" =~ ^0+$ ]] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; echo "no usable base: run"; exit 0
+          fi
+          run=false
+          while IFS= read -r f; do
+            for p in $guarded; do case "$f" in "$p"*) run=true; echo "guarded: $f" ;; esac; done
+          done < <(git diff --name-only "$BASE" "$GITHUB_SHA")
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+  stock-postgres:
+    name: Stock PostgreSQL gates
+    needs: stock-postgres-decide
+    if: needs.stock-postgres-decide.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reclaim disk
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/share/swift || true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+      # Playwright only as a test runner: the specs here open no browser.
+      - name: Install webapp deps
+        working-directory: webapp
+        run: |
+          corepack enable npm
+          npm ci
+      - name: Run the gates
+        env:
+          KINBOARD_RIG: "1"
+        run: scripts/rigs/test-stock-postgres.sh

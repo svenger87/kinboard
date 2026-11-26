@@ -609,7 +609,22 @@ test.describe("kinboard-db-init", () => {
   const source = readFileSync(SCRIPT, "utf8");
 
   /** Runs the real script with psql stubbed: it records every call and answers from a scenario. */
-  function dbInit(o: { families: "t" | "f" | "error"; initFails?: boolean; password?: string; authenticatorAfter?: number }) {
+  type Scenario = {
+    families: "t" | "f" | "error";
+    initFails?: boolean;
+    password?: string;
+    authenticatorAfter?: number;
+    /** which image the database is (default supabase/postgres) */
+    flavour?: "supabase" | "stock";
+    /** stock: can the server load safeupdate (default yes) */
+    safeupdate?: boolean;
+    /** stock: does authenticator exist already (default no: an empty database) */
+    rolesExist?: boolean;
+    bootstrapFails?: boolean;
+    /** stock: what the role check reports, one problem per entry */
+    problems?: string[];
+  };
+  function dbInit(o: Scenario) {
     const dir = mkdtempSync(join(tmpdir(), "kb-dbinit-"));
     try {
       const bin = join(dir, "bin");
@@ -626,16 +641,25 @@ test.describe("kinboard-db-init", () => {
         `stdin=""; if [ ! -t 0 ]; then stdin="$(cat)"; fi`,
         `printf 'CALL PGPASSWORD=%s ARGS=%s\\nSTDIN=%s\\n' "$PGPASSWORD" "$*" "$stdin" >> "${log}"`,
         `case "$*" in`,
+        `  *"count(*) FROM pg_roles WHERE rolname = 'authenticator'"*) echo ${o.rolesExist ? 1 : 0}; exit 0 ;;`,
         `  *"rolname = 'authenticator'"*) n=$(cat "${join(dir, "count")}"); echo $((n+1)) > "${join(dir, "count")}"; [ "$n" -ge ${o.authenticatorAfter ?? 0} ] && echo 1; exit 0 ;;`,
+        `  *"pg_available_extensions"*) echo ${o.flavour ?? "supabase"}; exit 0 ;;`,
+        `  *"-c SELECT 1"*) echo 1; exit 0 ;;`,
+        `  *"LOAD 'safeupdate'"*) ${o.safeupdate === false ? `echo 'ERROR:  could not access file "safeupdate": No such file or directory' >&2; exit 1` : "exit 0"} ;;`,
         `  *"to_regclass('public.families')"*) ${o.families === "error" ? "exit 2" : `echo ${o.families}`}; exit 0 ;;`,
         `  *"--single-transaction -f"*) ${o.initFails ? "echo 'ERROR: boom' >&2; exit 3" : "exit 0"} ;;`,
+        `esac`,
+        `case "$stdin" in`,
+        `  *"\\i :bootstrap"*) ${o.bootstrapFails ? "echo 'ERROR: boom' >&2; exit 3" : "exit 0"} ;;`,
+        `  *"is a superuser"*) printf '%b' ${JSON.stringify((o.problems ?? []).join("\n"))}; exit 0 ;;`,
         `esac`,
         `exit 0`,
       ].join("\n"));
       stub("sleep", "exit 0");
       const p = spawnSync("sh", [SCRIPT], {
         env: { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}`, KINBOARD_SECRETS_DIR: join(dir, "secrets"),
-          KINBOARD_SECRETS_READER: join(DOCKER, "secrets-store.mjs"), POSTGRES_PASSWORD: "", KINBOARD_INIT_SQL: "/x/init.sql" },
+          KINBOARD_SECRETS_READER: join(DOCKER, "secrets-store.mjs"), POSTGRES_PASSWORD: "", KINBOARD_INIT_SQL: "/x/init.sql",
+          KINBOARD_BOOTSTRAP_SQL: "/x/bootstrap.sql" },
         encoding: "utf8",
       });
       return { status: p.status, out: p.stdout + p.stderr, calls: existsSync(log) ? readFileSync(log, "utf8") : "" };
@@ -696,6 +720,95 @@ test.describe("kinboard-db-init", () => {
     const res = dbInit({ families: "t", authenticatorAfter: 3 });
     expect(res.status, res.out).toBe(0);
     expect(res.out.match(/waiting for the database's roles/g)).toHaveLength(3);
+  });
+
+  test("supabase/postgres: no bootstrap, no safeupdate probe, no role check; postgres's password left to the image", () => {
+    const res = dbInit({ families: "f" });
+    expect(res.status, res.out).toBe(0);
+    expect(res.calls).not.toContain("LOAD 'safeupdate'");
+    expect(res.calls).not.toContain("\\i :bootstrap");
+    expect(res.calls).not.toContain("is a superuser");
+    expect(res.calls).toContain("-v stock=false");
+    expect(res.out).not.toContain("stock PostgreSQL");
+  });
+
+  test("stock PostgreSQL, empty: the bootstrap once, in one transaction, before the role check, the password and init.sql", () => {
+    const pw = `it's "q" $HOME; DROP ROLE x; --`;
+    const res = dbInit({ families: "f", flavour: "stock", password: pw });
+    expect(res.status, res.out).toBe(0);
+    const calls = res.calls.split("CALL ").filter(Boolean);
+    const boot = calls.filter((c) => c.includes("\\i :bootstrap"));
+    expect(boot).toHaveLength(1);
+    expect(boot[0]).toContain("-v bootstrap=/x/bootstrap.sql");
+    expect(boot[0]).toContain("ON_ERROR_STOP=1");
+    expect(boot[0]).toContain("\\getenv pw PGPASSWORD");
+    expect(boot[0]).toMatch(/BEGIN;[\s\S]*SET LOCAL log_statement = 'none';[\s\S]*SET LOCAL log_min_error_statement = 'panic';[\s\S]*\\i :bootstrap\nCOMMIT;/);
+    expect(boot[0].slice(boot[0].indexOf("ARGS="))).not.toContain("DROP ROLE");
+    const order = ["LOAD 'safeupdate'", "\\i :bootstrap", "is a superuser", "ALTER ROLE authenticator WITH PASSWORD", "-f /x/init.sql"]
+      .map((needle) => res.calls.indexOf(needle));
+    expect(order.every((i) => i >= 0), JSON.stringify(order)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    // postgres's password too: no image init sets it on stock PostgreSQL.
+    const align = calls.find((c) => c.includes("ALTER ROLE authenticator WITH PASSWORD"))!;
+    expect(align).toContain("-v stock=true");
+    expect(align).toMatch(/\\if :stock\nALTER ROLE postgres WITH PASSWORD :'pw';\n\\endif/);
+  });
+
+  test("stock PostgreSQL with its roles: no second bootstrap, the role check still runs", () => {
+    const res = dbInit({ families: "t", flavour: "stock", rolesExist: true });
+    expect(res.status, res.out).toBe(0);
+    expect(res.calls).not.toContain("\\i :bootstrap");
+    expect(res.calls).toContain("is a superuser");
+    expect(res.out).toContain("roles checked");
+  });
+
+  test("stock PostgreSQL that can't load safeupdate: refused before anything is created", () => {
+    const res = dbInit({ families: "f", flavour: "stock", safeupdate: false });
+    expect(res.status).toBe(1);
+    expect(res.out).toContain("can't load safeupdate");
+    expect(res.out).toContain("kinboard-postgres");
+    expect(res.calls).not.toContain("\\i :bootstrap");
+    expect(res.calls).not.toContain("ALTER ROLE");
+    expect(res.calls).not.toContain("--single-transaction");
+  });
+
+  test("stock PostgreSQL whose roles are wrong: refused, naming each problem, and nothing else runs", () => {
+    const res = dbInit({ families: "f", flavour: "stock", rolesExist: true,
+      problems: ["authenticated bypasses row-level security", "authenticator does not preload safeupdate"] });
+    expect(res.status).toBe(1);
+    expect(res.out).toContain("REFUSED");
+    expect(res.out).toContain("- authenticated bypasses row-level security");
+    expect(res.out).toContain("- authenticator does not preload safeupdate");
+    expect(res.calls).not.toContain("ALTER ROLE authenticator WITH PASSWORD");
+    expect(res.calls).not.toContain("--single-transaction");
+  });
+
+  test("stock PostgreSQL, the bootstrap failing: exits non-zero, saying it was rolled back, and never applies init.sql", () => {
+    const res = dbInit({ families: "f", flavour: "stock", bootstrapFails: true });
+    expect(res.status).toBe(1);
+    expect(res.out).toContain("the role bootstrap failed and was rolled back");
+    expect(res.calls).not.toContain("--single-transaction");
+  });
+
+  test("a refused login is not waited out: exits at once, saying so", () => {
+    const dir = mkdtempSync(join(tmpdir(), "kb-dbinit-"));
+    try {
+      const bin = join(dir, "bin");
+      mkdirSync(bin);
+      writeFileSync(join(bin, "psql"), `#!/bin/sh\necho 'psql: error: connection to server at "db", port 5432 failed: FATAL:  password authentication failed for user "supabase_admin"' >&2\nexit 2\n`);
+      chmodSync(join(bin, "psql"), 0o755);
+      writeFileSync(join(bin, "sleep"), "#!/bin/sh\nexit 0\n");
+      chmodSync(join(bin, "sleep"), 0o755);
+      const p = spawnSync("sh", [SCRIPT], {
+        env: { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}`, POSTGRES_PASSWORD: "pw", KINBOARD_SECRETS_READER: join(DOCKER, "secrets-store.mjs") },
+        encoding: "utf8",
+      });
+      expect(p.status).toBe(1);
+      expect(p.stderr).toContain("the database refused supabase_admin");
+      expect(p.stdout).not.toContain("waiting for the database");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test("no password anywhere: exits before connecting", () => {

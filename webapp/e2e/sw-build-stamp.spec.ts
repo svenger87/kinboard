@@ -121,11 +121,13 @@ test.describe("sw.js is stamped per build", () => {
 test.describe("every build path passes the revision", () => {
   test("CI passes BUILD_REVISION to every image build", () => {
     const wf = readFileSync(join(REPO, ".github", "workflows", "docker.yml"), "utf8");
-    // The webapp's builds; kinboard-updater (Dockerfile.webhook) serves no sw.js.
+    // The webapp's builds; kinboard-updater (Dockerfile.webhook) and
+    // kinboard-postgres (context webapp/docker/postgres) serve no sw.js.
     const builds = wf.split("uses: docker/build-push-action@").slice(1)
-      .filter((b) => !b.split(/\n\s*- (name|uses):/)[0].includes("file: webapp/docker/Dockerfile.webhook"));
+      .filter((b) => !b.split(/\n\s*- (name|uses):/)[0].includes("file: webapp/docker/Dockerfile.webhook"))
+      .filter((b) => /\n\s*context: webapp\n/.test(b));
     expect(builds.length).toBeGreaterThan(0);
-    expect(wf.split("uses: docker/build-push-action@").length - 1, "the webapp's and the updater's").toBe(builds.length + 1);
+    expect(wf.split("uses: docker/build-push-action@").length - 1, "the webapp's, the updater's and kinboard-postgres's").toBe(builds.length + 2);
     for (const b of builds) {
       const step = b.split(/\n\s*- (name|uses):/)[0];
       expect(step).toMatch(/build-args:[\s|]*\n\s*BUILD_REVISION=\$\{\{ steps\.rev\.outputs\.short \}\}/);

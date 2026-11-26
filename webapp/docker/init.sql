@@ -3,7 +3,17 @@
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pg_cron";
+-- pg_cron only where the image ships it and preloads it (supabase/postgres).
+-- Nothing schedules a job with it; stock PostgreSQL (kinboard-postgres) has
+-- neither, and the extension would buy nothing there (RFC-024 §4.2).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_cron')
+     AND current_setting('shared_preload_libraries') ~ '(^|[ ,])pg_cron($|[ ,])' THEN
+    CREATE EXTENSION IF NOT EXISTS "pg_cron";
+  END IF;
+END
+$$;
 
 -- supabase/realtime expects a `_realtime` schema (with underscore) to
 -- store its own migration tracking. Some versions of supabase/postgres

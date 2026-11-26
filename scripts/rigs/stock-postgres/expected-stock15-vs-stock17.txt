@@ -1,0 +1,12 @@
+# Reviewed differences between kinboard-postgres on postgres:15 (left, "<")
+# and on postgres:17 (right, ">"): what the major version changes, with the
+# image's own differences already isolated by the first comparison
+# (RFC-024 §6.5). Same format as expected-supabase15-vs-stock15.txt.
+
+# PostgreSQL 17 adds the MAINTAIN privilege (VACUUM, ANALYZE, REINDEX,
+# REFRESH, LOCK, CLUSTER), and `GRANT ALL ON <table>` includes it from 17
+# on. The migrations grant ALL to service_role on its server-only tables, so
+# on 17 those carry MAINTAIN too. service_role is the server's role; none of
+# the commands MAINTAIN allows is reachable through PostgREST. Any MAINTAIN
+# for anon or authenticated is not allowed here, and fails.
+> ^relacl\|r\|public\.[a-z0-9_]+\|service_role\|MAINTAIN\|f$

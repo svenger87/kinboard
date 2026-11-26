@@ -22,7 +22,7 @@ on:
         description: Which rig to run
         type: choice
         default: all
-        options: [all, fresh-install, upgrade, rollback, backup-restore, integration-api, one-file]
+        options: [all, fresh-install, upgrade, rollback, backup-restore, integration-api, one-file, stock-postgres, stock-postgres-arm64]
       iterations:
         description: Iterations for the repeating rigs (fresh install, backup/restore)
         type: string
@@ -53,7 +53,7 @@ jobs:
         run: |
           want="${{ github.event.inputs.rig || 'all' }}"
           if [ "$want" = "all" ]; then
-            echo 'rigs=["fresh-install","upgrade","rollback","backup-restore","integration-api","one-file"]' >> "$GITHUB_OUTPUT"
+            echo 'rigs=["fresh-install","upgrade","rollback","backup-restore","integration-api","one-file","stock-postgres","stock-postgres-arm64"]' >> "$GITHUB_OUTPUT"
           else
             echo "rigs=[\"$want\"]" >> "$GITHUB_OUTPUT"
           fi
@@ -61,7 +61,9 @@ jobs:
   rig:
     name: ${{ matrix.rig }}
     needs: select
-    runs-on: ubuntu-latest
+    # The stock PostgreSQL gates also run on arm64 (RFC-024 §6.5): the
+    # database image is built for both, and a Raspberry Pi is arm64.
+    runs-on: ${{ matrix.rig == 'stock-postgres-arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     # The fresh-install rig at 20 iterations is a little over an hour on this
     # hardware; the default of 3 is far under. Generous rather than tight,
     # because a rig killed by a timeout looks exactly like a rig that hung.
@@ -92,6 +94,20 @@ jobs:
           docker image prune -af >/dev/null 2>&1 || true
           df -h / | tail -1
 
+      # The stock PostgreSQL gates run Playwright specs against their stack.
+      - uses: actions/setup-node@v4
+        if: startsWith(matrix.rig, 'stock-postgres')
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+      - name: Install webapp deps
+        if: startsWith(matrix.rig, 'stock-postgres')
+        working-directory: webapp
+        run: |
+          corepack enable npm
+          npm ci
+
       - name: Run ${{ matrix.rig }}
         env:
           # The rigs refuse to start without it: they live in scripts/rigs/,
@@ -119,6 +135,10 @@ jobs:
             # file every new install runs (RFC-023 §8.1 A1/A3), then an
             # upgrade onto this build from the previous published image.
             one-file)        scripts/rigs/test-one-file.sh ;;
+            # RFC-024 §6.5, the gates ci.yml's stock-postgres job runs when
+            # their files change, weekly regardless, on both architectures.
+            stock-postgres|stock-postgres-arm64)
+                             scripts/rigs/test-stock-postgres.sh ;;
           esac
 
       # A rig that fails has already printed why, but the stack's own logs are
