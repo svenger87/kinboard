@@ -19,6 +19,7 @@
  */
 
 import { postgrestFetch, postgrestUrl } from "@/lib/rest-proxy";
+import { guardUnfilteredWrites } from "@/lib/supabase/unfiltered-write-guard";
 
 /** The marker `window.__ENV` carries: the browser uses its own origin. */
 export const SAME_ORIGIN = "same-origin";
@@ -66,8 +67,13 @@ export function serverSupabaseUrl(env: EnvLike = process.env): string {
  * that prefix. Stripping it there sent every server query to a path Kong has
  * no route for: the family count came back empty, and the join page offered to
  * create a family on an install that had three.
+ *
+ * Both server factories (lib/supabase/server.ts: the anon client and the
+ * service-role client) use this, so the unfiltered-write guard (RFC-024
+ * §4.2.1) sits here, outside the prefix strip, where the URL still reads
+ * `/rest/v1/<table>`.
  */
 export function serverSupabaseFetch(env: EnvLike = process.env): typeof fetch {
   const direct = postgrestUrl(env);
-  return direct ? postgrestFetch(direct) : (input, init) => fetch(input, init);
+  return guardUnfilteredWrites(direct ? postgrestFetch(direct) : (input, init) => fetch(input, init));
 }

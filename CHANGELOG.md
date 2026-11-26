@@ -13,6 +13,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - **`test-upgrade.sh` no longer looks like the way to update.** It sat next to `start.sh` in `webapp/docker`, and a self-hoster who ran it to update to 1.17 got a second, throwaway copy of Kinboard running beside his own instead, and nothing updated. It was a developer test all along. The developer tests now live in `scripts/rigs/` and refuse to start unless a developer asks for one; the old `webapp/docker/test-upgrade.sh` only says that it is not an updater and how to update (`git pull`, then `cd webapp/docker && ./start.sh up`, see [Self-hosting → Updates](https://github.com/svenger87/kinboard/wiki/Self-hosting#updates)). The test also rewrote `webapp/docker/.env` for its throwaway copy, so a later `./start.sh up` would have started that empty copy rather than your Kinboard. `start.sh` now notices such an `.env`, stops, and says which lines to put back; your family's data was never touched. A test that fails or is stopped halfway now removes its throwaway copy, and says how to remove one left from before (#539).
+### Security
+
+- **Kinboard refuses to change or delete every row of a table by mistake.** A change or removal that names no row, the kind that would wipe a whole list for every family at once, is now stopped inside Kinboard before it reaches the database, on the tablets and phones as well as on the server, with an error that names the table (in the server log when the server made the request). The database already refuses such a request on today's installs; this is a second net in front of it, so a future install without that database safeguard is no weaker. Nothing in Kinboard writes that way today, so nothing a family does changes (RFC-024 §4.2.1).
 
 ## [1.17.0] - 2026-11-25
 

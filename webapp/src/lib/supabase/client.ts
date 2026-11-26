@@ -1,6 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
 import { getFamilyToken, invalidateFamilyToken } from "@/lib/supabase/family-token";
+import { guardUnfilteredWrites } from "@/lib/supabase/unfiltered-write-guard";
 
 // Runtime env injected by app/layout.tsx via <script>window.__ENV=...</script>.
 // Reading from window.__ENV first (when set) lets the published Docker image
@@ -87,8 +88,12 @@ export function createClient() {
          * The anon key stays as the `apikey` header (Kong requires it to route
          * at all); the Authorization header is what PostgREST verifies and what
          * the policies read.
+         *
+         * Wrapped in the unfiltered-write guard (RFC-024 §4.2.1): an UPDATE
+         * or DELETE without a filter is refused before a token is even asked
+         * for.
          */
-        fetch: async (input: RequestInfo | URL, rawInit?: RequestInit) => {
+        fetch: guardUnfilteredWrites(async (input: RequestInfo | URL, rawInit?: RequestInit) => {
           const init = withReadTimeout(rawInit);
           const token = await getFamilyToken();
           if (!token) return fetch(input, init);
@@ -111,7 +116,7 @@ export function createClient() {
           }
 
           return response;
-        },
+        }),
       },
     },
   );

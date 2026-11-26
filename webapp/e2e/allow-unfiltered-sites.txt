@@ -1,0 +1,9 @@
+# Deliberate UPDATE/DELETE without a filter (RFC-024 §4.2.1).
+#
+# One line per `allowUnfiltered(query, "reason")` call in src, as
+#   <path from webapp/> | <reason>
+# e2e/unfiltered-write-guard.spec.ts fails when this list and the code
+# disagree, so every new whole-table write is seen in review.
+#
+# Empty since the guard landed: a scan of src found 132 update() and 64
+# delete() chains on .from(), every one filtered.
