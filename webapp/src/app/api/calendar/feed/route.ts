@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { instanceSiteUrl } from "@/lib/instance-config";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
@@ -105,8 +106,9 @@ export async function POST(request: NextRequest) {
   // a reverse proxy (e.g. Traefik) that's http://internal-container-host,
   // not the address a calendar app can reach. Prefer SITE_URL (the
   // operator-configured public origin, already passed to the webapp
-  // container for GOTRUE_SITE_URL) when set.
-  const siteUrl = process.env.SITE_URL?.replace(/\/+$/, "");
+  // container for GOTRUE_SITE_URL) when set, else the address the install's
+  // operator confirmed in the first-run sequence or Settings (RFC-024 §8).
+  const siteUrl = await instanceSiteUrl();
   const origin = siteUrl || request.nextUrl.origin;
   const url = new URL("/api/calendar/feed", origin);
   url.searchParams.set("family_id", familyId);

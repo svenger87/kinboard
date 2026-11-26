@@ -52,7 +52,9 @@ export function GettingStartedChecklist() {
     { key: "calendar", done: state.has_calendar, href: "/setup/calendar" },
     { key: "weather", done: state.has_weather_location, href: "/setup/weather" },
     { key: "homeassistant", done: state.has_home_assistant, href: "/setup/homeassistant" },
-  ] as const;
+    // Unknown from an older server: not offered rather than shown undone.
+    ...(state.has_pin === undefined ? [] : [{ key: "pin", done: state.has_pin, href: "/setup/pin" } as const]),
+  ];
   const doneCount = items.filter((i) => i.done).length;
   const total = items.length;
   const allDone = doneCount === total;

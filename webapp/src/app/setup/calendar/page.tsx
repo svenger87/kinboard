@@ -11,7 +11,8 @@ import { Loader2, Check, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { WizardProgress } from "@/components/setup/wizard-progress";
 import { WizardStepFooter } from "@/components/setup/wizard-step-footer";
-import { useCreateIcsCalendar } from "@/hooks";
+import { useCreateIcsCalendar, useGoogleConfigured } from "@/hooks";
+import { GoogleClientCard } from "@/components/settings/install-key-cards";
 
 interface TestResult {
   ok: boolean;
@@ -24,6 +25,9 @@ const DEFAULT_COLOR = "#3b82f6";
 export default function SetupCalendarPage() {
   const t = useTranslations("setup.calendar");
   const createIcs = useCreateIcsCalendar();
+  // Without a Google client nothing can connect: the same fields as Settings
+  // → Google Calendar, here (RFC-024 §8, step 4). Skippable like the rest.
+  const { data: googleConfigured } = useGoogleConfigured();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [testing, setTesting] = useState(false);
@@ -73,6 +77,8 @@ export default function SetupCalendarPage() {
       <Card><CardContent className="p-6 md:p-8">
         <h1 className="text-2xl font-display tracking-tight mb-2">{t("title")}</h1>
         <p className="text-muted-foreground text-sm mb-6">{t("description")}</p>
+
+        {googleConfigured === false && <GoogleClientCard id="setup-google-client" />}
 
         {/* Google Calendar — OAuth connect lives in settings */}
         <div className="rounded-lg border border-border/60 p-4 mb-6 flex items-start gap-3">
@@ -151,8 +157,7 @@ export default function SetupCalendarPage() {
       </CardContent></Card>
 
       <WizardStepFooter
-        backHref="/setup/people"
-        nextHref="/setup/homeassistant"
+        step="calendar"
         onNextClick={handleNext}
         disabled={createIcs.isPending}
       />

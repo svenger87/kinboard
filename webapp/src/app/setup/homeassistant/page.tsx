@@ -108,8 +108,7 @@ export default function SetupHomeAssistantPage() {
       </CardContent></Card>
 
       <WizardStepFooter
-        backHref="/setup/calendar"
-        nextHref="/setup/weather"
+        step="homeassistant"
         onNextClick={handleNext}
         disabled={save.isPending}
       />

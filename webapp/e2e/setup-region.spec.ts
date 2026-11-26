@@ -1,17 +1,18 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { STEPS } from "../src/components/setup/wizard-progress";
+import { FAMILY_STEPS, firstIncompleteStep } from "../src/lib/first-run";
 import { codeOnly } from "./source-helpers";
 
 const read = (p: string) => codeOnly(readFileSync(join(process.cwd(), p), "utf8"));
 
-test("the region is the wizard's first step", () => {
-  expect(STEPS[0]).toBe("region");
-  const root = read("src/app/setup/page.tsx");
-  expect(root.indexOf('"/setup/region"')).toBeGreaterThan(-1);
-  expect(root.indexOf('"/setup/region"')).toBeLessThan(root.indexOf('"/setup/people"'));
-  expect(read("src/app/join/page.tsx")).toContain('router.push("/setup/region")');
+test("the region is the family's first step", () => {
+  // The install's own steps (RFC-024 §8) come first, once, for its operator only.
+  expect(FAMILY_STEPS[0]).toBe("region");
+  const none = { has_holiday_region: false, has_people: false, has_calendar: false, has_home_assistant: false, has_weather_location: false };
+  expect(firstIncompleteStep(none, false)).toBe("region");
+  expect(read("src/app/setup/page.tsx")).toContain("firstIncompleteStep(state, installStepsDue(instance))");
+  expect(read("src/app/join/page.tsx")).toContain('router.push("/setup")');
 });
 
 test("the step preselects from a timezone, never from the language", () => {

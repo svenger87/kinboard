@@ -3660,6 +3660,13 @@
       "presenceNone": "这里和服务器上都没有设置令牌，所以传感器的上报会被拒绝。",
       "presenceTokenLabel": "或填写你自己的令牌",
       "presenceTokenPlaceholder": "至少 16 个字符"
+    },
+    "instance": {
+      "title": "这个安装",
+      "description": "这些是这台 Kinboard 服务器的设置，而不是某个家庭的。只有运行它的家庭能看到。",
+      "save": "保存",
+      "saved": "已保存",
+      "saveFailed": "无法保存。请重试。"
     }
   },
   "settingsSearch": {
@@ -5139,13 +5146,18 @@
       "item_weather": "设置你的天气位置",
       "item_homeassistant": "连接 Home Assistant（可选）",
       "resume": "继续设置",
-      "finish": "完成"
+      "finish": "完成",
+      "item_pin": "用 PIN 码保护设置"
     },
     "region": {
       "title": "你住在哪里？",
       "description": "公共假期和不上学的日子取决于你的国家和州。Kinboard 显示你居住地的假期。",
       "preselectedHint": "根据你的时区建议。如果不对请更改。",
-      "saveError": "无法保存你的居住地。重试。"
+      "saveError": "无法保存你的居住地。重试。",
+      "languageLabel": "语言",
+      "timeZoneLabel": "时区",
+      "timeZoneDescription": "时钟、提醒和一天的开始都以它为准。“自动”即此服务器自己的时区。",
+      "regionLabel": "你们住在哪里（用于节假日）"
     },
     "people": {
       "title": "你的家人都有谁？",
@@ -5207,6 +5219,42 @@
       "title": "一切就绪 — 欢迎来到 Kinboard",
       "description": "我们已保存你的家庭、人员和集成。仪表盘已准备就绪。你可以随时重新访问设置。",
       "cta": "前往仪表盘"
+    },
+    "install": {
+      "title": "设置这个安装",
+      "description": "有两项属于这台 Kinboard 服务器，而不属于你的家庭。你看到它们，是因为你创建了它的第一个家庭。每一项都可以跳过，之后都能在设置中找到。",
+      "addressLabel": "地址",
+      "addressBody": "Kinboard 会把这个地址放进它给出的链接里，例如日历订阅链接。它就是打开本页时使用的地址。如果其他设备用别的名字访问 Kinboard，请修改它。",
+      "addressPlaceholder": "http://192.168.1.20:3000",
+      "addressFromEnvironment": "已在服务器上设置（SITE_URL）：{value}。以该设置为准；请在那里修改。",
+      "addressInvalid": "这不是类似 http://192.168.1.20:3000 的地址：只需协议、主机和端口，后面不要有其他内容。",
+      "dataTitle": "你的数据存放在哪里",
+      "dataBody": "所有内容都留在这台服务器上。日历、清单、成员和设置在它的数据库中；照片和其他上传的文件就在旁边。两者都位于安装的数据文件夹中（<code>DATA_DIR</code>，除非你另选，否则是 compose 文件旁的 <code>./data</code>）。请备份该文件夹，或随时在“设置 → 数据与备份”中下载一份副本。",
+      "saveError": "无法保存地址。请重试。"
+    },
+    "push": {
+      "title": "通知",
+      "ready": "发送到手机和浏览器的推送通知已经可以使用：这个安装已生成了自己的密钥。",
+      "notReady": "推送暂不可用：此服务器没有推送密钥。其他功能不受影响。",
+      "contactLabel": "推送服务联系方式（可选）",
+      "contactBody": "如果来自此服务器的通知出现问题，Google、Apple 和 Mozilla 等推送服务可能会写信到这个地址。不填写时，它们收到的是 admin@example.com。",
+      "contactPlaceholder": "you@example.com",
+      "contactFromEnvironment": "已在服务器上设置（VAPID_SUBJECT）：{value}。以该设置为准；请在那里修改。",
+      "contactInvalid": "请输入电子邮件地址或 https:// 地址。",
+      "deviceHint": "每部手机或平板需各自在“设置 → 通知”中开启通知。",
+      "saveError": "无法保存联系方式。请重试。"
+    },
+    "pin": {
+      "title": "用 PIN 码保护设置",
+      "description": "房间里的任何人都能触碰墙上的屏幕。设置四位数 PIN 码后，设置、密钥和集成会保持锁定，直到大人输入它。其他内容仍然开放。",
+      "enter": "选择四位数字",
+      "confirm": "再输入一次",
+      "mismatch": "两次输入不一致。请重新选择四位数字。",
+      "hint": "每台设备在打开设置前都会要求输入。可在“设置 → 安全”中修改或移除。",
+      "digitLabel": "PIN 第 {position} 位",
+      "saved": "PIN 已设置",
+      "already": "这个家庭已经有 PIN 码。你可以在“设置 → 安全”中修改。",
+      "saveError": "无法设置 PIN 码。请重试。"
     }
   },
   "einkaufen": {

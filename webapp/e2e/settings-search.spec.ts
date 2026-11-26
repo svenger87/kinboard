@@ -298,6 +298,7 @@ test.describe("guards", () => {
     "app/settings/pocket-money/page.tsx": { count: 2, why: "one card per child's account, and that account's requests" },
     "components/pocket-money/rewards-settings.tsx": { count: 1, why: "the reward requests inbox, there only while one waits" },
     "app/settings/schedule/page.tsx": { count: 1, why: "the empty state shown before any child exists" },
+    "components/settings/instance-card.tsx": { count: 1, why: "This install (RFC-024 §8): shown only to the install's operator, so not in a search every family shares" },
     "app/settings/screensaver/page.tsx": { count: 1, why: "the help box" },
     "app/settings/theme/page.tsx": { count: 1, why: "a preview, not a setting" },
     "app/settings/weather/page.tsx": { count: 1, why: "a preview, not a setting" },

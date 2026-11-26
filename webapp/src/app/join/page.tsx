@@ -244,7 +244,7 @@ export default function JoinPage() {
       // server-generated push notifications match the UI language the
       // family onboarded in. Must never block or fail the join flow.
       postLocale(locale, family.id).catch(() => {});
-      router.push("/setup/region");
+      router.push("/setup");
     } catch {
       setError(t("createError"));
     }

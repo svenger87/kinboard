@@ -3660,6 +3660,13 @@
       "presenceNone": "Weder hier noch auf dem Server ist ein Token gesetzt, deshalb werden die Meldungen des Sensors abgelehnt.",
       "presenceTokenLabel": "Oder einen eigenen Token eintragen",
       "presenceTokenPlaceholder": "Mindestens 16 Zeichen"
+    },
+    "instance": {
+      "title": "Diese Installation",
+      "description": "Einstellungen dieses Kinboard-Servers, nicht einer Familie. Nur die Familie, die ihn betreibt, sieht sie.",
+      "save": "Speichern",
+      "saved": "Gespeichert",
+      "saveFailed": "Konnte nicht gespeichert werden. Versuch es noch einmal."
     }
   },
   "settingsSearch": {
@@ -5139,13 +5146,18 @@
       "item_weather": "Wetter-Standort festlegen",
       "item_homeassistant": "Home Assistant verbinden (optional)",
       "resume": "Einrichtung fortsetzen",
-      "finish": "Abschließen"
+      "finish": "Abschließen",
+      "item_pin": "Einstellungen mit einer PIN schützen"
     },
     "region": {
       "title": "Wo wohnt ihr?",
       "description": "Feiertage und schulfreie Tage hängen von Land und Bundesland ab. Kinboard zeigt die, die bei euch gelten.",
       "preselectedHint": "Aus deiner Zeitzone vorgeschlagen. Ändere es, wenn es nicht stimmt.",
-      "saveError": "Der Wohnort konnte nicht gespeichert werden. Versuch es noch einmal."
+      "saveError": "Der Wohnort konnte nicht gespeichert werden. Versuch es noch einmal.",
+      "languageLabel": "Sprache",
+      "timeZoneLabel": "Zeitzone",
+      "timeZoneDescription": "Uhren, Erinnerungen und der Tagesbeginn richten sich danach. Automatisch heißt: die Zeitzone dieses Servers.",
+      "regionLabel": "Wo ihr wohnt (für Feiertage)"
     },
     "people": {
       "title": "Wer gehört zur Familie?",
@@ -5207,6 +5219,42 @@
       "title": "Fertig — willkommen bei Kinboard",
       "description": "Familie, Personen und Integrationen sind gespeichert. Das Dashboard ist startklar. Einstellungen kannst du jederzeit anpassen.",
       "cta": "Zum Dashboard"
+    },
+    "install": {
+      "title": "Diese Installation einrichten",
+      "description": "Zwei Dinge, die zu diesem Kinboard-Server gehören und nicht zu eurer Familie. Du siehst sie, weil du die erste Familie angelegt hast. Alles lässt sich überspringen und steht später in den Einstellungen.",
+      "addressLabel": "Adresse",
+      "addressBody": "Kinboard setzt diese Adresse in Links ein, die es herausgibt, etwa den Link zum Kalender-Abo. Es ist die Adresse, unter der diese Seite geöffnet wurde. Ändere sie, wenn andere Geräte Kinboard unter einem anderen Namen erreichen.",
+      "addressPlaceholder": "http://192.168.1.20:3000",
+      "addressFromEnvironment": "Auf dem Server festgelegt (SITE_URL): {value}. Diese Einstellung gilt; ändere sie dort.",
+      "addressInvalid": "Das ist keine Adresse wie http://192.168.1.20:3000: Schema, Host und Port, nichts dahinter.",
+      "dataTitle": "Wo eure Daten liegen",
+      "dataBody": "Alles bleibt auf diesem Server. Kalender, Listen, Personen und Einstellungen stehen in seiner Datenbank, Fotos und andere Uploads als Dateien daneben. Beides liegt im Datenordner der Installation (<code>DATA_DIR</code>, <code>./data</code> neben der Compose-Datei, wenn du keinen anderen gewählt hast). Sichere diesen Ordner, oder lade jederzeit unter Einstellungen → Daten & Sicherung eine Kopie herunter.",
+      "saveError": "Die Adresse konnte nicht gespeichert werden. Versuch es noch einmal."
+    },
+    "push": {
+      "title": "Benachrichtigungen",
+      "ready": "Push-Benachrichtigungen an Handys und Browser funktionieren schon: Diese Installation hat ihre eigenen Schlüssel erzeugt.",
+      "notReady": "Push ist noch nicht verfügbar: Diesem Server fehlen die Push-Schlüssel. Alles andere funktioniert auch ohne.",
+      "contactLabel": "Kontakt für Push-Dienste (optional)",
+      "contactBody": "Push-Dienste wie die von Google, Apple und Mozilla schreiben an diese Adresse, falls Benachrichtigungen von diesem Server Probleme machen. Ohne Angabe bekommen sie admin@example.com.",
+      "contactPlaceholder": "du@example.com",
+      "contactFromEnvironment": "Auf dem Server festgelegt (VAPID_SUBJECT): {value}. Diese Einstellung gilt; ändere sie dort.",
+      "contactInvalid": "Gib eine E-Mail-Adresse oder eine https://-Adresse ein.",
+      "deviceHint": "Jedes Handy und Tablet schaltet Benachrichtigungen für sich selbst ein, unter Einstellungen → Benachrichtigungen.",
+      "saveError": "Der Kontakt konnte nicht gespeichert werden. Versuch es noch einmal."
+    },
+    "pin": {
+      "title": "Einstellungen mit einer PIN schützen",
+      "description": "Einen Wandbildschirm kann jeder im Raum anfassen. Mit einer vierstelligen PIN bleiben Einstellungen, Schlüssel und Integrationen zu, bis ein Erwachsener sie eingibt. Alles andere bleibt offen.",
+      "enter": "Wähle vier Ziffern",
+      "confirm": "Gib sie noch einmal ein",
+      "mismatch": "Die stimmten nicht überein. Wähle noch einmal vier Ziffern.",
+      "hint": "Jedes Gerät fragt danach, bevor es die Einstellungen öffnet. Ändern oder entfernen unter Einstellungen → Sicherheit.",
+      "digitLabel": "PIN-Ziffer {position}",
+      "saved": "PIN gesetzt",
+      "already": "Diese Familie hat schon eine PIN. Du kannst sie unter Einstellungen → Sicherheit ändern.",
+      "saveError": "Die PIN konnte nicht gesetzt werden. Versuch es noch einmal."
     }
   },
   "einkaufen": {

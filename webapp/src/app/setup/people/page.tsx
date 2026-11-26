@@ -159,8 +159,7 @@ export default function SetupPeoplePage() {
       </Card>
 
       <WizardStepFooter
-        backHref="/setup/region"
-        nextHref="/setup/calendar"
+        step="people"
         onNextClick={handleSave}
         disabled={saving}
       />

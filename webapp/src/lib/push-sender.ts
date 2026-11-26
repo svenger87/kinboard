@@ -1,4 +1,5 @@
 import webpush from "web-push";
+import { instanceVapidSubject } from "@/lib/instance-config";
 
 // Push subscription type (matches what the browser returns)
 export interface PushSubscriptionJSON {
@@ -120,6 +121,7 @@ export async function sendPushNotification(
 
   try {
     const webPushSub = toWebPushSubscription(subscription);
+    const { publicKey, privateKey } = getVapidConfig();
 
     await webpush.sendNotification(
       webPushSub,
@@ -127,6 +129,11 @@ export async function sendPushNotification(
       {
         TTL: 60 * 60, // 1 hour
         urgency: "normal",
+        // The contact push services see: VAPID_SUBJECT, else the one the
+        // install's operator gave in the first-run sequence or Settings
+        // (RFC-024 §8), else the old default. Per send, so a change in
+        // Settings needs no restart.
+        vapidDetails: { subject: await instanceVapidSubject(), publicKey: publicKey!, privateKey: privateKey! },
       }
     );
 
