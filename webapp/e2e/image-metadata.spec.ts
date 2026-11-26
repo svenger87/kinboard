@@ -289,7 +289,7 @@ test.describe("publishing the release", () => {
   const changelog = "# Changelog\n\n## [Unreleased]\n\n- **Next.**\n\n## [1.18.0] - 2026-12-01\n\n- **Stable entry.**\n";
 
   /** Runs publish-release.sh with a fake `gh`; returns what it asked gh to create. */
-  const publish = (tag: string, opts: { handwritten?: string; existing?: "draft" | "published" } = {}) => {
+  const publish = (tag: string, opts: { handwritten?: string; existing?: "draft" | "published"; compose?: string } = {}) => {
     const dir = mkdtempSync(join(tmpdir(), "publish-"));
     try {
       const bin = join(dir, "bin");
@@ -297,6 +297,7 @@ test.describe("publishing the release", () => {
       execFileSync("mkdir", ["-p", bin, join(root, "docs", "release-notes")]);
       writeFileSync(join(root, "CHANGELOG.md"), changelog);
       if (opts.handwritten) writeFileSync(join(root, "docs", "release-notes", `${tag}.md`), opts.handwritten);
+      if (opts.compose !== undefined) writeFileSync(join(root, "compose.yml"), opts.compose);
       // `gh release list` applies the script's own --jq to a fixture list
       // (the real gh does the same); `gh release create` logs its arguments
       // and its notes' text.
@@ -310,6 +311,7 @@ fi
 if [ "$1 $2" = "release create" ]; then
   echo "ARGS $*" >> "${dir}/log"
   prev=""; for a in "$@"; do [ "$prev" = "--notes-file" ] && { echo "NOTES"; cat "$a"; } >> "${dir}/log"; prev="$a"; done
+  for a in "$@"; do case "$a" in */compose.yml) { echo "ASSET $(basename "$a")"; cat "$a"; } >> "${dir}/log" ;; esac; done
   exit 0
 fi
 echo "unexpected gh $*" >&2; exit 9
@@ -318,6 +320,7 @@ echo "unexpected gh $*" >&2; exit 9
       );
       execFileSync("bash", [script, tag], {
         env: cleanEnv({ PATH: `${bin}:${process.env.PATH}`, REPO: "owner/repo", RELEASE_ROOT: root,
+          REGISTRY: "ghcr.io", IMAGE_NAME: "owner/kinboard",
           FAKE_RELEASES: JSON.stringify([
             { tagName: "v1.17.0", isDraft: false },
             ...(opts.existing ? [{ tagName: tag, isDraft: opts.existing === "draft" }] : []),
@@ -354,6 +357,35 @@ echo "unexpected gh $*" >&2; exit 9
     expect(log).toMatch(/^ARGS release create v1\.18\.1-rc\.1 .*--title v1\.18\.1-rc\.1 --prerelease --notes-file /m);
     expect(log).not.toContain("--draft");
     expect(log).toContain("NOTES\n- **Next.**\n");
+  });
+
+  test("compose.yml goes with every new release, made from the tagged file (RFC-023 §4.6)", () => {
+    const compose = readFileSync(join(REPO, "compose.yml"), "utf8");
+    const stable = publish("v1.18.0", { handwritten: "x", compose });
+    expect(stable).toMatch(/^ARGS release create v1\.18\.0 .* \S*\/compose\.yml$/m);
+    expect(stable).toContain("ASSET compose.yml\n# compose.yml from Kinboard v1.18.0, revision ");
+    expect(stable).toContain("x-kinboard-image: &kinboard-image ${KINBOARD_IMAGE:-ghcr.io/owner/kinboard}:${KINBOARD_TAG:-latest}");
+    const rc = publish("v1.18.1-rc.1", { compose });
+    expect(rc).toContain("${KINBOARD_IMAGE:-ghcr.io/owner/kinboard}:${KINBOARD_TAG:-next}");
+    expect(rc).toContain("https://github.com/owner/repo/releases/latest/download/compose.yml");
+  });
+
+  test("a compose.yml it can't make stops the release before anything is created", () => {
+    let err: (Error & { stderr?: string }) | null = null;
+    try {
+      publish("v1.18.0", { handwritten: "x", compose: "# no image line\nservices: {}\n" });
+    } catch (e) {
+      err = e as Error & { stderr?: string };
+    }
+    expect(err, "the script failed").not.toBeNull();
+    expect(String(err?.stderr), "for the asset, not something else").toContain("release-compose: compose.yml must name the Kinboard image");
+    expect(String(err?.stderr)).not.toContain("unexpected gh");
+  });
+
+  test("a tree without compose.yml (an older tag) gets its release, without the asset", () => {
+    const log = publish("v1.18.0", { handwritten: "x" });
+    expect(log).toContain("ARGS release create v1.18.0 ");
+    expect(log).not.toContain("ASSET");
   });
 
   test("an existing release, draft or published, is never touched", () => {

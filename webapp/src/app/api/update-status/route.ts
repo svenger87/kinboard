@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
+import { isInstallOperator as operator } from "@/lib/install-operator";
 import {
-  UPDATE_OPERATOR_KEY,
   UPDATE_RETRY_KEY,
   UPDATE_RETRY_LAST_KEY,
   UPDATE_STATUS_KEY,
-  decideOperator,
   dismissUpdateStatus,
   parseUpdateStatus,
   retryAllowed,
@@ -61,28 +60,6 @@ async function writeKey(key: string, value: string): Promise<void> {
     .from("instance_settings")
     .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
   if (error) throw new Error(error.message);
-}
-
-async function operator(familyId: string): Promise<boolean> {
-  const db = createAdminClient() as any;
-  const { count, error } = await db.from("families").select("id", { head: true, count: "exact" });
-  if (error) throw new Error(error.message);
-  let recorded = await readKey(UPDATE_OPERATOR_KEY);
-  if (recorded) {
-    const { data, error: famError } = await db.from("families").select("id").eq("id", recorded).maybeSingle();
-    if (famError) throw new Error(famError.message);
-    if (!data) recorded = null; // that family was deleted
-  }
-  const decision = decideOperator(familyId, {
-    familyCount: count ?? 0,
-    recorded,
-    env: {
-      INSTANCE_ADMIN_FAMILY_ID: process.env.INSTANCE_ADMIN_FAMILY_ID,
-      KINBOARD_DEMO_FAMILY_CODE: process.env.KINBOARD_DEMO_FAMILY_CODE,
-    },
-  });
-  if (decision.record) await writeKey(UPDATE_OPERATOR_KEY, familyId);
-  return decision.operator;
 }
 
 export async function GET(request: NextRequest) {

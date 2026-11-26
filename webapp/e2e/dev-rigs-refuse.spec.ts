@@ -105,6 +105,7 @@ test("the rigs are where rigs.yml expects them, and none is left next to start.s
     "test-backup-restore.sh",
     "test-fresh-install.sh",
     "test-integration-api.sh",
+    "test-one-file.sh",
     "test-upgrade.sh",
   ]);
   const docker = readdirSync(join(REPO, "webapp/docker"));
@@ -149,6 +150,9 @@ for (const rig of RIG_SCRIPTS) {
     }
   });
 
+  // The one-file rig never reads or writes webapp/docker/.env; its guard is the
+  // host's own one-file install (below).
+  if (rig === "test-one-file.sh") continue;
   test(`${rig}, run on purpose, still will not rewrite an installed copy's .env`, () => {
     const sb = sandbox();
     try {
@@ -173,6 +177,31 @@ for (const rig of RIG_SCRIPTS) {
     }
   });
 }
+
+test("test-one-file.sh, run on purpose, refuses a host that already has a one-file install", () => {
+  // compose.yml fixes its container and volume names. The stand-in docker
+  // answers every inspect, i.e. the host has them all: the rig must stop
+  // before it creates, starts or removes anything, and leave .env alone.
+  const sb = sandbox();
+  try {
+    const env = "PROJECT_NAME=kinboard\nDATA_DIR=/srv/kinboard\n";
+    const root = fakeCheckout(sb, env);
+    writeFileSync(join(root, "compose.yml"), "services: {}\n");
+    const hows: { args: string[]; env: Record<string, string> }[] = [{ args: ["--i-am-testing"], env: {} }, { args: [], env: { KINBOARD_RIG: "1" } }];
+    for (const how of hows) {
+      const r = run(sb, join(root, "scripts/rigs/test-one-file.sh"), how.args, how.env);
+      expect(r.code, r.out).toBe(1);
+      expect(r.out).toContain("REFUSING: this host already has container kinboard-init");
+      expect(r.out).toContain("volume kinboard-config");
+      const docker = r.calls.filter((c) => c.startsWith("docker"));
+      expect(docker.length).toBeGreaterThan(0);
+      expect(docker.filter((c) => !/^docker (container|volume) inspect kinboard-/.test(c)), "nothing but inspects").toEqual([]);
+      expect(readFileSync(join(root, "webapp/docker/.env"), "utf8")).toBe(env);
+    }
+  } finally {
+    rmSync(sb.dir, { recursive: true, force: true });
+  }
+});
 
 test("--i-am-testing is taken out of the arguments the rig parses", () => {
   const sb = sandbox();

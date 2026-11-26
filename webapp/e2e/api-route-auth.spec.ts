@@ -206,6 +206,10 @@ test("a route that still takes family_id checks it against the session", () => {
     // local `familyId` the operator check is called with, from
     // auth.session.familyId; the requests carry an action only.
     "update-status/route.ts",
+    // Whether the compose file is outdated (RFC-023 §4.6): the regex matches
+    // auth.session.familyId, passed to the same operator check; the request
+    // carries nothing.
+    "compose-revision/route.ts",
     "devices/[id]/layout/route.ts",
     // The family's shop prices: the regex matches the `family_id` column the
     // setting is written under, from auth.session.familyId; the request carries
