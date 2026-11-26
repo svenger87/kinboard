@@ -2786,6 +2786,7 @@
       "retryPending": "Kinboard réessaiera lors de sa prochaine vérification.",
       "dismiss": "Masquer",
       "actionFailed": "Cela n'a pas fonctionné. Veuillez réessayer.",
+      "retryTooSoon": "Kinboard a déjà été invité à réessayer il y a quelques minutes. Veuillez patienter avant de redemander.",
       "updatedLine": "Mis à jour automatiquement vers {version} le {date}"
     },
     "itemNewsLabel": "Sources d'actualités",

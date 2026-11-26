@@ -43,6 +43,10 @@ export function UpdateStatusNotice({ status }: { status: UpdateStatus | null | u
         relockSettings();
         return;
       }
+      if (res.status === 429) {
+        toast.error(t("retryTooSoon"));
+        return;
+      }
       if (!res.ok) throw new Error(`update-status ${action}: ${res.status}`);
       if (action === "retry") toast.success(t("retryQueued"));
       await queryClient.invalidateQueries({ queryKey: ["update-status"] });
@@ -83,16 +87,18 @@ export function UpdateStatusNotice({ status }: { status: UpdateStatus | null | u
           )}
           {status.retryRequestedAt && <p className="text-sm text-muted-foreground">{t("retryPending")}</p>}
           <div className="flex flex-wrap gap-2 pt-1">
-            <Button variant="outline" size="sm" onClick={() => setDetailsOpen((o) => !o)} aria-expanded={detailsOpen}>
-              {t("details")}
-            </Button>
+            {status.logFile && (
+              <Button variant="outline" size="sm" onClick={() => setDetailsOpen((o) => !o)} aria-expanded={detailsOpen}>
+                {t("details")}
+              </Button>
+            )}
             {!failedRollback && !status.retryRequestedAt && (
               <Button variant="outline" size="sm" disabled={busy} onClick={() => post("retry")}>
                 {t("tryAgain")}
               </Button>
             )}
           </div>
-          {detailsOpen && (
+          {detailsOpen && status.logFile && (
             <div className="pt-1 text-xs text-muted-foreground space-y-1">
               <p>{t("detailsLog", { log: status.logFile })}</p>
               {status.log && (

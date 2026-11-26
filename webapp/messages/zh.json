@@ -2786,6 +2786,7 @@
       "retryPending": "Kinboard 会在下次检查时再次尝试。",
       "dismiss": "关闭",
       "actionFailed": "操作未成功，请重试。",
+      "retryTooSoon": "几分钟前已经请求过重试。请稍候再试。",
       "updatedLine": "已于 {date} 自动更新到 {version}"
     },
     "itemNewsLabel": "新闻来源",

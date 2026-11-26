@@ -2786,6 +2786,7 @@
       "retryPending": "Kinboard tries again at its next check.",
       "dismiss": "Dismiss",
       "actionFailed": "That didn't work. Please try again.",
+      "retryTooSoon": "Kinboard was asked to try again a few minutes ago. Please wait before asking again.",
       "updatedLine": "Updated automatically to {version} on {date}"
     },
     "itemNewsLabel": "News sources",

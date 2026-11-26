@@ -459,10 +459,13 @@ db_container() {
 # A JSON string, quotes included. Control characters (a log's colour codes)
 # are dropped: JSON does not allow them raw.
 json_str() {
-  printf '%s' "$1" | tr -d '\000-\010\013-\037' | awk '
-    BEGIN { ORS = ""; printf "\"" }
-    { gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t"); if (NR > 1) printf "\\n"; print }
-    END { printf "\"" }'
+  # sed, not awk, for the escaping: busybox awk's gsub turns "\\\\" into one
+  # backslash, not two, which made invalid JSON of any log with a backslash.
+  printf '"'
+  printf '%s' "$1" | tr -d '\000-\010\013-\037' \
+    | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g' \
+    | sed ':a;N;$!ba;s/\n/\\n/g' | tr -d '\n'
+  printf '"'
 }
 
 # $1: the record, a JSON object. $2: what to say in the log. $3: the same
@@ -494,12 +497,13 @@ write_status() {
 take_retry_request() {
   db="$(db_container)"
   [ -n "$db" ] || return 0
+  # Taken and removed in one statement: only a request that was really removed
+  # releases anything, so a DELETE that fails cannot release the held version
+  # again at every tick.
   asked="$(docker exec "$db" psql -U supabase_admin -d postgres -tAq -v ON_ERROR_STOP=1 \
-    -c "SELECT value FROM public.instance_settings WHERE key = 'update_retry'" 2>/dev/null || true)"
+    -c "DELETE FROM public.instance_settings WHERE key = 'update_retry' RETURNING value" 2>/dev/null || true)"
   [ -n "$asked" ] || return 0
   release_held ""
-  docker exec "$db" psql -U supabase_admin -d postgres -q -v ON_ERROR_STOP=1 \
-    -c "DELETE FROM public.instance_settings WHERE key = 'update_retry'" >>"$LOG_FILE" 2>&1 || true
   log "\"Try again\" was pressed in Settings ($asked); versions held back after a rollback are tried again"
 }
 
@@ -664,7 +668,76 @@ failed_migration() {
   docker logs "$cid" 2>&1 | sed -n 's/.*\[migrate\] FAILED: *\([^ ]*\).*/\1/p' | tail -n1 || true
 }
 
-# The last lines each of the given services' containers logged, for Details.
+# Secret-shaped text out of a log excerpt before it is stored where Settings
+# shows it: every value in .env whose name says secret, password, token or
+# key, as written; JWTs; credentials in a URL; Bearer tokens; name=value and
+# name: value pairs for password, secret, token and API keys; and any run of
+# 32 or more hex digits (the webhook secret and CRON_SECRET are hex, and so are
+# keys a library might print). Each line is cut to 300 characters, and the
+# whole to 6000.
+redact() {
+  # Values from .env whose names say they are secret, as written there:
+  # `export` dropped, quotes and a trailing comment taken off, CR removed.
+  secrets="$(tr -d '\r' < "$PROJECT_DIR/webapp/docker/.env" 2>/dev/null \
+    | sed -nE 's/^[[:space:]]*(export[[:space:]]+)?[A-Z0-9_]*(SECRET|PASSWORD|PASS|TOKEN|KEY|URL|URI|DSN|CODE|PAT)[A-Z0-9_]*=(.*)$/\3/p' \
+    | sed 's/[[:space:]]#.*$//; s/^"\(.*\)"$/\1/; s/^'"'"'\(.*\)'"'"'$/\1/' \
+    | awk 'length($0) >= 6' || true)"
+  SECRETS="$secrets" awk '
+    BEGIN {
+      n = split(ENVIRON["SECRETS"], s, "\n")
+      q = "\047"
+      hex = "[0-9a-fA-F]"; hexre = ""
+      for (i = 0; i < 32; i++) hexre = hexre hex
+      hexre = hexre "+"
+      val = "(\"[^\"]*\"|" q "[^" q "]*" q "|[^] ,;&\"" q "[{}()]+)"
+      kv = "(password|passwd|pwd|secret|token|api[_-]?key|apikey|access[_-]?key|private[_-]?key|appid|client[_-]?secret|pin|join[_-]?code)[a-z_-]*\"?[ ]*[=:][ ]*" val
+      sqlpw = "password +" q "[^" q "]*" q
+      qp = "[?&](key|code|sig|signature|state|access_token)=[^& ]+"
+      total = 0
+    }
+    # Postgres repeats the failing row and the statement in these; they hold
+    # family data (names, join codes, a PIN in integration_secrets).
+    /^[ \t]*(DETAIL|STATEMENT|CONTEXT|QUERY|HINT):|^[ \t]*LINE [0-9]+:/ { $0 = "[a database detail line, left out]" }
+    {
+      line = $0
+      gsub(/Failing row contains \(.*\)/, "Failing row contains ([redacted])", line)
+      for (i = 1; i <= n; i++) {
+        if (s[i] == "") continue
+        from = 1
+        while ((p = index(substr(line, from), s[i])) > 0) {
+          p += from - 1
+          line = substr(line, 1, p - 1) "[redacted]" substr(line, p + length(s[i]))
+          from = p + length("[redacted]")
+        }
+      }
+      gsub(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/, "[redacted]", line)
+      gsub(/:\/\/[^\/ ]*@/, "://[redacted]@", line)
+      gsub(/[Bb][Ee][Aa][Rr][Ee][Rr] [^ ]+/, "Bearer [redacted]", line)
+      gsub(/[Bb][Aa][Ss][Ii][Cc] [A-Za-z0-9+\/=]+/, "Basic [redacted]", line)
+      gsub(hexre, "[redacted]", line)
+      for (pass = 1; pass <= 3; pass++) {
+        re = (pass == 1) ? kv : (pass == 2) ? sqlpw : qp
+        lower = tolower(line); out = ""
+        while (match(lower, re)) {
+          seg = substr(line, RSTART, RLENGTH)
+          e = index(seg, "="); c = index(seg, ":"); sp = index(seg, " ")
+          if (pass == 2) e = sp
+          else if (pass == 3) e = index(seg, "=")
+          else if (e == 0 || (c > 0 && c < e)) e = c
+          out = out substr(line, 1, RSTART - 1) substr(seg, 1, e) "[redacted]"
+          line = substr(line, RSTART + RLENGTH); lower = substr(lower, RSTART + RLENGTH)
+        }
+        line = out line
+      }
+      if (length(line) > 300) line = substr(line, 1, 300) "…"
+      total += length(line) + 1
+      if (total > 6000) exit
+      print line
+    }'
+}
+
+# The last lines each of the given services' containers logged, for Details,
+# with secrets taken out (redact).
 log_excerpt() {
   for svc in $1; do
     # shellcheck disable=SC2086
@@ -672,7 +745,7 @@ log_excerpt() {
     [ -n "$cid" ] || continue
     echo "--- $svc"
     docker logs --tail 30 "$cid" 2>&1 || true
-  done | tail -n 60
+  done | tail -n 60 | redact
 }
 
 # ---------------------------------------------------------------------------

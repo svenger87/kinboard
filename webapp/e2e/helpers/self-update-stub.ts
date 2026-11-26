@@ -120,8 +120,9 @@ case "$1" in
         case "$*" in *" -i "*) cat >> "$STUB/psql" ;; esac
         for a in "$@"; do case "$a" in v=*) printf '%s' "$a" | cut -c3- > "$STUB/status" ;; esac; done
         case "$*" in
-          *"SELECT value"*update_retry*) cat "$STUB/retry" 2>/dev/null ;;
-          *"DELETE"*update_retry*) rm -f "$STUB/retry" ;;
+          *"DELETE"*update_retry*RETURNING*)
+            [ -f "$STUB/retry-delete-fails" ] && exit 1
+            cat "$STUB/retry" 2>/dev/null; rm -f "$STUB/retry" ;;
         esac ;;
     esac ;;
   run)
@@ -276,6 +277,10 @@ export class Rig {
   addEnv(line: string) {
     const p = join(this.proj, "webapp", "docker", ".env");
     writeFileSync(p, readFileSync(p, "utf8") + line + "\n");
+  }
+  /** The database refuses to delete the "Try again" request. */
+  failRetryDelete() {
+    writeFileSync(join(this.stub, "retry-delete-fails"), "");
   }
   removeOrigin() {
     rmSync(join(this.dir, "origin.git"), { recursive: true, force: true });

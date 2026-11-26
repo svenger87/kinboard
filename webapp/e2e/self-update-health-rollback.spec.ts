@@ -1,6 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { writeFileSync } from "node:fs";
-import { Rig, type Scenario, type Service } from "./helpers/self-update-stub";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Rig, SCRIPT, type Scenario, type Service } from "./helpers/self-update-stub";
+
+const script = readFileSync(SCRIPT, "utf8");
 
 /**
  * RFC-023 §4.11.4 and §4.11.5, on the self-update git installs run today.
@@ -176,6 +181,86 @@ test.describe("health wait and rollback", () => {
     }
   });
 
+  test("secrets are taken out of the log excerpt before it is stored", () => {
+    const r = rig({ registry: { [NEXT]: "sha256:web2" } });
+    r.setHealth("sha256:web2", BROKEN);
+    r.addEnv("DIUN_WEBHOOK_SECRET=0f3c9a1b7d5e2f4a6c8b0d2e4f6a8c0b1d3e5f7a9c1b3d5e7f9a1c3e5b7d9f1a");
+    r.addEnv('export POSTGRES_PASSWORD="correct-horse-battery" # set by setup.sh\r');
+    r.addEnv("SMTP_PASS='quoted single'");
+    const leaks = [
+      "0f3c9a1b7d5e2f4a6c8b0d2e4f6a8c0b1d3e5f7a9c1b3d5e7f9a1c3e5b7d9f1a", // the webhook secret, from .env
+      "correct-horse-battery", // a password from .env, as written
+      "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.c2lnbmF0dXJl", // a JWT
+      "hunter2", // in a connection URI
+      "abc.def.ghi", // a Bearer token
+      "plain123", // password=
+      "k-999", // api_key:
+      "deadbeefdeadbeefdeadbeefdeadbeefdead", // 32+ hex
+      "quoted single", // a single-quoted .env value
+      "Jane Doe", // a Postgres DETAIL line with the failing row
+      "4321", // a PIN in "Failing row contains"
+      "dXNlcjpwYXNz", // Basic auth
+      "k-777", // x-api-key:
+      "a b c", // a quoted password
+      "sqlpw", // SQL PASSWORD 'x'
+      "q-secret", // ?key= in a URL
+      "ZX9QQ1", // a join code in a Postgres DETAIL line
+    ];
+    r.setLogs(
+      "webapp",
+      [
+        "webhook secret is 0f3c9a1b7d5e2f4a6c8b0d2e4f6a8c0b1d3e5f7a9c1b3d5e7f9a1c3e5b7d9f1a",
+        "auth failed for correct-horse-battery",
+        "key eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.c2lnbmF0dXJl",
+        "connecting to postgres://authenticator:hunter2@db:5432/postgres",
+        "Authorization: Bearer abc.def.ghi",
+        "PASSWORD=plain123 api_key: k-999",
+        "id deadbeefdeadbeefdeadbeefdeadbeefdead",
+        "smtp quoted single failed",
+        "DETAIL:  Failing row contains (7, Jane Doe, ABC123).",
+        "ERROR: null value violates not-null constraint Failing row contains (pin, 4321)",
+        "Authorization: Basic dXNlcjpwYXNz",
+        "x-api-key: k-777 password='a b c'",
+        "ALTER ROLE web PASSWORD 'sqlpw'",
+        "GET /weather?q=Berlin&key=q-secret",
+        "DETAIL:  Key (join_code)=(ZX9QQ1) already exists.",
+        "x".repeat(5000),
+        "a line that stays",
+        "",
+      ].join("\n"),
+    );
+    try {
+      const res = r.run();
+      const log = String(res.record!.log);
+      for (const leak of leaks) expect(log, leak).not.toContain(leak);
+      expect(log).toContain("a line that stays");
+      expect(log).toContain("[redacted]");
+      expect(log.length, "capped").toBeLessThan(6200);
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  test("the JSON and the redaction hold under busybox's awk, sed and tr, as in the webhook image", () => {
+    const busybox = ["/usr/bin/busybox", "/bin/busybox"].find((p) => existsSync(p));
+    test.skip(!busybox, "no busybox on this host");
+    const dir = mkdtempSync(join(tmpdir(), "bb-"));
+    try {
+      for (const tool of ["awk", "sed", "tr", "grep", "cut"]) symlinkSync(busybox!, join(dir, tool));
+      mkdirSync(join(dir, "proj", "webapp", "docker"), { recursive: true });
+      writeFileSync(join(dir, "proj", "webapp", "docker", ".env"), "CRON_SECRET=abcdefgh12345678\n");
+      const fns = ["json_str", "redact"].map((f) => /\n(\w+)\(\) \{\n[\s\S]*?\n\}\n/g.exec(script.slice(script.indexOf(`\n${f}() {`)))![0]).join("\n");
+      writeFileSync(join(dir, "in.txt"), 'C:\\p "q"\tt\r\nkey abcdefgh12345678\n');
+      const out = execFileSync(busybox!, ["sh", "-c", `${fns}\njson_str "$(redact < "$IN")"`], {
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${dir}:/usr/bin:/bin`, PROJECT_DIR: join(dir, "proj"), IN: join(dir, "in.txt") },
+      });
+      expect(JSON.parse(out)).toBe('C:\\p "q"\tt\nkey [redacted]');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("an image without the deep check is judged by its health check alone", () => {
     const r = rig({ registry: { [NEXT]: "sha256:web2" } });
     r.setSmoke("sha256:web2", 200, '{"status":"ok","db":true}');
@@ -233,6 +318,23 @@ test.describe("health wait and rollback", () => {
       expect(r.container("webapp")!.id).toBe("sha256:web3");
       expect(newer.state).not.toMatch(/^held /m);
       expect(newer.record).toMatchObject({ status: "updated", to: "1.18.1" });
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  test("a Try again request the database would not remove releases nothing", () => {
+    const r = rig({ registry: { [NEXT]: "sha256:web2" }, stateFile: BASELINE });
+    r.setHealth("sha256:web2", BROKEN);
+    try {
+      expect(r.run().status).toBe(1);
+      r.requestRetry();
+      r.failRetryDelete();
+      const res = r.run();
+      expect(res.status, res.out).toBe(0);
+      expect(res.out).not.toContain('"Try again" was pressed');
+      expect(res.recreated).toEqual([]);
+      expect(res.state).toMatch(/^held sha256:web2 /m);
     } finally {
       r.cleanup();
     }

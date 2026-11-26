@@ -2786,6 +2786,7 @@
       "retryPending": "Kinboard versucht es bei der nächsten Prüfung erneut.",
       "dismiss": "Ausblenden",
       "actionFailed": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+      "retryTooSoon": "Kinboard wurde vor wenigen Minuten schon gebeten, es erneut zu versuchen. Bitte warte, bevor du es noch einmal versuchst.",
       "updatedLine": "Automatisch auf {version} aktualisiert am {date}"
     },
     "itemNewsLabel": "Nachrichtenquellen",
