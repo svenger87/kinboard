@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **A database update can no longer take away something the previous version needs.** When an update doesn't start, going back to the previous version only works if it still finds every table and column it uses. That has always been the rule for Kinboard's database updates, but nothing checked it. Now every change is checked before it can be merged: removing or renaming a table or column, changing a column's type, emptying a table and similar changes are refused unless they are written down as a reviewed exception. A test also starts the previous release on the newest database and joins, reads and writes a task with it, so the way back is tried, not assumed.
+
 ## [1.17.0] - 2026-11-25
 
 ### Added

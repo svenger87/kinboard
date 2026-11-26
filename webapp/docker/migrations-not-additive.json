@@ -1,0 +1,29 @@
+{
+  "_about": "Accepted exceptions to the additive-migrations rule, checked by check-additive-migrations.mjs. Each entry names the file, the rules it breaks and why an older image still runs on the result. A file numbered after 093 also needs a '-- not-additive: <reason>' line of its own. Grandfathered entries are files that shipped before the check existed; they cannot carry a marker, because editing a migration makes migrate.sh re-apply it and every file after it on every install.",
+  "entries": [
+    {
+      "file": "001_base.sql",
+      "rules": ["alter-column-type"],
+      "grandfathered": true,
+      "reason": "todos.priority integer -> text, inside a DO block that only runs when the column is still an integer. That was the case on installs from before init.sql created it as text; on every install since, the block does nothing. No release image reads priority as an integer."
+    },
+    {
+      "file": "013_device_sessions_cascade.sql",
+      "rules": ["set-not-null"],
+      "grandfathered": true,
+      "reason": "device_sessions.device_id NOT NULL, after deleting the rows that had none. Every image creates a session together with its device (/api/session/join and /create), so none of them writes a null there."
+    },
+    {
+      "file": "055_system_heartbeats.sql",
+      "rules": ["drop-object"],
+      "grandfathered": true,
+      "reason": "DROP VIEW IF EXISTS realtime_slot_health. The view existed only in an earlier draft of this same file (#187) and was dropped before any release read it; no image references it."
+    },
+    {
+      "file": "074_pocket_money_creatures_out.sql",
+      "rules": ["set-not-null"],
+      "grandfathered": true,
+      "reason": "point_redemptions.person_id NOT NULL. The same file backfills it and adds a BEFORE INSERT trigger (point_redemptions_fill_keys) that fills person_id from account_id, so an older image that inserts with only account_id still succeeds."
+    }
+  ]
+}
