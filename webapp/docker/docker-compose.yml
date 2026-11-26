@@ -280,6 +280,11 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       # Where uploaded files live, inside the volume above.
       FILES_DIR: /var/lib/storage/files
+      # Optional: the numeric user and group the server runs as and the
+      # uploaded files belong to (RFC-024 §6.3), e.g. 99 and 100 on Unraid.
+      # Empty keeps today's nextjs (1001:1001).
+      PUID: ${PUID:-}
+      PGID: ${PGID:-}
       # Signs the short-lived family-scoped tokens the browser uses for its
       # direct PostgREST connection. Must be the same secret PostgREST
       # verifies with (PGRST_JWT_SECRET below), or nothing the app mints will

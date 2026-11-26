@@ -7,6 +7,12 @@ name: Docker image
 #
 # Image: ghcr.io/svenger87/kinboard
 #
+# Every name the image is published under and every label and annotation it
+# carries come from the `env` block below, read by both jobs (RFC-024 §4.5,
+# §6). Each platform image is built with a provenance attestation (mode=max)
+# and an SBOM; the merge job stitches them into one manifest list, annotates
+# that list too, and checks all three are there (docker/check-image-metadata.sh).
+#
 # Tag scheme:
 #   - main branch → :main, :sha-<short>          (no :latest -- see below)
 #   - v1.2.3 tag  → :v1.2.3, :1.2.3, :1.2, :1, :latest
@@ -35,6 +41,38 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/kinboard
+  # OCI labels on each platform image and annotations on the image and on the
+  # manifest list. metadata-action adds description (the repository's),
+  # source, version, revision and created itself; these override or add.
+  # `licenses` is not here: each job reads it from webapp/package.json's
+  # "license" (the "Image metadata" step), so a licence change is one edit.
+  # GitHub reports the repository's license as "other", which metadata-action
+  # would otherwise turn into NOASSERTION.
+  IMAGE_METADATA: |
+    org.opencontainers.image.title=Kinboard
+    org.opencontainers.image.url=https://kinboard.app
+    org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/wiki
+    org.opencontainers.image.vendor=${{ github.repository_owner }}
+  # The tags, for both jobs. `latest` means "newest stable release", not
+  # "newest commit on main". It used to be attached to every main push, so a
+  # release-candidate version bump -- an ordinary push to main -- moved it:
+  # after v1.7.0 shipped, `latest` pointed at 1.7.1-rc.1 and every self-hoster
+  # on the stable channel was pulling a release candidate. It now comes only
+  # from a stable version tag; metadata-action's semver handling already
+  # excludes prereleases, and omits the {{major}} / {{major}}.{{minor}}
+  # aliases for them, so v1.7.1-rc.1 cannot claim `latest`, `1` or `1.7`.
+  #
+  # `next` is the pre-release channel: any semver tag carrying a prerelease
+  # identifier (v1.6.0-rc.1, v1.6.0-beta.2) also publishes it, so testers pin
+  # KINBOARD_TAG=next once and keep receiving release candidates.
+  IMAGE_TAGS: |
+    type=ref,event=branch
+    type=semver,pattern={{version}}
+    type=semver,pattern={{major}}.{{minor}}
+    type=semver,pattern={{major}}
+    type=sha,prefix=sha-,format=short
+    type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
+    type=raw,value=next,enable=${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-') }}
 
 jobs:
   # Decide whether this push actually needs an image build. Docs-/changelog-
@@ -124,38 +162,29 @@ jobs:
         id: rev
         run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-      - name: Extract Docker metadata (tags + labels)
+      # IMAGE_METADATA plus the licence, read from the source: the SPDX id
+      # in webapp/package.json (e2e/licence-files.spec.ts pins it to LICENSE).
+      - name: Image metadata
+        id: oci
+        run: |
+          spdx="$(jq -er '.license | select(type == "string" and . != "")' webapp/package.json)"
+          {
+            echo "metadata<<OCI_METADATA_EOF"
+            printf '%s\n' "$IMAGE_METADATA" | sed '/^[[:space:]]*$/d'
+            echo "org.opencontainers.image.licenses=$spdx"
+            echo "OCI_METADATA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Extract Docker metadata (labels + annotations)
         id: meta
         uses: docker/metadata-action@v5
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          # Strict: only on main + tags, no per-PR tags.
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha,prefix=sha-,format=short
-            # `latest` means "newest stable release", not "newest commit on
-            # main". It used to be attached to every main push, so a release-
-            # candidate version bump -- an ordinary push to main -- moved it:
-            # after v1.7.0 shipped, `latest` pointed at 1.7.1-rc.1 and every
-            # self-hoster on the stable channel was pulling a release
-            # candidate. It now comes only from a stable version tag.
-            # metadata-action's semver handling already excludes prereleases,
-            # so v1.7.1-rc.1 cannot claim it.
-            type=semver,pattern={{version}},enable=${{ !contains(github.ref, '-') }}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
-            # Pre-release channel. Any semver tag carrying a prerelease
-            # identifier (v1.6.0-rc.1, v1.6.0-beta.2) also publishes a
-            # moving `next` tag, so testers pin KINBOARD_TAG=next once and
-            # keep receiving release candidates without editing .env again.
-            #
-            # `latest` is unaffected: it is gated on the default branch, and
-            # a tag push is never refs/heads/main. metadata-action also omits
-            # the {{major}} / {{major}}.{{minor}} aliases for prereleases, so
-            # v1.6.0-rc.1 cannot claim the `1` or `1.6` tags either.
-            type=raw,value=next,enable=${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-') }}
+          tags: ${{ env.IMAGE_TAGS }}
+          labels: ${{ steps.oci.outputs.metadata }}
+          annotations: ${{ steps.oci.outputs.metadata }}
 
       - name: Build per-platform image (push as digest)
         id: build
@@ -165,6 +194,13 @@ jobs:
           file: webapp/docker/Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          # Stated, not left to the action's defaults, so a change of default
+          # can't quietly lower them: provenance in max mode (the build's
+          # config and materials) and an SPDX SBOM, one attestation each per
+          # platform. They survive the digest merge below.
+          provenance: mode=max
+          sbom: true
           build-args: |
             BUILD_REVISION=${{ steps.rev.outputs.short }}
           # Output one image per platform with no tags; the merge job
@@ -211,70 +247,77 @@ jobs:
           pattern: digest-*
           merge-multiple: true
 
+      # IMAGE_METADATA plus the licence, read from the source: the SPDX id
+      # in webapp/package.json (e2e/licence-files.spec.ts pins it to LICENSE).
+      - name: Image metadata
+        id: oci
+        run: |
+          spdx="$(jq -er '.license | select(type == "string" and . != "")' webapp/package.json)"
+          {
+            echo "metadata<<OCI_METADATA_EOF"
+            printf '%s\n' "$IMAGE_METADATA" | sed '/^[[:space:]]*$/d'
+            echo "org.opencontainers.image.licenses=$spdx"
+            echo "OCI_METADATA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Re-extract metadata (same tags as build job)
         id: meta
         uses: docker/metadata-action@v5
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha,prefix=sha-,format=short
-            # Same rule as the build job: `latest` is the newest *stable*
-            # release, never the newest commit on main.
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
-            # Pre-release channel. Any semver tag carrying a prerelease
-            # identifier (v1.6.0-rc.1, v1.6.0-beta.2) also publishes a
-            # moving `next` tag, so testers pin KINBOARD_TAG=next once and
-            # keep receiving release candidates without editing .env again.
-            #
-            # `latest` is unaffected: it is gated on the default branch, and
-            # a tag push is never refs/heads/main. metadata-action also omits
-            # the {{major}} / {{major}}.{{minor}} aliases for prereleases, so
-            # v1.6.0-rc.1 cannot claim the `1` or `1.6` tags either.
-            type=raw,value=next,enable=${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-') }}
+          tags: ${{ env.IMAGE_TAGS }}
+          labels: ${{ steps.oci.outputs.metadata }}
+          annotations: ${{ steps.oci.outputs.metadata }}
 
+      # The manifest list gets the same annotations as the images, so a
+      # registry that reads the index (GHCR's package page among them) shows
+      # them. Arrays, not word-split strings: the description has spaces.
       - name: Create + push manifest list
         working-directory: /tmp/digests
         run: |
-          docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+          args=()
+          while IFS= read -r tag; do args+=(-t "$tag"); done \
+            < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          while IFS= read -r annotation; do args+=(--annotation "$annotation"); done \
+            < <(jq -r '.annotations[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          for digest in *; do args+=("$REGISTRY/$IMAGE_NAME@sha256:$digest"); done
+          docker buildx imagetools create "${args[@]}"
 
       - name: Inspect resulting manifest
         run: |
           docker buildx imagetools inspect \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
 
-  release-prerelease:
-    name: Publish GitHub pre-release
+      - name: Check annotations, SBOM and provenance
+        run: |
+          webapp/docker/check-image-metadata.sh \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
+            <<< "$IMAGE_METADATA"
+        # It reads the expected licence from webapp/package.json itself.
+
+  # The GitHub release for every version tag (RFC-024 §6), by
+  # scripts/publish-release.sh: a release candidate is published as a
+  # pre-release with its CHANGELOG.md notes; a stable release is published
+  # with docs/release-notes/vX.Y.Z.md when that exists, and otherwise created
+  # as a draft with its changelog section, to be edited by hand. A release
+  # that already exists, draft or not, is never touched.
+  release:
+    name: Publish GitHub release
     runs-on: ubuntu-latest
     needs: [changes, merge]
     if: >-
       needs.changes.outputs.build == 'true' &&
       github.event_name == 'push' &&
-      github.ref_type == 'tag' &&
-      contains(github.ref_name, '-')
+      github.ref_type == 'tag'
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
     steps:
-      - name: Create pre-release from tag
-        run: |
-          tag="${{ github.ref_name }}"
+      - uses: actions/checkout@v4
 
-          # A rerun must be harmless if the first attempt created the release
-          # before a later step or runner failed.
-          if gh release view "$tag" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "$tag is already published"
-            exit 0
-          fi
-
-          gh release create "$tag" \
-            --repo "${{ github.repository }}" \
-            --title "$tag" \
-            --prerelease \
-            --generate-notes
+      - name: Create release from tag
+        run: scripts/publish-release.sh "${{ github.ref_name }}"
