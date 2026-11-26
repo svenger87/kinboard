@@ -10,8 +10,8 @@
  * 30. Building the URL a second way somewhere else (a different parameter
  * order, a missing `lang`) would be a second cache entry and a second bill.
  *
- * The API key is read at call time rather than at import, so the not-configured
- * answer follows the environment the request actually runs in.
+ * The API key is not read here: every caller passes the one lib/api-keys.ts
+ * resolves for its family (Settings first, then the server's environment).
  */
 
 import type { UnitSystem } from "@/lib/weather-units";
@@ -33,10 +33,6 @@ export function weatherLang(raw: unknown): string {
 
 export function openWeatherBaseUrl(): string {
   return process.env.OPENWEATHERMAP_BASE_URL || "https://api.openweathermap.org/data/2.5";
-}
-
-export function openWeatherApiKey(): string | undefined {
-  return process.env.OPENWEATHERMAP_API_KEY || undefined;
 }
 
 /** Where to ask about: coordinates, or a city name the provider resolves. */
@@ -74,7 +70,7 @@ export function openWeatherUrl(
   const where = "city" in place
     ? `q=${encodeURIComponent(place.city)}`
     : `lat=${place.lat}&lon=${place.lon}`;
-  return `${openWeatherBaseUrl()}/${kind}?${where}&units=${units}&lang=${lang}&appid=${apiKey}`;
+  return `${openWeatherBaseUrl()}/${kind}?${where}&units=${units}&lang=${lang}&appid=${encodeURIComponent(apiKey)}`;
 }
 
 export class OpenWeatherError extends Error {
@@ -218,7 +214,7 @@ export async function fetchAirQuality(
   coord: { lat: number; lon: number }, apiKey: string, fetchImpl: typeof fetch = fetch,
 ): Promise<number | null> {
   try {
-    const url = `${openWeatherBaseUrl()}/air_pollution?lat=${coord.lat}&lon=${coord.lon}&appid=${apiKey}`;
+    const url = `${openWeatherBaseUrl()}/air_pollution?lat=${coord.lat}&lon=${coord.lon}&appid=${encodeURIComponent(apiKey)}`;
     const response = await fetchImpl(url, { next: { revalidate: OPENWEATHER_REVALIDATE.weather } } as RequestInit);
     if (!response.ok) return null;
     const body = (await response.json()) as { list?: Array<{ main?: { aqi?: unknown } }> };

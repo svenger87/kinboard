@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { openWeatherKeyForRequest } from "@/lib/api-keys";
 
 /**
  * Proxy for OpenWeatherMap's map tiles.
@@ -17,8 +18,6 @@ import { NextRequest, NextResponse } from "next/server";
  * schedule (roughly every ten minutes for precipitation), so they cache
  * hard and cost little.
  */
-
-const OPENWEATHERMAP_API_KEY = process.env.OPENWEATHERMAP_API_KEY;
 
 /**
  * The layers the UI offers, mapped to OpenWeatherMap's names.
@@ -44,12 +43,14 @@ function tileIsValid(z: number, x: number, y: number): boolean {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ layer: string; z: string; x: string; y: string }> },
 ) {
   const { layer, z, x, y } = await params;
 
-  if (!OPENWEATHERMAP_API_KEY) {
+  // The family's own key from Settings, else the server's (lib/api-keys.ts).
+  const apiKey = await openWeatherKeyForRequest(request);
+  if (!apiKey) {
     return NextResponse.json({ error: "Weather API not configured" }, { status: 503 });
   }
 
@@ -65,7 +66,7 @@ export async function GET(
     return NextResponse.json({ error: "Tile out of range" }, { status: 400 });
   }
 
-  const upstream = `https://tile.openweathermap.org/map/${upstreamLayer}/${zi}/${xi}/${yi}.png?appid=${OPENWEATHERMAP_API_KEY}`;
+  const upstream = `https://tile.openweathermap.org/map/${upstreamLayer}/${zi}/${xi}/${yi}.png?appid=${encodeURIComponent(apiKey)}`;
 
   try {
     const response = await fetch(upstream, {

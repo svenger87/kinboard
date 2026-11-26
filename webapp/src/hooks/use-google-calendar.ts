@@ -67,8 +67,10 @@ export interface GoogleSetup {
 }
 
 function useGoogleSetupQuery<T>(select: (setup: GoogleSetup) => T) {
+  const { family } = useFamilyStore();
   return useQuery({
-    queryKey: ["google-configured"],
+    // Per family: a family can set its own OAuth client in Settings (RFC-023 §4.4).
+    queryKey: ["google-configured", family?.id],
     queryFn: async (): Promise<GoogleSetup> => {
       const r = await fetch("/api/google/configured");
       if (!r.ok) return { configured: false, redirectUri: null, redirectFixed: false, redirectAccepted: true };
@@ -81,7 +83,9 @@ function useGoogleSetupQuery<T>(select: (setup: GoogleSetup) => T) {
       };
     },
     select,
-    staleTime: 60 * 60 * 1000, // env vars don't change while the app runs
+    // The client can change in Settings now (invalidated there); another
+    // screen of the family picks it up within five minutes.
+    staleTime: 5 * 60 * 1000,
   });
 }
 

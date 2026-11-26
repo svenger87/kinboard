@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { googleRedirectUri } from "@/lib/google-redirect";
+import { resolveGoogleClient } from "@/lib/api-keys";
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
 const SCOPES = [
   "https://www.googleapis.com/auth/calendar",
@@ -23,7 +22,11 @@ export async function GET(request: NextRequest) {
   const auth = await requireSession(request);
   if (!auth.ok) return auth.response;
 
-  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+  // The family's own OAuth client from Settings, else the server's
+  // (lib/api-keys.ts). The session's family: a family_id that names another
+  // is refused below anyway.
+  const client = await resolveGoogleClient(auth.session.familyId);
+  if (!client) {
     // The settings page renders ?error= codes as a toast; a JSON 500 on a
     // full-page navigation would strand the user on a raw error body.
     return NextResponse.redirect(
@@ -47,8 +50,8 @@ export async function GET(request: NextRequest) {
   }
 
   const oauth2Client = new google.auth.OAuth2(
-    GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET,
+    client.clientId,
+    client.clientSecret,
     // The same address both ways: Google refuses the token exchange otherwise.
     googleRedirectUri(request.headers, request.nextUrl.origin),
   );

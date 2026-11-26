@@ -13,6 +13,7 @@ import {
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
+import { API_KEY_NAMES } from "@/lib/api-key-status";
 import { embedUrlAcceptable, embeddedDashboards } from "@/lib/ha-embed";
 import { isFamilyTimeZone } from "@/lib/integration-event-input";
 import { checkCameraDoorbells } from "@/lib/camera-takeover";
@@ -48,6 +49,9 @@ const DEDICATED_ROUTE_KEYS: Record<string, string> = {
   // How many points each stage needs: behind the PIN, and saving it keeps every
   // creature at the stage it has (lib/creatures/growth.ts).
   [SETTINGS_KEYS.growthPoints]: "/api/creatures/growth",
+  // The install keys a family sets in Settings (RFC-023 §4.4): stored only in
+  // integration_secrets, never as a settings row, and changed behind the PIN.
+  ...Object.fromEntries(API_KEY_NAMES.map((name) => [name, "/api/settings/keys"])),
 };
 
 function dedicatedRoute(key: unknown): NextResponse | null {

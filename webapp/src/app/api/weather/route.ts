@@ -8,12 +8,12 @@ import {
   fetchAirQuality,
   fetchOpenWeather,
   mapCondition,
-  openWeatherApiKey,
   OpenWeatherError,
   placeFrom,
   weatherLang,
   type OpenWeatherCurrent,
 } from "@/lib/weather-provider";
+import { openWeatherKeyForRequest } from "@/lib/api-keys";
 
 function formatTime(timestamp: number, timezoneOffset: number): string {
   const date = new Date((timestamp + timezoneOffset) * 1000);
@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
   const city = searchParams.get("city");
   const lang = weatherLang(searchParams.get("lang"));
   const units = toUnitSystem(searchParams.get("units"));
-  const apiKey = openWeatherApiKey();
+  // The family's own key from Settings, else the server's (lib/api-keys.ts).
+  const apiKey = await openWeatherKeyForRequest(request);
 
   if (!apiKey) {
     return NextResponse.json({ configured: false }, { status: 200 });

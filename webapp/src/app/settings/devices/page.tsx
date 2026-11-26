@@ -49,6 +49,8 @@ import {
 } from "@/components/ui/select";
 import type { Device } from "@/types/database";
 import { DeviceLayoutPicker } from "@/components/layouts/device-layout-picker";
+import { PresenceTokenCard } from "@/components/settings/install-key-cards";
+import { useApiKeys } from "@/hooks/use-api-keys";
 import { useLayoutDefaults, useLayouts } from "@/hooks/use-layouts";
 
 function getDeviceType(userAgent: string | null): string {
@@ -84,6 +86,9 @@ export default function DevicesSettingsPage() {
   const t = useTranslations("settings.devices");
   const { device: currentDevice } = useFamilyStore();
   const { data: devices, isLoading, error, refetch } = useDevices();
+  const { data: apiKeys } = useApiKeys();
+  const showPresenceToken =
+    !!devices?.some((d) => d.has_presence_sensor) || apiKeys?.presence_sensor.source === "family";
   const updateDevice = useUpdateDevice();
   const deleteDevice = useDeleteDevice();
   const setOwner = useSetDeviceOwner();
@@ -499,6 +504,13 @@ export default function DevicesSettingsPage() {
           </Card>
         </motion.div>
 
+        {/* The sensor's token (RFC-023 §4.4), once a screen has a sensor or the family has a token of its own. */}
+        {showPresenceToken && (
+          <div className="mt-6">
+            <PresenceTokenCard id="presence-token" />
+          </div>
+        )}
+
         {/* Info */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -543,6 +555,7 @@ export default function DevicesSettingsPage() {
                   <p className="text-muted-foreground">
                     {t.rich("presenceHelpStep2Body", {
                       code: (chunks) => <code className="bg-muted px-1 rounded">{chunks}</code>,
+                      bold: (chunks) => <strong>{chunks}</strong>,
                     })}
                   </p>
                 </div>

@@ -93,10 +93,10 @@ webapp/
 |----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase API URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
-| `OPENWEATHERMAP_API_KEY` | Weather API key |
-| `IMMICH_API_URL` | Immich server URL (for screensaver) |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth secret |
+| `OPENWEATHERMAP_API_KEY` | Weather API key; a family's own in Settings -> Weather wins |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID; a family's own in Settings -> Google Calendar wins |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth secret, the same |
+| `PRESENCE_SENSOR_TOKEN` | Presence sensor token; a family's own in Settings -> Devices wins |
 
 ## Monthly Themes
 
