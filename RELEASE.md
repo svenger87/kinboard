@@ -54,7 +54,11 @@ publishes two image tags: the exact version (`1.6.0-rc.1`) and a moving
 `next` tag pointing at the newest pre-release.
 
 After the multi-architecture image has been published, the Docker workflow
-creates the GitHub Release from that tag and marks it as a pre-release. It is
+creates the GitHub Release from that tag and marks it as a pre-release. Its
+notes are the candidate's own `## [X.Y.Z-rc.N]` section of `CHANGELOG.md` if it
+has one, else `## [Unreleased]`, where the candidates' entries collect until
+the stable cut (`scripts/release-notes.sh`); with nothing there, GitHub's
+generated notes, and a warning in the job. It is
 safe to rerun the workflow: if the release already exists, the publication job
 leaves it alone. This keeps the candidate off the latest stable release and
 avoids notifying everyone watching stable releases.
@@ -206,18 +210,24 @@ running the published image that is a no-op upgrade with no error — reported i
 where a self-hoster stayed on 1.5.0 across several attempts while holding the correct
 image on disk the whole time.
 
-### 8. Create the GitHub Release
+### 8. The GitHub Release
 
-Once the Docker workflow finishes:
+Stable release notes are written by hand, with an **Upgrading** section first
+(see v1.17.0). Put them in `docs/release-notes/vX.Y.Z.md` **before tagging**,
+in the commit the tag points at. Once the image is published, the Docker
+workflow's `release` job (`scripts/publish-release.sh`) then:
 
-```bash
-gh release create vX.Y.Z \
-  --repo svenger87/kinboard \
-  --title "Kinboard vX.Y.Z" \
-  --notes-file <(awk "/^## \\[X\\.Y\\.Z\\]/{f=1;next} /^## \\[/{f=0} f" CHANGELOG.md)
-```
+- with `docs/release-notes/vX.Y.Z.md` in the tagged tree: publishes the
+  release, titled "Kinboard vX.Y.Z", with that file as its body;
+- without it: creates the release as a **draft**, with the `## [X.Y.Z]`
+  section of `CHANGELOG.md` as a starting point (`scripts/release-notes.sh`).
+  Nothing is announced. Open it under **Releases**, write the Upgrading
+  section, and publish it by hand.
 
-Or via the web UI: **Releases → Draft new release → choose tag `vX.Y.Z` → paste the changelog excerpt → Publish**.
+A release candidate is published at once as a pre-release, as before (see
+"Pre-releases" above). A release that already exists for the tag, published
+or draft, is never touched, so a rerun is harmless and a release made by hand
+first stays as it is.
 
 ### 9. Verify the published image
 

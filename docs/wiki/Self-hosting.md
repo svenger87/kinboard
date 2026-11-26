@@ -77,6 +77,7 @@ All driven from `webapp/docker/.env`. The shipped `.env.example` has comments ex
 | `TRAEFIK_CERT_RESOLVER` | `letsencrypt` | Name of your Traefik cert resolver |
 | `TRAEFIK_NETWORK` | `proxy` | External network Traefik watches |
 | `PHOTON_URL` | *(empty)* | The place search behind the calendar's Location field. Empty: komoot's public [Photon](https://photon.komoot.io) (free, no key). Point it at your own Photon to keep those searches on your network |
+| `PUID`, `PGID` | *(empty)* | The numeric user and group the webapp runs as and the uploaded files (`DATA_DIR/storage/files`) belong to, for a NAS share owned by your own user: `99`/`100` on Unraid, usually `1000`/`1000` elsewhere. Empty keeps `1001:1001`. After a change, the next start hands the uploaded files over once. PostgreSQL and PostgREST keep their images' own users |
 
 ### Secrets
 
@@ -184,6 +185,26 @@ echo | openssl s_client -connect yourdomain:443 -servername yourdomain 2>/dev/nu
 
 If the cert hasn't issued after ~30 seconds, check `docker logs traefik` for ACME errors. Most failures are DNS not pointing at the host, port 80 not reachable from the internet, or rate-limit hits if you've been re-issuing during testing (Let's Encrypt caps at 50 certs per registered domain per week).
 
+## Resource needs
+
+Measured on an amd64 machine on 2026-11-26, the compose install on the image after 1.17.0 (the webapp, PostgreSQL, PostgREST, go2rtc and the scheduler), one family with demo data, no screen open:
+
+| | Download | On disk | Memory, idle |
+|---|---|---|---|
+| webapp (`ghcr.io/svenger87/kinboard`) | 108 MB | 348 MB | 78 MiB |
+| database (`supabase/postgres:15.14.1.159`) | 367 MB | 1.24 GB | 70 MiB |
+| PostgREST (`postgrest/postgrest:v14.16`) | 6 MB | 21 MB | 28 MiB |
+| go2rtc (`alexxit/go2rtc:1.9.14`, cameras) | 95 MB | 255 MB | 3 MiB |
+| scheduler (`mcuadros/ofelia`) | 12 MB | 26 MB | 44 MiB |
+| **Total** | **about 590 MB** | **about 1.9 GB** | **about 225 MiB** |
+
+- **Disk, data:** the database was 13 MB here and 24 MB on a development install with a year of use; uploaded photos are what grows. Leave room for backups, which copy both.
+- **arm64 (Raspberry Pi):** the webapp image is the same 108 MB download for arm64 (the published 1.17.0: 107.9 MB arm64, 107.8 MB amd64). Memory on a Pi has not been measured yet: an emulated arm64 container on amd64 runs Node under a CPU translator, whose memory and CPU say nothing about a real Pi. Measurements on a Pi 4 (4 GB) and a Pi 5 will be added here.
+- **CPU:** idle, all five together stay under 1 % of one core here. A calendar sync or a page load is a short burst.
+- **A source build** (`docker-compose.build.yml`) needs about 4 GB of memory while it builds, and about 3 GB of disk.
+
+How it was measured: download is the sum of the image's compressed layers in the registry manifest; on disk is `du -sxm /` inside the image; memory is `docker stats --no-stream` a few minutes after the start.
+
 ## Health endpoint
 
 `GET /api/health` is an unauthenticated liveness probe — no family data, just `{ status, version, db }`. It's the one API route that intentionally breaks Kinboard's usual "always return 200, degrade gracefully" convention: a healthcheck needs a real failure signal, so it returns HTTP 503 (`status: "degraded", db: false`) if the database probe fails or times out (3s), and HTTP 200 (`status: "ok", db: true`) otherwise.
@@ -198,6 +219,8 @@ healthcheck:
   retries: 3
   start_period: 30s
 ```
+
+The image carries the same check as its own `HEALTHCHECK` (every 30 s, 10 s timeout, unhealthy after three misses, with the first 120 s not counted while a first start runs its migrations), so a `docker run` or a Portainer container without this compose file is health-checked too. Where a compose file sets `healthcheck:`, as this one does, its values win.
 
 `docker ps` shows `(healthy)` / `(unhealthy)` for the webapp container accordingly — useful for external monitoring (Uptime Kuma, a simple cron+curl script, Diun-adjacent tooling) without needing to poll a real page. Separately, Settings has its own **Diagnostics** section showing network/live-updates/push/integration status for troubleshooting inside the app — that's a different, family-facing check, not powered by this endpoint.
 

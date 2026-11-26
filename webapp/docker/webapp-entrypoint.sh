@@ -28,9 +28,35 @@ set -e
 # Root for the steps below that own files (moving uploads out of the old
 # storage-api layout); the server itself never runs as root. An image run with
 # `user:` set skips the file steps and starts as that user.
+#
+# PUID/PGID (RFC-024 §6.3): the numeric user and group the server runs as and
+# the uploaded files belong to, for NAS shares owned by the household's user
+# (Unraid's 99:100, 1000:1000 elsewhere). Unset, nothing changes: nextjs:nodejs
+# (1001:1001), as before. Only one of them set keeps nextjs's value for the
+# other.
+RUN_AS="nextjs:nodejs"
+RUN_IDS="$(id -u nextjs):$(awk -F: '$1 == "nodejs" { print $3 }' /etc/group)"
+if [ -n "${PUID:-}" ] || [ -n "${PGID:-}" ]; then
+  for pair in "PUID=${PUID:-}" "PGID=${PGID:-}"; do
+    case "${pair#*=}" in
+      "" ) ;;
+      *[!0-9]* )
+        echo "[entrypoint] ${pair%%=*} must be a number (a user or group id), got '${pair#*=}'; refusing to start." >&2
+        exit 1 ;;
+    esac
+  done
+  RUN_AS="${PUID:-${RUN_IDS%%:*}}:${PGID:-${RUN_IDS##*:}}"
+  RUN_IDS="$RUN_AS"
+  if [ "$(id -u)" = "0" ]; then
+    echo "[entrypoint] PUID/PGID set: the server runs as $RUN_AS and owns the uploaded files"
+  else
+    echo "[entrypoint] PUID/PGID ignored: this container already runs as $(id -u):$(id -g) (user: is set)" >&2
+  fi
+fi
+
 start_server() {
   if [ "$(id -u)" = "0" ]; then
-    exec su-exec nextjs:nodejs node server.js
+    exec su-exec "$RUN_AS" node server.js
   fi
   exec node server.js
 }
@@ -150,7 +176,14 @@ migrate_files() {
     return 0
   fi
   mkdir -p "$FILES_DIR"
-  chown nextjs:nodejs "$FILES_DIR"
+  # Owned by whoever the server runs as. When that changed (PUID/PGID set,
+  # changed or removed, or a restore copied the directory in as root), the
+  # whole tree is handed over once; on every later start the owner matches
+  # and nothing is touched.
+  if [ "$(stat -c %u:%g "$FILES_DIR")" != "$RUN_IDS" ]; then
+    chown -R "$RUN_AS" "$FILES_DIR"
+    echo "[entrypoint] uploaded files now belong to $RUN_AS ($RUN_IDS)"
+  fi
 
   marker="$FILES_DIR/.moved-from-storage-api"
   [ -f "$marker" ] && return 0
@@ -202,7 +235,7 @@ SQL
   done <"$list"
   rm -f "$list"
 
-  chown -R nextjs:nodejs "$FILES_DIR"
+  chown -R "$RUN_AS" "$FILES_DIR"
   # The marker only once there was something to move. An install without
   # uploads keeps checking an empty table (one query per start), so a pre-1.15
   # backup restored into it later is still moved. Once written, objects

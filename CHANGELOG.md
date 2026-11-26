@@ -6,6 +6,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **The image checks its own health, and runs as your NAS user if you ask.** The Kinboard image now has a built-in health check on `/api/health`, so `docker ps`, Portainer and any other Docker tool show it as healthy or unhealthy even without our compose file; the compose file's own check still applies where it is set. Two new optional settings in `.env`, `PUID` and `PGID`, choose the user and group the app runs as and its uploaded files belong to: 99 and 100 on Unraid, usually 1000 and 1000 elsewhere. Left empty, nothing changes. After a change, the next start hands the uploaded files over once.
+- **The image says what it is.** Its labels and annotations now name the licence (PolyForm Noncommercial 1.0.0, where it said "NOASSERTION"), the website, the documentation and the publisher, on each image and on the multi-architecture list a registry shows. Each release also carries a software bill of materials (SBOM) beside its build provenance, so a scanner can list every package inside.
+- **Release notes come from the changelog.** Release candidates on GitHub now carry their section of this changelog as their notes, written by the release workflow, instead of GitHub's list of merged pull requests. A stable release is published with its hand-written release note when one is in the repository, and otherwise created as a draft with its changelog section, to be finished by hand before it goes out.
+- **What Kinboard needs, written down.** Self-hosting in the wiki now lists the disk and memory the images take, measured.
+
 ### Changed
 
 - **A database update can no longer take away something the previous version needs.** When an update doesn't start, going back to the previous version only works if it still finds every table and column it uses. That has always been the rule for Kinboard's database updates, but nothing checked it. Now every change is checked before it can be merged: removing or renaming a table or column, changing a column's type, emptying a table and similar changes are refused unless they are written down as a reviewed exception. A test also starts the previous release on the newest database and joins, reads and writes a task with it, so the way back is tried, not assumed.
