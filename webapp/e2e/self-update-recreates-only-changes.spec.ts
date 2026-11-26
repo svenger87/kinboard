@@ -1,9 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { execFileSync, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { SCRIPT, hashLines, runOnce, type Service } from "./helpers/self-update-stub";
 
 /**
  * The self-update runs the Compose installed in the webhook image (2.27);
@@ -17,167 +14,14 @@ import { join, resolve } from "node:path";
  *
  * So the script decides what to recreate itself and never lets `up` consult
  * the stored hash. These run the whole script, against a real git checkout
- * and a stub `docker` that keeps its containers in files. A plain `up` (no
- * --no-recreate) recreates every service it is given, as it did on that
- * stack, because the stored hashes came from another Compose.
+ * and a stub `docker` that keeps its containers in files
+ * (helpers/self-update-stub.ts). A plain `up` (no --no-recreate) recreates
+ * every service it is given, as it did on that stack, because the stored
+ * hashes came from another Compose.
  */
 
-const SCRIPT = resolve("docker/kinboard-self-update.sh");
 const script = readFileSync(SCRIPT, "utf8");
-
-const STUB_DOCKER = String.raw`#!/bin/sh
-echo "docker $*" >> "$STUB/calls"
-esc() { printf '%s' "$1" | tr '/:@' '___'; }
-now() { date -u +%Y-%m-%dT%H:%M:%S.000000000Z; }
-make() { # service: a new container from the definition in ./stack.txt
-  ref="$(awk -v s="$1" '$1 == s { print $2 }' ./stack.txt)"
-  id="$(cat "$STUB/images/$(esc "$ref")" 2>/dev/null || echo missing)"
-  printf '%s|%s|%s\n' "$ref" "$id" "$(now)" > "$STUB/containers/$1"
-}
-if [ "$1" = compose ]; then
-  shift
-  while [ "$1" = -f ]; do shift 2; done
-  sub="$1"; shift
-  last=""; for a in "$@"; do last="$a"; done
-  case "$sub" in
-    config)
-      case "$*" in
-        --services) awk '{ print $1 }' ./stack.txt ;;
-        --images) awk '{ print $2 }' ./stack.txt ;;
-        --hash=*) [ -f "$STUB/hashfail" ] && exit 1; awk '{ print $1, $3 }' ./stack.txt ;;
-        "") echo "name: t"; echo "services:"
-            awk '{ print "  " $1 ":"; print "    environment:"; print "      NOTE: \"image: not-this\""; print "    image: " $2 }' ./stack.txt
-            echo "networks:"; echo "  kinboard:"; echo "    image: not-a-service" ;;
-      esac ;;
-    ps) [ -f "$STUB/containers/$last" ] && echo "cid-$last" ;;
-    up)
-      svcs=""; for a in "$@"; do case "$a" in -*) ;; *) svcs="$svcs $a" ;; esac; done
-      for s in $svcs; do
-        if [ ! -f "$STUB/containers/$s" ]; then make "$s"
-        else case "$*" in
-          *--no-recreate*) ;;
-          *) make "$s"; echo "$s" >> "$STUB/recreated" ;;
-        esac; fi
-      done ;;
-  esac
-  exit 0
-fi
-case "$1" in
-  inspect)
-    f="$STUB/containers/$(printf '%s' "$4" | sed 's/^cid-//')"; [ -f "$f" ] || exit 1
-    IFS='|' read -r ref id created < "$f"
-    case "$3" in
-      *Config.Image*) echo "$ref" ;;
-      *Created*) echo "$created" ;;
-      *.Image*) echo "$id" ;;
-    esac ;;
-  image) f="$STUB/images/$(esc "$5")"; [ -f "$f" ] || exit 1; cat "$f" ;;
-  container) exit 1 ;;
-  exec) echo "CREATE SCHEMA auth;"; i=0; while [ $i -lt 60 ]; do echo "CREATE TABLE t$i ();"; i=$((i + 1)); done ;;
-  run)
-    case "$*" in *" -i "*) cat > /dev/null ;; esac
-    case "$*" in *"grep -vc"* | *"wc -l"*) echo 0 ;; esac ;;
-esac
-exit 0
-`;
-
-const hash = (s: string) => createHash("sha256").update(s).digest("hex");
-
-type Service = { ref: string; def?: string };
-type Scenario = {
-  /** The definition in the checkout when the run starts. */
-  stack: Record<string, Service>;
-  /** A newer definition on origin/main, which the run pulls. */
-  pulled?: Record<string, Service>;
-  /** The containers as they run: image reference, image id, created. */
-  containers: Record<string, { ref: string; id: string; created?: string }>;
-  /** Image reference -> id of the image on disk now. */
-  images: Record<string, string>;
-  /** Contents of .git/kinboard-update-hashes before the run, if any. */
-  hashesFile?: string;
-  /** Another run holds the lock. */
-  locked?: boolean;
-};
-
-const stackTxt = (stack: Record<string, Service>) =>
-  Object.entries(stack)
-    .map(([svc, s]) => `${svc} ${s.ref} ${hash(`${svc}|${s.ref}|${s.def ?? ""}`)}\n`)
-    .join("");
-
-function run(sc: Scenario, opts: { failHashes?: boolean } = {}) {
-  const dir = mkdtempSync(join(tmpdir(), "self-update-"));
-  const stub = join(dir, "stub");
-  const bin = join(dir, "bin");
-  const proj = join(dir, "proj");
-  const git = (cwd: string, ...args: string[]) =>
-    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "init.defaultBranch=main", ...args], {
-      cwd,
-      stdio: "pipe",
-    });
-  try {
-    for (const d of [join(stub, "containers"), join(stub, "images"), bin]) mkdirSync(d, { recursive: true });
-    writeFileSync(join(bin, "docker"), STUB_DOCKER);
-    chmodSync(join(bin, "docker"), 0o755);
-    if (opts.failHashes) writeFileSync(join(stub, "hashfail"), "");
-    for (const [ref, id] of Object.entries(sc.images)) writeFileSync(join(stub, "images", ref.replace(/[/:@]/g, "_")), `${id}\n`);
-    for (const [svc, c] of Object.entries(sc.containers)) {
-      writeFileSync(join(stub, "containers", svc), `${c.ref}|${c.id}|${c.created ?? "2026-01-01T00:00:00.000000000Z"}\n`);
-    }
-
-    // origin, and the checkout the update runs in
-    git(dir, "init", "-q", "--bare", "origin.git");
-    git(dir, "clone", "-q", join(dir, "origin.git"), "proj");
-    mkdirSync(join(proj, "webapp", "docker"), { recursive: true });
-    writeFileSync(join(proj, "webapp", "docker", "stack.txt"), stackTxt(sc.stack));
-    git(proj, "add", "-A");
-    git(proj, "commit", "-qm", "stack");
-    git(proj, "push", "-q", "origin", "main");
-    if (sc.pulled) {
-      git(dir, "clone", "-q", join(dir, "origin.git"), "pusher");
-      writeFileSync(join(dir, "pusher", "webapp", "docker", "stack.txt"), stackTxt(sc.pulled));
-      git(join(dir, "pusher"), "commit", "-qam", "release");
-      git(join(dir, "pusher"), "push", "-q", "origin", "main");
-    }
-    writeFileSync(join(proj, "webapp", "docker", ".env"), `DATA_DIR=${join(dir, "data")}\n`);
-    const hashesFile = join(proj, ".git", "kinboard-update-hashes");
-    if (sc.hashesFile !== undefined) writeFileSync(hashesFile, sc.hashesFile);
-
-    const log = join(dir, "update.log");
-    const lock = join(proj, ".git", "kinboard-update.lock");
-    const res = spawnSync(
-      "sh",
-      [
-        "-c",
-        sc.locked
-          ? `exec 9>"$LOCK"; flock -n 9 || exit 99; sh "$SCRIPT"`
-          : `sh "$SCRIPT"`,
-      ],
-      {
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          PATH: `${bin}:${process.env.PATH}`,
-          STUB: stub,
-          SCRIPT,
-          LOCK: lock,
-          PROJECT_DIR: proj,
-          COMPOSE_FILES: "-f docker-compose.yml",
-          LOG_FILE: log,
-        },
-      },
-    );
-    const read = (p: string) => (existsSync(p) ? readFileSync(p, "utf8") : "");
-    return {
-      status: res.status,
-      out: res.stdout + res.stderr,
-      recreated: read(join(stub, "recreated")).split("\n").filter(Boolean).sort(),
-      calls: read(join(stub, "calls")).split("\n").filter(Boolean),
-      hashesFile: existsSync(hashesFile) ? readFileSync(hashesFile, "utf8") : null,
-    };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
+const run = runOnce;
 
 const STACK: Record<string, Service> = {
   db: { ref: "supabase/postgres:15.14.1.159" },
@@ -193,14 +37,6 @@ const IMAGES: Record<string, string> = {
   "mcuadros/ofelia@sha256:efcb": "sha256:ofelia",
 };
 const RUNNING = Object.fromEntries(Object.entries(STACK).map(([svc, s]) => [svc, { ref: s.ref, id: IMAGES[s.ref] }]));
-
-const hashLines = (stack: Record<string, Service>) =>
-  stackTxt(stack)
-    .split("\n")
-    .filter(Boolean)
-    .map((l) => l.split(" "))
-    .map(([svc, , h]) => `${svc} ${h}`)
-    .join("\n");
 
 test("nothing changed: nothing is recreated, whichever Compose created the containers", () => {
   const r = run({ stack: STACK, containers: RUNNING, images: IMAGES });

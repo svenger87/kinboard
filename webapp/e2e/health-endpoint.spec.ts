@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
 
 /**
  * /api/health is the webapp container's healthcheck, so its contract is not
@@ -54,5 +55,41 @@ test.describe("health endpoint", () => {
     expect(Object.keys(body).sort()).toEqual(
       ["db", "realtime", "status", "version", "worker"].sort()
     );
+  });
+});
+
+/**
+ * `/api/health?deep=1` is the self-update's smoke check (lib/deep-health.ts,
+ * RFC-023 §4.11.4): a failure there rolls an update back. So on a freshly
+ * migrated stack it must pass, or every release would be rolled back. This is
+ * the guard against src/types/database.ts (and so schema-expectations.json)
+ * naming a table or column the migrations never create.
+ */
+function cronSecret(): string | null {
+  if (process.env.CRON_SECRET) return process.env.CRON_SECRET;
+  try {
+    const env = readFileSync("docker/.env", "utf8");
+    return /^CRON_SECRET=(.+)$/m.exec(env)?.[1]?.replace(/^"|"$/g, "").trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+test.describe("deep health check", () => {
+  test("refuses without the cron secret", async ({ request }) => {
+    const response = await request.get("/api/health?deep=1");
+    expect(response.status()).toBe(401);
+  });
+
+  test("passes on a migrated stack: every table and column the code declares is served, and a write goes through", async ({
+    request,
+  }) => {
+    const secret = cronSecret();
+    test.skip(!secret, "no CRON_SECRET in the environment or docker/.env");
+    const response = await request.get("/api/health?deep=1", { headers: { Authorization: `Bearer ${secret}` } });
+    const body = await response.json();
+    expect(body.deep.missing, "declared in src/types/database.ts but not in the database").toEqual([]);
+    expect(body.deep.write).toBe(true);
+    expect(response.status()).toBe(200);
   });
 });

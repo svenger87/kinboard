@@ -81,6 +81,17 @@ services:
     image: kinboard-webhook:local
     container_name: ${PROJECT_NAME:-kinboard}-webhook
     restart: unless-stopped
+    # Starts the 30-minute reconciliation tick (kinboard-self-update.sh
+    # --tick-loop, RFC-023 §4.11.5) beside the webhook, then becomes the
+    # webhook. The tick catches a KINBOARD_TAG changed in .env, which Diun
+    # cannot see. The script is read through the project mount, so a `git
+    # pull` updates it; `$$` is Compose's escape for a literal `$`.
+    # KINBOARD_UPDATE_TICK=off in .env switches the tick off.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'sh "$$PROJECT_DIR/webapp/docker/kinboard-self-update.sh" --tick-loop </dev/null >/dev/null 2>&1 & exec /usr/local/bin/webhook "$$@"'
+      - webhook
     command:
       - -hooks=/etc/webhook/hooks.yaml
       - -verbose

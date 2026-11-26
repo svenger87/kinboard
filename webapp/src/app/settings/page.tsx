@@ -43,6 +43,9 @@ import { useKeyboardShortcuts, useSwipeNavigation, useIsOnline, useDeleteDevice,
 } from "@/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVersionCheck } from "@/hooks/use-version-check";
+import { useUpdateStatus } from "@/hooks/use-update-status";
+import { UpdateStatusNotice } from "@/components/settings/update-status-notice";
+import { showsUpdatedLine } from "@/lib/update-status";
 import { usePWA } from "@/hooks/use-pwa";
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
@@ -106,6 +109,7 @@ export default function SettingsPage() {
   const deleteDevice = useDeleteDevice();
   const isOnline = useIsOnline();
   const { data: version } = useVersionCheck();
+  const { data: updateStatus } = useUpdateStatus();
   const realtimeStatus = useRealtimeStatusStore((s) => s.status);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
@@ -497,6 +501,9 @@ export default function SettingsPage() {
             </p>
           </div>
         </motion.div>
+
+        {/* An automatic update that did not start and was rolled back (RFC-023 §4.11.4). */}
+        <UpdateStatusNotice status={updateStatus} />
 
         {/* The search box. While it holds a query, its results take the place
             of the join code card and the menu below it. */}
@@ -1111,6 +1118,14 @@ export default function SettingsPage() {
               {t("sourceCode")}
             </a>
           </p>
+          {updateStatus && showsUpdatedLine(updateStatus, new Date()) && (
+            <p data-testid="settings-updated-line">
+              {t("updateStatus.updatedLine", {
+                version: updateStatus.to,
+                date: format(new Date(updateStatus.at), "PPp", { locale: getDateFnsLocale(locale) }),
+              })}
+            </p>
+          )}
           {device && <p>{t("deviceLabel", { name: device.name || device.id.slice(0, 8) })}</p>}
         </div>
       </div>

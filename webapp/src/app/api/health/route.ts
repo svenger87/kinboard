@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { deepHealth } from "@/lib/deep-health";
 import { promises as fs } from "fs";
 import path from "path";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -84,7 +85,21 @@ async function probeWorker(): Promise<boolean | null> {
 // the restart loop is the harder problem to diagnose. They are reported
 // instead as `status: "degraded"` with a 200: something a monitor should alert
 // on and an orchestrator should leave alone.
-export async function GET() {
+// GET /api/health?deep=1 — the self-update's smoke check after it recreates
+// the webapp (lib/deep-health.ts): the schema this build needs, and a write.
+// Behind CRON_SECRET, as the job routes are: it is run from inside the
+// container (`docker exec … curl localhost`), where that variable is set,
+// and it says which tables exist. 200 or 503, always with a `deep` object, so
+// the caller can tell this answer from an older image that ignores `deep`.
+export async function GET(request: NextRequest) {
+  if (request.nextUrl.searchParams.get("deep") === "1") {
+    const secret = process.env.CRON_SECRET;
+    if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+    const deep = await deepHealth();
+    return NextResponse.json({ deep }, { status: deep.ok ? 200 : 503 });
+  }
   const [version, dbOk, realtimeOk, workerOk] = await Promise.all([
     readCurrentVersion(),
     probeDb(),

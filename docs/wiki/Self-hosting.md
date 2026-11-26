@@ -431,8 +431,11 @@ The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml
 3. `docker compose $COMPOSE_FILES pull --ignore-buildable` — pulls the new GHCR image(s); skips the locally-built webhook image
 4. the pre-upgrade backup (above) — only when step 3 brought a new image
 5. `docker compose up -d --remove-orphans` (with webhook + diun excluded — see below) — recreates only services whose image or definition changed, and removes containers of services a release retired; the webapp's entrypoint applies new migrations on boot
-6. `docker compose up -d --no-deps --force-recreate cron` — only when step 5 recreated the webapp, because the scheduler reads its jobs from the webapp's labels only when it starts
-7. `docker restart kinboard-diun` — only when `diun/diun.yml` changed during the run
+6. **the health wait** — every recreated service must come up healthy within 10 minutes (the webapp's health check, then its smoke check, `/api/health?deep=1`: the tables and columns this version needs are there, and a write goes through). If one doesn't, the recreated services go back to the exact images they ran before, that version is held back until a newer one is published, and Settings says so (see [When an update doesn't start](#when-an-update-doesnt-start))
+7. `docker compose up -d --no-deps --force-recreate cron` — whenever the webapp container is a new one, because the scheduler reads its jobs from the webapp's labels only when it starts
+8. `docker restart kinboard-diun` — only when `diun/diun.yml` changed during the run
+
+Besides Diun's call, the webhook container runs a **reconciliation tick** every 30 minutes: no `git pull`, only "does each running container use the image reference that `.env` and the compose files name?". A newer image under the same tag stays Diun's to announce. Diun watches the tag the running container was created from, so if you deploy a pinned `KINBOARD_TAG=sha-…` and later set `KINBOARD_TAG=next` again, Diun sees nothing; the tick applies it, with the same backup and health wait. Its first run only records a baseline. A pinned tag never moves, so it never changes anything there, and a service you stopped stays stopped. When the registry or the network is down it touches nothing and waits, longer each time, up to 6 hours. `KINBOARD_UPDATE_TICK=off` in `.env` switches it off (read at every tick). A webhook container created before this ran starts the tick after its next update run, or at once with `up -d webhook`.
 
 Two containers do this:
 - **Diun** (`crazymax/diun`) — image notifier. Polls GHCR every 30 min, detects new digests on services labeled `diun.enable=true`, fires a webhook. Read-only docker socket.
@@ -481,6 +484,16 @@ Each run of `kinboard-self-update.sh` appends timestamped lines to `/var/lib/kin
 
 ```bash
 tail -f /var/lib/kinboard-update/kinboard-update.log
+```
+
+#### When an update doesn't start
+
+If a new version doesn't come up healthy, the self-update puts back the images that ran before, on its own, and the top of Settings says *"The update to … didn't start, so Kinboard went back to …"*, with the backup it took and the log under **Details**. Your data is as it was: the backup is from just before the update, and any database change the new version made stays, because migrations are additive and the older version runs on them. If a migration failed partway, the notice names it and the log says so in plain words.
+
+That version is then skipped. Kinboard tries again when a newer one is published, or at its next check after **Try again now** in Settings (the 30-minute tick, or the next update Diun announces). The log has every step:
+
+```bash
+grep -E 'ERROR|ROLLED BACK|held' /var/lib/kinboard-update/kinboard-update.log
 ```
 
 #### Manually trigger an update (without waiting for Diun)
