@@ -189,7 +189,12 @@ test.describe("kinboard-updater: image-only updates of a one-file install", () =
       publish(r);
       const res = r.run(["--tick"]);
       expect(res.status, res.out).toBe(0);
-      expect(res.curls.some((c) => c.includes(" -G ") && c.includes("https://auth.example/token") && c.includes("scope=repository:x:pull"))).toBe(true);
+      // The token request: its URL parsed, origin and path compared exactly.
+      const tokenRequests = res.curls.map((c) => c.split(" ")).filter((args) => args.includes("-G"));
+      expect(tokenRequests).toHaveLength(1);
+      const realm = tokenRequests[0].filter((a) => /^https?:\/\//.test(a)).map((a) => new URL(a));
+      expect(realm.map((u) => `${u.origin}${u.pathname}`)).toEqual(["https://auth.example/token"]);
+      expect(tokenRequests[0]).toContain("scope=repository:x:pull");
       expect(res.curls.some((c) => c.includes("Authorization: Bearer stub-token"))).toBe(true);
       expect(res.curls.join("\n"), "no credentials of any kind").not.toMatch(/-u |--user|Basic /);
       expect(r.container("webapp")?.id).toBe("sha256:web2");
@@ -231,7 +236,9 @@ test.describe("kinboard-updater: rollback and holds", () => {
       expect(res.tags).toContain(`sha256:web1 ${NEXT}`);
       expect(res.record).toMatchObject({ status: "rolled_back", from: "1.18.0", to: "1.18.1" });
       // the hold carries the registry digest, so the next tick knows it without a pull
-      expect(res.state).toMatch(new RegExp(`^held sha256:web2 ${NEXT.replace(/[.:/]/g, "\\$&")} \\S+ ${D2}$`, "m"));
+      const holds = res.state.split("\n").map((l) => l.split(" ")).filter((f) => f[0] === "held");
+      expect(holds).toHaveLength(1);
+      expect([holds[0][1], holds[0][2], holds[0][4], holds[0].length]).toEqual(["sha256:web2", NEXT, D2, 5]);
 
       const held = r.run(["--tick"]);
       expect(held.status, held.out).toBe(0);
@@ -338,6 +345,21 @@ test.describe("kinboard-updater: rollback and holds", () => {
       const res = r.run(["--tick"]);
       expect(res.recreated).toEqual([]);
       expect(res.log).toContain("it needs compose file revision 1; this file declares 3");
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  test("the hold record stays valid JSON whatever the image's version label holds", () => {
+    const r = rig();
+    try {
+      baseline(r);
+      publish(r);
+      const odd = 'v1 "quoted" back\\slash\\"';
+      r.setVersion("sha256:web2", odd);
+      r.setImageRevision("sha256:web2", "2");
+      const res = r.run(["--tick"]);
+      expect(res.record, res.out).toMatchObject({ status: "held_compose", to: odd });
     } finally {
       r.cleanup();
     }
