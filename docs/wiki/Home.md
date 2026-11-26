@@ -27,6 +27,7 @@ and [Media players](Media-Players).
 ## Start here
 
 1. **[Quick-start](Quick-start)** — bring up the stack with one Docker command, create your first family, add devices
+   - **[Compose-UIs](Compose-UIs)** — from 1.18: install and update from OpenMediaVault, Portainer, Unraid or Dockge with one file
 2. **[Self-hosting](Self-hosting)** — deeper deployment guide (Traefik, override files, backups)
 
 ## Pick the integrations you actually use

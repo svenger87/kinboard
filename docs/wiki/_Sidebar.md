@@ -3,6 +3,7 @@
 **Getting started**
 - [[Home]]
 - [[Quick-start]]
+- [[Compose UIs|Compose-UIs]]
 - [[Architecture]]
 
 **Operations**
