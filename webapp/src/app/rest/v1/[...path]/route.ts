@@ -5,6 +5,7 @@ import {
   postgrestUrl,
   upstreamRequestHeaders,
 } from "@/lib/rest-proxy";
+import { serverAnonKey } from "@/lib/supabase/api-base";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ async function forward(
   const base = direct ?? legacyBase();
   if (!base) return NextResponse.json({ error: "the database API is not configured" }, { status: 503 });
   const headers = upstreamRequestHeaders(request.headers);
-  if (!direct) headers.set("apikey", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "");
+  if (!direct) headers.set("apikey", serverAnonKey());
 
   const { path } = await params;
   const target = `${base}/${path.map(encodeURIComponent).join("/")}${request.nextUrl.search}`;

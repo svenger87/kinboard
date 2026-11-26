@@ -33,6 +33,20 @@ export interface PublicEnv {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
 }
 
+/**
+ * The anon key, read when the request is served.
+ *
+ * Through a parameter, never as `process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY`:
+ * Next replaces that expression at build time with whatever the build machine
+ * had, in server code as well as in the browser's, and a baked key would then
+ * win over the one the container is given. Since RFC-023 the entrypoint may
+ * also mint this key from JWT_SECRET when it starts (docker/secrets-store.mjs),
+ * which a build can never know.
+ */
+export function serverAnonKey(env: EnvLike = process.env): string {
+  return env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+}
+
 export function publicApiEnv(anonKey: string): PublicEnv {
   return {
     NEXT_PUBLIC_SUPABASE_URL: SAME_ORIGIN,

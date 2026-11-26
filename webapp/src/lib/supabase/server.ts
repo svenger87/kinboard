@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/database";
-import { serverSupabaseFetch, serverSupabaseUrl } from "@/lib/supabase/api-base";
+import { serverAnonKey, serverSupabaseFetch, serverSupabaseUrl } from "@/lib/supabase/api-base";
 
 interface CookieToSet {
   name: string;
@@ -17,7 +17,7 @@ export async function createClient() {
   const url = serverSupabaseUrl();
   return createServerClient<Database>(
     url,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    serverAnonKey(),
     {
       global: { fetch: serverSupabaseFetch() },
       cookies: {
