@@ -131,6 +131,17 @@ directory. One file per secret:
 | `presence_sensor_token` | `/api/presence` | `.env` | 32 random bytes, hex |
 | `vapid_public_key`, `vapid_private_key` | push | `.env`, needs Node on the host | a P-256 key pair from the image's own Node (the `web-push` library the server already uses for sending, `src/lib/push-sender.ts`) |
 
+**What a file holds.** Its value is the content without a leading
+byte-order mark (Windows Notepad writes one) and without trailing line
+breaks (`\r`, `\n`). Spaces and tabs are part of the value, wherever they
+are. That is how the database's `POSTGRES_PASSWORD_FILE` reads its file
+(docker-library's `file_env`, `$(< file)`, which drops trailing newlines and
+nothing else), and a password the two read differently would lock the webapp
+out of its database. A byte-order mark is the one thing the webapp drops that
+the database would keep, so the init step (PR 2) writes a file that has one
+back without it, before `db` reads it. Generated values are hex and never
+carry either. Implemented in PR 1 (`docker/secrets-store.mjs`, `fileValue`).
+
 **Not stored: the anon and service-role keys.** Both are HS256 JWTs signed
 with `jwt_secret` (`setup.sh:263-280`). The webapp mints them from
 `JWT_SECRET` when `ANON_KEY` and `SERVICE_ROLE_KEY` are unset. It already mints
@@ -204,6 +215,12 @@ The entrypoint's exports reach only the server process. Anything started with
 Ofelia's jobs run that way and authenticate with `$CRON_SECRET` from that
 environment (`Dockerfile:111-195`). The in-image scheduler (§4.5) avoids the
 problem. If ofelia stays, the job scripts must fall back to reading the file.
+**Done in PR 1:** every job script runs `/app/cron-call.sh <route>`, which
+uses `$CRON_SECRET` when it is set and otherwise reads `cron_secret` from the
+store by the entrypoint's rules (`secrets-store.mjs --get CRON_SECRET`); with
+neither it fails without calling the route. So PR 2 can move `CRON_SECRET`
+into the store without breaking ofelia, and PR 3's scheduler must read it the
+same way.
 
 ### 4.2 The base schema: `init.sql`
 
@@ -1266,8 +1283,8 @@ what it adds.
 | # | PR | Visible to existing installs |
 |---|---|---|
 | 1 | **Entrypoint reads the secrets store**: environment, then file; derive anon/service keys when unset. Unit tests for the precedence | no: every secret is set in their environment |
-| 2 | **`kinboard-init`**: generate, mirror `.env`, guard the database password, set and check modes, refuse bad filesystems, write `db_uri`. **`kinboard-db-init`**: align `authenticator` from the file with a psql variable; apply `init.sql` when `public.families` is missing. `init.sql` copied into the image, plus a byte-equality test | no: the legacy file has no `init` service, and its `db-init` keeps its own script |
-| 3 | **Scheduler in the image**, behind `KINBOARD_SCHEDULER=internal`; the job module; a parity test against the legacy labels | no: off by default |
+| 2 | **`kinboard-init`**: generate, mirror `.env`, guard the database password, set and check modes, refuse bad filesystems, write `db_uri`. **`kinboard-db-init`**: align `authenticator` from the file with a psql variable; apply `init.sql` when `public.families` is missing. `init.sql` copied into the image, plus a byte-equality test. Rewrite a file with a leading byte-order mark without it (§4.1, "What a file holds"). The ofelia jobs already fall back to `cron_secret` (PR 1, `cron-call.sh`) | no: the legacy file has no `init` service, and its `db-init` keeps its own script |
+| 3 | **Scheduler in the image**, behind `KINBOARD_SCHEDULER=internal`; the job module; a parity test against the legacy labels. Its jobs take the cron secret from the environment, then the store, as `cron-call.sh` does: the scheduler runs inside the server process, which has the entrypoint's exports, but must not depend on that | no: off by default |
 | 4 | **`compose.yml`** at the root, a release asset; a `one-file` rig in `rigs.yml` (§8.1 A1/A3 checks, headless); `KINBOARD_COMPOSE_REVISION` and the Settings notice | no |
 | 5 | **Keys in Settings**: OpenWeatherMap, Google client, presence token, with environment fallback; mark dead variables in `.env.example` | only new optional fields |
 | 6 | **Backups**: the self-update archives `config/` when present; push key fingerprint and notice | only when `config/` exists |

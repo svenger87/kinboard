@@ -107,91 +107,94 @@ WORKDIR /app
 # then runs the server as nextjs.
 RUN apk add --no-cache curl postgresql-client su-exec
 
+# The scheduled jobs (ofelia runs them with `docker exec`). Each calls its
+# route through /app/cron-call.sh, which takes the cron secret from the
+# environment or, failing that, from the secrets store (RFC-023 §4.1).
 # Add sync script for cron jobs
 RUN echo '#!/bin/sh' > /usr/local/bin/google-sync && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/google-sync' >> /usr/local/bin/google-sync && \
+    echo 'exec /app/cron-call.sh google-sync' >> /usr/local/bin/google-sync && \
     chmod +x /usr/local/bin/google-sync
 
 # Add todo reminders cron script
 RUN echo '#!/bin/sh' > /usr/local/bin/todo-reminders && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/todo-reminders' >> /usr/local/bin/todo-reminders && \
+    echo 'exec /app/cron-call.sh todo-reminders' >> /usr/local/bin/todo-reminders && \
     chmod +x /usr/local/bin/todo-reminders
 
 # Add notification queue processor cron script
 RUN echo '#!/bin/sh' > /usr/local/bin/process-notifications && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/process-notifications' >> /usr/local/bin/process-notifications && \
+    echo 'exec /app/cron-call.sh process-notifications' >> /usr/local/bin/process-notifications && \
     chmod +x /usr/local/bin/process-notifications
 
 RUN echo '#!/bin/sh' > /usr/local/bin/evaluate-attention && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/evaluate-attention' >> /usr/local/bin/evaluate-attention && \
+    echo 'exec /app/cron-call.sh evaluate-attention' >> /usr/local/bin/evaluate-attention && \
     chmod +x /usr/local/bin/evaluate-attention
 
 # Add repeating-events top-up cron script
 RUN echo '#!/bin/sh' > /usr/local/bin/extend-event-series && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/extend-event-series' >> /usr/local/bin/extend-event-series && \
+    echo 'exec /app/cron-call.sh extend-event-series' >> /usr/local/bin/extend-event-series && \
     chmod +x /usr/local/bin/extend-event-series
 
 # Add event-reminder scheduler cron script
 RUN echo '#!/bin/sh' > /usr/local/bin/schedule-event-reminders && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/schedule-event-reminders' >> /usr/local/bin/schedule-event-reminders && \
+    echo 'exec /app/cron-call.sh schedule-event-reminders' >> /usr/local/bin/schedule-event-reminders && \
     chmod +x /usr/local/bin/schedule-event-reminders
 
 # Add birthday-reminder scheduler cron script
 RUN echo '#!/bin/sh' > /usr/local/bin/birthday-reminders && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/birthday-reminders' >> /usr/local/bin/birthday-reminders && \
+    echo 'exec /app/cron-call.sh birthday-reminders' >> /usr/local/bin/birthday-reminders && \
     chmod +x /usr/local/bin/birthday-reminders
 
 # Add meal-prep-reminder scheduler cron script
 RUN echo '#!/bin/sh' > /usr/local/bin/meal-prep-reminders && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/meal-prep-reminders' >> /usr/local/bin/meal-prep-reminders && \
+    echo 'exec /app/cron-call.sh meal-prep-reminders' >> /usr/local/bin/meal-prep-reminders && \
     chmod +x /usr/local/bin/meal-prep-reminders
 
 # Add ICS feed sync cron script
 RUN echo '#!/bin/sh' > /usr/local/bin/sync-ics && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-ics' >> /usr/local/bin/sync-ics && \
+    echo 'exec /app/cron-call.sh sync-ics' >> /usr/local/bin/sync-ics && \
     chmod +x /usr/local/bin/sync-ics
 
 # Add CalDAV sync cron script
 RUN echo '#!/bin/sh' > /usr/local/bin/sync-caldav && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-caldav' >> /usr/local/bin/sync-caldav && \
+    echo 'exec /app/cron-call.sh sync-caldav' >> /usr/local/bin/sync-caldav && \
     chmod +x /usr/local/bin/sync-caldav
 
 # Reads each family's Bring! list into its shopping list (#407).
 RUN echo '#!/bin/sh' > /usr/local/bin/sync-bring && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-bring' >> /usr/local/bin/sync-bring && \
+    echo 'exec /app/cron-call.sh sync-bring' >> /usr/local/bin/sync-bring && \
     chmod +x /usr/local/bin/sync-bring
 
 # Syncs school holidays from OpenHolidays for families that turned it on and
 # have not synced for a week (RFC-014 §5.2).
 RUN echo '#!/bin/sh' > /usr/local/bin/sync-school-holidays && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-school-holidays' >> /usr/local/bin/sync-school-holidays && \
+    echo 'exec /app/cron-call.sh sync-school-holidays' >> /usr/local/bin/sync-school-holidays && \
     chmod +x /usr/local/bin/sync-school-holidays
 
 # Add pocket-money cron scripts
 RUN echo '#!/bin/sh' > /usr/local/bin/pocket-money-accrue-interest && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/accrue-interest' >> /usr/local/bin/pocket-money-accrue-interest && \
+    echo 'exec /app/cron-call.sh accrue-interest' >> /usr/local/bin/pocket-money-accrue-interest && \
     chmod +x /usr/local/bin/pocket-money-accrue-interest
 
 RUN echo '#!/bin/sh' > /usr/local/bin/pocket-money-commit-interest && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/commit-interest' >> /usr/local/bin/pocket-money-commit-interest && \
+    echo 'exec /app/cron-call.sh commit-interest' >> /usr/local/bin/pocket-money-commit-interest && \
     chmod +x /usr/local/bin/pocket-money-commit-interest
 
 RUN echo '#!/bin/sh' > /usr/local/bin/pocket-money-process-allowance && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/process-allowance' >> /usr/local/bin/pocket-money-process-allowance && \
+    echo 'exec /app/cron-call.sh process-allowance' >> /usr/local/bin/pocket-money-process-allowance && \
     chmod +x /usr/local/bin/pocket-money-process-allowance
 
 # Add recycle-bin purge cron script
 RUN echo '#!/bin/sh' > /usr/local/bin/close-task-days && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/close-task-days' >> /usr/local/bin/close-task-days && \
+    echo 'exec /app/cron-call.sh close-task-days' >> /usr/local/bin/close-task-days && \
     chmod +x /usr/local/bin/close-task-days
 RUN echo '#!/bin/sh' > /usr/local/bin/purge-recycle-bin && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/purge-recycle-bin' >> /usr/local/bin/purge-recycle-bin && \
+    echo 'exec /app/cron-call.sh purge-recycle-bin' >> /usr/local/bin/purge-recycle-bin && \
     chmod +x /usr/local/bin/purge-recycle-bin
 
 # Trims the domain event outbox. A catch-up log, not an archive — see the
 # route's comment for why 30 days and why it is not per-family configurable.
 RUN echo '#!/bin/sh' > /usr/local/bin/purge-domain-events && \
-    echo 'curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/purge-domain-events' >> /usr/local/bin/purge-domain-events && \
+    echo 'exec /app/cron-call.sh purge-domain-events' >> /usr/local/bin/purge-domain-events && \
     chmod +x /usr/local/bin/purge-domain-events
 
 ENV NODE_ENV production
@@ -239,15 +242,16 @@ RUN test -f ./licenses/NOTICE && test -f ./licenses/date-holidays-LICENSE && tes
  && test -f ./licenses/fonts/noto-sans-sc-OFL.txt && test -f ./licenses/fonts/noto-serif-sc-OFL.txt \
  && test -f ./licenses/fonts/zcool-kuaile-OFL.txt
 
-# Bake migrations, their runner and the entrypoint into the image. The
+# Bake migrations, their runner and the entrypoint (with the secrets-store
+# reader it runs first, RFC-023 §4.1) into the image. The
 # entrypoint applies migrations against the db before exec'ing the Next.js
 # server — see webapp/docker/webapp-entrypoint.sh. This is the path every
 # self-hoster update relies on; `./start.sh migrate` runs the same migrate.sh
 # from the host.
 COPY --chown=nextjs:nodejs docker/migrations/ ./migrations/
-COPY --chown=nextjs:nodejs docker/migrate.sh docker/webapp-entrypoint.sh ./
+COPY --chown=nextjs:nodejs docker/migrate.sh docker/webapp-entrypoint.sh docker/secrets-store.mjs docker/cron-call.sh ./
 USER root
-RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh
+RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh ./cron-call.sh
 # No `USER nextjs` here: webapp-entrypoint.sh drops to it before starting the
 # server, after the steps that need root (the uploaded-files directory).
 

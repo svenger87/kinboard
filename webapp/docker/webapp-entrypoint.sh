@@ -21,7 +21,7 @@
 #   POSTGRES_PORT     defaults to "5432"
 #   POSTGRES_USER     defaults to "postgres"
 #   POSTGRES_DB       defaults to "postgres"
-#   POSTGRES_PASSWORD required — passed from .env
+#   POSTGRES_PASSWORD required — from .env, or the secrets store (below)
 
 set -e
 
@@ -35,16 +35,27 @@ start_server() {
   exec node server.js
 }
 
+# ---------------------------------------------------------------------------
+# The secrets (RFC-023 §4.1), before anything else. Per secret: the
+# environment wins; otherwise /kinboard/secrets/<name> from the config volume;
+# otherwise, for the anon and service-role keys only, minted from JWT_SECRET.
+# Every existing install sets them all in its environment, so for them this
+# changes nothing. A required one missing everywhere stops the container here,
+# with its name in the log, instead of a server that starts half-configured.
+#
+# These exports reach the server process only: `docker exec` sees the
+# container's configured environment, not them.
+# ---------------------------------------------------------------------------
+if ! secrets_env="$(node /app/secrets-store.mjs)"; then
+  exit 1
+fi
+eval "$secrets_env"
+unset secrets_env
+
 POSTGRES_HOST="${POSTGRES_HOST:-db}"
 POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 POSTGRES_USER="${POSTGRES_USER:-postgres}"
 POSTGRES_DB="${POSTGRES_DB:-postgres}"
-
-if [ -z "$POSTGRES_PASSWORD" ]; then
-  echo "[entrypoint] POSTGRES_PASSWORD not set; skipping migrations." >&2
-  echo "[entrypoint] Run 'webapp/docker/start.sh migrate' from the host or pass POSTGRES_PASSWORD via docker-compose env." >&2
-  start_server
-fi
 
 export PGPASSWORD="$POSTGRES_PASSWORD"
 

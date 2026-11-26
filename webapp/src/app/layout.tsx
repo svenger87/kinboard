@@ -20,7 +20,7 @@ import {
   cjkNotoSerif,
   cjkZcoolKuaile,
 } from "./fonts";
-import { publicApiEnv } from "@/lib/supabase/api-base";
+import { publicApiEnv, serverAnonKey } from "@/lib/supabase/api-base";
 import { MOTION_INIT_SCRIPT } from "@/lib/motion";
 import { FESTIVAL_INIT_SCRIPT } from "@/lib/festival-settings";
 import { FESTIVAL_CSS } from "@/lib/festivals/kits";
@@ -78,7 +78,7 @@ export default async function RootLayout({
   // first via window.__ENV. See lib/supabase/client.ts.
   //
   // The API is on the page's own origin (lib/supabase/api-base.ts).
-  const publicEnv = publicApiEnv(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "");
+  const publicEnv = publicApiEnv(serverAnonKey());
 
   return (
     <html lang={locale} className={monthTheme} suppressHydrationWarning>

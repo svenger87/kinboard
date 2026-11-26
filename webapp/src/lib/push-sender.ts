@@ -57,16 +57,19 @@ export interface DatabaseSubscription {
 export type DeactivateVerdict = "gone" | "suspect" | false;
 
 /**
- * Read VAPID keys lazily from runtime environment.
- * IMPORTANT: We avoid reading NEXT_PUBLIC_* at module level because Next.js
- * inlines those at build time (replacing with empty string if not set during build).
- * Reading at call time ensures we get the actual runtime env var.
+ * Read VAPID keys from the runtime environment, at call time.
+ *
+ * Through `env`, never as `process.env.NEXT_PUBLIC_*`: Next replaces that
+ * expression at build time with whatever the build machine had, in server
+ * code too, so a baked public key could pair with another install's private
+ * one. The entrypoint may also take these from the secrets store at start
+ * (docker/secrets-store.mjs), which no build can know.
  */
-function getVapidConfig() {
+function getVapidConfig(env: Record<string, string | undefined> = process.env) {
   // Try VAPID_PUBLIC_KEY first (server-only), fall back to NEXT_PUBLIC_ variant
-  const publicKey = process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT || "mailto:admin@example.com";
+  const publicKey = env.VAPID_PUBLIC_KEY || env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = env.VAPID_PRIVATE_KEY;
+  const subject = env.VAPID_SUBJECT || "mailto:admin@example.com";
   return { publicKey, privateKey, subject };
 }
 

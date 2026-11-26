@@ -325,7 +325,7 @@ test.describe("wiring", () => {
 
   test("ofelia runs the pull every two minutes", () => {
     expect(read("docker", "docker-compose.yml")).toContain('ofelia.job-exec.sync-bring.schedule: "@every 2m"');
-    expect(read("docker", "Dockerfile")).toContain("http://localhost:3000/api/cron/sync-bring");
+    expect(read("docker", "Dockerfile")).toContain("exec /app/cron-call.sh sync-bring' >> /usr/local/bin/sync-bring");
   });
 
   test("the shopping page ticks and deletes on Bring! under the Bring! key", () => {
