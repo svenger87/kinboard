@@ -86,17 +86,93 @@ rig_on_exit() {
   local rc=$? c
   trap - EXIT INT TERM
   for c in "${RIG_AT_EXIT[@]}"; do eval "$c" || true; done
-  if [ "$RIG_KEEP" != "1" ]; then
-    "$RIG_TEARDOWN" || true
+  if [ "$RIG_STACK_ARMED" = "1" ]; then
+    if [ "$RIG_KEEP" != "1" ]; then
+      "$RIG_TEARDOWN" || true
+    fi
+    rig_leftover_hint
   fi
-  rig_leftover_hint
+  rig_restore_checkout
   exit "$rc"
 }
 
-rig_arm_teardown() {
+rig_install_traps() {
   trap rig_on_exit EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
+}
+
+RIG_STACK_ARMED=0
+rig_arm_teardown() {
+  RIG_STACK_ARMED=1
+  rig_install_traps
+}
+
+# ------------------------------------------------- the checkout the rig runs in
+#
+# Running setup.sh in a checkout has two side effects on it, and until this
+# block the rigs left both behind:
+#
+#   - setup.sh creates webapp/.env.local when there is none, and the rig then
+#     deleted webapp/.env.local unconditionally — so a developer's own file,
+#     the one `next dev` reads, was gone after any rig run.
+#   - the rig marks webapp/docker/kong.yml and diun/diun.yml skip-worktree
+#     before setup.sh writes a secret into diun.yml, so the secret can never be
+#     committed. Both stayed marked, with the rig's secret in them, so the
+#     checkout's git status went quiet about two tracked files for good.
+#
+# So the rig notes what it found before setup.sh runs, and puts it back on
+# every way out (normal exit, failure, Ctrl-C, TERM): the two files' content
+# and skip-worktree flag, and an .env.local only if this run created it. A
+# checkout that had them skip-worktree with real secrets — the owner's —
+# gets exactly that back; any other checkout gets its tracked files back.
+RIG_GUARDED_FILES=(webapp/docker/kong.yml webapp/docker/diun/diun.yml)
+RIG_ENV_LOCAL_FOUND=""
+RIG_CHECKOUT_SNAPSHOT=""
+
+rig_guard_checkout() {
+  [ -z "$RIG_CHECKOUT_SNAPSHOT" ] || return 0
+  RIG_CHECKOUT_SNAPSHOT=$(mktemp -d "${TMPDIR:-/tmp}/kinboard-rig-checkout.XXXXXX")
+  if [ -e "$REPO_ROOT/webapp/.env.local" ]; then RIG_ENV_LOCAL_FOUND=1; else RIG_ENV_LOCAL_FOUND=0; fi
+  local f i=0 tag
+  for f in "${RIG_GUARDED_FILES[@]}"; do
+    tag=$(cd "$REPO_ROOT" && git ls-files -v -- "$f" 2>/dev/null | cut -c1) || tag=""
+    printf '%s\n' "${tag:--}" > "$RIG_CHECKOUT_SNAPSHOT/$i.flag"
+    if [ -e "$REPO_ROOT/$f" ]; then cp -p "$REPO_ROOT/$f" "$RIG_CHECKOUT_SNAPSHOT/$i.file"; fi
+    i=$((i+1))
+  done
+  rig_install_traps
+}
+
+# setup.sh writes webapp/.env.local only when there is none. Remove it again
+# only if it was not there before this run.
+rig_drop_own_env_local() {
+  if [ "$RIG_ENV_LOCAL_FOUND" = "0" ] && [ -e "$REPO_ROOT/webapp/.env.local" ]; then
+    rm -f "$REPO_ROOT/webapp/.env.local"
+    step "removed the webapp/.env.local setup.sh created"
+  fi
+}
+
+rig_restore_checkout() {
+  [ -n "$RIG_CHECKOUT_SNAPSHOT" ] && [ -d "$RIG_CHECKOUT_SNAPSHOT" ] || return 0
+  rig_drop_own_env_local
+  local f i=0 tag
+  for f in "${RIG_GUARDED_FILES[@]}"; do
+    if [ -e "$RIG_CHECKOUT_SNAPSHOT/$i.file" ]; then
+      cp -p "$RIG_CHECKOUT_SNAPSHOT/$i.file" "$REPO_ROOT/$f"
+    fi
+    tag=$(cat "$RIG_CHECKOUT_SNAPSHOT/$i.flag" 2>/dev/null) || tag=""
+    # S = skip-worktree; '-' = not tracked (nothing to set).
+    case "$tag" in
+      S) ( cd "$REPO_ROOT" && git update-index --skip-worktree -- "$f" ) >/dev/null 2>&1 || true ;;
+      -|"") ;;
+      *) ( cd "$REPO_ROOT" && git update-index --no-skip-worktree -- "$f" ) >/dev/null 2>&1 || true ;;
+    esac
+    i=$((i+1))
+  done
+  rm -rf "$RIG_CHECKOUT_SNAPSHOT"
+  RIG_CHECKOUT_SNAPSHOT=""
+  step "checkout restored: ${RIG_GUARDED_FILES[*]} as found, webapp/.env.local $([ "$RIG_ENV_LOCAL_FOUND" = 1 ] && echo kept || echo 'not left behind')"
 }
 
 # Delete the rig's data directory, and be sure it went.
@@ -184,13 +260,16 @@ rig_prepare_env() {
         exit 1 ;;
     esac
   fi
+  # From here on the rig changes the checkout; note what it looks like first.
+  rig_guard_checkout
   if [ ! -f "$DOCKER_DIR/.env" ]; then
     # setup.sh substitutes a secret into diun.yml (and, before 1.15, real
     # JWTs into kong.yml).
     # Production marks both skip-worktree so they can never be committed;
     # a fresh worktree gets them as ordinary tracked files, so `git add -A`
     # here would commit generated keys. Mirror production's protection
-    # before running setup.sh, not after.
+    # before running setup.sh, not after — for the length of the run only:
+    # rig_restore_checkout puts back the flags and content found.
     ( cd "$REPO_ROOT" && git update-index --skip-worktree \
         webapp/docker/kong.yml webapp/docker/diun/diun.yml 2>/dev/null ) || true
     step "marked kong.yml + diun.yml skip-worktree (as production does)"
@@ -225,15 +304,11 @@ rig_prepare_env() {
   # COMPOSE_FILES in .env would override the explicit -f lists the rigs pass.
   sed -i '/^COMPOSE_FILES=/d' "$DOCKER_DIR/.env"
 
-  # setup.sh copies webapp/.env.example to webapp/.env.local verbatim, and
-  # nothing here needs it. Next inlines
-  # NEXT_PUBLIC_* at BUILD time. .dockerignore now keeps it out of the build
-  # context, but a rig that builds should not depend on that single layer, and
-  # nothing here needs the file.
-  if [ -f "$REPO_ROOT/webapp/.env.local" ]; then
-    rm -f "$REPO_ROOT/webapp/.env.local"
-    step "removed webapp/.env.local that setup.sh created"
-  fi
+  # setup.sh copies webapp/.env.example to webapp/.env.local when there is
+  # none, and nothing here needs it. A developer's own .env.local stays: it is
+  # theirs, .dockerignore keeps it out of every build context, and the
+  # upgrade rig checks its built image for the file's URLs anyway.
+  rig_drop_own_env_local
   step "ports: webapp=$RIG_WEBAPP_PORT db=$RIG_POSTGRES_PORT"
   step "data:  $RIG_DATA"
   rig_arm_teardown

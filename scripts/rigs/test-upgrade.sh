@@ -142,23 +142,38 @@ build_head_image() {
     return 0
   fi
   say "Building the HEAD image from this worktree"
-  if [ -f "$REPO_ROOT/webapp/.env.local" ]; then
-    red "REFUSING: webapp/.env.local exists in this worktree."
-    red "It would bake localhost:8000 into the bundle (this took prod down once)."
-    exit 1
+  # A webapp/.env.local in the build context bakes its NEXT_PUBLIC_* URLs into
+  # the bundle (this took prod down once). The rig used to refuse to build
+  # when the file existed — after deleting it a moment earlier, so the refusal
+  # never fired and a developer's .env.local was simply lost. The file is the
+  # developer's and stays; what keeps it out of the image is .dockerignore,
+  # so refuse if that rule is gone, and check the built image for the file's
+  # own URLs as well as the old default.
+  local env_local="$REPO_ROOT/webapp/.env.local" needles=("localhost:8000") n
+  if [ -f "$env_local" ]; then
+    if ! grep -qxE '\.env(\*|\.local)' "$REPO_ROOT/webapp/.dockerignore" 2>/dev/null; then
+      red "REFUSING: webapp/.env.local exists and webapp/.dockerignore no longer excludes it."
+      red "It would bake its NEXT_PUBLIC_* URLs into the bundle (this took prod down once)."
+      exit 1
+    fi
+    while IFS= read -r n; do
+      [ -n "$n" ] && needles+=("$n")
+    done < <(sed -n 's/^NEXT_PUBLIC_[A-Z_]*=["'\'']\{0,1\}https\{0,1\}:\/\/\([^"'\''/ ]*\).*/\1/p' "$env_local" | sort -u)
   fi
   docker build -q -f "$REPO_ROOT/webapp/docker/Dockerfile" \
     --build-arg BUILD_REVISION="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD)" \
     -t "$HEAD_IMAGE" "$REPO_ROOT/webapp" | tail -1
   # The same check the runbook demands before any local image is deployed.
   local hits
-  hits=$(docker run --rm --entrypoint sh "$HEAD_IMAGE" \
-           -c 'grep -rl "localhost:8000" /app/.next/ 2>/dev/null | wc -l')
-  if [ "$hits" != "0" ]; then
-    red "REFUSING: built image has localhost:8000 baked in ($hits files)."
-    exit 1
-  fi
-  step "built $HEAD_IMAGE, clean of localhost:8000"
+  for n in "${needles[@]}"; do
+    hits=$(docker run --rm --entrypoint sh "$HEAD_IMAGE" \
+             -c 'grep -rlF "$1" /app/.next/ 2>/dev/null | wc -l' sh "$n")
+    if [ "$hits" != "0" ]; then
+      red "REFUSING: built image has $n baked in ($hits files)."
+      exit 1
+    fi
+  done
+  step "built $HEAD_IMAGE, clean of ${needles[*]}"
 }
 
 write_after_overlay() {
@@ -356,7 +371,7 @@ test_path() {
   # install to Kong as the front door), carried over as a pull would.
   cp "$OLD_DOCKER/.env" "$DOCKER_DIR/.env"
   ( cd "$REPO_ROOT" && ./setup.sh --non-interactive >/dev/null 2>&1 ) || fail "HEAD setup.sh failed on the old .env"
-  rm -f "$REPO_ROOT/webapp/.env.local"
+  rig_drop_own_env_local
   ( cd "$DOCKER_DIR" && \
       COMPOSE_FILES="-f docker-compose.yml -f docker-compose.upgrade-target.yml" \
       ./start.sh up >/dev/null 2>&1 ) || { fail "$from -> HEAD: start.sh up failed"; teardown; return 1; }
