@@ -43,14 +43,16 @@ const ALLOWED: Record<string, string> = {
   "docker-compose.traefik.yml": "overlay named in COMPOSE_FILES",
   "docker-compose.build.yml": "overlay named in COMPOSE_FILES (build from source; builds ../image/Dockerfile)",
   "docker-compose.diun.yml": "overlay named in COMPOSE_FILES (auto-update); used as it is, there is no example to copy",
+  "docker-compose.webhook-build.yml":
+    "overlay named in COMPOSE_FILES after the Diun overlay, to build the webhook here instead of pulling kinboard-webhook",
   "docker-compose.override.yml.example": "the copy the wiki tells you to make (docker-compose.override.yml is gitignored)",
   "docker-compose.demo.yml.example":
     "the public demo's overlay; the demo host's copy mounts ./ofelia.demo.ini and ./seed-demo.sql from this folder",
   "ofelia.demo.ini": "mounted by the demo host's overlay (./ofelia.demo.ini): moving it leaves Docker an empty directory to mount",
   "seed-demo.sql": "`./start.sh seed-demo`, and mounted by the demo host's overlay (./seed-demo.sql)",
   "Dockerfile.webhook":
-    "built on the household's machine by docker-compose.diun.yml (context webapp/docker, COPYs kinboard-self-update.sh); " +
-    "a household's own copy of that overlay names it there",
+    "published as kinboard-webhook and kinboard-updater by docker.yml (context webapp/docker); built on the household's " +
+    "machine only by docker-compose.webhook-build.yml, and by an older install's own copy of the Diun overlay",
   "kinboard-self-update.sh": "run by the webhook from this checkout",
   "kinboard-entry.sh": "called by start.sh and by older self-updates after a git pull",
   "test-upgrade.sh": "a stub that tells whoever ran the old rig how to update instead; goes with the 1.18 release",
@@ -145,8 +147,8 @@ test.describe("nothing an install runs, mounts or builds from has left webapp/do
       }
     }
     // The build-from-source overlay: context relative to webapp/docker, dockerfile relative to the context.
-    // The Diun overlay: context from KINBOARD_PROJECT_DIR, the checkout's root.
-    for (const f of ["docker-compose.build.yml", "docker-compose.diun.yml"]) {
+    // The webhook's build overlay: context from KINBOARD_PROJECT_DIR, the checkout's root.
+    for (const f of ["docker-compose.build.yml", "docker-compose.webhook-build.yml"]) {
       const src = code(read(f));
       for (const b of src.matchAll(/^\s+build:\n\s+(?:#.*\n\s+)*context: (\S+)\n\s+dockerfile: (\S+)$/gm)) {
         const ctx = b[1].startsWith("${KINBOARD_PROJECT_DIR}/") ? join(REPO, b[1].slice("${KINBOARD_PROJECT_DIR}/".length)) : resolve(DOCKER, b[1]);

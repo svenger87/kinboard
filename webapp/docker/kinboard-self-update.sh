@@ -79,6 +79,12 @@ set -eu
 # §4.11.3), the `updater` service of compose.yml's `autoupdate` profile, on an
 # install with no git checkout: image-only updates. See "The updater" below.
 UPDATER="${KINBOARD_UPDATER:-}"
+# The two values the Diun overlay interpolates into the webhook's own
+# environment, as this container got them: a webhook recreated after the run
+# (see "The webhook's own image") gets them back unchanged, whatever the shell
+# that ran `up` had exported. Read before anything below changes them.
+WEBHOOK_ENV_COMPOSE_FILES="${COMPOSE_FILES-}"
+WEBHOOK_ENV_SECRET="${DIUN_WEBHOOK_SECRET-}"
 if [ -n "$UPDATER" ]; then
   # Its state, lock and log live in the config volume, which exists without
   # git and survives a recreated updater.
@@ -2481,6 +2487,120 @@ cm_preflight() {
   exit 0
 }
 
+# ---------------------------------------------------------------------------
+# The webhook's own image.
+#
+# The Diun overlay's webhook runs the published kinboard-webhook image, under
+# the webapp's tag (docker-compose.diun.yml). Until it was published, every
+# git install built the image on its own machine as kinboard-webhook:local,
+# and a Docker that could not build (#539: dockerd crashed in the build's
+# network hook) had no automatic updates at all.
+#
+# Which version of that image runs hardly matters: the hook and the tick run
+# the checkout's script, which `git pull` keeps current. But it should follow
+# what the compose files name: the switch away from kinboard-webhook:local on
+# an existing install, a KINBOARD_TAG changed to another channel or pin, a
+# newer image under the same tag. No run can recreate the webhook itself: the
+# run executes inside it, and Compose would stop it halfway (NEVER_RECREATE).
+# So a short-lived container started from the new image does it: it waits for
+# this run's lock, so it acts only once this run has ended, then runs
+# `up -d --no-deps --force-recreate webhook`. If the new webhook is not
+# running, unrestarted, KINBOARD_WEBHOOK_SETTLE seconds (30) later, it tags
+# the image the webhook ran before back under the reference and recreates it
+# once more, so a broken image never ends the automatic updates.
+#
+# An update pulls the webhook's image on its own, after the others: a pull
+# that fails (no such tag: a KINBOARD_TAG pinned to a version older than the
+# published image) costs the webhook its refresh, never the release. A tick
+# pulls it only when the reference changed, as for every other service.
+# ---------------------------------------------------------------------------
+
+# Run by that container (the new kinboard-webhook image: busybox flock has no
+# -w, hence timeout). KB_* come from webhook_refresh below.
+WEBHOOK_REFRESH_SH='
+set -u
+log() { printf "[%s] %s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "webhook refresh: $*" >> "$KB_LOG" 2>/dev/null || true; }
+exec 9>>"$KB_LOCK"
+if ! timeout "$KB_WAIT" flock 9; then
+  log "the update run still held its lock after ${KB_WAIT}s; the webhook was not recreated (the next run tries again)"
+  exit 1
+fi
+# shellcheck disable=SC2086
+up() { docker compose $KB_ARGS up -d --no-deps --no-build --pull never --force-recreate webhook >> "$KB_LOG" 2>&1; }
+settled() {
+  sleep "$KB_SETTLE"
+  # shellcheck disable=SC2086
+  cid="$(docker compose $KB_ARGS ps -q webhook 2>/dev/null | head -n1)"
+  [ -n "$cid" ] && [ "$(docker inspect -f "{{.State.Status}}|{{.RestartCount}}|{{.Image}}" "$cid" 2>/dev/null)" = "running|0|$KB_WANT_ID" ]
+}
+log "recreating the webhook on $KB_WANT ($KB_WANT_ID); it ran $KB_FROM"
+if up && settled; then
+  log "done: the webhook runs $KB_WANT"
+  exit 0
+fi
+log "ERROR: the webhook on $KB_WANT did not stay up; going back to the image it ran before ($KB_OLD_ID)"
+if docker tag "$KB_OLD_ID" "$KB_WANT" >> "$KB_LOG" 2>&1 && up; then
+  log "the webhook runs its previous image again (tagged $KB_WANT until the next pull)"
+else
+  log "ERROR: the webhook did not start again; automatic updates are off until: docker compose up -d webhook (or ./start.sh up)"
+fi
+exit 1
+'
+
+# $1: "pull" (an update: pull the webhook's image first) or "tick" (pull it
+# only when its reference changed). Starts the container that recreates the
+# webhook after this run when the webhook runs another image than the compose
+# files name; never fails the run. Git installs on the Diun overlay only: the
+# updater has no webhook, container mode no compose files.
+webhook_refresh() {
+  [ -z "$UPDATER" ] && [ "$STACK_MODE" != container ] || return 0
+  stack_services | grep -qx webhook || return 0
+  wh_cid="$(svc_container webhook running)"
+  [ -n "$wh_cid" ] || return 0
+  wh_ref="$(docker inspect -f '{{.Config.Image}}' "$wh_cid" 2>/dev/null || true)"
+  wh_old="$(docker inspect -f '{{.Image}}' "$wh_cid" 2>/dev/null || true)"
+  wh_want="$(field_for webhook "$(config_images)")"
+  [ -n "$wh_ref" ] && [ -n "$wh_old" ] && [ -n "$wh_want" ] || return 0
+  if [ "$1" = pull ] || [ "$wh_ref" != "$wh_want" ]; then
+    # --ignore-buildable: a webhook built here (docker-compose.webhook-build.yml)
+    # is never pulled, and never built by this script either.
+    # shellcheck disable=SC2086
+    if ! docker compose $COMPOSE_FILES pull --ignore-buildable webhook >>"$LOG_FILE" 2>&1; then
+      log "WARN: could not pull the webhook's image $wh_want; the webhook stays on $wh_ref. (A KINBOARD_TAG pinned to a version older than the published kinboard-webhook has none: set KINBOARD_WEBHOOK_TAG=latest in .env.)"
+      return 0
+    fi
+  fi
+  wh_new="$(docker image inspect -f '{{.Id}}' "$wh_want" 2>/dev/null || true)"
+  if [ -z "$wh_new" ]; then
+    [ "$wh_ref" = "$wh_want" ] || log "the webhook runs $wh_ref; the compose files name $wh_want, which is not on this machine (a webhook built here is built by ./start.sh up, never by this script)"
+    return 0
+  fi
+  [ "$wh_ref" != "$wh_want" ] || [ "$wh_old" != "$wh_new" ] || return 0
+  # The lock the container waits for must be inside the project mount it shares.
+  case "$GIT_DIR_ABS/" in
+    "${PROJECT_DIR%/}/"*) ;;
+    *) log "the webhook runs $wh_ref, the compose files name $wh_want; its lock ($GIT_DIR_ABS) is outside $PROJECT_DIR, so it is left for ./start.sh up to recreate"; return 0 ;;
+  esac
+  wh_project="$(stack_labels "$wh_cid" | cut -d'|' -f1)"
+  wh_name="${wh_project:-kinboard}-webhook-refresh"
+  # Its mounts are the webhook's own (the project at the same path, the socket,
+  # the log folder); the interpolated values the webhook was created with are
+  # passed on as they were, an empty one not at all (.env decides then).
+  set -- --rm -d --name "$wh_name" --label app.kinboard.webhook-refresh=1 --network none --no-healthcheck \
+    --volumes-from "$wh_cid" -w "$(pwd)" \
+    -e "KB_ARGS=$COMPOSE_FILES" -e "KB_LOCK=$GIT_DIR_ABS/kinboard-update.lock" -e "KB_LOG=$LOG_FILE" \
+    -e "KB_WANT=$wh_want" -e "KB_WANT_ID=$wh_new" -e "KB_OLD_ID=$wh_old" -e "KB_FROM=$wh_ref ($wh_old)" \
+    -e "KB_WAIT=${KINBOARD_LOCK_WAIT:-1800}" -e "KB_SETTLE=${KINBOARD_WEBHOOK_SETTLE:-30}"
+  [ -z "$WEBHOOK_ENV_COMPOSE_FILES" ] || set -- "$@" -e "COMPOSE_FILES=$WEBHOOK_ENV_COMPOSE_FILES"
+  [ -z "$WEBHOOK_ENV_SECRET" ] || set -- "$@" -e "DIUN_WEBHOOK_SECRET=$WEBHOOK_ENV_SECRET"
+  if docker run "$@" --entrypoint sh "$wh_new" -c "$WEBHOOK_REFRESH_SH" >>"$LOG_FILE" 2>&1; then
+    log "the webhook runs $wh_ref ($wh_old); it is recreated on $wh_want ($wh_new) once this run has ended ($wh_name)"
+  else
+    log "WARN: could not start $wh_name to recreate the webhook on $wh_want; it stays on $wh_ref until the next run or ./start.sh up"
+  fi
+  return 0
+}
+
 if [ "$MODE" = loop ]; then
   run_tick_loop
 fi
@@ -2526,13 +2646,27 @@ fi
 # release's git pull and setup.sh until the next one. The tick leaves a marker
 # while it runs; a killed tick leaves the lock free, so a stale marker costs
 # nothing.
+#
+# The wait is `flock -n` in a loop, not `flock -w`: the webhook image's flock
+# is busybox's, which has no -w. `flock -w` there failed at once with
+# "unrecognized option", so a Diun run that met a tick never waited: it logged
+# "another self-update is running" and the release's git pull and setup.sh
+# were dropped until the next one.
 TICK_MARKER="$GIT_DIR_ABS/kinboard-update.tick"
+# $1: seconds. Takes the lock on fd 9, waiting at most that long.
+lock_wait() {
+  lw_end=$(( $(date +%s) + $1 ))
+  while ! flock -n 9; do
+    [ "$(date +%s)" -lt "$lw_end" ] || return 1
+    sleep 1
+  done
+}
 if command -v flock >/dev/null 2>&1; then
   exec 9>"$GIT_DIR_ABS/kinboard-update.lock"
   if ! flock -n 9; then
     if [ "$MODE" = update ] && [ -f "$TICK_MARKER" ] \
        && log "a reconciliation tick is running; waiting for it to finish" \
-       && flock -w "${KINBOARD_LOCK_WAIT:-1500}" 9; then
+       && lock_wait "${KINBOARD_LOCK_WAIT:-1500}"; then
       :
     else
       log "another self-update is running; leaving it to finish"
@@ -2841,6 +2975,9 @@ if [ "$MODE" = tick ]; then
       PULL_SVCS="$PULL_SVCS $svc"
     fi
   done
+  # The webhook, which the loop above leaves out: it follows a reference that
+  # changed after this tick (see "The webhook's own image").
+  webhook_refresh tick
   if [ -n "$UPDATER" ] && [ -n "$REGISTRY_FAIL" ]; then
     # Nothing has been pulled or touched; a reference change found above
     # waits for the next tick too, so that one tick never does half.
@@ -2859,10 +2996,16 @@ if [ "$MODE" = tick ]; then
   fi
 fi
 
-[ "$MODE" = tick ] || log "docker compose $COMPOSE_FILES pull --ignore-buildable"
-# `--ignore-buildable` skips services that have a `build:` directive
-# (the webhook service is locally-built from Dockerfile.webhook, has no
-# pullable registry counterpart).
+# An update pulls every service but the webhook, whose image is pulled on its
+# own afterwards (see "The webhook's own image"): a webhook image that cannot
+# be pulled must not hold up the release. `--ignore-buildable` skips services
+# with a `build:` (a source build of the webapp, docker-compose.build.yml; a
+# webhook built here, docker-compose.webhook-build.yml), which have no
+# registry counterpart.
+if [ "$MODE" = update ] && [ -z "$UPDATER" ] && [ "$STACK_MODE" != container ]; then
+  PULL_SVCS="$(stack_services | grep -vx webhook | tr '\n' ' ' || true)"
+fi
+[ "$MODE" = tick ] || log "docker compose $COMPOSE_FILES pull --ignore-buildable ${PULL_SVCS:-(all services)}"
 # The image ids before the pull, so the backup below can tell a real upgrade
 # from a no-op run. `config --images` lists what the stack resolves to;
 # inspecting each gives the id actually on disk now.
@@ -2923,6 +3066,7 @@ fi
 rm -f "$PULL_OUT"
 state_set failures ""
 state_set backoff_until ""
+[ "$MODE" != update ] || webhook_refresh pull
 
 IMAGES_AFTER="$(images_now)"
 
@@ -2942,9 +3086,9 @@ fi
 # Exclude webhook + diun from the recreate. The script is currently
 # executing INSIDE the webhook container — if compose recreates it, the
 # script gets SIGKILL'd mid-flight and can't finish (half-done state,
-# scheduler not refreshed, etc.). Self-updating those two services is
-# done out-of-band via `docker compose build webhook && docker compose
-# up -d webhook diun` from the host when their definitions change.
+# scheduler not refreshed, etc.). The webhook follows its image after the
+# run instead (webhook_refresh, above); diun's definition changes take
+# `./start.sh up` on the host.
 SERVICES=$(stack_services \
             | grep -vE "$NEVER_RECREATE" \
             | tr '\n' ' ')

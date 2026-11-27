@@ -162,6 +162,21 @@ Test notification doesn't arrive, iOS push not working, subscription issues: [No
 
 With `docker-compose.build.yml` in `COMPOSE_FILES`, `./start.sh up` builds the image, and the build runs `next build`, which type-checks. A type error in a change of your own surfaces there. Run `npx tsc --noEmit` from `webapp/` first.
 
+### Building `kinboard-webhook` fails, and automatic updates never start
+
+Until 1.18 the auto-update overlay (`docker-compose.diun.yml`) built its webhook on your machine at the first `up`, from `Dockerfile.webhook`. That build needs Alpine's package mirrors and a Docker that can build, and not every one can: on one OpenMediaVault host, dockerd itself crashed during the build's `RUN apk add` (a segfault in its network setup for the build step), so the webhook never existed and nothing ever updated.
+
+From 1.18 nothing is built: the webhook is published as `ghcr.io/svenger87/kinboard-webhook` and pulled under your `KINBOARD_TAG`, like the webapp. Update the checkout and start again:
+
+```bash
+cd /path/to/kinboard
+git pull --ff-only origin main
+cd webapp/docker
+./start.sh up
+```
+
+A broken Docker build no longer matters for this. If `./start.sh up` then says it can't fetch the webhook image and your `KINBOARD_TAG` pins an older version (`1.17.0`, say), that version has no webhook image of its own: add `KINBOARD_WEBHOOK_TAG=latest` to `.env` and run it again. If you had added `docker-compose.webhook-build.yml` to `COMPOSE_FILES`, take it out: that file is the way to build the webhook on purpose.
+
 ### After an update, all routes 404
 
 If the webapp container was recreated with only the base compose file (a `docker compose up` typed without your overlays), Traefik dropped the route. Restart with all overlays, or with `./start.sh up`, which reads `COMPOSE_FILES` from `.env`:

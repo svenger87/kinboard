@@ -631,18 +631,19 @@ The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml
 
 1. `git pull --ff-only origin main` — picks up new compose files, migrations, `init.sql`, `seed-demo.sql`
 2. `./setup.sh --non-interactive` — adds any `.env` key a release needs; does nothing when none are missing
-3. `docker compose $COMPOSE_FILES pull --ignore-buildable` — pulls the new GHCR image(s); skips the locally-built webhook image
+3. `docker compose $COMPOSE_FILES pull --ignore-buildable` — pulls the new GHCR image(s); the webhook's own image is pulled after them, on its own, so a webhook image that can't be pulled never holds up the release
 4. the pre-upgrade backup (above) — only when step 3 brought a new image
 5. `docker compose up -d --remove-orphans` (with webhook + diun excluded — see below) — recreates only services whose image or definition changed, and removes containers of services a release retired; the webapp's entrypoint applies new migrations on boot
 6. **the health wait** — every recreated service must come up healthy within 10 minutes (the webapp's health check, then its smoke check, `/api/health?deep=1`: the tables and columns this version needs are there, and a write goes through). If one doesn't, the recreated services go back to the exact images they ran before, that version is held back until a newer one is published, and Settings says so (see [When an update doesn't start](#when-an-update-doesnt-start))
 7. `docker compose up -d --no-deps --force-recreate cron` — whenever the webapp container is a new one, because the scheduler reads its jobs from the webapp's labels only when it starts
 8. `docker restart kinboard-diun` — only when `diun/diun.yml` changed during the run
+9. **the webhook follows its image** — when the webhook runs another image than the compose files name (a newer one under its tag, another `KINBOARD_TAG`, or the old locally built `kinboard-webhook:local`), a short-lived container (`kinboard-webhook-refresh`) recreates it once the run has ended. The run can't do that itself: it runs inside the webhook. If the new webhook doesn't stay up for 30 seconds, it goes back to the image it ran before
 
 Besides Diun's call, the webhook container runs a **reconciliation tick** every 30 minutes: no `git pull`, only "does each running container use the image reference that `.env` and the compose files name?". A newer image under the same tag stays Diun's to announce. Diun watches the tag the running container was created from, so if you deploy a pinned `KINBOARD_TAG=sha-…` and later set `KINBOARD_TAG=next` again, Diun sees nothing; the tick applies it, with the same backup and health wait. Its first run only records a baseline. A pinned tag never moves, so it never changes anything there, and a service you stopped stays stopped. When the registry or the network is down it touches nothing and waits, longer each time, up to 6 hours. `KINBOARD_UPDATE_TICK=off` in `.env` switches it off (read at every tick). A webhook container created before this ran starts the tick after its next update run, or at once with `up -d webhook`.
 
 Two containers do this:
 - **Diun** (`crazymax/diun`) — image notifier. Polls GHCR every 30 min, detects new digests on services labeled `diun.enable=true`, fires a webhook. Read-only docker socket.
-- **Webhook** — locally-built image (`Dockerfile.webhook`, ~70 MB Alpine + git + docker CLI + openssl + the webhook binary from adnanh/webhook). Validates the HMAC token in the `X-Diun-Token` header against `DIUN_WEBHOOK_SECRET`, then executes `kinboard-self-update.sh`. RW docker socket + RW project bind-mount.
+- **Webhook** — `ghcr.io/svenger87/kinboard-webhook`, published with every Kinboard build from `Dockerfile.webhook` (~70 MB Alpine + git + docker CLI + openssl + the webhook binary from adnanh/webhook) and pulled under your `KINBOARD_TAG`, so it follows the webapp's channel or pin. Nothing is built on your machine. Validates the HMAC token in the `X-Diun-Token` header against `DIUN_WEBHOOK_SECRET`, then executes the checkout's `kinboard-self-update.sh` — never a copy inside the image, so the update logic is always the one `git pull` brought, whichever image runs. RW docker socket + RW project bind-mount.
 
 Neither container is exposed externally; both sit on the internal `kinboard` docker network.
 
@@ -670,7 +671,7 @@ cd webapp/docker
 # Then, from the project root:
 ./setup.sh --non-interactive
 cd webapp/docker
-docker compose -f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml up -d
 ```
 
 The overlay adds a `diun.enable=true` label to the kinboard-webapp service so Diun knows to watch its image. Only that container is watched by default — auto-bumping the Postgres image is not safe; if you want Diun to watch additional services, add the same label to them in `docker-compose.override.yml`.
@@ -687,7 +688,11 @@ docker exec kinboard-webhook sh -c 'sh "$PROJECT_DIR/webapp/docker/kinboard-self
 
 From 1.18 on, the self-update does this itself: a tracked file whose content is exactly a version Kinboard shipped (at that path, or the old `.example` beside it) is put back before the pull, with a copy in `.git/kinboard-local-copies/`. An edit of your own is left as it is, and the log names the file and the command.
 
-The webhook image gets built locally on first `up --build` from `webapp/docker/Dockerfile.webhook`. The upstream `almir/webhook` image ships only the webhook binary (no git, no docker CLI), so we layer those on top of an Alpine base.
+The webhook's image is pulled, never built: `ghcr.io/svenger87/kinboard-webhook`, under `KINBOARD_TAG` (`latest`, `next`, a version, a `sha-…` build). The upstream `almir/webhook` image ships only the webhook binary (no git, no docker CLI), so `Dockerfile.webhook` layers those on an Alpine base, and Kinboard's own build publishes it for amd64 and arm64.
+
+- **Pinned to a version older than the published webhook image** (`KINBOARD_TAG=1.17.0`, say): that version has no `kinboard-webhook` of its own, so `up` can't pull one. Add `KINBOARD_WEBHOOK_TAG=latest` (or `next`) to `.env`. `./start.sh up` says so when it happens.
+- **To build it on this machine anyway** (a host that can reach Alpine's mirrors but not ghcr.io, or a change to `Dockerfile.webhook` you're trying out), add `-f docker-compose.webhook-build.yml` after `docker-compose.diun.yml` in `COMPOSE_FILES`. It builds `kinboard-webhook:local` at `up`, as every install did until 1.18. The self-update never builds it.
+- **Until 1.18 every install built it on its first `up`.** An install from before keeps its `kinboard-webhook:local` until the first update after 1.18 (or its next `./start.sh up`) moves it to the published image by itself; nothing to do by hand. The old local image can be removed afterwards with `docker rmi kinboard-webhook:local`.
 
 #### A git checkout that runs `compose.yml`
 
@@ -695,7 +700,7 @@ A git install that moved to the root `compose.yml` ([RFC-023 §5.2](../rfc/023-o
 
 ```bash
 cd /absolute/host/path/to/kinboard
-docker compose -f compose.yml -f "$PWD/webapp/docker/docker-compose.diun.yml" up -d --build
+docker compose -f compose.yml -f "$PWD/webapp/docker/docker-compose.diun.yml" up -d
 ```
 
 The overlay names its own files from `KINBOARD_PROJECT_DIR`, so it works whichever compose file comes first. `COMPOSE_FILES` needs no change: the self-update reads which files, which project and which `.env` the stack was started with from its containers' Compose labels, and runs every step against those. On such a stack it does not run `setup.sh` (which writes `webapp/docker/.env`, a file `compose.yml` doesn't read), and its pre-update backup finds the data from the containers' mounts: the uploaded files from the webapp's `/var/lib/storage`, the config folder from `/kinboard`, and puts the archives beside the storage folder: into `backups` next to a folder called `storage` (the same place as `$DATA_DIR/backups` with §5.2's layout), into `<folder>-backups` next to any other folder, or into the Docker volume `kinboard-backups` when the files are in a named volume. `KINBOARD_BACKUP_DIR` in the root's `.env` names another folder. A git checkout that is not Kinboard's (a Compose UI's own stacks repository) is left alone in the same way as a folder without git.
@@ -753,12 +758,17 @@ Same script, same code path. Useful right after pushing a hotfix when you don't 
 
 #### Updating the auto-updater itself
 
-The script intentionally **excludes** the `webhook` and `diun` services from `docker compose up -d` — it's currently executing inside the webhook container, and recreating that container mid-run would SIGKILL the script before it finishes (half-done state, scheduler not recreated, etc.). To pick up new versions of `Dockerfile.webhook`, `kinboard-self-update.sh`, `diun.yml`, or `hooks.yaml`, run from the host:
+The script intentionally **excludes** the `webhook` and `diun` services from its own `docker compose up -d` — it's currently executing inside the webhook container, and recreating that container mid-run would SIGKILL the script before it finishes (half-done state, scheduler not recreated, etc.). Most of the auto-updater updates itself anyway:
+
+- `kinboard-self-update.sh` and `hooks.yaml` are read from the checkout, so the next run after a `git pull` uses the new ones.
+- The webhook's image is pulled with each update, and when it changed, a short-lived container recreates the webhook after the run (step 9 above).
+- `diun.yml`: Diun is restarted when it changed (step 8).
+
+A changed definition of the `webhook` or `diun` service itself (new mounts, a new variable) still takes one `up` from the host:
 
 ```bash
 cd webapp/docker
-docker compose -f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml \
-  up -d --build webhook diun
+./start.sh up
 ```
 
 #### What you give up
@@ -787,7 +797,7 @@ grep -q ^COMPOSE_PROJECT_NAME webapp/docker/.env || echo "COMPOSE_PROJECT_NAME=k
 ./setup.sh --non-interactive   # fills any missing .env keys
 cd webapp/docker
 docker compose -f docker-compose.yml -f docker-compose.traefik.yml \
-              -f docker-compose.override.yml -f docker-compose.diun.yml up -d --build
+              -f docker-compose.override.yml -f docker-compose.diun.yml up -d
 ```
 
 The data dirs (`db/`, `backups/`, `storage/`) stay at `/mnt/user/appdata/kinboard/` because `DATA_DIR` is set absolutely. Only the config files moved.

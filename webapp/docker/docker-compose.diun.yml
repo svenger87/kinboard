@@ -40,7 +40,11 @@
 # overlay too, with absolute paths, from the checkout's root, and with
 # KINBOARD_PROJECT_DIR and DIUN_WEBHOOK_SECRET in the root's .env:
 #
-#   docker compose -f compose.yml -f "$PWD/webapp/docker/docker-compose.diun.yml" up -d --build
+#   docker compose -f compose.yml -f "$PWD/webapp/docker/docker-compose.diun.yml" up -d
+#
+# The webhook's image is pulled (ghcr.io/svenger87/kinboard-webhook, under
+# KINBOARD_TAG), never built. To build it on this machine instead, add
+# docker-compose.webhook-build.yml after this file in COMPOSE_FILES.
 #
 # The self-update reads which files the stack was started with from its
 # containers' Compose labels, so COMPOSE_FILES needs no change for it.
@@ -49,7 +53,7 @@
 #   tail -f /var/lib/kinboard-update/kinboard-update.log
 #
 # Trigger a manual update (bypassing Diun):
-#   docker exec kinboard-webhook /scripts/kinboard-self-update.sh
+#   docker exec kinboard-webhook sh -c 'sh "$PROJECT_DIR/webapp/docker/kinboard-self-update.sh"'
 
 services:
   # The kinboard-webapp service in the base compose gains a label so
@@ -103,7 +107,7 @@ services:
 
   # Receives Diun's webhook, validates the HMAC token in the
   # X-Diun-Token header against DIUN_WEBHOOK_SECRET, and executes
-  # /scripts/kinboard-self-update.sh inside this container. The script
+  # the checkout's webapp/docker/kinboard-self-update.sh inside this container. The script
   # talks to the host's docker daemon via the bind-mounted socket.
   #
   # Not exposed externally — only Diun (on the same network) reaches it.
@@ -116,15 +120,35 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    # Built locally from Dockerfile.webhook — upstream almir/webhook
-    # ships only the webhook binary (no git, no docker CLI), and
-    # kinboard-self-update.sh needs both. The custom image weighs ~70 MB
-    # and is a one-time build during `docker compose up`.
-    build:
-      # Absolute for the same reason as diun's volumes above.
-      context: ${KINBOARD_PROJECT_DIR}/webapp/docker
-      dockerfile: Dockerfile.webhook
-    image: kinboard-webhook:local
+    # Published ready-made (docker.yml's `webhook` job, from
+    # Dockerfile.webhook): upstream almir/webhook ships only the webhook
+    # binary (no git, no docker CLI), and kinboard-self-update.sh needs both.
+    # It used to be built here, on the household's machine, at the first
+    # `up`; that needs Alpine's mirrors and a Docker that can build, and on
+    # one host dockerd crashed in the build's network hook, so the automatic
+    # updates never started (#539). Nothing here builds any more: there is no
+    # `build:` (with one, Compose builds whenever the pull fails), and
+    # docker-compose.webhook-build.yml puts it back for whoever needs to.
+    #
+    # The webapp's tag, so the webhook follows the same channel or pin
+    # (KINBOARD_TAG=next, =sha-…). KINBOARD_WEBHOOK_TAG overrides it, for a
+    # pin older than this image (a version before it was published has no
+    # kinboard-webhook of its own); KINBOARD_WEBHOOK_IMAGE names a mirror.
+    #
+    # Which version of the image runs matters little: the hook and the tick
+    # run the checkout's kinboard-self-update.sh (see entrypoint and
+    # diun/hooks.yaml), never the copy inside the image, so a `git pull`
+    # brings newer update logic whatever the image. The self-update pulls
+    # this image with the others and recreates the webhook after its run
+    # when the image changed (it cannot do that from inside, mid-run).
+    image: ${KINBOARD_WEBHOOK_IMAGE:-ghcr.io/svenger87/kinboard-webhook}:${KINBOARD_WEBHOOK_TAG:-${KINBOARD_TAG:-latest}}
+    # No pull_policy, on purpose. Unset, `up` pulls the image when it is not
+    # on this machine and `pull` always fetches the newest under the tag,
+    # which is what the self-update and ./start.sh up rely on. `missing`
+    # would make `docker compose pull` skip an image that is already here
+    # ("Skipped - Image is already present locally"), so the webhook would
+    # never get a newer one; `always` would stop an `up` at boot without
+    # network.
     container_name: ${PROJECT_NAME:-kinboard}-webhook
     restart: unless-stopped
     # Starts the 30-minute reconciliation tick (kinboard-self-update.sh
