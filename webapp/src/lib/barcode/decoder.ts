@@ -96,6 +96,16 @@ export function cameraAvailable(): boolean {
   return typeof window !== "undefined" && window.isSecureContext && !!navigator.mediaDevices?.getUserMedia;
 }
 
+/**
+ * Whether the camera is out of reach only because the page is on plain http
+ * (a LAN address): the browser keeps getUserMedia from insecure pages. The
+ * dialog then says that HTTPS is what brings the live camera, and links the
+ * guide; the photo and the typed digits work either way.
+ */
+export function cameraNeedsHttps(): boolean {
+  return typeof window !== "undefined" && !window.isSecureContext;
+}
+
 /** Draws a picture into a canvas, scaled down so a 12-megapixel photo stays quick to read. */
 export function toCanvas(source: CanvasImageSource, width: number, height: number, max = 1600): HTMLCanvasElement {
   const scale = Math.min(1, max / Math.max(width, height));

@@ -201,9 +201,13 @@ until CA can list it)
 
 - The template installs from `/boot/config/plugins/dockerMan/templates-user/`
   and from the template repository added on the Docker page; the form shows
-  the port, the data path (`/mnt/user/appdata/kinboard`), PUID 99 and PGID
+  the port, the data path (`/mnt/user/appdata/kinboard-aio`), PUID 99 and PGID
   100, the advanced variables, and `--stop-timeout=60` survives in Extra
   Parameters.
+- *Use Tailscale* (Unraid 7) shows the template's presets (hostname
+  `kinboard`, Serve on port 3000, state in `/data/tailscale`); switched on,
+  the container log gives the sign-in link, Kinboard starts after it, and
+  `https://kinboard.<tailnet>.ts.net` opens the app (wiki: HTTPS).
 - *Apply Update* recreates the container from the template; the start
   guarantees hold (a verified dump before a pending migration).
 - The rls-matrix spec against the installed instance.

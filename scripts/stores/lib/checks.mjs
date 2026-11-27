@@ -37,7 +37,7 @@ import { CASA_LOCALE, links, pinnedImages, splitRef, volumePath } from "./common
 import { DOCKER_SOCKET, interpolate, serviceModel } from "./model.mjs";
 import { parseXml, yaml } from "./sources.mjs";
 import { umbrelHost } from "./umbrel.mjs";
-import { aioEnv, composeUpdater, unraidRepo } from "./unraid.mjs";
+import { aioEnv, composeUpdater, httpsNote, tailscaleFields, unraidRepo } from "./unraid.mjs";
 
 const SECRET_KEY = /(PASSWORD|SECRET|TOKEN|PRIVATE|_KEY|_KEYS)$/;
 
@@ -340,7 +340,15 @@ export function unraidProblems(xml, profileXml, src) {
   if (one("TemplateURL") !== unraidRepo(meta).templateUrl) p.push(`${at}: TemplateURL is not the template repository's raw URL`);
   if (!String(one("Overview") ?? "").includes(meta.description.long.en)) p.push(`${at}: Overview lacks the metadata's description`);
   if (!String(one("Overview") ?? "").includes(meta.aio.note.en)) p.push(`${at}: Overview lacks the all-in-one note (go2rtc is not included)`);
+  if (!String(one("Overview") ?? "").includes(httpsNote(meta))) p.push(`${at}: Overview lacks what needs HTTPS and the switch that gives it`);
   if (one("Category") !== meta.aio.unraid.category) p.push(`${at}: Category differs from the metadata`);
+  // Unraid 7's "Use Tailscale": present, off, Serve (never Funnel) on the container's web port, state under /data.
+  const ts = tailscaleFields(meta);
+  for (const tag of Object.keys(ts)) if (one(tag) === null) p.push(`${at}: <${tag}> is missing (Unraid's "Use Tailscale" preset)`);
+  if (one("TailscaleEnabled") !== "false") p.push(`${at}: TailscaleEnabled must be false: the household switches Tailscale on`);
+  if (one("TailscaleServe") !== "serve") p.push(`${at}: TailscaleServe must be serve (Funnel would put the whole app on the internet)`);
+  if (one("TailscaleServePort") !== String(meta.ports.web.container)) p.push(`${at}: TailscaleServePort must be the container's web port ${meta.ports.web.container}`);
+  if (!String(one("TailscaleStateDir") ?? "").startsWith(`${meta.aio.data}/`)) p.push(`${at}: TailscaleStateDir must be under ${meta.aio.data}, or the sign-in is lost with the container`);
   if (one("License") !== meta.license) p.push(`${at}: License is not the metadata's`);
   if (!/^https:\/\//.test(one("Icon") ?? "")) p.push(`${at}: Icon is not an https URL`);
   const webui = /^http:\/\/\[IP\]:\[PORT:(\d+)\]\/?$/.exec(one("WebUI") ?? "");

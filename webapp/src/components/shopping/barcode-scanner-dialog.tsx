@@ -10,7 +10,8 @@ import { lookupBarcode, useSaveToCatalog, type BarcodeResult } from "@/hooks/use
 import { useFamilyStore } from "@/stores/family-store";
 import { detectCategory } from "@/lib/shopping-categories";
 import { parseBarcode } from "@/lib/barcode/gtin";
-import { cameraAvailable, createBarcodeDecoder, toCanvas, type BarcodeDecoder } from "@/lib/barcode/decoder";
+import { cameraAvailable, cameraNeedsHttps, createBarcodeDecoder, toCanvas, type BarcodeDecoder } from "@/lib/barcode/decoder";
+import { HTTPS_GUIDE_URL } from "@/lib/https-guide";
 
 /** What the scanner hands the list to add. */
 export interface ScannedItem {
@@ -269,7 +270,26 @@ export function BarcodeScannerDialog({ open, onOpenChange, onAdd }: BarcodeScann
 
         {scanning && (!cameraAvailable() || cameraState === "blocked" || cameraState === "missing") && (
           <p className="text-xs text-muted-foreground" data-testid="barcode-no-camera">
-            {cameraState === "blocked" ? t("cameraBlocked") : cameraState === "missing" ? t("cameraMissing") : t("cameraUnavailable")}
+            {/* On plain http the camera never starts (cameraState stays "off"): say why, and where HTTPS comes from. */}
+            {cameraNeedsHttps() ? (
+              <>
+                {t("cameraNeedsHttps")}{" "}
+                <a
+                  href={HTTPS_GUIDE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-primary hover:underline"
+                  data-testid="barcode-https-guide"
+                >
+                  {t("httpsGuide")}
+                  <ExternalLink className="size-3" />
+                </a>
+              </>
+            ) : cameraState === "blocked" ? (
+              t("cameraBlocked")
+            ) : (
+              t("cameraMissing")
+            )}
           </p>
         )}
 

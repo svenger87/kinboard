@@ -95,6 +95,18 @@ const listed = (name: string) =>
 test.describe("the barcode scanner", () => {
   test.use({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
   test.describe.configure({ timeout: 120_000 });
+  // A dev server's issue badge sits over the scan button at phone width (as in the layouts specs).
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      const hide = () => {
+        const el = document.createElement("style");
+        el.textContent = "nextjs-portal{display:none!important}";
+        document.head.appendChild(el);
+      };
+      if (document.head) hide();
+      else document.addEventListener("DOMContentLoaded", hide);
+    });
+  });
 
   test("typed, photographed, and unknown-then-remembered", async ({ page, baseURL }) => {
     await page.context().addCookies([{ name: "NEXT_LOCALE", value: "en", url: baseURL ?? "http://localhost:3001" }]);
@@ -113,6 +125,8 @@ test.describe("the barcode scanner", () => {
     await expect(dialog).toBeVisible();
     // Headless: no camera to open. It says so (not "not allowed", which it isn't) and offers the photo.
     await expect(dialog.getByTestId("barcode-no-camera")).toHaveText(/No camera found on this device/, { timeout: 15_000 });
+    // A secure page (localhost) with no camera is not told to get HTTPS.
+    await expect(dialog.getByTestId("barcode-https-guide")).toHaveCount(0);
 
     // Typed: one digit off is caught before any lookup.
     const manual = dialog.getByTestId("barcode-manual");
@@ -150,6 +164,33 @@ test.describe("the barcode scanner", () => {
     await manual.press("Enter");
     await expect(dialog.getByTestId("barcode-product-name")).toHaveText("claude Geheimsaft");
     expect(psql(`SELECT count(*) FROM item_catalog WHERE family_id IS NULL AND barcode = '${UNKNOWN}'`)).toBe("0");
+  });
+
+  test("on a plain http address: it says the live camera needs HTTPS, links the guide, and the photo and digits still work", async ({ page, baseURL }) => {
+    await page.context().addCookies([{ name: "NEXT_LOCALE", value: "en", url: baseURL ?? "http://localhost:3001" }]);
+    await establishSession(page, JOIN_CODE, DEVICE);
+    // localhost is a secure context to the browser; a LAN address over http is not.
+    // Emulated here (the stack answers on localhost): what the dialog reads is window.isSecureContext.
+    await page.addInitScript(() => Object.defineProperty(window, "isSecureContext", { get: () => false, configurable: true }));
+    await page.goto("/einkaufen", { waitUntil: "domcontentloaded" });
+    expect(await page.evaluate(() => window.isSecureContext)).toBe(false);
+
+    await page.getByTestId("einkaufen-scan-barcode").click();
+    const dialog = page.getByTestId("barcode-scanner");
+    await expect(dialog).toBeVisible();
+    const line = dialog.getByTestId("barcode-no-camera");
+    await expect(line).toContainText("The live camera needs an https address");
+    await expect(line).not.toContainText("No camera found");
+    const guide = dialog.getByTestId("barcode-https-guide");
+    await expect(guide).toHaveText("How to get HTTPS");
+    await expect(guide).toHaveAttribute("href", "https://github.com/svenger87/kinboard/wiki/HTTPS");
+    // No camera view is offered, and the fallbacks are there.
+    await expect(dialog.getByTestId("barcode-video")).toHaveCount(0);
+    await expect(dialog.getByTestId("barcode-photo")).toBeAttached();
+    const manual = dialog.getByTestId("barcode-manual");
+    await manual.fill(KNOWN);
+    await manual.press("Enter");
+    await expect(dialog.getByTestId("barcode-product-name")).toHaveText("claude Testmilch");
   });
 
   test("the catalog is the family's own: a shared row is neither read by the scanner nor changed by a save", async ({ page }) => {

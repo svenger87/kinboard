@@ -587,6 +587,16 @@ test.describe("the Unraid template for the all-in-one image (RFC-024 §5.1, phas
     expect(xml).toMatch(/<Config [^>]*Target="PUID" Default="99"/);
     expect(xml).toMatch(/<Config [^>]*Target="PGID" Default="100"/);
     expect(xml).not.toContain("WEBRTC_LAN_IP");
+    // Not the folder Self-hosting gives a git install: the image refuses another install's database.
+    expect(xml).toMatch(/<Config [^>]*Target="\/data" Default="\/mnt\/user\/appdata\/kinboard-aio"/);
+    // Unraid 7's "Use Tailscale", preset and off: Serve on the container's web port, its state kept under /data.
+    expect(xml).toContain("<TailscaleEnabled>false</TailscaleEnabled>");
+    expect(xml).toContain("<TailscaleServe>serve</TailscaleServe>");
+    expect(xml).toContain(`<TailscaleServePort>${src.meta.ports.web.container}</TailscaleServePort>`);
+    expect(xml).toContain("<TailscaleHostname>kinboard</TailscaleHostname>");
+    expect(xml).toContain("<TailscaleUserspaceNetworking>true</TailscaleUserspaceNetworking>");
+    expect(xml).toMatch(/<TailscaleStateDir>\/data\/[^<]+<\/TailscaleStateDir>/);
+    expect(xml).toMatch(/need an https address[^<]*Use Tailscale[^<]*\/wiki\/HTTPS/);
     expect(files["unraid/ca_profile.xml"]).toMatch(/<CommunityApplications>\s*\n\s*<Profile>[^<]+<\/Profile>/);
   });
 
@@ -611,6 +621,12 @@ test.describe("the Unraid template for the all-in-one image (RFC-024 §5.1, phas
     expect(with_(/<TemplateURL>[^<]+</, "<TemplateURL>https://example.com/t.xml<").join()).toContain("TemplateURL is not the template repository's raw URL");
     expect(with_(/<Overview>/, "<Overview>Shortened. ").join()).toBe("");
     expect(with_(/go2rtc is not included/, "go2rtc is included").join()).toContain("lacks the all-in-one note");
+    expect(with_(/need an https address/, "need https").join()).toContain("lacks what needs HTTPS");
+    expect(with_("<TailscaleEnabled>false<", "<TailscaleEnabled>true<").join()).toContain("TailscaleEnabled must be false");
+    expect(with_("<TailscaleServe>serve<", "<TailscaleServe>funnel<").join()).toContain("TailscaleServe must be serve");
+    expect(with_(/<TailscaleServePort>\d+</, "<TailscaleServePort>3001<").join()).toContain("TailscaleServePort must be the container's web port");
+    expect(with_(/<TailscaleStateDir>[^<]*</, "<TailscaleStateDir><").join()).toContain("TailscaleStateDir must be under /data");
+    expect(with_(/  <TailscaleHostname>[^<]*<\/TailscaleHostname>\n/, "").join()).toContain("<TailscaleHostname> is missing");
     expect(listingProblems({ ...files, "unraid/ca_profile.xml": files["unraid/ca_profile.xml"].replace(/<Profile>[^<]+<\/Profile>/, "<Profile> </Profile>") }, src))
       .toContain("unraid: ca_profile.xml has no Profile (CA requires a non-empty one)");
     const pt = JSON.parse(files["portainer/templates.json"]);
@@ -696,6 +712,21 @@ test.describe("the Unraid template for the all-in-one image (RFC-024 §5.1, phas
     const t0 = Date.now();
     expect(bad(`A:${"AA:".repeat(5000)}!`)).toContain("aio.unraid.category");
     expect(Date.now() - t0).toBeLessThan(200);
+  });
+
+  test("the Tailscale presets in the metadata: Serve only, state under /data", async () => {
+    const { metadataProblems, loadSources } = await sourcesMod;
+    const base = loadSources(REPO).meta;
+    expect(metadataProblems(base)).toEqual([]);
+    const bad = (change: (ts: Record<string, string>) => void) => {
+      const meta = structuredClone(base);
+      change(meta.aio.unraid.tailscale);
+      return metadataProblems(meta).join();
+    };
+    expect(bad((ts) => { ts.serve = "funnel"; })).toContain("aio.unraid.tailscale.serve must be serve");
+    expect(bad((ts) => { ts.state_dir = "/var/lib/tailscale"; })).toContain("aio.unraid.tailscale.state_dir must be under aio.data");
+    expect(bad((ts) => { ts.serve_target = "http://example.com"; })).toContain("aio.unraid.tailscale.serve_target");
+    expect(bad((ts) => { ts.hostname = "kin board"; })).toContain("aio.unraid.tailscale.hostname");
   });
 
   test("the image name comes from docker.yml: renamed there, the template follows", async () => {

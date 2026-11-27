@@ -30,6 +30,7 @@ import {
   DEFAULT_NOTIFICATION_PREFERENCES,
 } from "@/hooks/use-notification-preferences";
 import { useFamilyStore } from "@/stores/family-store";
+import { HTTPS_GUIDE_URL } from "@/lib/https-guide";
 
 export default function NotificationSettingsPage() {
   const t = useTranslations("settings.notifications");
@@ -150,7 +151,7 @@ export default function NotificationSettingsPage() {
                     <a
                       href={
                         unsupportedReason === "no-https"
-                          ? "https://github.com/svenger87/kinboard/wiki/Self-hosting#from-scratch-traefik--lets-encrypt"
+                          ? HTTPS_GUIDE_URL
                           : "https://github.com/svenger87/kinboard/wiki/Notifications#ios-safari"
                       }
                       target="_blank"

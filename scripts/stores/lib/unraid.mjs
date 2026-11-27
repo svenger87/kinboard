@@ -139,6 +139,45 @@ export function unraidUpdater(src, tag) {
   ].join("\n");
 }
 
+/** The Overview's sentence on HTTPS, with the wiki page that explains it. */
+export const httpsNote = (meta) => `${meta.aio.https.en} ${links(meta).docs}/HTTPS`;
+
+/**
+ * Unraid's own Tailscale tags (dynamix.docker.manager: Helpers.php's xmlToVar
+ * reads them, CreateDocker.php shows them under "Use Tailscale", and the
+ * container hook turns them into TAILSCALE_* variables). CA's field
+ * reference does not list them; Unraid 7 reads them from any template.
+ * TailscaleEnabled stays false: the household switches it on. Serve's port is
+ * the web port inside the container, the one the hook proxies to.
+ * TailscaleWebUI is what Unraid itself writes for Serve, so the Docker page's
+ * menu offers the https address once it is on.
+ */
+export function tailscaleFields(meta) {
+  const t = meta.aio.unraid.tailscale;
+  return {
+    TailscaleEnabled: "false",
+    TailscaleIsExitNode: "false",
+    TailscaleHostname: t.hostname.replaceAll("{slug}", meta.slug),
+    TailscaleExitNodeIP: "",
+    TailscaleSSH: "false",
+    TailscaleUserspaceNetworking: t.userspace_networking,
+    TailscaleLANAccess: "false",
+    TailscaleServe: t.serve,
+    TailscaleWebUI: "https://[hostname][magicdns]/",
+    TailscaleServePort: String(meta.ports.web.container),
+    TailscaleServeTarget: t.serve_target,
+    TailscaleServeLocalPath: "",
+    TailscaleServeProtocol: t.serve_protocol,
+    TailscaleServeProtocolPort: "",
+    TailscaleServePath: "",
+    TailscaleDParams: "",
+    TailscaleParams: "",
+    TailscaleRoutes: "",
+    TailscaleAcceptRoutes: "false",
+    TailscaleStateDir: t.state_dir,
+  };
+}
+
 export function unraid(src) {
   const { meta, images, channels, root } = src;
   const l = links(meta);
@@ -154,7 +193,7 @@ export function unraid(src) {
     ? `${meta.release.version}\n\n${section.length > 3000 ? `${section.slice(0, 3000).replace(/\n[^\n]*$/, "")}\n\n…` : section}\n\nEvery release: ${l.changelog}`
     : `Release notes for every version: ${l.changelog}`;
 
-  const overview = [meta.description.long.en, meta.aio.note.en, meta.aio.first_run.en].join("\n\n");
+  const overview = [meta.description.long.en, meta.aio.note.en, httpsNote(meta), meta.aio.first_run.en].join("\n\n");
 
   const config = [];
   config.push({
@@ -206,6 +245,7 @@ export function unraid(src) {
       "    <TagDescription>Release candidates: the next version, before it is released</TagDescription>",
       "  </Branch>",
     ] : []),
+    ...Object.entries(tailscaleFields(meta)).map(([tag, v]) => el(tag, v)),
     ...config.map((c) => `  <Config ${attrs(c)}>${xmlEscape(c.Default)}</Config>`),
     "</Container>",
     "",
@@ -247,6 +287,9 @@ export function unraid(src) {
     "the new image, and puts the previous one back when the new one does not come up healthy. It is the only container",
     `that gets the Docker socket. Install it after ${meta.name}, leave its "${meta.name} container" at the Name you gave ${meta.name},`,
     `and leave ${meta.name} out of the Auto Update Applications plugin (no backup, no way back). Details: the wiki's All-in-one page.`,
+    "",
+    `HTTPS: switch on "Use Tailscale" in the container's settings (Unraid 7; Serve on port ${meta.ports.web.container} is preset, off by default),`,
+    `or see ${l.docs}/HTTPS for the other ways and what each one means.`,
     "",
     `Support: ${l.support}. Documentation: ${l.docs}. Licence: ${meta.license}.`,
     "",

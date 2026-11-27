@@ -239,7 +239,7 @@ function linkProblems(file: string, markdown: string, inWiki: boolean, ownPage?:
 }
 
 test.describe("wiki links", () => {
-  const WIKI_PAGES = ["Compose-UIs", "Quick-start", "Self-hosting", "Home", "_Sidebar", "Troubleshooting", "Windows-WSL-Host"];
+  const WIKI_PAGES = ["Compose-UIs", "Quick-start", "Self-hosting", "Home", "_Sidebar", "Troubleshooting", "Windows-WSL-Host", "HTTPS"];
 
   test("the slug is GitHub's", () => {
     expect(slug("From scratch: Traefik + Let's Encrypt")).toBe("from-scratch-traefik--lets-encrypt");

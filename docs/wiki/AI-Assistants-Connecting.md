@@ -56,7 +56,9 @@ for](AI-Assistants-Troubleshooting#a-new-permission-never-gets-asked-for).
 
 The Claude desktop app and the mobile apps reach custom connectors through
 Anthropic's servers, exactly as claude.ai does, so they need the same public
-HTTPS address. A LAN-only Kinboard is reachable only from Claude Code.
+HTTPS address. A LAN-only Kinboard is reachable only from Claude Code. An
+address from Tailscale Serve (`https://….ts.net`) counts as LAN-only here: it
+is HTTPS, but only devices in your tailnet reach it ([HTTPS](HTTPS#ai-assistants-and-tailscale)).
 
 ## Claude Code
 

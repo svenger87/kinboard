@@ -252,7 +252,10 @@ aio:
     # names the Application Categorizer plugin as the source of valid values;
     # to confirm there before any submission).
     category: "HomeAutomation: Productivity:"
-    data_path: /mnt/user/appdata/{slug}
+    # Not /mnt/user/appdata/{slug}: that is where Self-hosting puts a git
+    # install, and the image refuses a folder holding another install's
+    # database. A household with both keeps them apart.
+    data_path: /mnt/user/appdata/{slug}-aio
     puid: "99"
     pgid: "100"
     min_version: "6.12"
@@ -265,6 +268,31 @@ aio:
       category: "Tools:"
       container_env: KINBOARD_AIO_CONTAINER
       switch_env: KINBOARD_UPDATE_TICK
+    # Unraid 7's per-container "Use Tailscale" (the Docker page's hook,
+    # /usr/local/share/docker/tailscale_container_hook): preset so the switch
+    # alone gives an https://<hostname>.<tailnet>.ts.net address, and off
+    # until the household turns it on. Serve, never Funnel: Serve stays inside
+    # the tailnet, Funnel would put the whole app on the internet (wiki: HTTPS).
+    # The Serve port is ports.web.container. Userspace networking needs no
+    # /dev/net/tun and no NET_ADMIN. The state lives under aio.data, so it is
+    # kept, and backed up, with everything else.
+    tailscale:
+      hostname: "{slug}"
+      serve: serve
+      serve_target: http://127.0.0.1
+      serve_protocol: https
+      userspace_networking: "true"
+      state_dir: /data/tailscale
+  # What needs HTTPS, and the switch that gives it. Said in the Unraid
+  # template's Overview, followed by the wiki page's address.
+  https:
+    en: >-
+      Push notifications, the barcode scanner's live camera and installing the
+      app need an https address; everything else works over plain http on your
+      network. Switch on "Use Tailscale" (Serve is preset) for an https address
+      on your tailnet, reachable from your devices that run Tailscale; cloud AI
+      assistants (ChatGPT, Claude.ai) can't reach it. Other ways, and what each
+      means, on the wiki's HTTPS page:
 
 # The release the pinned listings (TrueNAS, CasaOS, Umbrel) point at. Written by
 #   node scripts/stores/pin-release.mjs <tag>
