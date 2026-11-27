@@ -576,7 +576,9 @@ function docker(argv) {
     }
     if (/\/kinboard\/secrets\//.test(line)) return done(0, "");
     if (/pg_dumpall/.test(line)) {
-      let o = "CREATE SCHEMA auth;\n";
+      const custom = path.join(stubDir(), "dump");
+      if (fs.existsSync(custom)) return done(0, fs.readFileSync(custom, "utf8"));
+      let o = "CREATE SCHEMA auth;\nCREATE TABLE public.families (\n);\n";
       for (let i = 0; i < 60; i++) o += `CREATE TABLE t${i} ();\n`;
       return done(0, o);
     }

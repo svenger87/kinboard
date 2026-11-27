@@ -107,7 +107,7 @@ test.describe("kinboard-updater, container mode (RFC-023 PR 14)", () => {
       const res = r.run();
       expect(res.status, res.out).toBe(0);
       expect(res.pulls).toEqual([NEXT]);
-      expect(res.log).toMatch(/backup: pre-upgrade-.*\.sql\.gz \(60 tables\)/);
+      expect(res.log).toMatch(/backup: pre-upgrade-.*\.sql\.gz \(61 tables\)/);
       expect(res.log).toContain("healthy: ");
       expect(res.log).toContain("smoke check passed");
       // The backup comes before anything is renamed or created.

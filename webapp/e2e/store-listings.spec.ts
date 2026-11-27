@@ -32,6 +32,7 @@ interface SourcesModule {
   REPO_ROOT: string;
   loadSources(root?: string): Sources;
   metadataProblems(m: unknown, file?: string): string[];
+  profileProblems(meta: unknown, compose: unknown, file?: string): string[];
   isReverseDomain(s: unknown): boolean;
   imageNamesFromWorkflow(text: string, owner: string): { app: string; postgres: string; updater: string };
   yaml: { load(s: string): any; dump(v: unknown, o?: object): string }; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -241,6 +242,196 @@ test.describe("red: each check fails on the mistake it is for", () => {
     const noHost = files[um].replace(/^(\s+)POSTGRES_HOST: \S+_db_1\n(?=\s+volumes:\n\s+- \$\{APP_DATA_DIR\}\/data\/config:\/kinboard\n\s+- )/m, "");
     expect(noHost).not.toBe(files[um]);
     expect(listingProblems({ ...files, [um]: noHost }, src).join("\n")).toMatch(/umbrel: init must reach the database as \S+_db_1/);
+  });
+});
+
+/**
+ * RFC-024 §4.7: automatic updates on every install shape. The stores with an
+ * update path of their own (TrueNAS, CasaOS, Umbrel) never get the
+ * Docker-socket updater; Portainer's template keeps it, under compose.yml's
+ * `autoupdate` profile, behind a template switch that is off by default.
+ */
+type Svc = { profiles?: string[]; volumes?: unknown[]; image?: string };
+/** The services Compose starts for a stack file with COMPOSE_PROFILES=<active>. */
+function startedWith(text: string, yamlLoad: (s: string) => unknown, active: string): Record<string, Svc> {
+  const doc = yamlLoad(text) as { services: Record<string, Svc> };
+  const on = active.split(",").filter(Boolean);
+  return Object.fromEntries(Object.entries(doc.services).filter(([, s]) => !s.profiles?.length || s.profiles.some((p) => on.includes(p))));
+}
+const socketMounts = (services: Record<string, Svc>) =>
+  Object.entries(services).filter(([, s]) => (s.volumes ?? []).some((v) => JSON.stringify(v).includes("docker.sock"))).map(([n]) => n);
+
+test.describe("automatic updates: the updater only in Portainer, the socket only when switched on", () => {
+  test("Portainer keeps the updater under its profile; TrueNAS, CasaOS and Umbrel leave it out", async () => {
+    const { src, files } = await generated();
+    const { yaml } = await sourcesMod;
+    const stack = files["portainer/compose.yml"];
+    const all = (yaml.load(stack) as { services: Record<string, Svc> }).services;
+    expect(all.updater?.profiles).toEqual(["autoupdate"]);
+    expect(all.updater?.image).toBe(`\${KINBOARD_UPDATER_IMAGE:-${src.images.updater}}:\${KINBOARD_TAG:-latest}`);
+    // Off: no updater, no socket anywhere. On: the updater, and only it, has it.
+    expect(Object.keys(startedWith(stack, yaml.load, ""))).not.toContain("updater");
+    expect(socketMounts(startedWith(stack, yaml.load, ""))).toEqual([]);
+    expect(Object.keys(startedWith(stack, yaml.load, "autoupdate"))).toContain("updater");
+    expect(socketMounts(startedWith(stack, yaml.load, "autoupdate"))).toEqual(["updater"]);
+    for (const [path, text] of Object.entries(files)) {
+      if (path.startsWith("portainer/")) continue;
+      expect(text, path).not.toMatch(/docker\.sock/);
+      expect(text, path).not.toContain(src.images.updater);
+      expect(text, path).not.toMatch(/^\s+updater:/m);
+    }
+  });
+
+  test("each template's switch is COMPOSE_PROFILES, off by default, with the metadata's texts", async () => {
+    const { src, files } = await generated();
+    const t = JSON.parse(files["portainer/templates.json"]);
+    expect(t.templates).toHaveLength(2);
+    for (const tpl of t.templates) {
+      const f = tpl.env.find((e: { name: string }) => e.name === "COMPOSE_PROFILES");
+      expect(f, `template ${tpl.id}`).toEqual({
+        name: "COMPOSE_PROFILES",
+        label: src.meta.opt_in.autoupdate.label,
+        description: src.meta.opt_in.autoupdate.description,
+        select: [
+          { text: src.meta.opt_in.autoupdate.off, value: "", default: true },
+          { text: src.meta.opt_in.autoupdate.on, value: "autoupdate" },
+        ],
+      });
+    }
+    // Every store's reason for leaving it out is written down.
+    for (const store of ["truenas", "casaos", "umbrel"]) expect(src.meta.omit_services.updater[store], store).toBeTruthy();
+    expect(src.meta.omit_services.updater.portainer).toBeUndefined();
+  });
+
+  test("red: the profile dropped from Portainer's updater, so the socket would be on for every install", async () => {
+    const { src, files } = await generated();
+    const { listingProblems } = await checksMod;
+    const pt = "portainer/compose.yml";
+    const noProfile = files[pt].replace(/^ {4}profiles:\n {6}- autoupdate\n/m, "");
+    expect(noProfile).not.toBe(files[pt]);
+    const p = listingProblems({ ...files, [pt]: noProfile }, src);
+    expect(p).toContain('portainer: updater has the profiles [], compose.yml ["autoupdate"]: it would start without being switched on');
+    expect(p).toContain("portainer: updater mounts the Docker socket");
+  });
+
+  test("red: the socket in another Portainer service, or the updater in another store", async () => {
+    const { src, files } = await generated();
+    const { listingProblems } = await checksMod;
+    const pt = "portainer/compose.yml";
+    const webSock = files[pt].replace(
+      "      - ${KINBOARD_STORAGE_DIR:-kinboard-storage}:/var/lib/storage\n",
+      "      - ${KINBOARD_STORAGE_DIR:-kinboard-storage}:/var/lib/storage\n      - /var/run/docker.sock:/var/run/docker.sock\n",
+    );
+    expect(webSock).not.toBe(files[pt]);
+    expect(listingProblems({ ...files, [pt]: webSock }, src)).toContain("portainer: webapp mounts the Docker socket");
+
+    const casa = `casaos/Apps/${src.meta.name}/docker-compose.yml`;
+    const updater = (yaml_: string) => yaml_.replace(/\nnetworks:\n/, `\n  updater:\n    image: ${src.images.updater}:latest\n    volumes:\n      - /var/run/docker.sock:/var/run/docker.sock\nnetworks:\n`);
+    expect(updater(files[casa])).not.toBe(files[casa]);
+    expect(listingProblems({ ...files, [casa]: updater(files[casa]) }, src)).toContain(
+      `casaos: service updater is left out of this store (${src.meta.omit_services.updater.casaos})`,
+    );
+  });
+
+  test("red: Portainer's updater on another image than docker.yml's", async () => {
+    const { src, files } = await generated();
+    const { listingProblems } = await checksMod;
+    const pt = "portainer/compose.yml";
+    const other = files[pt].replace(`:-${src.images.updater}}`, ":-ghcr.io/someone-else/updater}");
+    expect(other).not.toBe(files[pt]);
+    expect(listingProblems({ ...files, [pt]: other }, src)).toContain(
+      `portainer: updater runs ghcr.io/someone-else/updater, not docker.yml's ${src.images.updater}`,
+    );
+  });
+
+  test("red: the switch missing, on by default, or for another profile", async () => {
+    const { src, files } = await generated();
+    const { listingProblems } = await checksMod;
+    const tj = "portainer/templates.json";
+    const edit = (f: (env: Array<Record<string, any>>) => void) => {
+      const t = JSON.parse(files[tj]);
+      f(t.templates[0].env);
+      return { ...files, [tj]: `${JSON.stringify(t, null, 2)}\n` };
+    };
+    const field = (env: Array<Record<string, any>>) => env.find((e) => e.name === "COMPOSE_PROFILES")!;
+    expect(listingProblems(edit((env) => env.splice(env.indexOf(field(env)), 1)), src)).toContain(
+      "portainer: template 1 has no switch for autoupdate (COMPOSE_PROFILES)",
+    );
+    expect(listingProblems(edit((env) => { const f = field(env); f.select[0].default = false; f.select[1].default = true; }), src)).toContain(
+      "portainer: template 1's COMPOSE_PROFILES is not off by default",
+    );
+    expect(listingProblems(edit((env) => { field(env).default = "autoupdate"; }), src)).toContain(
+      "portainer: template 1's COMPOSE_PROFILES is not off by default",
+    );
+    const other = listingProblems(edit((env) => { field(env).select[1].value = "everything"; }), src);
+    expect(other).toContain("portainer: template 1's COMPOSE_PROFILES can't switch on autoupdate");
+    expect(other).toContain("portainer: template 1's COMPOSE_PROFILES offers everything, no profile of the stack");
+    expect(listingProblems(edit((env) => { field(env).label = "Updates"; }), src)).toContain(
+      "portainer: template 1's COMPOSE_PROFILES label or description differs from the metadata",
+    );
+  });
+
+  test("red: the metadata must settle a profiled service for every store, and only Portainer can offer one", async () => {
+    const { profileProblems, yaml } = await sourcesMod;
+    const { src } = await generated();
+    expect(profileProblems(src.meta, src.compose)).toEqual([]);
+    const meta = () => yaml.load(yaml.dump(src.meta));
+    const both = meta();
+    both.omit_services.updater.portainer = "no";
+    expect(profileProblems(both, src.compose)).toEqual(["metadata: compose.yml's updater is both left out of portainer and offered there (opt_in.autoupdate)"]);
+    const neither = meta();
+    delete neither.omit_services.updater.umbrel;
+    expect(profileProblems(neither, src.compose)).toEqual([
+      "metadata: compose.yml's updater starts only with the profile autoupdate; leave it out of umbrel (omit_services.updater.umbrel) or offer the profile there (opt_in)",
+    ]);
+    const casa = meta();
+    delete casa.omit_services.updater.casaos;
+    casa.opt_in.autoupdate.stores.push("casaos");
+    expect(profileProblems(casa, src.compose)).toEqual(["metadata: opt_in.autoupdate: only the Portainer listing can offer a profile, not casaos"]);
+    const unknown = meta();
+    unknown.opt_in.everything = unknown.opt_in.autoupdate;
+    expect(profileProblems(unknown, src.compose)).toEqual(["metadata: opt_in.everything is no profile of any compose.yml service"]);
+  });
+
+  test("red: compose.yml's updater without its profile is refused, so no listing hands out the socket by default", async () => {
+    const root = inputsCopy();
+    try {
+      const { loadSources } = await sourcesMod;
+      const { buildListings } = await buildMod;
+      const { listingProblems } = await checksMod;
+      const compose = join(root, "compose.yml");
+      const text = readFileSync(compose, "utf8");
+      const changed = text.replace(/^ {4}profiles: \["autoupdate"\]\n/m, "");
+      expect(changed).not.toBe(text);
+      writeFileSync(compose, changed);
+      // The switch would switch nothing: refused at once.
+      expect(() => loadSources(root)).toThrow(/opt_in\.autoupdate is no profile of any compose\.yml service/);
+      // And without the switch too: the socket in a service that is always on.
+      const metaFile = join(root, "dist", readdirSync(join(root, "dist")).find((f) => f.endsWith(".yaml"))!);
+      writeFileSync(metaFile, readFileSync(metaFile, "utf8").replace(/^opt_in:\n(?: {2}.*\n|\n(?= ))+/m, ""));
+      const src = loadSources(root);
+      expect(src.meta.opt_in).toBeUndefined();
+      expect(() => listingProblems(buildListings(src), src)).toThrow(/updater mounts the Docker socket without a profile/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the updater's image comes from docker.yml: renamed there, Portainer's stack follows", async () => {
+    const root = inputsCopy();
+    try {
+      const { loadSources } = await sourcesMod;
+      const { buildListings } = await buildMod;
+      const wf = join(root, ".github/workflows/docker.yml");
+      const text = readFileSync(wf, "utf8");
+      const changed = text.replace(/^(\s+UPDATER_IMAGE_NAME: \$\{\{ github\.repository_owner \}\})\/[a-z-]+$/m, "$1/updater-renamed");
+      expect(changed).not.toBe(text);
+      writeFileSync(wf, changed);
+      const files = buildListings(loadSources(root));
+      expect(files["portainer/compose.yml"]).toMatch(/image: \$\{KINBOARD_UPDATER_IMAGE:-ghcr\.io\/[^/]+\/updater-renamed\}:/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

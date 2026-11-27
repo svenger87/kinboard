@@ -11,6 +11,10 @@
  *              the release's
  *   secrets    no secret value anywhere: no token, key or password literal;
  *              a secret's variable is empty, absent, or a path to a file
+ *   updater    the Docker-socket updater only where the metadata keeps it
+ *              (Portainer), under compose.yml's profile, with the
+ *              template's switch off by default: the socket is mounted only
+ *              once the household switches it on, and in no other store
  *   volumes    every mount compose.yml has, at the same target and mode,
  *              from where its store keeps data (CasaOS /DATA/AppData/…,
  *              Umbrel ${APP_DATA_DIR}/data/… with its folder committed,
@@ -21,7 +25,7 @@
  *              metadata's, in every language the store takes
  */
 import { CASA_LOCALE, links, pinnedImages, splitRef, volumePath } from "./common.mjs";
-import { interpolate, serviceModel } from "./model.mjs";
+import { DOCKER_SOCKET, interpolate, serviceModel } from "./model.mjs";
 import { yaml } from "./sources.mjs";
 import { umbrelHost } from "./umbrel.mjs";
 
@@ -76,9 +80,10 @@ export function listingProblems(files, src) {
   const slug = meta.slug;
   const pinned = pinnedImages(meta, names);
   const l = links(meta);
-  // compose.yml's services as a new store install resolves them.
-  const expected = serviceModel(src, { images: { app: "app", postgres: "postgres", other: (r) => r }, env: () => undefined });
-  const dbName = Object.keys(expected).find((n) => expected[n].kind === "postgres");
+  // compose.yml's services as a new install from each store resolves them.
+  const expectedFor = (store) => serviceModel(src, { name: store, images: { app: "app", postgres: "postgres", other: (r) => r }, env: () => undefined });
+  const updaterRef = src.compose[`x-${slug}-updater-image`];
+  const dbName = Object.entries(expectedFor("casaos")).find(([, s]) => s.kind === "postgres")?.[0];
 
   const read = (path) => {
     if (!(path in files)) { p.push(`${path}: missing`); return null; }
@@ -98,10 +103,15 @@ export function listingProblems(files, src) {
   for (const [store, view] of Object.entries(listings)) {
     const where = `${store}`;
     const services = view.services;
+    const expected = expectedFor(store);
     // The same services as compose.yml (Umbrel adds its app_proxy).
     const names_ = Object.keys(services).filter((n) => !(store === "umbrel" && n === "app_proxy"));
     for (const n of Object.keys(expected)) if (!names_.includes(n)) p.push(`${where}: service ${n} of compose.yml is missing`);
-    for (const n of names_) if (!expected[n]) p.push(`${where}: service ${n} is not one of compose.yml's`);
+    for (const n of names_) {
+      if (expected[n]) continue;
+      const why = meta.omit_services?.[n]?.[store];
+      p.push(why ? `${where}: service ${n} is left out of this store (${why})` : `${where}: service ${n} is not one of compose.yml's`);
+    }
 
     for (const [name, exp] of Object.entries(expected)) {
       const s = services[name];
@@ -110,6 +120,12 @@ export function listingProblems(files, src) {
       const image = store === "portainer" ? interpolate(s.image ?? "", () => undefined) : String(s.image ?? "");
       const repo = image.replace(/@.*$/, "").replace(/:[^:/]*$/, "");
       if (exp.kind === "app" && repo !== names.app) p.push(`${where}: ${name} runs ${repo}, not docker.yml's ${names.app}`);
+      if (updaterRef && exp.image === updaterRef && repo !== names.updater) p.push(`${where}: ${name} runs ${repo}, not docker.yml's ${names.updater}`);
+      // ---- opt-in: the same profiles as compose.yml, so it stays off until switched on
+      const got = s.raw?.profiles ?? [];
+      if (store !== "truenas" && JSON.stringify(got) !== JSON.stringify(exp.profiles)) {
+        p.push(`${where}: ${name} has the profiles ${JSON.stringify(got)}, compose.yml ${JSON.stringify(exp.profiles)}${exp.profiles.length ? ": it would start without being switched on" : ""}`);
+      }
       if (exp.kind === "postgres" && repo !== names.postgres) {
         p.push(`${where}: the database runs ${repo}, not the stock PostgreSQL image with safeupdate (${names.postgres})`);
       }
@@ -121,7 +137,11 @@ export function listingProblems(files, src) {
       // ---- volumes: the same mounts as compose.yml, from the store's place
       for (const v of exp.volumes) {
         const m = s.mounts.find((x) => x.target === v.target);
-        if (!m) { p.push(`${where}: ${name} does not mount ${v.volume} at ${v.target}`); continue; }
+        if (!m) { p.push(`${where}: ${name} does not mount ${v.socket ? "the Docker socket" : v.volume} at ${v.target}`); continue; }
+        if (v.socket) {
+          if (m.source !== DOCKER_SOCKET) p.push(`${where}: ${name} mounts ${m.source} at ${v.target}, not the Docker socket`);
+          continue;
+        }
         if (m.readOnly !== v.readOnly) p.push(`${where}: ${name} mounts ${v.target} ${m.readOnly ? "read-only" : "writable"}, compose.yml ${v.readOnly ? "read-only" : "writable"}`);
         const want = store === "casaos" ? volumePath(meta, "casaos", v.volume)
           : store === "umbrel" ? volumePath(meta, "umbrel", v.volume)
@@ -135,7 +155,9 @@ export function listingProblems(files, src) {
       }
       for (const m of s.mounts) {
         if (!exp.volumes.some((v) => v.target === m.target)) p.push(`${where}: ${name} mounts ${m.source} at ${m.target}, which compose.yml doesn't`);
-        if (/docker\.sock/.test(m.source)) p.push(`${where}: ${name} mounts the Docker socket`);
+        if (/docker\.sock/.test(m.source) && !(exp.volumes.some((v) => v.socket && v.target === m.target) && got.length > 0)) {
+          p.push(`${where}: ${name} mounts the Docker socket`);
+        }
         if (store === "casaos" && !String(m.source).startsWith(volumePath(meta, "casaos", ""))) p.push(`casaos: ${name} mounts ${m.source}, outside ${volumePath(meta, "casaos", "")}`);
         if (store === "umbrel" && (m.long || !String(m.source).startsWith("${APP_DATA_DIR}/data/"))) p.push(`umbrel: ${name} mounts ${m.source}; Umbrel wants short-syntax binds under \${APP_DATA_DIR}/data/`);
       }
@@ -219,6 +241,23 @@ export function listingProblems(files, src) {
   }
   const pt = files["portainer/templates.json"] ? JSON.parse(files["portainer/templates.json"]) : null;
   if (pt) {
+    // The switch for the opt-in profiles: there exactly when the stack has
+    // them, every profile among its choices, and off unless chosen.
+    const stackProfiles = [...new Set(Object.values(listings.portainer?.services ?? {}).flatMap((x) => x.raw?.profiles ?? []))];
+    for (const tpl of pt.templates ?? []) {
+      const f = (tpl.env ?? []).find((e) => e.name === "COMPOSE_PROFILES");
+      if (!stackProfiles.length) { if (f) p.push(`portainer: template ${tpl.id} offers COMPOSE_PROFILES, and the stack has no profile`); continue; }
+      if (!f) { p.push(`portainer: template ${tpl.id} has no switch for ${stackProfiles.join(", ")} (COMPOSE_PROFILES)`); continue; }
+      const choices = f.select ?? [];
+      const def = choices.filter((o) => o.default);
+      if (f.default !== undefined || f.preset || def.length !== 1 || def[0].value !== "") {
+        p.push(`portainer: template ${tpl.id}'s COMPOSE_PROFILES is not off by default`);
+      }
+      for (const pr of stackProfiles) if (!choices.some((o) => o.value === pr)) p.push(`portainer: template ${tpl.id}'s COMPOSE_PROFILES can't switch on ${pr}`);
+      for (const o of choices) if (o.value !== "" && !stackProfiles.includes(o.value)) p.push(`portainer: template ${tpl.id}'s COMPOSE_PROFILES offers ${o.value}, no profile of the stack`);
+      const o = src.meta.opt_in?.[stackProfiles[0]];
+      if (o && (f.label !== o.label || f.description !== o.description)) p.push(`portainer: template ${tpl.id}'s COMPOSE_PROFILES label or description differs from the metadata`);
+    }
     const t = pt.templates?.[0] ?? {};
     if (t.title !== meta.name) p.push("portainer: title differs from the metadata");
     if (t.description !== meta.description.short) p.push("portainer: description differs from the metadata");

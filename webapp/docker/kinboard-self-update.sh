@@ -406,9 +406,12 @@ take_backup() {
     return 1
   fi
 
+  # Kinboard's own core table, not supabase/postgres's auth schema: the
+  # app-store listings run stock PostgreSQL (kinboard-postgres), which has
+  # no auth schema, and every good dump of such an install would be refused.
   tables="$(grep -cE '^CREATE TABLE' "$tmp_sql" 2>/dev/null || echo 0)"
-  if ! grep -qm1 'CREATE SCHEMA auth' "$tmp_sql"; then
-    log "ERROR: the dump has no auth schema — it is not a backup; refusing to upgrade"
+  if ! grep -qm1 '^CREATE TABLE public\.families (' "$tmp_sql"; then
+    log "ERROR: the dump has no families table — it is not a backup of Kinboard; refusing to upgrade"
     rm -f "$tmp_sql"
     return 1
   fi

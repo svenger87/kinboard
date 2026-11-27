@@ -1,6 +1,6 @@
 annotations:
   min_scale_version: 24.10.2.2
-app_version: sha-2c31942
+app_version: sha-45e1152
 capabilities:
   - description: Db, Webapp are able to change file ownership arbitrarily
     name: CHOWN

@@ -26,6 +26,9 @@ import { fileURLToPath } from "node:url";
 import { serviceModel } from "./lib/model.mjs";
 import { loadSources, REPO_ROOT } from "./lib/sources.mjs";
 
+/** The listings that run images pinned by digest. */
+export const PINNED_STORES = ["truenas", "casaos", "umbrel"];
+
 /**
  * The tags to pin for a release tag or a build of main.
  * @param {{ tag?: string, sha?: string, version?: string, major: string }} a
@@ -70,9 +73,10 @@ function main(argv) {
   const src = loadSources(REPO_ROOT);
   const major = src.channels.postgres.stable;
   const r = releaseTags({ tag, sha: opt("--sha"), version: opt("--version"), major });
-  const others = Object.values(serviceModel(src, { images: { app: "", postgres: "", other: (x) => x }, env: () => undefined }))
+  // The other images the pinned stores run (Portainer follows channel tags).
+  const others = [...new Set(PINNED_STORES.flatMap((name) => Object.values(serviceModel(src, { name, images: { app: "", postgres: "", other: (x) => x }, env: () => undefined }))
     .filter((s) => s.kind === "other")
-    .map((s) => s.image);
+    .map((s) => s.image)))];
   const refs = [`${src.images.app}:${r.app_tag}`, `${src.images.postgres}:${r.postgres_tag}`, ...others];
   r.digests = {};
   for (const ref of refs) {

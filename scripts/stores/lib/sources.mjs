@@ -35,6 +35,8 @@ export function metadataPath(root = REPO_ROOT) {
 }
 
 const LOCALES = ["en", "de"];
+/** The stores a listing is generated for (build-store-listings.mjs's STORES). */
+export const LISTING_STORES = ["truenas", "casaos", "umbrel", "portainer"];
 const SLUG = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
 /**
  * CasaOS's id rule (validate_compose.py): runs of [a-z0-9] joined by single
@@ -90,9 +92,59 @@ export function metadataProblems(m, file = "metadata") {
     need(str(v?.label), `env ${name} needs a label`);
     need(v?.default === undefined || typeof v.default === "string", `env ${name}: default must be a string`);
   }
+  for (const [svc, why] of Object.entries(m.omit_services ?? {})) {
+    need(why && typeof why === "object" && !Array.isArray(why), `omit_services.${svc} must map each store that leaves it out to the reason`);
+    for (const [store, reason] of Object.entries(why && typeof why === "object" ? why : {})) {
+      need(LISTING_STORES.includes(store), `omit_services.${svc}.${store} is not a store (${LISTING_STORES.join(", ")})`);
+      need(str(reason), `omit_services.${svc}.${store} needs the reason`);
+    }
+  }
+  for (const [profile, o] of Object.entries(m.opt_in ?? {})) {
+    need(Array.isArray(o?.stores) && o.stores.length > 0 && o.stores.every((s) => LISTING_STORES.includes(s)), `opt_in.${profile}.stores must list stores`);
+    for (const k of ["label", "description", "off", "on"]) need(str(o?.[k]), `opt_in.${profile}.${k} is required`);
+  }
   const r = m.release;
   need(r && str(r.version) && str(r.app_tag) && str(r.postgres_tag), "release.version, .app_tag and .postgres_tag are required");
   for (const [ref, d] of Object.entries(r?.digests ?? {})) need(DIGEST.test(String(d)), `release.digests: ${ref} is not a sha256 digest`);
+  return p;
+}
+
+/**
+ * Every service of compose.yml that only starts with a profile, settled for
+ * every store: left out there (`omit_services.<service>.<store>`), or kept
+ * with its profile offered as a switch (`opt_in.<profile>.stores`), never
+ * both and never neither. A service without a profile can't be offered.
+ * @param {any} meta
+ * @param {any} compose
+ * @param {string} [file]
+ */
+export function profileProblems(meta, compose, file = "metadata") {
+  const p = [];
+  const services = compose?.services ?? {};
+  for (const [name, svc] of Object.entries(services)) {
+    const profiles = svc?.profiles ?? [];
+    for (const store of LISTING_STORES) {
+      const omitted = meta.omit_services?.[name]?.[store] !== undefined;
+      const offered = profiles.filter((pr) => meta.opt_in?.[pr]?.stores?.includes(store));
+      if (profiles.length === 0) continue;
+      if (omitted && offered.length) p.push(`${file}: compose.yml's ${name} is both left out of ${store} and offered there (opt_in.${offered[0]})`);
+      if (!omitted && offered.length === 0) {
+        p.push(`${file}: compose.yml's ${name} starts only with the profile ${profiles.join(", ")}; leave it out of ${store} (omit_services.${name}.${store}) or offer the profile there (opt_in)`);
+      }
+      if (offered.length > 1) p.push(`${file}: compose.yml's ${name} has more than one offered profile for ${store}`);
+    }
+  }
+  for (const [profile, o] of Object.entries(meta.opt_in ?? {})) {
+    if (!Object.values(services).some((svc) => (svc?.profiles ?? []).includes(profile))) {
+      p.push(`${file}: opt_in.${profile} is no profile of any compose.yml service`);
+    }
+    for (const store of o?.stores ?? []) {
+      if (store !== "portainer") p.push(`${file}: opt_in.${profile}: only the Portainer listing can offer a profile, not ${store}`);
+    }
+  }
+  for (const name of Object.keys(meta.omit_services ?? {})) {
+    if (!(name in services)) p.push(`${file}: omit_services.${name} is no compose.yml service`);
+  }
   return p;
 }
 
@@ -150,6 +202,8 @@ export function loadSources(root = REPO_ROOT) {
   if (problems.length) throw new Error(problems.join("\n"));
   const composeText = readFileSync(join(root, "compose.yml"), "utf8");
   const compose = yaml.load(composeText);
+  const profiles = profileProblems(meta, compose, metaFile);
+  if (profiles.length) throw new Error(profiles.join("\n"));
   const owner = meta.repository.split("/")[0];
   const workflow = readFileSync(join(root, ".github", "workflows", "docker.yml"), "utf8");
   const images = imageNamesFromWorkflow(workflow, owner);

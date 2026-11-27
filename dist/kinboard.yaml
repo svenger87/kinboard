@@ -170,12 +170,35 @@ env:
     label: The family that sees update notices, when there is more than one
     advanced: true
 
-# Services of compose.yml a store listing leaves out, and why.
+# Services of compose.yml a store listing leaves out, per store, and why. A
+# service with a profile (compose.yml's opt-ins) must be either left out here
+# or offered under `opt_in` for every store.
 omit_services:
-  # Automatic updates through the Docker socket. Every store has its own update
-  # path (RFC-024 §4.7), Umbrel forbids the socket, and Portainer's web editor
-  # keeps the file where the updater can't reach it (wiki Compose-UIs).
-  updater: each store updates through its own mechanism
+  # The automatic updater, which needs the Docker socket (RFC-024 §4.7).
+  updater:
+    truenas: TrueNAS offers the app's update itself, from the catalog's new version
+    casaos: CasaOS offers the update itself when the listing's version changes
+    umbrel: Umbrel offers the update itself when the manifest's version changes, and forbids the Docker socket
+
+# compose.yml's profiles a listing keeps, off until the household switches
+# them on, with the field that does it. Only Portainer: it has no update
+# mechanism of its own for a template's stack that takes a backup and rolls
+# back, so the updater in container mode (RFC-023 §4.11.3) is its update path.
+# The profile's services, and the Docker socket with them, don't start unless
+# the field is on.
+opt_in:
+  autoupdate:
+    stores: [portainer]
+    label: Automatic updates
+    description: >-
+      On starts the updater: every 30 minutes it looks for a newer image of the
+      image tag, takes a verified backup, recreates only the app's containers
+      and goes back to the previous version if the new one doesn't come up
+      healthy. A pinned version never moves. It is the only container that gets
+      the Docker socket, and only when this is on. Switched off later, the
+      running updater stays until you remove kinboard-updater under Containers.
+    off: "Off"
+    on: On, with the Docker socket in the updater container
 
 # The release the pinned listings (TrueNAS, CasaOS, Umbrel) point at. Written by
 #   node scripts/stores/pin-release.mjs <tag>
@@ -185,11 +208,11 @@ omit_services:
 # and rehearsed against images that exist; it is replaced before any
 # submission (RFC-024 §9, phase 6).
 release:
-  version: 1.18.0-main.2c31942
-  app_tag: sha-2c31942
-  postgres_tag: 17-sha-2c31942
+  version: 1.18.0-main.45e1152
+  app_tag: sha-45e1152
+  postgres_tag: 17-sha-45e1152
   digests:
-    ghcr.io/svenger87/kinboard:sha-2c31942: sha256:ca5f6d49777aee5ccce2f0141d3273c9b9e0e801beda4fe427b3337c22bb4053
-    ghcr.io/svenger87/kinboard-postgres:17-sha-2c31942: sha256:2e4d4d56e8d2c9ae17c4a95900c158d7752fd59ccfce9e2d486c8081ad8a42e6
+    ghcr.io/svenger87/kinboard:sha-45e1152: sha256:5f3c9e309e1dd65bd6f0b7fd8b6de4e0ec4e3c4084e194c6c7235b424ad1bfb2
+    ghcr.io/svenger87/kinboard-postgres:17-sha-45e1152: sha256:78c77ef99ec25b7ef049cc3739f9a1e02b6c5a1c24d222f6a9a97ff607b1e377
     postgrest/postgrest:v14.16: sha256:bea1c76a856fa39d1e542d25911cf95d02fe2bf971992d033044ff209f1504b8
     alexxit/go2rtc:1.9.14: sha256:675c318b23c06fd862a61d262240c9a63436b4050d177ffc68a32710d9e05bae

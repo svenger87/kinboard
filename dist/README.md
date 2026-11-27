@@ -9,7 +9,7 @@ and §10 (`docs/rfc/024-all-in-one-and-stores.md`).
 | TrueNAS (24.10+) | `truenas/ix-dev/community/<app>/` | the apps catalog: `app.yaml`, `item.yaml`, `ix_values.yaml`, `questions.yaml`, `README.md`, a Jinja2 `templates/docker-compose.yaml` over TrueNAS's library, `templates/test_values/basic-values.yaml` |
 | CasaOS / ZimaOS | `casaos/Apps/<Name>/docker-compose.yml` | compose with a top-level `x-casaos` block |
 | Umbrel | `umbrel/<app>/` | `umbrel-app.yml`, `docker-compose.yml` with `app_proxy`, and the empty `data/<volume>/` folders |
-| Portainer | `portainer/templates.json`, `portainer/compose.yml` | app templates, format 3; two type-3 templates (stable and release candidates) pointing at the stack file |
+| Portainer | `portainer/templates.json`, `portainer/compose.yml` | app templates, format 3; two type-3 templates (stable and release candidates) pointing at the stack file, with an *Automatic updates* switch |
 
 Unraid's template comes with the all-in-one image, in its own repository
 (RFC-024 §11.9, phase 5). Nothing here is submitted anywhere: when and where
@@ -28,8 +28,9 @@ Three inputs, each the only place its facts live:
   and mounts. A listing is compose.yml's services with the database on
   `kinboard-postgres` (stock PostgreSQL 17 with safeupdate, never a store's own
   postgres image, which can't load it, §4.2.1, §4.5), the Docker-socket
-  updater left out (each store updates its own way, §4.7), and the variables
-  resolved for a new install.
+  updater left out where the store updates its own way and kept, switched
+  off, on Portainer (§4.7, below), and the variables resolved for a new
+  install.
 - **`.github/workflows/docker.yml`**: the image names (`IMAGE_NAME`,
   `POSTGRES_IMAGE_NAME`) and channel tags.
 
@@ -60,6 +61,29 @@ without `linux/amd64` and `linux/arm64`. Until 1.18 (the first release with
 of main, so they can be validated and started against images that exist. Pin
 the release before any submission. Portainer's templates follow the channel
 tags instead (`latest`/`17`, `next`/`17-next`) and are not pinned.
+
+## How each listing updates
+
+Automatic updates reach every install shape (RFC-024 §4.7), but not by the
+same road. compose.yml's `updater` service (`kinboard-updater`, RFC-023
+§4.11.3) needs the Docker socket, so it is in a listing only where nothing
+else updates the app. The metadata's `omit_services.updater` says why for
+each store that leaves it out; `opt_in.autoupdate` holds the Portainer
+switch's texts. A service with a profile has to be settled for every store,
+one way or the other, or the generator refuses.
+
+| Store | Who updates | The updater |
+|---|---|---|
+| TrueNAS | the catalog: a new app version, offered in TrueNAS's UI | left out: TrueNAS replaces the app itself, and an updater recreating containers behind its back would fight it |
+| CasaOS / ZimaOS | the store, when the listing's `version` changes | left out, for the same reason |
+| Umbrel | the store, when the manifest's `version` changes | left out: Umbrel updates the app itself, and its rules forbid the Docker socket |
+| Portainer | nothing of Portainer's own for a template's stack, beyond a redeploy by hand | **kept, off by default.** The template's *Automatic updates* field sets `COMPOSE_PROFILES` to `autoupdate`; only then does Compose start `kinboard-updater`, the one container with the socket. Portainer keeps the template's file in its own volume, out of the updater's reach, so it works in container mode: it recreates only `kinboard-init`, `kinboard-db-init` and `kinboard-webapp`, with their own settings and the new image, after a verified backup, and rolls back if the new one isn't healthy. The stack page keeps listing every container. Switching it off again and redeploying leaves the running updater in place (Compose doesn't remove a service whose profile is no longer active); the field's description says to remove `kinboard-updater` by hand, as the wiki says for `compose.yml` |
+
+In all three pinned listings the image itself still takes a verified backup
+before a migration and runs the migrations once (§4.7, "what the image
+itself guarantees"). The checks hold the table: the updater and the socket
+in no listing but Portainer's, there under the profile, the switch off in
+both templates, and the socket in no other Portainer service.
 
 ## How a listing is validated
 
@@ -149,5 +173,9 @@ explanation: that goes into the metadata's texts or the wiki.
 `dist/portainer/templates.json`)
 
 - The stable template deploys from the template form, with the variables'
-  defaults; "Pull and redeploy" updates it.
+  defaults; "Pull and redeploy" updates it. No `kinboard-updater` and no
+  socket mount while *Automatic updates* is off.
+- With *Automatic updates* on: `kinboard-updater` runs, its log says
+  "container mode", a newer image under the tag is applied with a backup,
+  and the stack page still lists every container.
 - The release-candidate template deploys `next` and `17-next`.

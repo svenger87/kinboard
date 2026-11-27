@@ -6,11 +6,19 @@
  * Git repository, so the stack file is generated here too (portainer/compose.yml)
  * and the templates point at it on the main branch. It is compose.yml with
  * the database on the stock database image (RFC-024 §4.5: every listing runs
- * stock PostgreSQL with safeupdate) and without the Docker-socket updater,
- * and it keeps compose.yml's variables: Portainer fills them from the
- * template's fields. Two templates: the stable channel and release
- * candidates, the same tags docker.yml publishes. Not pinned by digest: a
- * household updates with Portainer's "Pull and redeploy".
+ * stock PostgreSQL with safeupdate), and it keeps compose.yml's variables:
+ * Portainer fills them from the template's fields. Two templates: the stable
+ * channel and release candidates, the same tags docker.yml publishes. Not
+ * pinned by digest: a household updates with Portainer's "Pull and redeploy",
+ * or turns on automatic updates.
+ *
+ * Unlike the other stores' listings, this one keeps the Docker-socket updater
+ * (RFC-024 §4.7: Portainer has no update path of its own with a backup and a
+ * rollback). It keeps compose.yml's profile too, so the updater, and with it
+ * the socket, starts only when the template's switch sets COMPOSE_PROFILES
+ * to the profile (the metadata's `opt_in`). Portainer keeps a template's file
+ * in its own volume, out of the updater's reach, so the updater works in
+ * container mode (RFC-023 §4.11.3).
  *
  * The all-in-one image's single-container template (type 1) comes with that
  * image (RFC-024 phase 5).
@@ -33,9 +41,20 @@ export function portainer(src) {
   const pgImageVar = `${prefix}POSTGRES_IMAGE`;
   const pgTagVar = `${prefix}POSTGRES_TAG`;
 
+  // The updater's image, as compose.yml names it: <P>UPDATER_IMAGE and the app's tag.
+  const updaterImage = compose[`x-${meta.slug}-updater-image`];
+  const [updaterImageVar, updaterTagVar] = updaterImage ? variablesIn(updaterImage) : [];
+  if (updaterImage && (!updaterImageVar?.endsWith("_IMAGE") || updaterTagVar !== tagVar)) {
+    throw new Error(`compose.yml's x-${meta.slug}-updater-image must read an …_IMAGE variable and ${tagVar}`);
+  }
+
   const stack = structuredClone(compose);
   for (const key of Object.keys(stack)) if (key.startsWith("x-")) delete stack[key];
-  for (const name of Object.keys(meta.omit_services ?? {})) delete stack.services[name];
+  for (const [name, why] of Object.entries(meta.omit_services ?? {})) if (why?.portainer !== undefined) delete stack.services[name];
+  // The profiles the stack keeps, each with its switch (opt_in), checked by
+  // profileProblems in sources.mjs: no other profile reaches here.
+  const offered = [...new Set(Object.values(stack.services).flatMap((svc) => svc.profiles ?? []))];
+  for (const pr of offered) if (!meta.opt_in?.[pr]?.stores?.includes("portainer")) throw new Error(`portainer: profile ${pr} has no switch (opt_in)`);
   const volumeVars = {};
   for (const [name, svc] of Object.entries(stack.services)) {
     for (const dep of Object.keys(svc.depends_on ?? {})) if (!(dep in stack.services)) delete svc.depends_on[dep];
@@ -43,6 +62,8 @@ export function portainer(src) {
       svc.image = `\${${imageVar}:-${images.app}}:\${${tagVar}:-${channels.app.stable}}`;
     } else if (name === "db") {
       svc.image = `\${${pgImageVar}:-${images.postgres}}:\${${pgTagVar}:-${channels.postgres.stable}}`;
+    } else if (updaterImage && svc.image === updaterImage) {
+      svc.image = `\${${updaterImageVar}:-${images.updater}}:\${${tagVar}:-${channels.app.stable}}`;
     }
     for (const v of svc.volumes ?? []) {
       const m = new RegExp(`^\\$\\{([A-Z0-9_]+):-${meta.slug}-([a-z]+)\\}:`).exec(String(v));
@@ -51,6 +72,18 @@ export function portainer(src) {
   }
 
   const l = links(meta);
+  // One switch for the opt-in profiles: COMPOSE_PROFILES, which Compose
+  // reads from the stack's variables. Off (empty) unless chosen.
+  const profileField = offered.length === 0 ? [] : [{
+    name: "COMPOSE_PROFILES",
+    label: meta.opt_in[offered[0]].label,
+    description: meta.opt_in[offered[0]].description,
+    select: [
+      { text: meta.opt_in[offered[0]].off, value: "", default: true },
+      { text: meta.opt_in[offered[0]].on, value: offered[0] },
+    ],
+  }];
+  if (offered.length > 1) throw new Error("portainer: one switch takes one profile; more than one opt-in profile needs its own field design");
   const env = (channel) => [
     ...Object.entries(meta.env).map(([name, v]) => ({ name, label: v.label, ...(v.default !== undefined ? { default: v.default } : {}) })),
     ...Object.entries(volumeVars).map(([vol, name]) => ({
@@ -59,6 +92,7 @@ export function portainer(src) {
     })),
     { name: tagVar, label: "Image tag", default: channels.app[channel], preset: true },
     { name: pgTagVar, label: "Database image tag", default: channels.postgres[channel], preset: true },
+    ...profileField,
   ];
   // The web port's variable, read from the stack's own port line.
   const webPortVar = Object.values(stack.services)
@@ -101,11 +135,14 @@ export function portainer(src) {
   const varsInStack = new Set([...JSON.stringify(stack).matchAll(/\$\{([A-Z0-9_]+)/g)].map((m) => m[1]));
   for (const t of templates.templates) {
     for (const e of t.env) {
-      if (!varsInStack.has(e.name)) throw new Error(`portainer: template variable ${e.name} is not read by the stack file`);
+      // COMPOSE_PROFILES is read by Compose itself, and does something only
+      // when the stack has a service under that profile.
+      const read = e.name === "COMPOSE_PROFILES" ? e.select?.every((o) => o.value === "" || offered.includes(o.value)) && offered.length > 0 : varsInStack.has(e.name);
+      if (!read) throw new Error(`portainer: template variable ${e.name} is not read by the stack file`);
     }
   }
   return {
-    [PORTAINER_STACK]: `${generatedNotice(src)}\n# The stack file of the Portainer app templates in templates.json.\n${dumpYaml(stack)}`,
+    [PORTAINER_STACK]: `${generatedNotice(src)}\n# The stack file of the Portainer app templates in templates.json.\n${offered.map((pr) => `# ${Object.keys(stack.services).filter((n) => stack.services[n].profiles?.includes(pr)).join(", ")} starts only with COMPOSE_PROFILES=${pr} (the template's "${meta.opt_in[pr].label}"); only then does any container get the Docker socket.\n`).join("")}${dumpYaml(stack)}`,
     "portainer/templates.json": `${JSON.stringify(templates, null, 2)}\n`,
   };
 }

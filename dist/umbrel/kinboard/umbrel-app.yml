@@ -3,7 +3,7 @@ manifestVersion: 1
 id: kinboard
 category: automation
 name: Kinboard
-version: 1.18.0-main.2c31942
+version: 1.18.0-main.45e1152
 tagline: Your family's day, on one screen
 description: |-
   Kinboard is a self-hosted family dashboard, built for a touchscreen on the kitchen wall and every phone in the house. Calendars (Google, CalDAV and iCal), meals and recipes, shopping lists, tasks, chores and rewards, a photo screensaver, weather, and your smart home through Home Assistant, on one screen everyone in the family can use.

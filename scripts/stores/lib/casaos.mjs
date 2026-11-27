@@ -16,7 +16,7 @@ const localized = (obj) => Object.fromEntries(Object.entries(obj).map(([l, v]) =
 export function casaos(src) {
   const { meta, images: names } = src;
   const images = pinnedImages(meta, names);
-  const model = serviceModel(src, { images, env: () => undefined });
+  const model = serviceModel(src, { name: "casaos", images, env: () => undefined });
   const l = links(meta);
   const web = meta.ports.web;
 

@@ -403,6 +403,70 @@ test.describe("when the update takes the config archive (stub harness)", () => {
   });
 });
 
+/**
+ * The dump check (RFC-024 §4.7): the app-store listings run kinboard-postgres,
+ * stock PostgreSQL 17 with no auth, storage or realtime schema, and the
+ * Portainer template's updater backs those installs up. A dump is Kinboard's
+ * when it has Kinboard's own families table, whichever image wrote it.
+ */
+test.describe("the dump is checked for Kinboard's own tables, not supabase/postgres's", () => {
+  const tables = (n: number) => Array.from({ length: n }, (_, i) => `CREATE TABLE public.t${i} (\n);\n`).join("");
+  const STOCK = `CREATE SCHEMA extensions;\nCREATE SCHEMA kinboard;\nCREATE TABLE public.families (\n    id uuid NOT NULL\n);\n${tables(62)}`;
+
+  test("a dump of stock PostgreSQL (kinboard-postgres, no auth schema) is a backup: the update goes on", () => {
+    const r = rig();
+    r.setDump(STOCK);
+    try {
+      const res = r.run();
+      expect(res.status, res.out).toBe(0);
+      expect(res.log).toMatch(/backup: pre-upgrade-\d{8}-\d{6}\.sql\.gz \(63 tables\)/);
+      expect(res.recreated).toEqual(["webapp"]);
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  test("a supabase/postgres dump still is (the default stub dump has the auth schema and families)", () => {
+    const r = rig();
+    try {
+      const res = r.run();
+      expect(res.status, res.out).toBe(0);
+      expect(res.log).toMatch(/backup: pre-upgrade-\d{8}-\d{6}\.sql\.gz \(61 tables\)/);
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  test("red: a dump without the families table is refused, auth schema or not, and nothing is recreated", () => {
+    for (const dump of [`CREATE SCHEMA auth;\n${tables(62)}`, tables(62), `-- CREATE TABLE public.families (\n${tables(62)}`]) {
+      const r = rig();
+      r.setDump(dump);
+      try {
+        const res = r.run();
+        expect(res.status).toBe(1);
+        expect(res.out).toContain("the dump has no families table — it is not a backup of Kinboard");
+        expect(res.out).toContain("ABORTED: no verified backup");
+        expect(res.recreated).toEqual([]);
+      } finally {
+        r.cleanup();
+      }
+    }
+  });
+
+  test("red: an empty dump is still refused by the table count", () => {
+    const r = rig();
+    r.setDump("CREATE TABLE public.families (\n);\n");
+    try {
+      const res = r.run();
+      expect(res.status).toBe(1);
+      expect(res.out).toContain("the dump has only 1 tables");
+      expect(res.recreated).toEqual([]);
+    } finally {
+      r.cleanup();
+    }
+  });
+});
+
 test("the update script never copies .env into a backup (RFC-023 §11.7)", () => {
   const backup = script.slice(script.indexOf("take_backup() {"), script.indexOf("\nBACKUP_FILE=\"\""));
   expect(backup.length).toBeGreaterThan(1000);
