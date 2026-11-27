@@ -374,6 +374,25 @@ test.describe("who may delete it", () => {
     }
   });
 
+  test("red: another family's id in the request is ignored; the session's family is checked", async () => {
+    const asked: string[] = [];
+    const { d, calls } = deps({
+      isOperator: async (familyId) => { asked.push(`operator:${familyId}`); return familyId === "operator-fam"; },
+      hasPin: async (familyId) => { asked.push(`pin:${familyId}`); return true; },
+    });
+    const r = await deleteOldDatabaseRequest(
+      { familyId: "other-fam", deviceId: "dev", body: { pin: "1234", family_id: "operator-fam", familyId: "operator-fam" } },
+      d,
+    );
+    expect(r).toEqual({ status: 403, body: { error: "not_operator" } });
+    expect(asked).toEqual(["operator:other-fam"]);
+    expect(calls.remove).toBe(0);
+    // And the route passes the session's family, never the request's.
+    const src = read(join(__dirname, "..", "src", "app", "api", "old-database", "route.ts"));
+    expect(src).toContain("{ familyId: auth.session.familyId, deviceId: auth.session.deviceId, body }");
+    expect(src).not.toMatch(/body\??\.(family_id|familyId)/);
+  });
+
   test("the live route wires the shared PIN limiter and the operator check", () => {
     const src = read(join(__dirname, "..", "src", "app", "api", "old-database", "route.ts"));
     expect(src).toContain("verifyPin: (familyId, pin) => verifySettingsPin(familyId, pin)");
