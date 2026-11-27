@@ -652,6 +652,80 @@ test.describe("kinboard-updater, container mode (RFC-023 PR 14)", () => {
     }
   });
 
+  // Fail closed (#596's finding): the UI's variables are the only list a
+  // plain secret like this one is on. When they cannot be read, the excerpt
+  // is not stored at all, only a note that says why.
+  const WITHHELD = "log excerpt withheld: could not read the containers' settings to hide secrets; see the update log on the host";
+  for (const [how, what] of [
+    ["fail", "the inspect fails (a socket hiccup, a container gone mid-rollback)"],
+    ["empty", "the inspect returns nothing for a container that exists"],
+    ["garbled", "the inspect returns something that is not NAME=value lines"],
+  ] as const) {
+    test(`the UI's variables cannot be read (${what}): no log excerpt is stored, a note says so, and the secret is nowhere in the record`, () => {
+      const r = rig();
+      try {
+        r.edit((s) => {
+          const w = Object.values(s.containers).find((x: any) => x.Name === "/kinboard-webapp") as Inspect;
+          w.Config.Env.push("KINBOARD_SERVICE_ROLE_KEY=Zm9vYmFyLXNlcnZpY2Utcm9sZQ");
+          s.logs = { webapp: "boot with key Zm9vYmFyLXNlcnZpY2Utcm9sZQ\nsecond line of the log\n" };
+        });
+        baseline(r);
+        publish2(r);
+        r.behave(WEB2, { webapp: "exit" });
+        // Only the new webapp's: the update reads the old one's before, and
+        // that read succeeding is what lets it get as far as a rollback.
+        r.edit((s) => (s.envInspect = { [WEB2]: how }));
+        const res = r.run();
+        expect(res.record?.status, res.out).toBe("rolled_back");
+        expect(res.record?.log).toBe(WITHHELD);
+        expect(JSON.stringify(res.record)).not.toContain("Zm9vYmFyLXNlcnZpY2Utcm9sZQ");
+        expect(JSON.stringify(res.record)).not.toContain("second line of the log");
+        expect(res.log).toContain("log excerpt withheld from Settings");
+      } finally {
+        r.cleanup();
+      }
+    });
+  }
+
+  test("the secrets kept as files cannot be read through the database container: no log excerpt is stored", () => {
+    const r = rig();
+    try {
+      r.edit((s) => (s.logs = { webapp: "boot failed\n" }));
+      baseline(r);
+      publish2(r);
+      r.behave(WEB2, { webapp: "exit" });
+      r.edit((s) => (s.secretsUnreadable = true));
+      const res = r.run();
+      expect(res.record?.status, res.out).toBe("rolled_back");
+      expect(res.record?.log).toBe(WITHHELD);
+      expect(JSON.stringify(res.record)).not.toContain("boot failed");
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  test("a container outside Kinboard whose environment cannot be read (go2rtc) changes nothing: the excerpt is stored, redacted", () => {
+    const r = rig();
+    try {
+      r.edit((s) => {
+        const w = Object.values(s.containers).find((x: any) => x.Name === "/kinboard-webapp") as Inspect;
+        w.Config.Env.push("KINBOARD_SERVICE_ROLE_KEY=Zm9vYmFyLXNlcnZpY2Utcm9sZQ");
+        s.logs = { webapp: "boot with key Zm9vYmFyLXNlcnZpY2Utcm9sZQ\n" };
+        // Variables on another container still count when that one is read.
+        s.envInspect = { go2rtc: "fail" };
+      });
+      baseline(r);
+      publish2(r);
+      r.behave(WEB2, { webapp: "exit" });
+      const res = r.run();
+      expect(res.record?.status, res.out).toBe("rolled_back");
+      expect(String(res.record?.log)).toContain("boot with key [redacted]");
+      expect(JSON.stringify(res.record)).not.toContain("Zm9vYmFyLXNlcnZpY2Utcm9sZQ");
+    } finally {
+      r.cleanup();
+    }
+  });
+
   test("compose-file mode with one file missing (the .env gone, the compose file there) is reported, not container mode", () => {
     const r = rig();
     try {

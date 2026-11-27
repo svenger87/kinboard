@@ -85,6 +85,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Security
 
 - **Kinboard refuses to change or delete every row of a table by mistake.** A change or removal that names no row, the kind that would wipe a whole list for every family at once, is now stopped inside Kinboard before it reaches the database, on the tablets and phones as well as on the server, with an error that names the table (in the server log when the server made the request). The database already refuses such a request on today's installs; this is a second net in front of it, so a future install without that database safeguard is no weaker. Nothing in Kinboard writes that way today, so nothing a family does changes (RFC-024 §4.2.1).
+- **A log excerpt is never stored half-cleaned.** After an update that didn't start, Settings shows the last lines the containers logged, with passwords, tokens and keys taken out first. On an install set up in a Compose UI or an Unraid template, without a `.env`, the values to take out are read from the containers' own settings, and if that read failed (a container gone mid-rollback, a hiccup on the Docker socket), the excerpt was stored anyway, cleaned only of what looks like a secret: a plain password set in the UI could reach Settings as written. Now, when any place the secrets are read from can't be read, no excerpt is stored, only a line saying it was withheld and that the full log is on the host. The update log on the host is now readable by root only (0600), including one an older version created.
 
 ## [1.17.0] - 2026-11-25
 

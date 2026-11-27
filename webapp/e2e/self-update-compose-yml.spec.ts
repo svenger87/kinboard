@@ -238,6 +238,26 @@ test.describe("a git install on the root compose.yml", () => {
     }
   });
 
+  test("the secrets kept as files cannot be read (the database container's exec fails): no log excerpt is stored, a note says why", () => {
+    const r = rig({ registry: { [NEXT]: "sha256:web2" } });
+    const vapid = "Zx3_kQ9-wPq7mN2bV5cL8aR1tY4uI6oE0sD3fG7hJ9k";
+    r.setStoredSecrets([vapid]);
+    r.setStoredSecretsUnreadable();
+    r.setHealth("sha256:web2", BROKEN);
+    r.setLogs("webapp", `[push] key ${vapid} rejected\n`);
+    try {
+      const res = r.run();
+      expect(res.record).toMatchObject({
+        status: "rolled_back",
+        log: "log excerpt withheld: could not read the containers' settings to hide secrets; see the update log on the host",
+      });
+      expect(JSON.stringify(res.record)).not.toContain(vapid);
+      expect(JSON.stringify(res.record)).not.toContain("[push]");
+    } finally {
+      r.cleanup();
+    }
+  });
+
   test("uploaded files in a host folder (KINBOARD_STORAGE_DIR): backed up next to it, as $DATA_DIR/backups is", () => {
     const r = rig({ registry: { [NEXT]: "sha256:web2" } });
     r.setMount("webapp", "/var/lib/storage", "/srv/kinboard/storage");

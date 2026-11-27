@@ -156,7 +156,8 @@ case "$1" in
       *Destination*)
         dest="$(printf '%s' "$3" | sed -n 's/.*eq .Destination "\([^"]*\)".*/\1/p')"
         awk -v d="$dest" '$1 == d { print $2 }' "$STUB/mounts/$(cid "$4")" 2>/dev/null ;;
-      *State.Status*) cat "$STUB/health-svc/$(cid "$4")" 2>/dev/null || cat "$STUB/health/$(esc "$id")" 2>/dev/null || echo "running|healthy|0|0|unless-stopped" ;;
+      *State.Status*) [ ! -f "$STUB/on-health" ] || { sh "$STUB/on-health"; rm -f "$STUB/on-health"; }
+        cat "$STUB/health-svc/$(cid "$4")" 2>/dev/null || cat "$STUB/health/$(esc "$id")" 2>/dev/null || echo "running|healthy|0|0|unless-stopped" ;;
       *Config.Image*) echo "$ref" ;;
       *Created*) echo "$created" ;;
       *.Image*) echo "$id" ;;
@@ -183,7 +184,9 @@ case "$1" in
         r="$(cat "$STUB/smoke/$(esc "$id")" 2>/dev/null || echo '200|{"deep":{"ok":true,"missing":[],"write":true}}')"
         printf '%s\n%s\n' "$(printf '%s' "$r" | cut -d'|' -f2-)" "$(printf '%s' "$r" | cut -d'|' -f1)" ;;
       */kinboard/secrets/*)
-        cat "$STUB/stored-secrets" 2>/dev/null ;;
+        # The real command exits 0 when the folder holds no secrets.
+        [ -f "$STUB/stored-secrets-unreadable" ] && { echo "Error response from daemon: stub: exec failed" >&2; exit 1; }
+        cat "$STUB/stored-secrets" 2>/dev/null || true ;;
       *pg_dumpall*)
         [ -f "$STUB/dump" ] && { cat "$STUB/dump"; exit 0; }
         echo "CREATE SCHEMA auth;"; echo "CREATE TABLE public.families ("; echo ");"; i=0; while [ $i -lt 60 ]; do echo "CREATE TABLE t$i ();"; i=$((i + 1)); done ;;
@@ -342,7 +345,7 @@ export class Rig {
   readonly stub = join(this.dir, "stub");
   readonly proj = join(this.dir, "proj");
   private readonly bin = join(this.dir, "bin");
-  private readonly logFile = join(this.dir, "update.log");
+  readonly logFile = join(this.dir, "update.log");
 
   constructor(private readonly sc: Scenario, opts: { failHashes?: boolean } = {}) {
     const git = (cwd: string, ...args: string[]) =>
@@ -438,6 +441,14 @@ export class Rig {
   /** The files in the config folder's secrets/, as the database container would cat them. */
   setStoredSecrets(values: string[]) {
     writeFileSync(join(this.stub, "stored-secrets"), values.map((v) => `STORED_SECRET=${v}`).join("\n") + "\n");
+  }
+  /** A shell command run once, at the first health probe (after the recreate, before any rollback). */
+  onHealthProbe(cmd: string) {
+    writeFileSync(join(this.stub, "on-health"), cmd + "\n");
+  }
+  /** The database container's exec fails, so the secrets kept as files cannot be read. */
+  setStoredSecretsUnreadable() {
+    writeFileSync(join(this.stub, "stored-secrets-unreadable"), "");
   }
 
   get hashesPath() {
@@ -578,9 +589,18 @@ export class Rig {
    */
   run(args: string[] = [], env: Record<string, string> = {}, opts: { asRoot?: boolean } = {}): RunResult {
     const read = (p: string) => (existsSync(p) ? readFileSync(p, "utf8") : "");
+    // The update log is 0600: after a run as root, root's alone, as on a host.
+    const readLog = (p: string) => {
+      try {
+        return read(p);
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "EACCES") throw e;
+        return execFileSync("sudo", ["-n", "cat", p], { encoding: "utf8" });
+      }
+    };
     for (const f of ["recreated", "calls", "pulls", "status", "status-key", "writes", "tags", "psql", "runs", "globals", "tz", "curls"]) rmSync(join(this.stub, f), { force: true });
     const logFile = this.sc.updater ? join(this.updaterDir, "update.log") : this.logFile;
-    const logBefore = read(logFile).length;
+    const logBefore = readLog(logFile).length;
     const lock = join(this.proj, ".git", "kinboard-update.lock");
     const scriptEnv: Record<string, string> = {
       PATH: `${this.bin}:${process.env.PATH}`,
@@ -643,7 +663,7 @@ export class Rig {
       record: status ? (JSON.parse(status) as Record<string, unknown>) : null,
       recordKey: read(join(this.stub, "status-key")).trim() || (status ? "update_status" : null),
       tags: read(join(this.stub, "tags")).split("\n").filter(Boolean),
-      log: read(logFile).slice(logBefore),
+      log: readLog(logFile).slice(logBefore),
       runs: read(join(this.stub, "runs")),
       globals: [...new Set(read(join(this.stub, "globals")).split("\n").filter(Boolean))],
       tz: [...new Set(read(join(this.stub, "tz")).split("\n").filter(Boolean))],

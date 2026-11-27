@@ -481,6 +481,14 @@ function docker(argv) {
     for (const n of names) {
       const c = findContainer(s, n);
       if (!c) return done(1, out, `Error: No such object: ${n}\n`);
+      // A container's environment that cannot be read (a socket hiccup, a
+      // container removed between the lookup and the inspect), read as
+      // nothing, or read garbled: s.envInspect[image id or service].
+      const ei = s.envInspect || {};
+      const envFail = f && f.includes(".Config.Env") && (ei[c.Image] || ei[(c.Config.Labels || {})["com.docker.compose.service"]]);
+      if (envFail === "fail") return done(1, out, "Error response from daemon: stub: inspect failed\n");
+      if (envFail === "empty") { out += "\n"; continue; }
+      if (envFail === "garbled") { out += render(parseTemplate(f), c) + "\n<html>502 Bad Gateway</html>\n"; continue; }
       found.push(c);
       if (f) out += render(parseTemplate(f), c) + "\n";
     }
@@ -596,7 +604,7 @@ function docker(argv) {
       const r = ((s.smoke || {})[c ? c.Image : ""] || '200|{"deep":{"ok":true,"missing":[],"write":true}}').split("|");
       return done(0, `${r.slice(1).join("|")}\n${r[0]}\n`);
     }
-    if (/\/kinboard\/secrets\//.test(line)) return done(0, "");
+    if (/\/kinboard\/secrets\//.test(line)) return s.secretsUnreadable ? done(1, "", "Error response from daemon: stub: exec failed\n") : done(0, "");
     if (/ test -s \/data\/backups\//.test(line)) return s.dumpMissing ? done(1) : done(0);
     // The all-in-one image's own verified dump (kinboard-backup.sh).
     if (/kinboard-backup\.sh/.test(line)) {
