@@ -32,6 +32,7 @@ interface SourcesModule {
   REPO_ROOT: string;
   loadSources(root?: string): Sources;
   metadataProblems(m: unknown, file?: string): string[];
+  isReverseDomain(s: unknown): boolean;
   imageNamesFromWorkflow(text: string, owner: string): { app: string; postgres: string; updater: string };
   yaml: { load(s: string): any; dump(v: unknown, o?: object): string }; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
@@ -313,6 +314,17 @@ test.describe("one source", () => {
       expect(() => loadSources(root)).toThrow(/license MIT differs from webapp\/package\.json's/);
     } finally {
       rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the reverse-domain id check is linear: a long 0.0.0… input answers at once", async () => {
+    const { isReverseDomain } = await sourcesMod;
+    for (const ok of ["app.kinboard", "com.example.myapp", "a_b.c-d", "x.y.z.1", "0.0"]) expect(isReverseDomain(ok), ok).toBe(true);
+    for (const bad of ["kinboard", "a..b", ".a", "a.", "A.b", "a.b_", "a-b", "a._b", "", null]) expect(isReverseDomain(bad), String(bad)).toBe(false);
+    for (const evil of [`0.0${".0".repeat(50_000)}!`, `0${".0".repeat(50_000)}.`, `a${"_a".repeat(50_000)}.-`]) {
+      const t = Date.now();
+      expect(isReverseDomain(evil)).toBe(false);
+      expect(Date.now() - t).toBeLessThan(200);
     }
   });
 

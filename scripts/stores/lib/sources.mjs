@@ -36,7 +36,15 @@ export function metadataPath(root = REPO_ROOT) {
 
 const LOCALES = ["en", "de"];
 const SLUG = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
-const REVERSE_DOMAIN = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\.[a-z0-9]+(?:[._-][a-z0-9]+)*)+$/;
+/**
+ * CasaOS's id rule (validate_compose.py): runs of [a-z0-9] joined by single
+ * `.`, `_` or `-`, with at least one `.`. Their pattern nests quantifiers
+ * and backtracks exponentially on input such as "0.0.0…0!"; this one has a
+ * single separator class between runs, so it is linear, and the `.` is
+ * checked apart.
+ */
+const ID_RUNS = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
+export const isReverseDomain = (s) => typeof s === "string" && s.includes(".") && ID_RUNS.test(s);
 const SPDX = /^[A-Za-z0-9.+-]+$/;
 const DIGEST = /^sha256:[0-9a-f]{64}$/;
 
@@ -54,7 +62,7 @@ export function metadataProblems(m, file = "metadata") {
   need(m.schema === 1, "schema must be 1");
   need(str(m.name), "name is required");
   need(typeof m.slug === "string" && SLUG.test(m.slug), "slug must be lowercase kebab-case");
-  need(typeof m.id === "string" && REVERSE_DOMAIN.test(m.id), "id must be a reverse-domain id such as app.example");
+  need(isReverseDomain(m.id), "id must be a reverse-domain id such as app.example");
   need(typeof m.repository === "string" && /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(m.repository), "repository must be owner/name");
   for (const key of ["tagline", "first_run"]) {
     for (const l of LOCALES) need(str(m[key]?.[l]), `${key}.${l} is required`);
