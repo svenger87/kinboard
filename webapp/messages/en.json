@@ -5267,7 +5267,7 @@
       "addressFromEnvironment": "Set on the server (SITE_URL): {value}. That setting wins; change it there.",
       "addressInvalid": "That isn't an address like http://192.168.1.20:3000: a scheme, a host and a port, nothing after them.",
       "dataTitle": "Where your data lives",
-      "dataBody": "Everything stays on this server. Calendars, lists, people and settings are in its database; photos and other uploads are files beside it. Both are in the install's data folder (<code>DATA_DIR</code>, <code>./data</code> next to the compose file unless you chose another). Back up that folder, or download a copy any time under Settings → Data & backup.",
+      "dataBody": "Everything stays on this server. Calendars, lists, people and settings are in its database; photos and other uploads are files beside it. Where that is depends on how Kinboard was installed: with <code>compose.yml</code>, in its three Docker volumes or the folders you named for them (<code>KINBOARD_DB_DIR</code> and the others); with git and <code>setup.sh</code>, in the data folder (<code>DATA_DIR</code>, <code>./data</code> unless you chose another); as one container, in its <code>/data</code> folder. Back that up, or download a copy any time under Settings → Data & backup.",
       "dataBodyAio": "Everything stays on this server. Calendars, lists, people and settings are in its database; photos and other uploads are files beside it. Both are in the folder you mapped to <code>/data</code> (for example <code>/mnt/user/appdata/kinboard-aio</code> on Unraid). Back up that folder, or download a copy any time under Settings → Data & backup.",
       "saveError": "Couldn't save the address. Try again."
     },
