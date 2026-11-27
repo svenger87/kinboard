@@ -2782,7 +2782,16 @@
       "dismiss": "Ausblenden",
       "actionFailed": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
       "retryTooSoon": "Kinboard wurde vor wenigen Minuten schon gebeten, es erneut zu versuchen. Bitte warte, bevor du es noch einmal versuchst.",
-      "updatedLine": "Automatisch auf {version} aktualisiert am {date}"
+      "updatedLine": "Automatisch auf {version} aktualisiert am {date}",
+      "pullTitle": "Kinboard konnte sein letztes Update nicht herunterladen.",
+      "pullLocalTitle": "Das letzte Update konnte Kinboards Ordner auf dem Server nicht aktualisieren.",
+      "pullOwnership": "Git hat den Ordner, in dem Kinboard installiert ist, abgelehnt, weil er einem anderen Benutzer gehört als dem, unter dem der Updater läuft. Es wurde nichts installiert.",
+      "pullPermission": "Git konnte nicht in den Ordner schreiben, in dem Kinboard installiert ist. Es wurde nichts installiert.",
+      "pullFetch": "Git konnte die Quelle von Kinboards Updates nicht erreichen. Es wurde nichts geändert; das nächste Update versucht es erneut.",
+      "pullLocal": "Einige Dateien, die du in diesem Ordner geändert hast, ändert auch dieses Release, deshalb ist der Ordner auf dem alten Stand geblieben. Die App selbst wurde aktualisiert.",
+      "pullAt": "Letzter Versuch: {time}.",
+      "pullFix": "Zum Beheben führe dies einmal auf dem Server aus, als der Benutzer, dem der Ordner gehört:",
+      "pullFixLocal": "Bewahre deine eigenen Änderungen woanders auf (in einer eigenen Overlay-Datei) und führe dann dies auf dem Server aus, als der Benutzer, dem der Ordner gehört:"
     },
     "pushReset": {
       "title": "Push-Benachrichtigungen müssen wieder eingeschaltet werden",

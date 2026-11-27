@@ -135,6 +135,152 @@ log() {
 }
 
 # ---------------------------------------------------------------------------
+# A checkout that root does not own.
+#
+# The webhook runs this script as root, and a git install is usually cloned
+# by a normal user. Since 2.35.2 git refuses a repository owned by someone
+# else ("detected dubious ownership"), so on such an install `git fetch`
+# failed at every run and the update never happened: v1.17.0's script ended
+# there without a word, later ones logged it and exited. Setting
+# safe.directory in root's global config would not survive the container,
+# and `safe.directory='*'` would trust every repository. So every git call
+# here names this checkout, and only it, on its own command line: both the
+# path as given and as the kernel resolves it, since git compares against
+# the resolved one. (core.quotepath=off: file names come out as they are, not
+# as "\303\244" in quotes, for the lists below.)
+#
+# And root's git leaves every file it writes owned by root: a household's own
+# `git pull` or editor then fails on them. The webhook image has no way to run
+# git as another user (busybox's setpriv only changes capabilities, there is
+# no su-exec, and su needs a passwd entry for the uid), so git runs as root
+# and afterwards exactly what it wrote goes back to the checkout's owner:
+#
+#   - in the working tree, the files the pull changed (git diff --name-only
+#     between the commit before and after) and the folders it created for
+#     them. Skip-worktree files (kong.yml and diun/diun.yml on some installs,
+#     holding keys) are left out: git does not write them, and their owner is
+#     the household's choice. Nothing recursive, nothing else: the data
+#     folders in the checkout belong to the containers that write them;
+#   - in .git, the entries that became root's during the git calls (a list
+#     taken before and after; this script's own kinboard-* files aside). A
+#     root-owned FETCH_HEAD or objects folder stops the household's own
+#     `git fetch` with "Permission denied".
+#
+# A checkout root owns (Unraid runs everything as root) and a run that is not
+# root's (on the host, as the owner) change nothing here.
+# ---------------------------------------------------------------------------
+GIT_SAFE_REAL=""
+if [ -z "$UPDATER" ] && [ -d "$PROJECT_DIR" ]; then
+  GIT_SAFE_REAL="$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P || true)"
+fi
+git() {
+  if [ -n "$GIT_SAFE_REAL" ] && [ "$GIT_SAFE_REAL" != "$PROJECT_DIR" ]; then
+    command git -c safe.directory="$PROJECT_DIR" -c safe.directory="$GIT_SAFE_REAL" -c core.quotepath=off "$@"
+  else
+    command git -c safe.directory="$PROJECT_DIR" -c core.quotepath=off "$@"
+  fi
+}
+
+# uid:gid of the checkout's owner when this run is root's and the checkout is
+# not; empty otherwise (nothing to hand back).
+HAND_BACK_TO=""
+if [ -z "$UPDATER" ] && [ "$(id -u)" = 0 ] && [ -d "$PROJECT_DIR" ]; then
+  owner="$(stat -c '%u:%g' "$PROJECT_DIR" 2>/dev/null || true)"
+  case "$owner" in
+    0:* | "") ;;
+    *) HAND_BACK_TO="$owner" ;;
+  esac
+fi
+
+# $@: paths. Each one that exists and belongs to root goes to the checkout's
+# owner; a symlink itself, not what it points to. Prints how many it handed.
+hand_back() {
+  hb_n=0
+  for hb_p in "$@"; do
+    { [ -e "$hb_p" ] || [ -L "$hb_p" ]; } || continue
+    # Only inside the checkout: a folder on the way that became a symlink
+    # does not lead this chown elsewhere.
+    in_checkout "$(dirname "$hb_p")" || continue
+    [ "$(stat -c %u "$hb_p" 2>/dev/null)" = 0 ] || continue
+    chown -h "$HAND_BACK_TO" "$hb_p" 2>/dev/null && hb_n=$((hb_n + 1))
+  done
+  echo "$hb_n"
+}
+
+# $1: a folder. Whether it is the checkout or inside it, symlinks resolved.
+in_checkout() {
+  ic_real="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
+  case "$ic_real/" in "${GIT_SAFE_REAL:-$PROJECT_DIR}/"*) return 0 ;; esac
+  return 1
+}
+
+# .git's root-owned entries, one per line, this script's own files aside.
+git_dir_root_owned() {
+  find "$GIT_DIR_ABS" -path "$GIT_DIR_ABS/kinboard-*" -prune -o -user 0 -print 2>/dev/null | sort
+}
+
+# After the git calls: what in .git became root's since GIT_ROOT_BEFORE.
+hand_back_git_dir() {
+  [ -n "$HAND_BACK_TO" ] || return 0
+  [ -f "$GIT_ROOT_BEFORE" ] || return 0
+  git_dir_root_owned > "$GIT_ROOT_BEFORE.after" 2>/dev/null || return 0
+  hbg_new="$(comm -13 "$GIT_ROOT_BEFORE" "$GIT_ROOT_BEFORE.after" 2>/dev/null || true)"
+  rm -f "$GIT_ROOT_BEFORE.after"
+  [ -n "$hbg_new" ] || return 0
+  hbg_n="$(printf '%s\n' "$hbg_new" | { set --; while IFS= read -r l; do set -- "$@" "$l"; done; hand_back "$@"; })"
+  log "gave $hbg_n file(s) git wrote in .git back to $HAND_BACK_TO, the checkout's owner"
+}
+
+# $1, $2: the commits before and after a pull. The working-tree files it
+# changed, and the folders it created for them, go back to the owner.
+hand_back_pulled() {
+  [ -n "$HAND_BACK_TO" ] || return 0
+  [ "$1" != "$2" ] || return 0
+  hbp_skip="$(git ls-files -v 2>/dev/null | awk '/^S / { print substr($0, 3) }')"
+  hbp_list="$(git diff --name-only "$1" "$2" 2>/dev/null | while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      printf '%s\n' "$hbp_skip" | grep -qxF -- "$f" && continue
+      printf '%s\n' "$PROJECT_DIR/$f"
+      # The folders that did not exist before the pull: git made them.
+      d="$(dirname "$f")"
+      while [ "$d" != . ] && [ "$d" != / ]; do
+        git cat-file -e "$1:$d" 2>/dev/null && break
+        printf '%s\n' "$PROJECT_DIR/$d"
+        d="$(dirname "$d")"
+      done
+    done | sort -u)"
+  [ -n "$hbp_list" ] || return 0
+  hbp_n="$(printf '%s\n' "$hbp_list" | { set --; while IFS= read -r l; do set -- "$@" "$l"; done; hand_back "$@"; })"
+  [ "$hbp_n" = 0 ] || log "gave $hbp_n file(s) the pull wrote back to $HAND_BACK_TO, the checkout's owner"
+}
+
+# webapp/docker/.env that an earlier update gave to root (setup.sh, run as
+# root here, wrote it as a new file until #539's fix): back to the checkout's
+# owner, its mode kept but at most 0640, since it holds the install's secrets.
+# Before setup.sh runs, so that setup.sh, which keeps the owner it finds, keeps
+# this one. Logged when it happens, which is once.
+hand_back_env() {
+  [ -n "$HAND_BACK_TO" ] || return 0
+  hbe_f="$PROJECT_DIR/webapp/docker/.env"
+  [ -f "$hbe_f" ] || return 0
+  # A symlinked .env (setup.sh writes where it points): only a target inside
+  # the checkout is handed back; root's chown follows no link out of it.
+  if [ -L "$hbe_f" ]; then
+    hbe_t="$(readlink -f "$hbe_f" 2>/dev/null || true)"
+    [ -n "$hbe_t" ] && in_checkout "$(dirname "$hbe_t")" || return 0
+    hbe_f="$hbe_t"
+  fi
+  [ "$(stat -L -c %u "$hbe_f" 2>/dev/null)" = 0 ] || return 0
+  hbe_old="$(stat -L -c %a "$hbe_f")"
+  hbe_new="$(printf '%o' $(( 0$hbe_old & 0640 )))"
+  if chown "$HAND_BACK_TO" "$hbe_f" 2>/dev/null && chmod "$hbe_new" "$hbe_f" 2>/dev/null; then
+    log "webapp/docker/.env belonged to root (an earlier update wrote it); gave it back to $HAND_BACK_TO, the checkout's owner, mode $hbe_old → $hbe_new"
+  else
+    log "WARN: webapp/docker/.env belongs to root and could not be given back to $HAND_BACK_TO; run on the host: sudo chown $HAND_BACK_TO '$hbe_f' && sudo chmod $hbe_new '$hbe_f'"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # Pre-upgrade backup.
 #
 # This script runs INSIDE the webhook container, which mounts the project and
@@ -804,6 +950,38 @@ write_status() {
   else
     log "WARN: could not record the status for Settings: $2"
   fi
+}
+
+# A git step that failed, for Settings (instance_settings.update_pull), under
+# its own key so that it never replaces a rollback notice. Until now this was
+# only in the log: a household whose checkout git refused saw no update and no
+# reason. $1: ownership (git refused a checkout another user owns),
+# permission (git could not write it), fetch (could not fetch: network,
+# GitHub, a refused key), pull (fetched, but local edits or commits stopped the
+# pull; the images were still updated). $2: git's first line, or (pull) the
+# files in the way, one per line, empty when it was commits.
+record_pull_failure() {
+  rpf_log="$LOG_FILE"
+  [ "$LOG_FILE" != /var/log/kinboard-update.log ] || rpf_log=/var/lib/kinboard-update/kinboard-update.log
+  rpf_rec="{\"status\":\"pull_failed\",\"kind\":$(json_str "$1"),\"at\":$(json_str "$(date -u +%Y-%m-%dT%H:%M:%SZ)"),\"detail\":$(json_str "$2"),\"dir\":$(json_str "$PROJECT_DIR"),\"stack\":$(json_str "$STACK_MODE"),\"log_file\":$(json_str "$rpf_log")}"
+  # From the folder the stack's relative -f paths are read from (the git
+  # step runs at the checkout's root).
+  ( in_stack_dir; STATUS_KEY=update_pull write_status "$rpf_rec" "git could not $( [ "$1" = pull ] && echo pull || echo fetch ) ($1: $(printf '%s' "$2" | tr '\n' ' '))" )
+}
+
+# Into webapp/docker, where a legacy stack's COMPOSE_FILES are relative to.
+in_stack_dir() {
+  [ "$STACK_MODE" != legacy ] || cd "$PROJECT_DIR/webapp/docker" 2>/dev/null || true
+}
+
+# The record above, once a run fetched and pulled.
+clear_pull_failure() {
+  cpf_db="$(in_stack_dir; db_container)"
+  [ -n "$cpf_db" ] || return 0
+  # -c, not stdin: nothing of ours in it.
+  cpf_out="$(docker exec "$cpf_db" psql -U supabase_admin -d postgres -tAq -v ON_ERROR_STOP=1 \
+    -c "DELETE FROM public.instance_settings WHERE key = 'update_pull' RETURNING key" 2>/dev/null || true)"
+  [ -z "$cpf_out" ] || log "status for Settings: git fetched and pulled again; the earlier failure is cleared"
 }
 
 # "Try again now" in Settings writes update_retry; it releases every held
@@ -3252,16 +3430,39 @@ if [ "$MODE" = update ]; then
   fi
 
   # 1. git fetch + pull
+  # What in .git is root's before git runs (see "A checkout that root does
+  # not own").
+  GIT_ROOT_BEFORE=""
+  if [ -n "$HAND_BACK_TO" ]; then
+    GIT_ROOT_BEFORE="$(mktemp 2>/dev/null || echo "/tmp/kinboard-git-root.$$")"
+    git_dir_root_owned > "$GIT_ROOT_BEFORE" 2>/dev/null || true
+  fi
   log "git fetch origin main"
   # No network, no GitHub: nothing has been touched yet, and nothing is.
   if ! fetch_out="$(git fetch origin main 2>&1)"; then
     printf '%s\n' "$fetch_out" >> "$LOG_FILE" 2>/dev/null || true
-    log "=== self-update skipped: git fetch failed ($(printf '%s\n' "$fetch_out" | grep -v '^[[:space:]]*$' | head -n1)); nothing was changed, retried at the next run ==="
+    first="$(printf '%s\n' "$fetch_out" | grep -v '^[[:space:]]*$' | head -n1)"
+    hand_back_git_dir
+    [ -z "$GIT_ROOT_BEFORE" ] || rm -f "$GIT_ROOT_BEFORE"
+    # Writing the checkout, as opposed to being let in by the remote: a
+    # refused SSH key or login is the remote's "Permission denied", a fetch
+    # problem the folder's owner cannot fix with a pull.
+    case "$fetch_out" in
+      *"dubious ownership"*) kind=ownership ;;
+      *publickey* | *"Authentication failed"* | *"could not read Username"* | *"Could not read from remote"*) kind=fetch ;;
+      *"insufficient permission"* | *"Read-only file system"* | *"unable to create"* | *"unable to write"* \
+        | *"cannot open"*"ermission denied"* | *"cannot lock"*"ermission denied"*) kind=permission ;;
+      *) kind=fetch ;;
+    esac
+    record_pull_failure "$kind" "$first"
+    log "=== self-update skipped: git fetch failed ($first); nothing was changed, retried at the next run ==="
     exit 1
   fi
   [ -z "$fetch_out" ] || printf '%s\n' "$fetch_out" >> "$LOG_FILE" 2>/dev/null || true
   LOCAL_SHA="$(git rev-parse HEAD)"
   REMOTE_SHA="$(git rev-parse origin/main)"
+  PULL_FAILED=""
+  PULL_FILES=""
 
   if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
     log "pulling $LOCAL_SHA → $REMOTE_SHA"
@@ -3303,6 +3504,7 @@ if [ "$MODE" = update ]; then
           mkdir -p "$GIT_DIR_ABS/kinboard-local-copies" 2>/dev/null || true
           cp -p "$f" "$GIT_DIR_ABS/kinboard-local-copies/$(printf '%s' "$f" | tr '/' '_').$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || true
           if git checkout -- "$f" 2>/dev/null; then
+            [ -z "$HAND_BACK_TO" ] || hand_back "$PROJECT_DIR/$f" >/dev/null
             log "  put back $f: its local content is a version this repository shipped (copied from an example), not an edit of your own"
           fi
         fi
@@ -3319,6 +3521,10 @@ if [ "$MODE" = update ]; then
           log "WARN: these files have local edits that this release changes too: $stuck"
           log "WARN: keep your edits elsewhere (an overlay of your own), then: git -C $PROJECT_DIR checkout -- $stuck"
         fi
+        # The files, one per line, for Settings' command; none when local
+        # commits, not edits, are in the way.
+        PULL_FAILED=1
+        PULL_FILES="$(printf '%s' "$stuck" | tr ' ' '\n' | grep -v '^$' || true)"
       fi
     else
       log "pulled $REMOTE_SHA"
@@ -3326,6 +3532,16 @@ if [ "$MODE" = update ]; then
   else
     log "git up-to-date at $LOCAL_SHA"
   fi
+  # What root's git wrote goes back to the checkout's owner.
+  hand_back_pulled "$LOCAL_SHA" "$(git rev-parse HEAD 2>/dev/null || echo "$LOCAL_SHA")"
+  hand_back_git_dir
+  [ -z "$GIT_ROOT_BEFORE" ] || rm -f "$GIT_ROOT_BEFORE"
+  if [ -n "$PULL_FAILED" ]; then
+    record_pull_failure pull "$PULL_FILES"
+  else
+    clear_pull_failure
+  fi
+  hand_back_env
 
   # 2. setup.sh — idempotent. Adds .env keys a release needs; does nothing
   #    when none are missing.
@@ -3339,8 +3555,12 @@ if [ "$MODE" = update ]; then
     log "running setup.sh --non-interactive"
     ./setup.sh --non-interactive >>"$LOG_FILE" 2>&1 || {
       log "ERROR: setup.sh failed; aborting before touching containers"
+      hand_back_env
       exit 1
     }
+    # Once more after it: a setup.sh from before #539's fix (a checkout the
+    # pull could not move) still writes .env as a new file, owned by root.
+    hand_back_env
   fi
 fi
 

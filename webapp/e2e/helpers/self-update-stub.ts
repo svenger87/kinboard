@@ -58,6 +58,8 @@ if [ "$1" = compose ]; then
     esac
   done
   printenv TZ >> "$STUB/tz" || echo "<unset>" >> "$STUB/tz"
+  # As Compose: a file that is not there (a relative -f read from the wrong folder) is an error.
+  if [ -n "$first" ] && [ ! -e "$first" ]; then echo "open $first: no such file or directory" >&2; exit 1; fi
   if [ -n "$first" ]; then cd "$(dirname "$first")" || exit 1; fi
   sub="$1"; shift
   last=""; for a in "$@"; do last="$a"; done
@@ -188,6 +190,8 @@ case "$1" in
       *psql*)
         case "$*" in *" -i "*) cat >> "$STUB/psql" ;; esac
         for a in "$@"; do case "$a" in v=*) printf '%s' "$a" | cut -c3- > "$STUB/status" ;; k=*) printf '%s' "$a" | cut -c3- > "$STUB/status-key" ;; esac; done
+        # every record, "<key> <value>" one per line, when a run writes more than one
+        case "$*" in *" -i "*) printf '%s %s\n' "$(cat "$STUB/status-key" 2>/dev/null)" "$(cat "$STUB/status" 2>/dev/null)" >> "$STUB/writes" ;; esac
         case "$*" in
           *"DELETE"*update_retry*RETURNING*)
             [ -f "$STUB/retry-delete-fails" ] && exit 1
@@ -567,56 +571,66 @@ export class Rig {
     return existsSync(p) ? readFileSync(p, "utf8").trim() : null;
   }
 
-  run(args: string[] = [], env: Record<string, string> = {}): RunResult {
+  /**
+   * `asRoot`: through `sudo -n`, as the webhook container runs it, on a
+   * checkout the test's user owns. sudo drops the environment, so the
+   * script's is handed over with `env`.
+   */
+  run(args: string[] = [], env: Record<string, string> = {}, opts: { asRoot?: boolean } = {}): RunResult {
     const read = (p: string) => (existsSync(p) ? readFileSync(p, "utf8") : "");
-    for (const f of ["recreated", "calls", "pulls", "status", "status-key", "tags", "psql", "runs", "globals", "tz", "curls"]) rmSync(join(this.stub, f), { force: true });
+    for (const f of ["recreated", "calls", "pulls", "status", "status-key", "writes", "tags", "psql", "runs", "globals", "tz", "curls"]) rmSync(join(this.stub, f), { force: true });
     const logFile = this.sc.updater ? join(this.updaterDir, "update.log") : this.logFile;
     const logBefore = read(logFile).length;
     const lock = join(this.proj, ".git", "kinboard-update.lock");
-    const res = spawnSync(
-      "sh",
-      [
-        "-c",
-        this.sc.locked
-          ? `exec 9>"$LOCK"; flock -n 9 || exit 99; sh "$SCRIPT" "$@"`
-          : this.sc.tickRunning
-            ? `echo 1 > "$LOCK.tick-marker"; mv "$LOCK.tick-marker" "$(dirname "$LOCK")/kinboard-update.tick"; ( exec 9>"$LOCK"; flock 9; sleep 1 ) & sleep 0.3; sh "$SCRIPT" "$@"`
-            : `sh "$SCRIPT" "$@"`,
-        "_",
-        ...args,
-      ],
-      {
-        encoding: "utf8",
-        // A run that never ends (a loop the guard should have stopped) fails
-        // the test instead of hanging the whole suite.
-        timeout: 60_000,
-        killSignal: "SIGKILL",
-        env: {
-          ...process.env,
-          PATH: `${this.bin}:${process.env.PATH}`,
-          STUB: this.stub,
-          SCRIPT,
-          LOCK: lock,
-          PROJECT_DIR: this.proj,
-          COMPOSE_FILES: "-f docker-compose.yml",
-          LOG_FILE: this.logFile,
-          KINBOARD_HEALTH_TIMEOUT: "3",
-          KINBOARD_HEALTH_POLL: "0.1",
-          ...(this.sc.updater
-            ? {
-                KINBOARD_UPDATER: "1",
-                KINBOARD_UPDATER_DIR: this.updaterDir,
-                KINBOARD_SELF_CONTAINER: "cid-updater-g0",
-                // The default, the config volume's updater/update.log.
-                LOG_FILE: "",
-                PROJECT_DIR: "",
-                COMPOSE_FILES: "",
-              }
-            : {}),
-          ...env,
-        },
-      },
-    );
+    const scriptEnv: Record<string, string> = {
+      PATH: `${this.bin}:${process.env.PATH}`,
+      STUB: this.stub,
+      SCRIPT,
+      LOCK: lock,
+      PROJECT_DIR: this.proj,
+      COMPOSE_FILES: "-f docker-compose.yml",
+      LOG_FILE: this.logFile,
+      KINBOARD_HEALTH_TIMEOUT: "3",
+      KINBOARD_HEALTH_POLL: "0.1",
+      ...(this.sc.updater
+        ? {
+            KINBOARD_UPDATER: "1",
+            KINBOARD_UPDATER_DIR: this.updaterDir,
+            KINBOARD_SELF_CONTAINER: "cid-updater-g0",
+            // The default, the config volume's updater/update.log.
+            LOG_FILE: "",
+            PROJECT_DIR: "",
+            COMPOSE_FILES: "",
+          }
+        : {}),
+      ...env,
+    };
+    const shArgs = [
+      "-c",
+      this.sc.locked
+        ? `exec 9>"$LOCK"; flock -n 9 || exit 99; sh "$SCRIPT" "$@"`
+        : this.sc.tickRunning
+          ? `echo 1 > "$LOCK.tick-marker"; mv "$LOCK.tick-marker" "$(dirname "$LOCK")/kinboard-update.tick"; ( exec 9>"$LOCK"; flock 9; sleep 1 ) & sleep 0.3; sh "$SCRIPT" "$@"`
+          : `sh "$SCRIPT" "$@"`,
+      "_",
+      ...args,
+    ];
+    const spawnOpts = {
+      encoding: "utf8" as const,
+      // A run that never ends (a loop the guard should have stopped) fails
+      // the test instead of hanging the whole suite.
+      timeout: 60_000,
+      killSignal: "SIGKILL" as const,
+    };
+    const res = opts.asRoot
+      ? spawnSync(
+          "sudo",
+          // Without SUDO_UID: git trusts the sudo user's checkouts by it, and
+          // the webhook container has no such thing.
+          ["-n", "env", "-u", "SUDO_UID", "-u", "SUDO_GID", "-u", "SUDO_USER", ...Object.entries(scriptEnv).map(([k, v]) => `${k}=${v}`), "sh", ...shArgs],
+          spawnOpts,
+        )
+      : spawnSync("sh", shArgs, { ...spawnOpts, env: { ...process.env, ...scriptEnv } });
     const status = read(join(this.stub, "status"));
     return {
       status: res.status,
@@ -638,7 +652,12 @@ export class Rig {
   }
 
   cleanup() {
-    rmSync(this.dir, { recursive: true, force: true });
+    try {
+      rmSync(this.dir, { recursive: true, force: true });
+    } catch {
+      // A root run's leftovers in a folder root made.
+      spawnSync("sudo", ["-n", "rm", "-rf", this.dir]);
+    }
   }
 }
 

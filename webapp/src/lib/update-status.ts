@@ -195,3 +195,85 @@ export function retryAllowed(lastAt: string | null | undefined, now: Date): bool
   if (last > now.getTime()) return true;
   return now.getTime() - last >= RETRY_INTERVAL_MS;
 }
+
+/**
+ * A git step of the self-update that failed (kinboard-self-update.sh
+ * record_pull_failure), under its own key so that it never replaces a rollback
+ * notice. The script removes it once a run fetches and pulls again.
+ *
+ * - `ownership`: git refused the checkout, which belongs to another user than
+ *   the updater's ("detected dubious ownership");
+ * - `permission`: git could not write to the checkout;
+ * - `fetch`: git could not fetch (network, GitHub);
+ * - `pull`: fetched, but local edits or commits stopped the pull. The images
+ *   were still updated; the checkout's files stayed behind.
+ */
+export const UPDATE_PULL_KEY = "update_pull";
+
+export type PullFailureKind = "ownership" | "permission" | "fetch" | "pull";
+
+export interface PullFailure {
+  kind: PullFailureKind;
+  /** When the run failed, ISO 8601. */
+  at: string;
+  /** git's first line, or (pull) the files in the way, one per line; empty when local commits were. */
+  detail: string;
+  /** The checkout on the host. */
+  dir: string;
+  /** How the stack runs: "compose" (the root compose.yml), otherwise webapp/docker with start.sh. */
+  stack: string;
+  /** Where the updater's own log is, on the host. */
+  logFile: string;
+}
+
+const PULL_KINDS: readonly PullFailureKind[] = ["ownership", "permission", "fetch", "pull"];
+
+/** The record from its stored text (or an already-parsed value), or null. */
+export function parsePullFailure(raw: unknown): PullFailure | null {
+  let v: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      v = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  if (o.status !== "pull_failed") return null;
+  const kind = PULL_KINDS.includes(o.kind as PullFailureKind) ? (o.kind as PullFailureKind) : "fetch";
+  return { kind, at: str(o.at), detail: str(o.detail), dir: str(o.dir), stack: str(o.stack), logFile: str(o.log_file) };
+}
+
+/** The record as a device without the settings unlocked may see it: what happened, not the paths or git's words. */
+export function pullFailureWithoutDetails(p: PullFailure): PullFailure {
+  return { ...p, detail: "", dir: "", logFile: "" };
+}
+
+/**
+ * The one command that gets the checkout going again, run on the host as the
+ * folder's owner, or null when there is none to give (no folder known, or a
+ * fetch that failed for the network's or the remote's reasons). For `pull`,
+ * the files in the way are put back first (the household keeps its own edits
+ * elsewhere); with none listed, local commits were in the way and the pull
+ * itself says what to do. A stack on webapp/docker is then started with
+ * start.sh; one on the root compose.yml waits for the next update.
+ */
+export function pullFixCommand(p: PullFailure): string | null {
+  if (!p.dir || p.kind === "fetch") return null;
+  const dir = shellQuote(p.dir);
+  if (p.kind === "pull") {
+    // One file per line; plain repository paths only: anything else is left
+    // out, never pasted into a command.
+    const files = p.detail.split("\n").filter((f) => /^[A-Za-z0-9._][A-Za-z0-9._/-]*$/.test(f));
+    const checkout = files.length ? ` && git checkout -- ${files.join(" ")}` : "";
+    return `cd ${dir}${checkout} && git pull --ff-only origin main`;
+  }
+  const start = p.stack === "compose" ? "" : " && cd webapp/docker && ./start.sh up";
+  return `cd ${dir} && git pull --ff-only origin main${start}`;
+}
+
+/** A path as one shell word: bare when it is plain, single-quoted otherwise. */
+function shellQuote(s: string): string {
+  return /^[A-Za-z0-9._/@:+-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`;
+}

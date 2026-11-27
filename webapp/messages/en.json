@@ -2782,7 +2782,16 @@
       "dismiss": "Dismiss",
       "actionFailed": "That didn't work. Please try again.",
       "retryTooSoon": "Kinboard was asked to try again a few minutes ago. Please wait before asking again.",
-      "updatedLine": "Updated automatically to {version} on {date}"
+      "updatedLine": "Updated automatically to {version} on {date}",
+      "pullTitle": "Kinboard couldn't download its latest update.",
+      "pullLocalTitle": "The latest update couldn't update Kinboard's folder on the server.",
+      "pullOwnership": "Git refused the folder Kinboard is installed in, because it belongs to a different user than the updater runs as. Nothing was installed.",
+      "pullPermission": "Git couldn't write to the folder Kinboard is installed in. Nothing was installed.",
+      "pullFetch": "Git couldn't reach where Kinboard's updates come from. Nothing was changed; the next update tries again.",
+      "pullLocal": "Some files you changed in that folder are changed by this release too, so the folder stayed on the old version. The app itself was updated.",
+      "pullAt": "Last attempt: {time}.",
+      "pullFix": "To fix it, run this once on the server, as the user who owns the folder:",
+      "pullFixLocal": "Keep your own changes somewhere else (an overlay file of your own), then run this on the server, as the user who owns the folder:"
     },
     "pushReset": {
       "title": "Push notifications need to be turned on again",

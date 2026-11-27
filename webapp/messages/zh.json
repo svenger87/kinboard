@@ -2782,7 +2782,16 @@
       "dismiss": "关闭",
       "actionFailed": "操作未成功，请重试。",
       "retryTooSoon": "几分钟前已经请求过重试。请稍候再试。",
-      "updatedLine": "已于 {date} 自动更新到 {version}"
+      "updatedLine": "已于 {date} 自动更新到 {version}",
+      "pullTitle": "Kinboard 未能下载最新的更新。",
+      "pullLocalTitle": "最新的更新未能更新服务器上 Kinboard 的文件夹。",
+      "pullOwnership": "Git 拒绝了 Kinboard 的安装文件夹，因为它属于另一个用户，而不是运行更新程序的用户。没有安装任何内容。",
+      "pullPermission": "Git 无法写入 Kinboard 的安装文件夹。没有安装任何内容。",
+      "pullFetch": "Git 无法连接到 Kinboard 更新的来源。没有做任何更改；下次更新会再次尝试。",
+      "pullLocal": "你在该文件夹中修改过的一些文件也被此版本修改，因此该文件夹仍停留在旧版本。应用本身已更新。",
+      "pullAt": "上次尝试：{time}。",
+      "pullFix": "要修复此问题，请以该文件夹所有者的身份在服务器上运行一次：",
+      "pullFixLocal": "请把你自己的修改保存在别处（你自己的 overlay 文件），然后以该文件夹所有者的身份在服务器上运行："
     },
     "pushReset": {
       "title": "需要重新开启推送通知",

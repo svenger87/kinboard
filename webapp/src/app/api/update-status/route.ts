@@ -5,11 +5,14 @@ import { requireSettingsUnlock } from "@/lib/settings-pin";
 import { isInstallOperator as operator } from "@/lib/install-operator";
 import {
   UPDATE_HOLD_KEY,
+  UPDATE_PULL_KEY,
   UPDATE_RETRY_KEY,
   UPDATE_RETRY_LAST_KEY,
   UPDATE_STATUS_KEY,
   dismissUpdateStatus,
+  parsePullFailure,
   parseUpdateStatus,
+  pullFailureWithoutDetails,
   retryAllowed,
   showsComposeHold,
   withoutDetails,
@@ -31,6 +34,10 @@ export const dynamic = "force-dynamic";
  * install with no record, and a 403 on POST. The operator's devices see the
  * log excerpt and the paths only with the settings unlocked, as every other
  * parent's setting.
+ *
+ * `pull` is the self-update's git step that failed (update_pull), shown
+ * until a run fetches and pulls again; its folder and git's words only with
+ * the settings unlocked.
  *
  * POST { action: "dismiss" } hides the notice; { action: "retry" } asks the
  * self-update to try a version it held back after a rollback (its next run or
@@ -69,8 +76,13 @@ export async function GET(request: NextRequest) {
   const auth = await requireSession(request);
   if (!auth.ok) return auth.response;
   try {
-    if (!(await operator(auth.session.familyId))) return NextResponse.json({ status: null, hold: null });
-    const [raw, retry, rawHold] = await Promise.all([readKey(UPDATE_STATUS_KEY), readKey(UPDATE_RETRY_KEY), readKey(UPDATE_HOLD_KEY)]);
+    if (!(await operator(auth.session.familyId))) return NextResponse.json({ status: null, hold: null, pull: null });
+    const [raw, retry, rawHold, rawPull] = await Promise.all([
+      readKey(UPDATE_STATUS_KEY),
+      readKey(UPDATE_RETRY_KEY),
+      readKey(UPDATE_HOLD_KEY),
+      readKey(UPDATE_PULL_KEY),
+    ]);
     // kinboard-updater's hold for a newer compose file, while the install
     // still runs the file revision it was held for (the household replaces
     // the file and starts it, and it is over).
@@ -79,10 +91,17 @@ export async function GET(request: NextRequest) {
     const hold = showsComposeHold(parsedHold, declared === null ? null : String(declared)) ? withoutDetails(parsedHold!) : null;
     const parsed = raw ? parseUpdateStatus(raw, retry ? "pending" : "") : null;
     const status = parsed && parsed.status !== "held_compose" ? parsed : null;
-    if (!status) return NextResponse.json({ status: null, hold });
+    // A git step that failed (the checkout could not be fetched or pulled).
+    const pull = rawPull ? parsePullFailure(rawPull) : null;
+    if (!status && !pull) return NextResponse.json({ status: null, hold, pull: null });
     // The log excerpt and the host paths only with the settings unlocked.
     const locked = await requireSettingsUnlock(auth.session);
-    return NextResponse.json({ status: locked ? withoutDetails(status) : status, hold, details: !locked });
+    return NextResponse.json({
+      status: status && locked ? withoutDetails(status) : status,
+      hold,
+      pull: pull && locked ? pullFailureWithoutDetails(pull) : pull,
+      details: !locked,
+    });
   } catch (err) {
     console.error("update-status: read failed:", err);
     return NextResponse.json({ status: null });
