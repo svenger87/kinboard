@@ -72,6 +72,14 @@ fi
 
 start_server() {
   if [ "$(id -u)" = "0" ]; then
+    # Next's cache (fetches with `revalidate`, such as the version check's
+    # GitHub call, and revalidated pages) goes into /app/.next/cache, which
+    # the image makes nextjs's. With PUID set (and in the all-in-one image,
+    # always) the server is someone else, every cache write failed with
+    # "EACCES: permission denied, mkdir '/app/.next/cache'", and each such
+    # fetch went out again on every request. Inside the image, never a link:
+    # only the folder itself is handed over.
+    mkdir -p /app/.next/cache && chown -h "$RUN_AS" /app/.next/cache
     exec su-exec "$RUN_AS" node server.js
   fi
   exec node server.js
