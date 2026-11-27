@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { setServiceKey } from "./helpers/service-key";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { createPostgrestClient } from "../src/lib/supabase/postgrest";
@@ -58,7 +59,7 @@ const SERVER_ENV = { POSTGREST_URL: "http://rest.test:3000" };
 
 test.beforeAll(() => {
   process.env.POSTGREST_URL = SERVER_ENV.POSTGREST_URL;
-  process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
+  setServiceKey("service-role-key");
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
 });
 

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { hasServiceKey } from "./helpers/service-key";
 import { createPostgrestClient } from "../src/lib/supabase/postgrest";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { mintFamilyToken } from "../src/lib/family-jwt";
@@ -13,7 +14,7 @@ import { decideRedemption, requestRedemption, silentRewardNotifier } from "../sr
  * goes below zero, no pocket-money account is needed, and a browser's token
  * can read but not write.
  *
- * Needs a stack: SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL (or
+ * Needs a stack: KINBOARD_SERVICE_ROLE_KEY and SUPABASE_URL (or
  * NEXT_PUBLIC_SUPABASE_URL), plus NEXT_PUBLIC_SUPABASE_ANON_KEY and JWT_SECRET
  * for the browser's half. Skipped without them, unless FAMILY_CODE says a
  * stack is there. It works only in a family of its own, `claude-pt-live`,
@@ -22,8 +23,8 @@ import { decideRedemption, requestRedemption, silentRewardNotifier } from "../sr
  */
 
 const URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const HAS_STACK = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!URL;
-test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
+const HAS_STACK = hasServiceKey() && !!URL;
+test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs KINBOARD_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
 test.describe.configure({ mode: "serial" });
 
 const FAMILY = "c1a0de00-0010-4000-8000-00000000f001";

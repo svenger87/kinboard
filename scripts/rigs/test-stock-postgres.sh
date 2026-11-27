@@ -467,7 +467,7 @@ run_specs() {  # run_specs <log> <playwright args...>; exit status of playwright
       RLS_MATRIX_JWT_SECRET="$jwt_secret" KINBOARD_DB_CONTAINER=kinboard-db \
       PLAYWRIGHT_BASE_URL="$BASE_URL" FAMILY_CODE="${SPEC_FAMILY_CODE:-$(cat "$WORK/stack.code" 2>/dev/null)}" \
       SUPABASE_URL="$BASE_URL" NEXT_PUBLIC_SUPABASE_URL="$BASE_URL" POSTGREST_URL="http://127.0.0.1:$REST_PORT" \
-      SUPABASE_SERVICE_ROLE_KEY="$service" NEXT_PUBLIC_SUPABASE_ANON_KEY="$anon" JWT_SECRET="$jwt_secret" PGRST_JWT_SECRET="$jwt_secret" \
+      KINBOARD_SERVICE_ROLE_KEY="$service" NEXT_PUBLIC_SUPABASE_ANON_KEY="$anon" JWT_SECRET="$jwt_secret" PGRST_JWT_SECRET="$jwt_secret" \
       PLAYWRIGHT_AUTOSTART_DEV=0
       # A heartbeat every minute, so a long run never looks like a hang.
       ( while sleep 60; do printf '   [specs] %s\n' "$(sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r/\n/g' "$log" | grep -oE '^\[[0-9]+/[0-9]+\]' | tail -n1)"; done ) >&2 &

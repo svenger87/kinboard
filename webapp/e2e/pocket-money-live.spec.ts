@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { hasServiceKey } from "./helpers/service-key";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { bookPocketMoney, type RpcClient } from "../src/lib/pocket-money/booking";
 import { decideWithdrawal } from "../src/lib/pocket-money/runs";
@@ -9,7 +10,7 @@ import { decideWithdrawal } from "../src/lib/pocket-money/runs";
  * fake-client specs (pocket-money-runs, integration-pocket-money) pin what the
  * code asks for; this one proves the database does it atomically.
  *
- * Needs a stack: SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL (or
+ * Needs a stack: KINBOARD_SERVICE_ROLE_KEY and SUPABASE_URL (or
  * NEXT_PUBLIC_SUPABASE_URL), e.g. Kong on :8130 here. Skipped without them,
  * unless FAMILY_CODE says a stack is there; CI's smoke job (e2e.yml) runs it.
  * It works only in a family of its own, `claude-pm-live`, which it creates and
@@ -17,10 +18,10 @@ import { decideWithdrawal } from "../src/lib/pocket-money/runs";
  * purged by id), including whatever an interrupted run left behind.
  */
 
-const HAS_STACK = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
+const HAS_STACK = hasServiceKey() && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
 // FAMILY_CODE promises a stack (e2e.yml sets it), so there a missing key fails
 // in beforeAll rather than skipping the whole file green.
-test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
+test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs KINBOARD_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
 test.describe.configure({ mode: "serial" });
 
 const FAMILY = "c1a0de00-0009-4000-8000-00000000f001";

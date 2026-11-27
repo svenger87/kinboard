@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { withoutServiceKey } from "./helpers/service-key";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { NextRequest } from "next/server";
@@ -148,23 +149,23 @@ test.describe("the presence token", () => {
   test("the route refuses rather than falls back when the token can't be looked up", async () => {
     // No database to ask (no service-role key): the "does any family have a
     // token" read throws, and the server's token is not accepted instead.
-    const prior = { key: process.env.SUPABASE_SERVICE_ROLE_KEY, token: process.env.PRESENCE_SENSOR_TOKEN };
+    // Since RFC-024 §4.6 a missing key is derived from JWT_SECRET, so
+    // "no key" means no name set and nothing to derive it from.
+    const prior = { token: process.env.PRESENCE_SENSOR_TOKEN };
     forgetPresenceTokens();
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     process.env.PRESENCE_SENSOR_TOKEN = "server-token-0123456789";
     const errors = console.error;
     console.error = () => {};
     try {
-      const res = await presencePost(new NextRequest("http://localhost/api/presence", {
+      const res = await withoutServiceKey(() => presencePost(new NextRequest("http://localhost/api/presence", {
         method: "POST",
         headers: { authorization: "Bearer server-token-0123456789" },
         body: JSON.stringify({ device_id: DEVICE, presence: true }),
-      }));
+      })));
       expect(res.status).toBe(503);
     } finally {
       console.error = errors;
       forgetPresenceTokens();
-      if (prior.key === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = prior.key;
       if (prior.token === undefined) delete process.env.PRESENCE_SENSOR_TOKEN; else process.env.PRESENCE_SENSOR_TOKEN = prior.token;
     }
   });

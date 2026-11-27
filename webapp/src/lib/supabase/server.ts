@@ -1,5 +1,6 @@
 import { serverSupabaseFetch, serverSupabaseUrl } from "@/lib/supabase/api-base";
 import { createPostgrestClient, type DbClient } from "@/lib/supabase/postgrest";
+import { serviceRoleKey } from "@/lib/env";
 
 // The cookie-bound anon client (`createClient`, from `@supabase/ssr`) is gone:
 // it had no importers since Kinboard stopped using Supabase Auth, and the
@@ -15,13 +16,10 @@ import { createPostgrestClient, type DbClient } from "@/lib/supabase/postgrest";
 // with this key is logged as the server's.
 export function createAdminClient(options?: { actor?: "integration" }): DbClient {
   const supabaseUrl = serverSupabaseUrl();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // KINBOARD_SERVICE_ROLE_KEY, then its older names, then derived (lib/env.ts).
+  const key = serviceRoleKey();
 
-  if (!serviceRoleKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
-  }
-
-  return createPostgrestClient(supabaseUrl, serviceRoleKey, {
+  return createPostgrestClient(supabaseUrl, key, {
     fetch: serverSupabaseFetch(),
     ...(options?.actor ? { headers: { "x-kinboard-actor": options.actor } } : {}),
   });

@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { serverSupabaseFetch, serverSupabaseUrl } from "@/lib/supabase/api-base";
 import expectations from "@/lib/schema-expectations.json";
 import { missingFromSchema, type Definitions } from "@/lib/schema-check";
+import { serviceRoleKey } from "@/lib/env";
 
 /**
  * The deep health check: `/api/health?deep=1` (RFC-023 §4.11.4).
@@ -37,8 +38,7 @@ export interface DeepHealth {
 }
 
 async function schemaDefinitions(): Promise<Definitions> {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+  const key = serviceRoleKey();
   const res = await serverSupabaseFetch()(`${serverSupabaseUrl().replace(/\/+$/, "")}/rest/v1/`, {
     headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/openapi+json" },
     signal: AbortSignal.timeout(10_000),

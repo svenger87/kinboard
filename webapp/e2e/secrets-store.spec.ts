@@ -168,14 +168,19 @@ test.describe("an existing install: every secret in the environment, no file", (
     SUPABASE_SERVICE_ROLE_KEY: "service-from-env",
   };
 
-  test("nothing is read, nothing is exported, nothing is derived", async () => {
+  test("nothing is read, nothing is derived; the service key is passed on under its new name, unchanged", async () => {
+    // RFC-024 §4.6: the server reads KINBOARD_SERVICE_ROLE_KEY. The legacy
+    // compose file passes SUPABASE_SERVICE_ROLE_KEY; the same value goes on
+    // under the new name, and nothing else is exported.
     const { resolveSecrets } = await store;
     const reads: string[] = [];
     const r = resolveSecrets(FULL, { read: (p: string) => (reads.push(p), null) });
     expect(reads).toEqual([]);
-    expect(r.exports).toEqual({});
+    expect(r.exports).toEqual({ KINBOARD_SERVICE_ROLE_KEY: "service-from-env" });
     expect(r.errors).toEqual([]);
-    expect(r.values).toEqual(FULL);
+    const { SUPABASE_SERVICE_ROLE_KEY: _old, ...rest } = FULL;
+    expect(r.values).toEqual({ ...rest, KINBOARD_SERVICE_ROLE_KEY: "service-from-env" });
+    expect(r.log).toContain("KINBOARD_SERVICE_ROLE_KEY: from SUPABASE_SERVICE_ROLE_KEY in the environment");
   });
 
   test("an install without push keys or a presence token still starts, as today", async () => {
@@ -186,28 +191,43 @@ test.describe("an existing install: every secret in the environment, no file", (
       { read: () => null },
     );
     expect(r.errors).toEqual([]);
-    expect(r.exports).toEqual({});
+    expect(Object.keys(r.exports)).toEqual(["KINBOARD_SERVICE_ROLE_KEY"]);
   });
 });
 
 test.describe("the anon and service-role keys", () => {
-  const cases: [string, string, string][] = [
-    ["NEXT_PUBLIC_SUPABASE_ANON_KEY", "ANON_KEY", "anon"],
-    ["SUPABASE_SERVICE_ROLE_KEY", "SERVICE_ROLE_KEY", "service_role"],
+  const cases: [string, string[], string][] = [
+    ["NEXT_PUBLIC_SUPABASE_ANON_KEY", ["ANON_KEY"], "anon"],
+    // RFC-024 §4.6: the new name, then the legacy compose file's, then .env's.
+    ["KINBOARD_SERVICE_ROLE_KEY", ["SUPABASE_SERVICE_ROLE_KEY", "SERVICE_ROLE_KEY"], "service_role"],
   ];
-  for (const [name, alias, role] of cases) {
-    test(`${name}: the app's own name wins over ${alias}, which wins over deriving`, async () => {
+  test("the module derives exactly these two, under these names", async () => {
+    const mod = (await store) as unknown as { DERIVED: { env: string; older: string[]; role: string }[] };
+    expect(mod.DERIVED.map((d) => [d.env, d.older, d.role])).toEqual(cases);
+  });
+  for (const [name, older, role] of cases) {
+    test(`${name}: the app's own name wins over ${older.join(", then ")}, which win over deriving`, async () => {
       const { resolveSecrets, deriveKey } = await store;
       const read = () => null;
-      const own = resolveSecrets({ ...BASE_ENV, [name]: "own", [alias]: "alias" }, { read });
+      const all = Object.fromEntries(older.map((o) => [o, `old:${o}`]));
+      const own = resolveSecrets({ ...BASE_ENV, ...all, [name]: "own" }, { read });
       expect(own.values[name]).toBe("own");
       expect(own.exports[name]).toBeUndefined();
 
-      const viaAlias = resolveSecrets({ ...BASE_ENV, [name]: "", [alias]: "alias" }, { read });
-      expect(viaAlias.values[name]).toBe("alias");
-      expect(viaAlias.exports[name]).toBe("alias");
+      // Each older name, with every name before it empty.
+      older.forEach((alias, i) => {
+        const env: Record<string, string> = { ...BASE_ENV, [name]: "" };
+        older.forEach((o, j) => { env[o] = j < i ? "" : `old:${o}`; });
+        const r = resolveSecrets(env, { read });
+        expect(r.values[name], alias).toBe(`old:${alias}`);
+        expect(r.exports[name], alias).toBe(`old:${alias}`);
+        expect(r.log).toContain(`${name}: from ${alias} in the environment`);
+        expect(r.log.join("\n")).not.toContain(`old:${alias}`);
+      });
 
-      const derived = resolveSecrets({ ...BASE_ENV, [name]: "", [alias]: "" }, { read });
+      const none: Record<string, string> = { ...BASE_ENV, [name]: "" };
+      for (const o of older) none[o] = "";
+      const derived = resolveSecrets(none, { read });
       expect(derived.exports[name]).toBe(deriveKey(role, "jwt-env"));
       expect(derived.log).toContain(`${name}: derived from JWT_SECRET`);
     });
@@ -232,7 +252,7 @@ test.describe("the anon and service-role keys", () => {
     const r = resolveSecrets({ POSTGRES_PASSWORD: "pg" }, { read: () => null });
     expect(r.errors).toEqual([`JWT_SECRET is not set. Set it in the environment (webapp/docker/.env) or put it in ${DIR}/jwt_secret.`]);
     expect(r.exports.NEXT_PUBLIC_SUPABASE_ANON_KEY).toBeUndefined();
-    expect(r.exports.SUPABASE_SERVICE_ROLE_KEY).toBeUndefined();
+    expect(r.exports.KINBOARD_SERVICE_ROLE_KEY).toBeUndefined();
   });
 
   test("a derived key: HS256 over the RFC's fixed payload, no iat, no exp, the same on every start", async () => {
@@ -329,7 +349,7 @@ test.describe("as the entrypoint runs it", () => {
   test("no store directory at all and a full environment: exports nothing", () => {
     const env: Record<string, string> = {
       PATH: process.env.PATH ?? "", KINBOARD_SECRETS_DIR: join(dir, "absent"), POSTGRES_PASSWORD: "pg", JWT_SECRET: "j",
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "a", SUPABASE_SERVICE_ROLE_KEY: "s",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "a", KINBOARD_SERVICE_ROLE_KEY: "s",
     };
     const r = spawnSync("node", [SCRIPT], { env: env as NodeJS.ProcessEnv, encoding: "utf8" });
     expect(r.status, r.stderr).toBe(0);
@@ -389,7 +409,7 @@ function inlinableReads(root: string): string[] {
       // (next.config.mjs `env`).
       if (/process\.env(\.|\[\s*["'`])NEXT_PUBLIC_(?!APP_VERSION\b)\w+/.test(line)) hits.push(`${file}:${i + 1}: ${line.trim()}`);
       // A secret under a NEXT_PUBLIC_ name is shipped to every browser.
-      if (/NEXT_PUBLIC_(POSTGRES_PASSWORD|JWT_SECRET|CRON_SECRET|PRESENCE_SENSOR_TOKEN|VAPID_PRIVATE_KEY|SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE_KEY)\b/.test(line)) hits.push(`${file}:${i + 1}: ${line.trim()}`);
+      if (/NEXT_PUBLIC_(POSTGRES_PASSWORD|JWT_SECRET|CRON_SECRET|PRESENCE_SENSOR_TOKEN|VAPID_PRIVATE_KEY|KINBOARD_SERVICE_ROLE_KEY|SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE_KEY)\b/.test(line)) hits.push(`${file}:${i + 1}: ${line.trim()}`);
     });
   }
   return hits;
@@ -597,7 +617,7 @@ test.describe("the real webapp-entrypoint.sh", () => {
       expect(env.POSTGRES_PASSWORD).toBe("pw-from-file");
       expect(env.JWT_SECRET).toBe("jwt-from-file");
       expect(env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.split(".")).toHaveLength(3);
-      expect(env.SUPABASE_SERVICE_ROLE_KEY?.split(".")).toHaveLength(3);
+      expect(env.KINBOARD_SERVICE_ROLE_KEY?.split(".")).toHaveLength(3);
       expect(env.secrets_env, "the reader's raw output leaks into the server's environment").toBeUndefined();
       expect(env.PGPASSWORD, "the migration password outlives the migrations").toBeUndefined();
     } finally {

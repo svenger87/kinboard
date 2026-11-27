@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { hasServiceKey } from "./helpers/service-key";
 import { randomBytes } from "node:crypto";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { VISIBLE_CALENDARS, reconcileGoogleCalendars } from "../src/lib/google-calendar-reconcile";
@@ -10,15 +11,15 @@ import { fetchSchoolBreaks } from "../src/lib/school-days";
  * read path now carries is valid PostgREST, and drops the parent row when it
  * is applied to an `!inner` embedding.
  *
- * Needs a stack: SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL (or
+ * Needs a stack: KINBOARD_SERVICE_ROLE_KEY and SUPABASE_URL (or
  * NEXT_PUBLIC_SUPABASE_URL), e.g. Kong on :8130 here. It makes two throwaway
  * families named `claude-google-reconcile-*`, with Google-style calendar rows
  * (nothing talks to Google), and deletes them afterwards -- calendars and
  * events go with them by cascade -- including any left by an interrupted run.
  */
 
-const HAS_STACK = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
-test.skip(!HAS_STACK, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
+const HAS_STACK = hasServiceKey() && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
+test.skip(!HAS_STACK, "needs KINBOARD_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
 test.describe.configure({ mode: "serial" });
 
 const PREFIX = "claude-google-reconcile";

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { hasServiceKey } from "./helpers/service-key";
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { createAdminClient } from "../src/lib/supabase/server";
@@ -12,7 +13,7 @@ import { POST as importBackup } from "../src/app/api/import/route";
  * every-boot backfill must not overwrite. holiday-region.spec.ts covers the
  * same logic with fakes; this proves the rows land.
  *
- * Needs a stack: SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL (or
+ * Needs a stack: KINBOARD_SERVICE_ROLE_KEY and SUPABASE_URL (or
  * NEXT_PUBLIC_SUPABASE_URL), e.g. Kong on :8130 here. Skipped without them,
  * unless FAMILY_CODE says a stack is there. Every family it makes is deleted
  * again (devices and settings cascade), including the device row
@@ -20,8 +21,8 @@ import { POST as importBackup } from "../src/app/api/import/route";
  * noted before the status is checked, and families are swept by name too.
  */
 
-const HAS_STACK = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
-test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
+const HAS_STACK = hasServiceKey() && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
+test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs KINBOARD_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
 test.describe.configure({ mode: "serial" });
 
 const HARDWARE_ID = "e2e-claude-holiday-region";

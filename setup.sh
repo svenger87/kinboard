@@ -244,7 +244,9 @@ fill_secret KINBOARD_PROJECT_DIR "$REPO_ROOT" "$DOCKER_ENV"
 # These are JWTs signed with JWT_SECRET — purely local cryptography, no
 # need to "issue" them at supabase.com. The browser uses ANON_KEY for its
 # PostgREST queries until it has a family token; server-side code uses
-# SERVICE_ROLE_KEY.
+# SERVICE_ROLE_KEY. The names here stay as they are: docker-compose.yml
+# hands SERVICE_ROLE_KEY to the webapp as SUPABASE_SERVICE_ROLE_KEY, which
+# the webapp reads as the older name of KINBOARD_SERVICE_ROLE_KEY.
 #
 # Reuse the JWT_SECRET we just generated (or that was already in .env).
 JWT_SECRET_NOW=$(grep -E "^JWT_SECRET=" "$DOCKER_ENV" | head -n1 | cut -d= -f2- | tr -d '\r' || true)

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { hasServiceKey } from "./helpers/service-key";
 import { NextRequest } from "next/server";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { SESSION_COOKIE } from "../src/lib/session";
@@ -28,13 +29,13 @@ import { UPDATE_OPERATOR_KEY } from "../src/lib/update-status";
  * operator through INSTANCE_ADMIN_FAMILY_ID, as #547's rule allows. The
  * instance_settings rows it touches are put back as they were.
  *
- * Needs SUPABASE_SERVICE_ROLE_KEY and POSTGREST_URL (or SUPABASE_URL); skipped
+ * Needs KINBOARD_SERVICE_ROLE_KEY and POSTGREST_URL (or SUPABASE_URL); skipped
  * without. Families are `claude-firstrun-*` and deleted afterwards.
  */
 
 const HAS_STACK =
-  !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!(process.env.POSTGREST_URL || process.env.SUPABASE_URL);
-test.skip(!HAS_STACK, "needs SUPABASE_SERVICE_ROLE_KEY and POSTGREST_URL for a running stack");
+  hasServiceKey() && !!(process.env.POSTGREST_URL || process.env.SUPABASE_URL);
+test.skip(!HAS_STACK, "needs KINBOARD_SERVICE_ROLE_KEY and POSTGREST_URL for a running stack");
 test.describe.configure({ mode: "serial" });
 
 const STAMP = Date.now();

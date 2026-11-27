@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { hasServiceKey } from "./helpers/service-key";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createAdminClient } from "../src/lib/supabase/server";
@@ -17,8 +18,8 @@ import { dbContainer } from "./whole-database";
  * allowed to call it.
  */
 
-const HAS_STACK = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
-test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
+const HAS_STACK = hasServiceKey() && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
+test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs KINBOARD_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
 test.describe.configure({ mode: "serial" });
 
 const BUCKET = "recipe-images";

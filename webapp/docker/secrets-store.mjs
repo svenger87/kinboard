@@ -48,12 +48,16 @@ export const STORED = [
 
 /**
  * The two keys that are minted, never stored. `env` is the name the app reads
- * (lib/supabase/server.ts, app/layout.tsx); `alias` is the name .env and
- * setup.sh use, which docker-compose.yml maps onto it.
+ * (lib/env.ts `serviceRoleKey`, app/layout.tsx); `older` are names read in its
+ * place, in order, when it is not set. For the service-role key (RFC-024
+ * §4.6): SUPABASE_SERVICE_ROLE_KEY, the name docker-compose.yml (the pre-1.18
+ * file) passes, then SERVICE_ROLE_KEY, the name .env and setup.sh use. The
+ * value is exported under `env` whichever name it came from, so the server
+ * reads one name.
  */
 export const DERIVED = [
-  { env: "NEXT_PUBLIC_SUPABASE_ANON_KEY", alias: "ANON_KEY", role: "anon" },
-  { env: "SUPABASE_SERVICE_ROLE_KEY", alias: "SERVICE_ROLE_KEY", role: "service_role" },
+  { env: "NEXT_PUBLIC_SUPABASE_ANON_KEY", older: ["ANON_KEY"], role: "anon" },
+  { env: "KINBOARD_SERVICE_ROLE_KEY", older: ["SUPABASE_SERVICE_ROLE_KEY", "SERVICE_ROLE_KEY"], role: "service_role" },
 ];
 
 /** The header setup.sh's jwt_sign writes, byte for byte. */
@@ -148,11 +152,12 @@ export function resolveSecrets(env, { dir = DEFAULT_SECRETS_DIR, read = readIfPr
     }
   }
 
-  for (const { env: name, alias, role } of DERIVED) {
+  for (const { env: name, older, role } of DERIVED) {
+    const alias = older.find((n) => present(env[n]));
     if (present(env[name])) {
       values[name] = env[name];
       log.push(`${name}: from the environment`);
-    } else if (present(env[alias])) {
+    } else if (alias) {
       values[name] = exports[name] = env[alias];
       log.push(`${name}: from ${alias} in the environment`);
     } else if (present(values.JWT_SECRET)) {
