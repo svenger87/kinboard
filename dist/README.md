@@ -10,7 +10,7 @@ and §10 (`docs/rfc/024-all-in-one-and-stores.md`).
 | CasaOS / ZimaOS | `casaos/Apps/<Name>/docker-compose.yml` | compose with a top-level `x-casaos` block |
 | Umbrel | `umbrel/<app>/` | `umbrel-app.yml`, `docker-compose.yml` with `app_proxy`, and the empty `data/<volume>/` folders |
 | Portainer | `portainer/templates.json`, `portainer/compose.yml` | app templates, format 3; two type-3 templates (stable and release candidates) pointing at the stack file, with an *Automatic updates* switch, and a type-1 template for the all-in-one image |
-| Unraid (Community Applications) | `unraid/` | the whole content of the template repository: `ca_profile.xml`, `templates/<app>.xml` (`<Container version="2">`), `README.md`; for the all-in-one image |
+| Unraid (Community Applications) | `unraid/` | the whole content of the template repository: `ca_profile.xml`, `templates/<app>.xml` (`<Container version="2">`), `templates/<app>-updater.xml` (the optional updater beside it), `README.md`; for the all-in-one image |
 
 Nothing here is submitted anywhere: when and where is the owner's decision
 (§11.1).
@@ -91,13 +91,17 @@ one way or the other, or the generator refuses.
 | TrueNAS | the catalog: a new app version, offered in TrueNAS's UI | left out: TrueNAS replaces the app itself, and an updater recreating containers behind its back would fight it |
 | CasaOS / ZimaOS | the store, when the listing's `version` changes | left out, for the same reason |
 | Umbrel | the store, when the manifest's `version` changes | left out: Umbrel updates the app itself, and its rules forbid the Docker socket |
+| Unraid | Unraid's Docker page shows "update ready", and *Apply Update* recreates the container from the template; nothing happens on its own without a plugin | **a second template, `kinboard-updater`, installed by choice.** It gets the Docker socket and a folder of its own (`/mnt/user/appdata/kinboard-updater`), names the container it looks after (`KINBOARD_AIO_CONTAINER`, the all-in-one template's Name) and runs `kinboard-updater`. It recreates that one container with its own settings and the new image, after the image's own verified dump, and puts the original back if the new one isn't healthy (RFC-024 §4.7; the wiki's All-in-one page). After an update it records the new digest in Unraid's update status, as *Apply Update* does, so the Docker page doesn't go on showing "update ready". The Auto Update Applications plugin should leave Kinboard out: it takes no backup and has no way back |
 | Portainer | nothing of Portainer's own for a template's stack, beyond a redeploy by hand | **kept, off by default.** The template's *Automatic updates* field sets `COMPOSE_PROFILES` to `autoupdate`; only then does Compose start `kinboard-updater`, the one container with the socket. Portainer keeps the template's file in its own volume, out of the updater's reach, so it works in container mode: it recreates only `kinboard-init`, `kinboard-db-init` and `kinboard-webapp`, with their own settings and the new image, after a verified backup, and rolls back if the new one isn't healthy. The stack page keeps listing every container. Switching it off again and redeploying leaves the running updater in place (Compose doesn't remove a service whose profile is no longer active); the field's description says to remove `kinboard-updater` by hand, as the wiki says for `compose.yml` |
 
 In all three pinned listings the image itself still takes a verified backup
 before a migration and runs the migrations once (§4.7, "what the image
 itself guarantees"). The checks hold the table: the updater and the socket
-in no listing but Portainer's, there under the profile, the switch off in
-both templates, and the socket in no other Portainer service.
+in no compose listing but Portainer's, there under the profile, the switch
+off in both templates, and the socket in no other Portainer service. On
+Unraid the socket is in the updater's template only: its paths are exactly
+the socket and its own folder, with no port and no privileges, and the
+all-in-one template must not mention the socket at all.
 
 ## How a listing is validated
 
@@ -130,7 +134,9 @@ KINBOARD_RIG=1 scripts/rigs/test-store-listings.sh   # start them (below)
   reference (https://ca.unraid.net/submit/help/xml-field-reference) and the
   starter template (unraid/unraid-community-apps-starter, `templates/example-app.xml`
   and `ca_profile.xml` at commit `01398ff8bd728ce92dd9595e33d8577299e0e971`),
-  with every `Config` attribute in its allowed values.
+  with every `Config` attribute in its allowed values. The updater's template
+  gets the same reading, plus its own rules (lib/checks.mjs,
+  `unraidUpdaterProblems`).
 - **Portainer**: `templates.json` against portainer/templates' `schema.json`
   (branch v3), and `docker compose config` on the stack file.
 
@@ -201,6 +207,13 @@ until CA can list it)
 - *Apply Update* recreates the container from the template; the start
   guarantees hold (a verified dump before a pending migration).
 - The rls-matrix spec against the installed instance.
+- The updater's template installs beside it: its log names the Kinboard
+  container, the first check records a baseline, and an update of `next`
+  replaces the container (the Docker page keeps its icon, WebUI link and
+  autostart), with `pre-update-….sql.gz` in the data folder's `backups`.
+  Afterwards the Docker page shows Kinboard up to date (Unraid's
+  `/var/lib/docker/unraid-update-status.json` holds the new digest) and
+  *Apply Update* is not offered.
 
 **Portainer** (Settings → App Templates → this repository's raw
 `dist/portainer/templates.json`)

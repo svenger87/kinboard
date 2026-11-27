@@ -134,6 +134,9 @@ export function metadataProblems(m, file = "metadata") {
     need(str(u?.category) && u.category.trim().split(" ").every((t) => /^[A-Za-z]+:[A-Za-z]*$/.test(t)), "aio.unraid.category must be CA's Category:Subcategory list");
     need(str(u?.data_path) && u.data_path.startsWith("/mnt/user/appdata/"), "aio.unraid.data_path must be under /mnt/user/appdata/");
     need(/^\d+$/.test(u?.puid ?? "") && /^\d+$/.test(u?.pgid ?? ""), "aio.unraid.puid and .pgid must be numbers");
+    const up = u?.updater;
+    need(str(up?.category) && up.category.trim().split(" ").every((t) => /^[A-Za-z]+:[A-Za-z]*$/.test(t)), "aio.unraid.updater.category must be CA's Category:Subcategory list");
+    for (const k of ["container_env", "switch_env"]) need(/^[A-Z][A-Z0-9_]*$/.test(up?.[k] ?? ""), `aio.unraid.updater.${k} must be a variable name`);
   }
   const r = m.release;
   need(r && str(r.version) && str(r.app_tag) && str(r.postgres_tag), "release.version, .app_tag and .postgres_tag are required");

@@ -61,6 +61,8 @@ Docker → Add Container → pick *Kinboard*. Its defaults are Unraid's: the dat
 folder `/mnt/user/appdata/kinboard`, PUID 99 and PGID 100, and the stop timeout
 above. (Installing from the template is still to be rehearsed on a real Unraid
 7 box.)
+For automatic updates, add the second template, `kinboard-updater`
+([below](#automatic-updates)).
 
 ### Cameras
 
@@ -86,8 +88,8 @@ the backups private.
 
 An update is a new container from a newer image, pulled by whatever runs it
 (Unraid's *Apply Update*, Portainer's *Recreate*, `docker pull` and
-`docker run` again, or [kinboard-updater](Compose-UIs#automatic-updates) in
-container mode). The image never replaces itself. At every start it:
+`docker run` again, or [kinboard-updater](#automatic-updates) beside it). The
+image never replaces itself. At every start it:
 
 1. takes a **checked database dump** into `/data/backups/` before any database
    change that will run. No checked dump, no change and no start; the log says
@@ -151,6 +153,139 @@ again.
 
 `KINBOARD_PG_UPGRADE=off` stops the image from upgrading on its own; it then
 refuses to start on the older database instead.
+
+## Automatic updates
+
+Off unless you turn it on: a second, small container, `kinboard-updater`,
+started next to Kinboard. It is the same updater the compose file uses.
+
+**What it does.** Two minutes after it starts, and then every 30 minutes, it
+asks the registry whether the tag Kinboard runs (`next`, for now) has a newer
+image. When it has:
+
+1. it pulls the new image;
+2. it takes Kinboard's own checked database dump, the one the image takes
+   before any database change, into `/data/backups/` as
+   `pre-update-<time>.sql.gz` (the last five are kept). No checked dump, no
+   update;
+3. it replaces the Kinboard container with one that has exactly the same
+   settings (port, data folder, variables, network, labels, restart and stop
+   settings) and only the new image. Nothing else on the machine is touched;
+4. it waits up to 10 minutes for the new one to come up healthy and to pass a
+   check of its database tables. If it doesn't, the container that ran before
+   is put back, on the same data, and that release is skipped until a newer
+   one is published. Settings then says *"The update to … didn't start, so
+   Kinboard went back to …"*;
+5. Settings shows *"Updated automatically to … on …"* under the version.
+
+The uploaded files and the keys are not copied anywhere: an update doesn't
+change them, and they stay in `/data`. Back up the whole folder as above.
+
+**The first check only looks.** It notes what runs and changes nothing; the
+one after it is the first that can update. **A version tag never moves**:
+with `kinboard-aio:1.18.0` the updater never even asks the registry.
+
+**A PostgreSQL major upgrade** (above) happens inside the new container at its
+first start. The updater then waits up to an hour instead of 10 minutes
+(`KINBOARD_PG_UPGRADE_TIMEOUT`, in seconds). If the new version fails before
+it has run healthy for a minute, the previous container goes back and puts the
+previous database back itself. If it fails later than that, the upgrade is
+final and the previous version would refuse the database, so the updater keeps
+the new version running instead of stopping Kinboard, and Settings says that
+going back didn't work: the log has every step, and the dump from before the
+upgrade is in `/data/backups/`.
+
+**If the updater is stopped in the middle** of an update (a reboot, a
+`docker stop`), it puts the previous container back at its next start, from
+the record it keeps in its own folder.
+
+### Turn it on
+
+Whichever way, the updater gets Docker's socket, which it needs to pull and
+replace containers. Whoever holds the socket controls the machine: the
+updater is the only container that gets it, never Kinboard itself. It opens
+no port and takes no requests. It needs a folder or volume of its own at
+`/kinboard` for its log and its record of an update in progress; without one
+it refuses to update.
+
+**Unraid.** A second template, `kinboard-updater`, next to Kinboard's in the
+same repository (`templates/kinboard-updater.xml`). Install it after Kinboard;
+leave *Kinboard container* at the name you gave Kinboard (`Kinboard`). Its
+folder is `/mnt/user/appdata/kinboard-updater`.
+
+**Plain Docker.** With Kinboard started as above (`--name kinboard`):
+
+```bash
+docker run -d --name kinboard-updater --restart unless-stopped \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v kinboard-updater:/kinboard \
+  -e KINBOARD_UPDATER=1 -e KINBOARD_AIO_CONTAINER=kinboard \
+  --entrypoint kinboard-updater \
+  ghcr.io/svenger87/kinboard-updater:next
+```
+
+**Compose** (Portainer, Dockge, a terminal): next to the Kinboard service in
+the same file.
+
+```yaml
+services:
+  kinboard:
+    image: ghcr.io/svenger87/kinboard-aio:next
+    container_name: kinboard
+    restart: unless-stopped
+    stop_grace_period: 60s
+    ports: ["3001:3000"]
+    volumes: ["/srv/kinboard:/data"]
+  kinboard-updater:
+    image: ghcr.io/svenger87/kinboard-updater:next
+    container_name: kinboard-updater
+    restart: unless-stopped
+    entrypoint: ["kinboard-updater"]
+    environment:
+      KINBOARD_UPDATER: "1"
+      KINBOARD_AIO_CONTAINER: kinboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - kinboard-updater:/kinboard
+volumes:
+  kinboard-updater:
+```
+
+A later Up of that file finds Kinboard already on the image its tag names, and
+leaves it alone.
+
+`KINBOARD_AIO_CONTAINER` names the container to update. Without it the updater
+looks for the one container on the machine that runs the all-in-one image,
+and refuses when there are two: one updater for each, each with its name.
+
+**Its log:** `docker logs kinboard-updater`, and `updater/update.log` in its
+folder. **To pause it**, set `KINBOARD_UPDATE_TICK=off` on the updater and
+recreate it; **to remove it**, remove its container. **Updating the updater
+itself:** pull its image and recreate it (Unraid: *Apply Update* on it, or the
+Auto Update plugin, which is fine for the updater). It never replaces its own
+container.
+
+### Unraid's own updates
+
+Unraid itself never updates a container on its own. Its Docker page shows
+*update ready* when the registry has a newer image under the template's tag,
+and *Apply Update* recreates the container from the template. With the
+updater:
+
+- **After the updater's update**, it records the new image in Unraid's update
+  status, the way *Apply Update* does, so the Docker page shows Kinboard up to
+  date. Pressing *Apply Update* anyway is harmless: Unraid recreates the
+  container on the image it already runs.
+- **After a rollback**, the Docker page shows *update ready* for the release
+  the updater skipped. Don't apply it by hand: it is the version that didn't
+  start. The updater applies the next one by itself.
+- **The Auto Update Applications plugin:** leave Kinboard out of it (set
+  *Update All* to *No* and don't tick Kinboard). It updates on its own
+  schedule with no backup and no way back, and it would apply a release the
+  updater skipped. Ticking `kinboard-updater` there is fine.
+- **The template's Repository** is what the updater follows: the tag in it
+  (`:next`). Change it to a version (`:1.18.0`) and both Unraid and the
+  updater stay on that version.
 
 ## Moving between the compose file and the all-in-one image
 

@@ -37,7 +37,7 @@ import { CASA_LOCALE, links, pinnedImages, splitRef, volumePath } from "./common
 import { DOCKER_SOCKET, interpolate, serviceModel } from "./model.mjs";
 import { parseXml, yaml } from "./sources.mjs";
 import { umbrelHost } from "./umbrel.mjs";
-import { aioEnv, unraidRepo } from "./unraid.mjs";
+import { aioEnv, composeUpdater, unraidRepo } from "./unraid.mjs";
 
 const SECRET_KEY = /(PASSWORD|SECRET|TOKEN|PRIVATE|_KEY|_KEYS)$/;
 
@@ -285,6 +285,9 @@ export function listingProblems(files, src) {
   }
   const uPath = `unraid/${unraidRepo(meta).file}`;
   if (read(uPath) !== null) p.push(...unraidProblems(files[uPath], files["unraid/ca_profile.xml"], src));
+  const updPath = `unraid/${unraidRepo(meta).updaterFile}`;
+  if (read(uPath) !== null && read(updPath) === null) p.push(`unraid: ${unraidRepo(meta).updaterFile} (the updater's template) is missing`);
+  if (read(updPath) !== null) p.push(...unraidUpdaterProblems(files[updPath], files[uPath], src));
   return p;
 }
 
@@ -345,6 +348,7 @@ export function unraidProblems(xml, profileXml, src) {
   const stop = /--stop-timeout=(\d+)/.exec(one("ExtraParams") ?? "");
   if (!stop || Number(stop[1]) < 45) p.push(`${at}: ExtraParams must set --stop-timeout above PostgreSQL's 30 s shutdown window`);
   if (/[;&|`$]/.test(one("ExtraParams") ?? "")) p.push(`${at}: ExtraParams carries a shell character (CA blacklists chained commands)`);
+  if (/docker\.sock|--privileged|--volumes-from/.test(xml)) p.push(`${at}: the all-in-one template must never get the Docker socket or a way to it; only the updater's template has it`);
 
   const configs = [...root.children].filter((e) => e.tagName === "Config");
   for (const c of configs) {
@@ -383,5 +387,57 @@ export function unraidProblems(xml, profileXml, src) {
       p.push(`${at}: ca_profile.xml is ${err.message}`);
     }
   }
+  return p;
+}
+
+/**
+ * The updater's template (lib/unraid.mjs, unraidUpdater): CA's format, the
+ * updater image of docker.yml on the all-in-one template's channel, its
+ * entrypoint, the socket and a folder of its own, the container it looks after
+ * named as the all-in-one template names it, and nothing it does not need: no
+ * port, no other path, no privileges.
+ * @param {string} xml
+ * @param {string | undefined} aioXml the all-in-one template
+ */
+export function unraidUpdaterProblems(xml, aioXml, src) {
+  const { meta, images, channels } = src;
+  const p = [];
+  const at = "unraid (updater)";
+  let doc;
+  try { doc = parseXml(xml); } catch (err) { return [`${at}: the template is ${err.message}`]; }
+  const root = doc.documentElement;
+  if (root.tagName !== "Container" || root.getAttribute("version") !== "2") p.push(`${at}: the root is not <Container version="2">`);
+  const one = (tag) => [...root.children].find((e) => e.tagName === tag)?.textContent ?? null;
+  for (const tag of ["Name", "Repository", "Category", "Icon", "Overview", "Support", "TemplateURL", "Network"]) {
+    if (!one(tag)?.trim()) p.push(`${at}: <${tag}> is missing or empty`);
+  }
+  const tag = channels.aio.stable ?? channels.aio.next;
+  if (one("Repository") !== `${images.updater}:${tag}`) p.push(`${at}: Repository is ${one("Repository")}, not docker.yml's ${images.updater}:${tag} (the all-in-one template's channel)`);
+  if (one("TemplateURL") !== unraidRepo(meta).updaterTemplateUrl) p.push(`${at}: TemplateURL is not the template repository's raw URL`);
+  const cu = composeUpdater(src.compose);
+  const up = meta.aio.unraid.updater;
+  if (one("Name") !== cu.name) p.push(`${at}: Name must be compose.yml's updater container_name, ${cu.name}`);
+  if (one("ExtraParams") !== `--entrypoint=${cu.entrypoint}`) p.push(`${at}: ExtraParams must be exactly --entrypoint=${cu.entrypoint} (the image's own entrypoint is the git install's webhook)`);
+  if (one("Privileged") !== "false") p.push(`${at}: Privileged must be false`);
+  if (one("WebUI") !== null) p.push(`${at}: the updater has no web interface`);
+  if (!channels.aio.stable && one("Beta") !== "true") p.push(`${at}: no stable all-in-one channel yet, so <Beta>true</Beta> is required`);
+  const configs = [...root.children].filter((e) => e.tagName === "Config");
+  for (const c of configs) {
+    const name = c.getAttribute("Name") ?? "?";
+    for (const a of CA_CONFIG_ATTRS) if (!c.hasAttribute(a)) p.push(`${at}: Config ${name} lacks ${a}`);
+    for (const [a, allowed] of Object.entries(CA_ALLOWED)) {
+      if (c.hasAttribute(a) && !allowed.includes(c.getAttribute(a))) p.push(`${at}: Config ${name}: ${a}="${c.getAttribute(a)}" is not one of ${allowed.join(", ")}`);
+    }
+    if (c.textContent !== c.getAttribute("Default")) p.push(`${at}: Config ${name}: its value differs from its Default`);
+  }
+  const byTarget = (t) => configs.find((c) => c.getAttribute("Target") === t);
+  if (configs.some((c) => c.getAttribute("Type") === "Port")) p.push(`${at}: the updater opens no port`);
+  const paths = configs.filter((c) => c.getAttribute("Type") === "Path").map((c) => `${c.getAttribute("Target")}=${c.getAttribute("Default")}`).sort();
+  const want = [`${cu.state}=/mnt/user/appdata/${cu.name}`, `${DOCKER_SOCKET}=${DOCKER_SOCKET}`].sort();
+  if (paths.join() !== want.join()) p.push(`${at}: its paths must be exactly the Docker socket and its own folder (${want.join(", ")}), not ${paths.join(", ")}`);
+  let aioName = null;
+  try { aioName = aioXml ? [...parseXml(aioXml).documentElement.children].find((e) => e.tagName === "Name")?.textContent ?? null : null; } catch { aioName = null; }
+  if (byTarget(up.container_env)?.getAttribute("Default") !== aioName) p.push(`${at}: ${up.container_env} must default to the all-in-one template's Name (${aioName}), the container Unraid creates`);
+  for (const [k, v] of cu.env) if (byTarget(k)?.getAttribute("Default") !== String(v)) p.push(`${at}: ${k}=${v} (as compose.yml's updater sets it) is missing`);
   return p;
 }

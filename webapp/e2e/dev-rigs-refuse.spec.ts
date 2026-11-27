@@ -104,6 +104,7 @@ function expectNotAnUpdater(out: string) {
 
 test("the rigs are where rigs.yml expects them, and none is left next to start.sh", () => {
   expect(RIG_SCRIPTS).toEqual([
+    "test-aio-autoupdate.sh",
     "test-aio.sh",
     "test-backup-restore.sh",
     "test-fresh-install.sh",
@@ -158,9 +159,9 @@ for (const rig of RIG_SCRIPTS) {
 
   // The one-file, stock PostgreSQL, store-listing and all-in-one rigs never
   // read or write webapp/docker/.env; their guard is the host's own one-file
-  // install (below), or their own kbaio-* names.
+  // install (below), or their own kbaio-* and kbaup-* names.
   // The migration rig's git install is a clone of its own, under kbmig-* names.
-  if (rig === "test-one-file.sh" || rig === "test-stock-postgres.sh" || rig === "test-store-listings.sh" || rig === "test-aio.sh" || rig === "test-migration-aio.sh") continue;
+  if (rig === "test-one-file.sh" || rig === "test-stock-postgres.sh" || rig === "test-store-listings.sh" || rig === "test-aio.sh" || rig === "test-migration-aio.sh" || rig === "test-aio-autoupdate.sh") continue;
   test(`${rig}, run on purpose, still will not rewrite an installed copy's .env`, () => {
     const sb = sandbox();
     try {

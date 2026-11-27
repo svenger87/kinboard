@@ -96,6 +96,7 @@ test.describe("the committed listings", () => {
       `unraid/templates/${meta.slug}.xml`,
       "unraid/ca_profile.xml",
       "unraid/README.md",
+      `unraid/templates/${meta.slug}-updater.xml`,
     ]) expect(paths, want).toContain(want);
   });
 
@@ -265,7 +266,7 @@ const socketMounts = (services: Record<string, Svc>) =>
   Object.entries(services).filter(([, s]) => (s.volumes ?? []).some((v) => JSON.stringify(v).includes("docker.sock"))).map(([n]) => n);
 
 test.describe("automatic updates: the updater only in Portainer, the socket only when switched on", () => {
-  test("Portainer keeps the updater under its profile; TrueNAS, CasaOS and Umbrel leave it out", async () => {
+  test("Portainer keeps the updater under its profile, Unraid as a template of its own; TrueNAS, CasaOS and Umbrel leave it out", async () => {
     const { src, files } = await generated();
     const { yaml } = await sourcesMod;
     const stack = files["portainer/compose.yml"];
@@ -277,8 +278,11 @@ test.describe("automatic updates: the updater only in Portainer, the socket only
     expect(socketMounts(startedWith(stack, yaml.load, ""))).toEqual([]);
     expect(Object.keys(startedWith(stack, yaml.load, "autoupdate"))).toContain("updater");
     expect(socketMounts(startedWith(stack, yaml.load, "autoupdate"))).toEqual(["updater"]);
+    // Unraid's second template is the updater beside the all-in-one container (RFC-024 §4.7): its own, never the first's.
+    const unraidUpdater = `unraid/templates/${src.meta.slug}-updater.xml`;
+    expect(files[unraidUpdater]).toContain(src.images.updater);
     for (const [path, text] of Object.entries(files)) {
-      if (path.startsWith("portainer/")) continue;
+      if (path.startsWith("portainer/") || path === unraidUpdater) continue;
       expect(text, path).not.toMatch(/docker\.sock/);
       expect(text, path).not.toContain(src.images.updater);
       expect(text, path).not.toMatch(/^\s+updater:/m);
@@ -639,6 +643,46 @@ test.describe("the Unraid template for the all-in-one image (RFC-024 §5.1, phas
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  test("the updater's template (RFC-024 §4.7): the socket and its own folder, nothing else; the all-in-one container it looks after named as Unraid names it", async () => {
+    const { src, files } = await generated();
+    const xml = files[`unraid/templates/${src.meta.slug}-updater.xml`];
+    const tag = src.channels.aio.stable ?? src.channels.aio.next;
+    expect(xml).toContain('<Container version="2">');
+    expect(xml).toContain(`<Repository>${src.images.updater}:${tag}</Repository>`);
+    expect(xml).toContain("<ExtraParams>--entrypoint=kinboard-updater</ExtraParams>");
+    expect(xml).toMatch(/<Config [^>]*Target="\/var\/run\/docker\.sock" Default="\/var\/run\/docker\.sock" Mode="rw"[^>]*Type="Path"/);
+    expect(xml).toMatch(new RegExp(`<Config [^>]*Target="/kinboard" Default="/mnt/user/appdata/${src.meta.slug}-updater" Mode="rw"[^>]*Type="Path"`));
+    expect(xml).toMatch(new RegExp(`<Config [^>]*Target="KINBOARD_AIO_CONTAINER" Default="${src.meta.name}"`));
+    expect(xml).not.toContain('Type="Port"');
+    // The socket is the updater's alone.
+    expect(files[`unraid/templates/${src.meta.slug}.xml`]).not.toContain("docker.sock");
+    expect(files["unraid/README.md"]).toContain(`templates/${src.meta.slug}-updater.xml`);
+  });
+
+  test("red: the updater template's rules and the socket rule, broken on purpose", async () => {
+    const { src, files } = await generated();
+    const { listingProblems } = await checksMod;
+    const upd = `unraid/templates/${src.meta.slug}-updater.xml`;
+    const aio = `unraid/templates/${src.meta.slug}.xml`;
+    const edit = (path: string, from: string | RegExp, to: string) => {
+      const changed = files[path].replace(from, to);
+      expect(changed, String(from)).not.toBe(files[path]);
+      return listingProblems({ ...files, [path]: changed }, src).join("\n");
+    };
+    expect(edit(aio, "</Container>", '  <Config Name="Docker" Target="/var/run/docker.sock" Default="/var/run/docker.sock" Mode="rw" Description="x" Type="Path" Display="always" Required="false" Mask="false">/var/run/docker.sock</Config>\n</Container>'))
+      .toContain("the all-in-one template must never get the Docker socket");
+    expect(edit(upd, "--entrypoint=kinboard-updater", "--entrypoint=webhook")).toContain("ExtraParams must be exactly --entrypoint=kinboard-updater");
+    expect(edit(upd, `${src.images.updater}:`, `${src.images.app}:`)).toContain("not docker.yml's");
+    expect(edit(upd, "</Container>", '  <Config Name="Root" Target="/host" Default="/" Mode="rw" Description="x" Type="Path" Display="always" Required="false" Mask="false">/</Config>\n</Container>'))
+      .toContain("its paths must be exactly the Docker socket and its own folder");
+    expect(edit(upd, "</Container>", '  <Config Name="Web" Target="9000" Default="9000" Mode="tcp" Description="x" Type="Port" Display="always" Required="false" Mask="false">9000</Config>\n</Container>'))
+      .toContain("the updater opens no port");
+    expect(edit(upd, new RegExp(`Default="${src.meta.name}"([^>]*)>${src.meta.name}<`), 'Default="kinboard"$1>kinboard<')).toContain("KINBOARD_AIO_CONTAINER must default to the all-in-one template's Name");
+    expect(edit(upd, "<Privileged>false</Privileged>", "<Privileged>true</Privileged>")).toContain("Privileged must be false");
+    const { [upd]: _gone, ...without } = files;
+    expect(listingProblems(without, src).join()).toContain("(the updater's template) is missing");
   });
 
   test("the CA category check is linear and still strict", async () => {

@@ -166,6 +166,13 @@ STACK_MODE=legacy
 STACK_ENV_FILE="$PROJECT_DIR/webapp/docker/.env"
 # Container mode only: the Compose project the containers carry in their labels.
 STACK_PROJECT=""
+# The all-in-one image (see "The all-in-one image"): AIO=1, its container's
+# name, and the one service it stands for. KB_SVC is the service that runs the
+# webapp: `webapp` in every stack, `aio` for the all-in-one container.
+AIO=""
+AIO_NAME=""
+AIO_SVC=aio
+KB_SVC=webapp
 
 # The value of $1 in the stack's .env, as written there (quotes removed), or
 # nothing.
@@ -306,7 +313,13 @@ rm -f .pre-upgrade-*.partial
 mount_source() {
   cid="$(svc_container "$1")"
   [ -n "$cid" ] || return 0
-  docker inspect -f '{{range .Mounts}}{{if eq .Destination "'"$2"'"}}{{if eq .Type "volume"}}{{.Name}}{{else}}{{.Source}}{{end}}{{end}}{{end}}' "$cid" 2>/dev/null || true
+  container_mount "$cid" "$2"
+}
+
+# The same for container $1.
+container_mount() {
+  [ -n "$1" ] || return 0
+  docker inspect -f '{{range .Mounts}}{{if eq .Destination "'"$2"'"}}{{if eq .Type "volume"}}{{.Name}}{{else}}{{.Source}}{{end}}{{end}}{{end}}' "$1" 2>/dev/null || true
 }
 
 # Where the install keeps its config folder, as something `docker run -v` can
@@ -339,6 +352,11 @@ config_source() {
 # folder), all verified, or a non-zero exit.
 take_backup() {
   stamp="$(date -u +%Y%m%d-%H%M%S)"
+  # The all-in-one image takes its own dump (see aio_backup).
+  if [ -n "$AIO" ]; then
+    aio_backup
+    return $?
+  fi
 
   if [ "$STACK_MODE" = compose ] || [ "$STACK_MODE" = container ]; then
     # compose.yml has no DATA_DIR. The uploaded files are wherever the webapp
@@ -519,8 +537,11 @@ BACKUP_AT=""
 # skipped.
 # ---------------------------------------------------------------------------
 
+# `webapp` unless the all-in-one target set KB_SVC; read with a default so the
+# function stands on its own (e2e/scheduler-follows-webapp.spec.ts runs it
+# without the rest of the script).
 webapp_container() {
-  svc_container webapp
+  svc_container "${KB_SVC:-webapp}"
 }
 
 # $1: the webapp container id from before `up -d` (empty if none ran).
@@ -740,6 +761,12 @@ release_held() {
 # ---------------------------------------------------------------------------
 
 db_container() {
+  # The all-in-one container is its own database: psql over its socket, where
+  # supabase_admin is trusted as in the db image.
+  if [ -n "$AIO" ]; then
+    svc_container "$AIO_SVC" running
+    return 0
+  fi
   svc_container db running
 }
 
@@ -908,7 +935,7 @@ EOF
 SMOKE_TIMEOUT="${KINBOARD_SMOKE_TIMEOUT:-180}"
 
 smoke_check() {
-  cid="$(svc_container webapp)"
+  cid="$(svc_container "${KB_SVC:-webapp}")"
   smoke_deadline=$(( $(date +%s) + SMOKE_TIMEOUT ))
   while :; do
     # CRON_SECRET is the webapp container's own: single quotes, expanded there.
@@ -917,8 +944,10 @@ smoke_check() {
     # `docker exec` shell has the container's configured environment. So the
     # store's file, where there is one (kinboard-init, RFC-023 §4.1);
     # without it every check there was a 401, and passed on health alone.
+    # The all-in-one image keeps that store in /data/config/secrets and says
+    # so in KINBOARD_SECRETS_DIR.
     # shellcheck disable=SC2016
-    out="$(docker exec "$cid" sh -c 's="${CRON_SECRET:-$(cat /kinboard/secrets/cron_secret 2>/dev/null)}"; curl -s -m 30 -w "\n%{http_code}" -H "Authorization: Bearer $s" "http://localhost:3000/api/health?deep=1"' 2>/dev/null || true)"
+    out="$(docker exec "$cid" sh -c 's="${CRON_SECRET:-$(cat "${KINBOARD_SECRETS_DIR:-/kinboard/secrets}/cron_secret" 2>/dev/null)}"; curl -s -m 30 -w "\n%{http_code}" -H "Authorization: Bearer $s" "http://localhost:3000/api/health?deep=1"' 2>/dev/null || true)"
     code="$(printf '%s\n' "$out" | tail -n1)"
     body="$(printf '%s\n' "$out" | sed '$d')"
     case "$code|$body" in
@@ -945,14 +974,14 @@ smoke_check() {
 # Health, and for a recreated webapp the smoke check too.
 wait_ready() {
   wait_healthy "$1" || return 1
-  case " $1 " in *" webapp "*) smoke_check || return 1 ;; esac
+  case " $1 " in *" ${KB_SVC:-webapp} "*) smoke_check || return 1 ;; esac
   return 0
 }
 
 # The migration the webapp's entrypoint gave up on, from its log
 # (migrate.sh: "[migrate] FAILED: <file>"), or nothing.
 failed_migration() {
-  cid="$(svc_container webapp)"
+  cid="$(svc_container "${KB_SVC:-webapp}")"
   [ -n "$cid" ] || return 0
   docker logs "$cid" 2>&1 | sed -n 's/.*\[migrate\] FAILED: *\([^ ]*\).*/\1/p' | tail -n1 || true
 }
@@ -975,7 +1004,7 @@ redact() {
     case "${STACK_MODE:-}" in compose | container) stored_secrets ;; esac
     # Container mode has no .env: the variables a UI gave the containers.
     if [ "${STACK_MODE:-}" = container ]; then
-      for s_svc in init db-init webapp; do
+      for s_svc in init db-init webapp "$AIO_SVC"; do
         docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$(svc_container "$s_svc")" 2>/dev/null || true
       done
     fi; } \
@@ -1043,7 +1072,8 @@ stored_secrets() {
   db="$(db_container)"
   [ -n "$db" ] || return 0
   # shellcheck disable=SC2016
-  docker exec "$db" sh -c 'for f in /kinboard/secrets/*; do [ -f "$f" ] && printf "STORED_SECRET=%s\n" "$(cat "$f")"; done' 2>/dev/null || true
+  # The all-in-one image names its store in KINBOARD_SECRETS_DIR.
+  docker exec "$db" sh -c 'd=/kinboard/secrets/; [ -z "${KINBOARD_SECRETS_DIR:-}" ] || d="$KINBOARD_SECRETS_DIR/"; for f in "$d"*; do [ -f "$f" ] && printf "STORED_SECRET=%s\n" "$(cat "$f")"; done' 2>/dev/null || true
 }
 
 # The last lines each of the given services' containers logged, for Details,
@@ -1332,6 +1362,17 @@ abs_path() {
 # Sets STACK_MODE, STACK_ENV_FILE and, for compose.yml, COMPOSE_FILES; or
 # logs why it cannot and returns 1, before anything has been touched.
 resolve_stack() {
+  # kinboard-updater beside the all-in-one image: one container, no stack.
+  if [ -n "$UPDATER" ]; then
+    if aio_applies "$(updater_self)"; then
+      aio_resolve
+      return $?
+    fi
+    if [ -n "$AIO_ERR" ]; then
+      log "ERROR: $AIO_ERR. Nothing was changed"
+      return 1
+    fi
+  fi
   cf_compose=""
   for f in $(cf_files); do
     case "${f##*/}" in compose.yml | compose.yaml) cf_compose=1 ;; esac
@@ -1548,12 +1589,35 @@ hop_run() {
 }
 
 # What a tick reads from its environment, handed on to the sibling.
-UPDATER_PASS_ENV="KINBOARD_UPDATE_TICK KINBOARD_HEALTH_TIMEOUT KINBOARD_HEALTH_POLL KINBOARD_SMOKE_TIMEOUT KINBOARD_TICK_INTERVAL KINBOARD_BACKUP_DIR BACKUP_KEEP KINBOARD_INSECURE_REGISTRIES KINBOARD_REGISTRY_TIMEOUT KINBOARD_UPDATER_DIR KINBOARD_LOG_MAX LOG_FILE"
+UPDATER_PASS_ENV="KINBOARD_AIO_CONTAINER KINBOARD_PG_UPGRADE_TIMEOUT KINBOARD_UNRAID_STATUS_FILE KINBOARD_UPDATE_TICK KINBOARD_HEALTH_TIMEOUT KINBOARD_HEALTH_POLL KINBOARD_SMOKE_TIMEOUT KINBOARD_TICK_INTERVAL KINBOARD_BACKUP_DIR BACKUP_KEEP KINBOARD_INSECURE_REGISTRIES KINBOARD_REGISTRY_TIMEOUT KINBOARD_UPDATER_DIR KINBOARD_LOG_MAX LOG_FILE"
 
 # Runs this tick in the sibling container (see above) and exits with its
 # status; returns when the stack's files can already be read here.
 updater_hop() {
   self="$(updater_self)"
+  # Beside the all-in-one image (see "The all-in-one image"): there are no
+  # compose files to mount, only the socket and the updater's own folder, as
+  # in container mode.
+  if aio_applies "$self"; then
+    image="$(docker inspect -f '{{.Image}}' "$self" 2>/dev/null || true)"
+    if [ -z "$image" ]; then
+      log "ERROR: cannot read the updater's own image; nothing was changed"
+      exit 1
+    fi
+    hop_err="${TMPDIR:-/tmp}/kinboard-updater-hop.$$"
+    rc=0
+    hop_run "$self" "$AIO_NAME" "$image" "" "" 2>"$hop_err" || rc=$?
+    if [ "$rc" = 125 ]; then
+      log "ERROR: could not start the tick's container: $(grep -v '^[[:space:]]*$' "$hop_err" | tail -n1); nothing was changed"
+    fi
+    cat "$hop_err" >&2 2>/dev/null || true
+    rm -f "$hop_err"
+    exit "$rc"
+  fi
+  if [ -n "$AIO_ERR" ]; then
+    log "ERROR: $AIO_ERR. Nothing was changed"
+    exit 1
+  fi
   labels=""
   [ -z "$self" ] || labels="$(stack_labels "$self")"
   IFS='|' read -r h_project h_workdir h_files h_envfiles <<HOP
@@ -1804,7 +1868,12 @@ updater_log_location() {
     "$root"/*) ;;
     *) printf '%s\n' "$LOG_FILE"; return 0 ;;
   esac
-  src="$(mount_source webapp /kinboard)"
+  if [ -n "$AIO" ]; then
+    # Beside the all-in-one container, the updater has a folder of its own.
+    src="$(container_mount "$(updater_self)" "$root")"
+  else
+    src="$(mount_source webapp /kinboard)"
+  fi
   rel="${LOG_FILE#"$root"/}"
   case "$src" in
     /*) printf '%s/%s\n' "${src%/}" "$rel" ;;
@@ -2069,6 +2138,11 @@ def anon_name($target): first(($c.Mounts // [])[] | select(.Type == "volume" and
 # one-off (`docker compose run`), one without a service label and one an
 # update set aside left out. $1: "running" for running ones only.
 cm_list() {
+  # The all-in-one container: the one container by its name.
+  if [ -n "$AIO" ]; then
+    aio_list "${1:-}"
+    return 0
+  fi
   all=-a
   [ -z "${1:-}" ] || all=""
   # shellcheck disable=SC2086
@@ -2151,6 +2225,10 @@ cm_journal_busy() {
 
 # Whether container $1 belongs to service $2 of this stack (its Compose labels).
 cm_is_ours() {
+  if [ -n "$AIO" ]; then
+    [ "$2" = "$AIO_SVC" ] && aio_is "$1"
+    return $?
+  fi
   [ "$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}' "$1" 2>/dev/null || true)" = "$STACK_PROJECT|$2" ]
 }
 
@@ -2241,6 +2319,13 @@ cm_swap() {
   # Never anything but the Kinboard image, whatever decided this.
   if [ -z "$ref" ] || [ "$(ref_repo "$ref")" != "$KB_REPO" ]; then
     CM_ERR="$svc runs ${ref:-no image reference}, not the Kinboard image ($KB_REPO); container mode recreates the Kinboard containers only"
+    cm_forget "$svc"
+    return 1
+  fi
+  # And beside the all-in-one image, only a container of that image: its
+  # label, or the variable every all-in-one image sets.
+  if [ -n "$AIO" ] && ! aio_is "$old"; then
+    CM_ERR="$AIO_NAME is not the all-in-one image any more; nothing was changed"
     cm_forget "$svc"
     return 1
   fi
@@ -2359,6 +2444,15 @@ cm_restore() {
     r_ok=""
     log "ERROR: could not give $r_name its restart policy ($r_policy) back"
   fi
+  # After a tick that was cut short: the `docker stop` it had asked for may
+  # still be under way in the daemon, which finishes it whatever became of
+  # the tick, and would stop the original again right after it was started
+  # here (seen on a real run: "the original is back", then the container
+  # exited). So it is stopped here first, which waits for that stop, and
+  # then started.
+  if [ -n "$r_ok" ] && [ "$r_running" = true ] && [ "$r_retag" = retag ]; then
+    docker stop "$r_old" >>"$LOG_FILE" 2>&1 || true
+  fi
   if [ -n "$r_ok" ] && [ "$r_running" = true ] && [ "$(docker inspect -f '{{.State.Running}}' "$r_old" 2>/dev/null || true)" != true ] \
      && ! docker start "$r_old" >>"$LOG_FILE" 2>&1; then
     r_ok=""
@@ -2473,6 +2567,10 @@ cm_preflight() {
     cm_finish || true
   else
     log "container mode: an update was cut short while it recreated containers ($(cm_journal_services | tr '\n' ' ')); putting the originals back"
+    if [ -n "$AIO" ] && aio_preflight_keep && ! cm_journal_busy; then
+      log "=== tick: the container the interrupted update made runs on; the next tick looks again ==="
+      exit 0
+    fi
     if cm_restore_all retag && ! cm_journal_busy; then
       log "=== tick: the containers from before the interrupted update run again; the next tick looks again ==="
       exit 0
@@ -2485,6 +2583,381 @@ cm_preflight() {
   fi
   log "=== tick: what the interrupted update left is dealt with; the next tick looks again ==="
   exit 0
+}
+
+# ---------------------------------------------------------------------------
+# The all-in-one image (RFC-024 §4.2-4.7).
+#
+# kinboard-aio is one container with everything in /data: the webapp,
+# PostgreSQL, PostgREST and the scheduler. It never replaces itself (§4.7), so
+# until this the household replaced it: Unraid's Apply Update, Compose's pull
+# and up, a new `docker run`. kinboard-updater now does it the way container
+# mode does for a Portainer stack, with the one difference that there is no
+# stack: one container, found on its own.
+#
+#   - Which container: KINBOARD_AIO_CONTAINER names it. Without that, the one
+#     container on this Docker that runs the all-in-one image: the label
+#     app.kinboard.aio=1 the image carries, or, on an image published before
+#     that label, the KINBOARD_AIO=1 every all-in-one image sets. Two of them
+#     and no name is a refusal: which one this updater looks after is the
+#     household's to say. An updater inside a Kinboard compose stack (a
+#     project with a webapp service) updates that stack as before, unless
+#     KINBOARD_AIO_CONTAINER says otherwise.
+#   - Then everything is container mode (see there), for one service called
+#     `aio`: the tick in a sibling container, the registry asked about the
+#     tag the container was created from (`next`, `main`; a version or a
+#     sha-... never moves), the swap with its journal, the health wait and
+#     the smoke check, the originals back on a failure, the release held.
+#     Only that one container is ever touched: cm_swap checks once more that
+#     it runs the all-in-one image.
+#   - The journal must outlive the updater's container, or an update cut
+#     short could not be put back: the updater refuses to act unless its
+#     folder (/kinboard/updater) is on a volume or folder of its own.
+#   - The backup: the image's own verified dump (kinboard-backup.sh, the one
+#     it takes before a migration and before a PostgreSQL upgrade), run in
+#     the container as its PUID:PGID into /data/backups as
+#     pre-update-<time>.sql.gz, five kept. No verified dump, no update. The
+#     uploaded files and the keys are not copied: an update does not change
+#     them, they stay in /data, and the original container that a rollback
+#     puts back mounts that same folder. Copying every photo into
+#     /data/backups at every release would grow the folder by the size of
+#     the photos each time.
+#   - A rollback puts the original container back on the same /data. A
+#     migration the new version ran stays: migrations are additive (#542's
+#     check), and the older version runs on the newer schema.
+#   - A PostgreSQL major upgrade is the image's own (§4.3): at its first start
+#     the new image dumps, builds /data/db.new with pg_upgrade and switches,
+#     keeping /data/db.old. The updater waits for that up to
+#     KINBOARD_PG_UPGRADE_TIMEOUT (an hour) instead of the usual ten minutes.
+#     On a failure the original container goes back and puts the previous
+#     database back itself, as long as the new version never ran healthy for
+#     a minute. Once it has, that upgrade is final, the previous image would
+#     refuse the database, and going back would leave Kinboard stopped: then
+#     the new version is started again and kept, and Settings says the
+#     rollback did not happen (see aio_pg_confirmed). The same when its
+#     record cannot be read, and after a tick cut short in the hour an
+#     upgrade may take (aio_preflight_keep).
+#   - Found without KINBOARD_AIO_CONTAINER, the container is whichever one
+#     carries the label: anyone who can start a container here can start one
+#     with it, and then the updater refuses to choose. That person already
+#     holds the socket's power; the templates and the wiki's lines name the
+#     container all the same.
+#   - Unraid's Docker page remembers the digest it pulled itself, in
+#     /var/lib/docker/unraid-update-status.json, and would show "update ready"
+#     for good after an update it did not make. After a healthy update the
+#     updater records the new digest there, as Unraid's own Apply Update does
+#     (see aio_unraid_status).
+# ---------------------------------------------------------------------------
+
+AIO_ERR=""
+AIO_PG_FROM=""
+AIO_PG_TO=""
+
+# Whether container $1 runs the all-in-one image.
+aio_is() {
+  ai_out="$(docker container inspect -f '{{index .Config.Labels "app.kinboard.aio"}}{{range .Config.Env}}{{println}}{{.}}{{end}}' "$1" 2>/dev/null || true)"
+  [ -n "$ai_out" ] || return 1
+  [ "$(printf '%s\n' "$ai_out" | head -n1)" != 1 ] || return 0
+  printf '%s\n' "$ai_out" | tail -n +2 | grep -qx 'KINBOARD_AIO=1'
+}
+
+# "<id> aio <name>" for the all-in-one container ($1 = running: only when it
+# runs), as cm_list prints a stack's.
+aio_list() {
+  al="$(docker container inspect -f '{{.Id}}|{{.Name}}|{{.State.Running}}' "$AIO_NAME" 2>/dev/null | head -n1 || true)"
+  IFS='|' read -r al_id al_name al_run <<ALEOF
+$al
+ALEOF
+  [ -n "$al_id" ] || return 0
+  if [ "${1:-}" = running ] && [ "$al_run" != true ]; then return 0; fi
+  echo "$al_id $AIO_SVC ${al_name#/}"
+}
+
+# Sets AIO_NAME to the all-in-one container this updater looks after, or
+# returns 1: with AIO_ERR set when that is a refusal, empty when there is none.
+aio_find() {
+  AIO_NAME=""
+  if [ -n "${KINBOARD_AIO_CONTAINER:-}" ]; then
+    an="$KINBOARD_AIO_CONTAINER"
+    case "$an" in
+      [!A-Za-z0-9]* | *[!A-Za-z0-9_.-]*)
+        AIO_ERR="KINBOARD_AIO_CONTAINER=$an is not a container name"
+        return 1 ;;
+    esac
+    # An update cut short between the rename and the create leaves only the
+    # original, set aside: its journal still has to be read.
+    for ac in "$an" "$an$CM_SUFFIX"; do
+      docker container inspect "$ac" >/dev/null 2>&1 || continue
+      if aio_is "$ac"; then
+        AIO_NAME="$an"
+        return 0
+      fi
+      AIO_ERR="KINBOARD_AIO_CONTAINER names $ac, which does not run the all-in-one image (no app.kinboard.aio label, no KINBOARD_AIO=1)"
+      return 1
+    done
+    AIO_ERR="KINBOARD_AIO_CONTAINER names $an, and there is no container of that name on this Docker"
+    return 1
+  fi
+  ids="$(docker ps -aq --no-trunc 2>/dev/null || true)"
+  [ -n "$ids" ] || return 1
+  # One inspect for all; one that went in the meantime is left out by Docker.
+  # An original set aside by a swap counts under its real name.
+  # shellcheck disable=SC2086
+  names="$(docker container inspect -f '{{.Name}}|{{index .Config.Labels "app.kinboard.aio"}}|{{range .Config.Env}}{{if eq . "KINBOARD_AIO=1"}}env{{end}}{{end}}' $ids 2>/dev/null \
+    | awk -F'|' -v sfx="$CM_SUFFIX" '
+        $2 == "1" || $3 == "env" {
+          n = substr($1, 2)
+          if (length(n) > length(sfx) && substr(n, length(n) - length(sfx) + 1) == sfx) n = substr(n, 1, length(n) - length(sfx))
+          if (n != "" && !seen[n]++) print n
+        }' || true)"
+  count="$(printf '%s\n' "$names" | grep -c . || true)"
+  [ "${count:-0}" -gt 0 ] || return 1
+  if [ "$count" -gt 1 ]; then
+    AIO_ERR="this Docker runs $count all-in-one Kinboard containers ($(printf '%s' "$names" | tr '\n' ' ')); set KINBOARD_AIO_CONTAINER on the updater to the one it updates (one updater for each)"
+    return 1
+  fi
+  AIO_NAME="$names"
+  return 0
+}
+
+# Whether the updater in container $1 looks after an all-in-one container
+# (see above). Returns 1 with AIO_ERR set on a refusal.
+aio_applies() {
+  AIO_ERR=""
+  [ -n "$UPDATER" ] || return 1
+  if [ -z "${KINBOARD_AIO_CONTAINER:-}" ]; then
+    ap="$(stack_labels "$1" | cut -d'|' -f1)"
+    if [ -n "$ap" ] && [ -n "$(docker ps -aq --filter "label=com.docker.compose.project=$ap" --filter label=com.docker.compose.service=webapp 2>/dev/null || true)" ]; then
+      return 1
+    fi
+  fi
+  aio_find
+}
+
+# Whether $UPDATER_DIR is on a volume or folder container $1 mounts.
+aio_dir_kept() {
+  docker inspect -f '{{range .Mounts}}{{println .Destination}}{{end}}' "$1" 2>/dev/null \
+    | awk -v p="${UPDATER_DIR%/}" 'NF { d = $0; sub(/\/$/, "", d); if (d == "" || p == d || index(p, d "/") == 1) f = 1 } END { exit !f }'
+}
+
+# The stack is the one all-in-one container (see above).
+aio_resolve() {
+  ar_self="$(updater_self)"
+  if ! aio_dir_kept "$ar_self"; then
+    log "ERROR: the updater keeps the journal of an update in progress in $UPDATER_DIR, which is not on a volume or folder of its container: a recreated updater would lose it, and with it the way back from an update cut short. Give it one at $(dirname "$UPDATER_DIR") (docker run ... -v kinboard-updater:$(dirname "$UPDATER_DIR")). Nothing was changed"
+    return 1
+  fi
+  STACK_MODE=container
+  AIO=1
+  KB_SVC="$AIO_SVC"
+  STACK_PROJECT=""
+  STACK_ENV_FILE=/dev/null
+  unset COMPOSE_FILES
+  COMPOSE_FILES=""
+  unset TZ
+  STACK_NOTE="all-in-one: $AIO_NAME runs the all-in-one image; it is recreated from its own configuration, with only the image changed"
+  return 0
+}
+
+# The value of variable $2 in image $1's own configuration, or nothing.
+image_env() {
+  docker image inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$1" 2>/dev/null \
+    | awk -v k="$2" 'index($0, k "=") == 1 { print substr($0, length(k) + 2); exit }' || true
+}
+
+# The backup before an all-in-one update (see above). Sets BACKUP_FILE,
+# BACKUP_DIR and BACKUP_AT as take_backup does, or returns 1.
+aio_backup() {
+  ab_cid="$(svc_container "$AIO_SVC" running)"
+  if [ -z "$ab_cid" ]; then
+    log "ERROR: $AIO_NAME is not running — refusing to update without a backup"
+    return 1
+  fi
+  ab_uid="$(config_env "$AIO_SVC" PUID)"
+  ab_gid="$(config_env "$AIO_SVC" PGID)"
+  case "${ab_uid:-1000}:${ab_gid:-1000}" in
+    *[!0-9:]* | 0:* | *:0)
+      log "ERROR: $AIO_NAME has PUID=$ab_uid PGID=$ab_gid, which the image refuses; refusing to update"
+      return 1 ;;
+  esac
+  # As the data's owner, over the server's own socket (where supabase_admin is
+  # trusted): the dump lands owned as everything else in /data, and the
+  # image's checks decide whether it is a backup.
+  # shellcheck disable=SC2016
+  # At least one kept: kinboard-backup.sh prunes after it writes, and 0 would
+  # remove the dump it has just verified.
+  ab_keep="$BACKUP_KEEP"
+  case "$ab_keep" in "" | *[!0-9]* | 0) ab_keep=5 ;; esac
+  if ! ab_out="$(docker exec -u "${ab_uid:-1000}:${ab_gid:-1000}" -e PGHOST=/run/postgresql -e PGUSER=supabase_admin -e PGDATABASE=postgres -e "BACKUP_KEEP=$ab_keep" "$ab_cid" \
+       sh -c 'exec sh /app/kinboard-backup.sh "${KINBOARD_MIGRATE_BACKUP_DIR:-/data/backups}" pre-update' 2>>"$LOG_FILE")"; then
+    log "ERROR: the verified dump in $AIO_NAME failed (its reason is the [backup] line above in $LOG_FILE) — refusing to update"
+    return 1
+  fi
+  ab_file="$(printf '%s\n' "$ab_out" | tail -n1)"
+  case "$ab_file" in
+    /*/pre-update-*.sql.gz) ;;
+    *)
+      log "ERROR: the dump in $AIO_NAME was not confirmed (it printed '$(printf '%.200s' "$ab_file")') — refusing to update"
+      return 1 ;;
+  esac
+  if ! docker exec -u "${ab_uid:-1000}:${ab_gid:-1000}" "$ab_cid" test -s "$ab_file" >>"$LOG_FILE" 2>&1; then
+    log "ERROR: the dump $ab_file is not there after it was verified — refusing to update"
+    return 1
+  fi
+  ab_dir="${ab_file%/*}"
+  ab_src="$(container_mount "$ab_cid" /data)"
+  case "$ab_src|$ab_dir" in
+    /*\|/data/*) BACKUP_DIR="${ab_src%/}${ab_dir#/data}" ;;
+    /*\|/data) BACKUP_DIR="${ab_src%/}" ;;
+    ?*\|/data/*) BACKUP_DIR="$ab_dir in the Docker volume $ab_src" ;;
+    *) BACKUP_DIR="$ab_dir in $AIO_NAME" ;;
+  esac
+  BACKUP_FILE="${ab_file##*/}"
+  BACKUP_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  log "backup: $BACKUP_FILE in $BACKUP_DIR (the all-in-one image's verified dump of the whole database; the last $ab_keep kept). The uploaded files and the keys stay in /data, which the update does not change"
+  return 0
+}
+
+# Before an all-in-one container is recreated: whether the new image runs
+# another PostgreSQL major than the running one. Then the wait is long enough
+# for the image's own upgrade, and roll_back knows to look (aio_pg_confirmed).
+aio_pg_plan() {
+  AIO_PG_FROM="$(image_env "$(field_for "$AIO_SVC" "$PREVIOUS")" PG_MAJOR)"
+  AIO_PG_TO="$(image_env "$(docker image inspect -f '{{.Id}}' "$(field_for "$AIO_SVC" "$CONFIG_IMAGES")" 2>/dev/null || true)" PG_MAJOR)"
+  if [ -z "$AIO_PG_FROM" ] || [ -z "$AIO_PG_TO" ] || [ "$AIO_PG_FROM" = "$AIO_PG_TO" ]; then
+    AIO_PG_TO=""
+    return 0
+  fi
+  ap_limit="${KINBOARD_PG_UPGRADE_TIMEOUT:-3600}"
+  case "$ap_limit" in "" | *[!0-9]*) ap_limit=3600 ;; esac
+  [ "$HEALTH_TIMEOUT" -ge "$ap_limit" ] || HEALTH_TIMEOUT="$ap_limit"
+  log "the new image runs PostgreSQL $AIO_PG_TO, $AIO_NAME runs $AIO_PG_FROM: the container upgrades the database itself at its first start (a verified dump first, the previous database kept as /data/db.old); waiting up to ${HEALTH_TIMEOUT}s for it"
+}
+
+# Whether the PostgreSQL major upgrade that container $1 made has become
+# final (the new version ran healthy for a minute: its record says
+# confirmed_at), so that the image that ran before would refuse the database.
+# $2: an image to read the record with (the previous one: on disk, with a
+# shell), $3: the major upgraded to. 0 final, 1 not (no upgrade, a failed one,
+# an unconfirmed one), 2 cannot tell.
+aio_pg_final() {
+  pf_src="$(container_mount "$1" /data)"
+  [ -n "$pf_src" ] || return 2
+  # Read-only; "phase=none" when there is no record, so that nothing at all
+  # means the read failed.
+  # shellcheck disable=SC2016
+  pf_rec="$(docker run --rm --network none --user 0:0 --entrypoint sh -v "$pf_src:/data:ro" "$2" \
+    -c 'f=/data/config/updater/pg-upgrade; if [ -f "$f" ]; then cat "$f"; else echo phase=none; fi' 2>/dev/null || true)"
+  [ -n "$pf_rec" ] || return 2
+  [ "$(printf '%s\n' "$pf_rec" | sed -n 's/^phase=//p' | head -n1)" = switched ] || return 1
+  [ "$(printf '%s\n' "$pf_rec" | sed -n 's/^to=//p' | head -n1)" = "$3" ] || return 1
+  [ -n "$(printf '%s\n' "$pf_rec" | sed -n 's/^confirmed_at=//p' | head -n1)" ] || return 1
+  return 0
+}
+
+# After a failed all-in-one update across a PostgreSQL major: whether the new
+# container must stay (aio_keep_new) instead of the original going back. Only
+# for the container this update made, as the journal records it: when the
+# swap itself failed, the original already runs again and is left alone. That
+# container is stopped first, so that its first healthy minute cannot come
+# while the record is read; it stays stopped when the original goes back.
+# Sets AIO_KEEP_WHY. The upgrade being final, or a record that cannot be read,
+# keeps it: the image that made the database runs on it whatever its record
+# says, the previous one only when the upgrade was not final.
+AIO_KEEP_WHY=""
+aio_pg_confirmed() {
+  [ -n "$AIO" ] && [ -n "$AIO_PG_TO" ] || return 1
+  pc_line="$(cm_journal_get "$AIO_SVC")"
+  pc_new="$(printf '%s' "$pc_line" | cut -d' ' -f8)"
+  pc_prev="$(field_for "$AIO_SVC" "$PREVIOUS")"
+  [ -n "$pc_line" ] && [ -n "$pc_new" ] && [ "$pc_new" != - ] && [ -n "$pc_prev" ] || return 1
+  [ "$(svc_container "$AIO_SVC")" = "$pc_new" ] || return 1
+  docker stop -t 60 "$pc_new" >>"$LOG_FILE" 2>&1 || true
+  pc_rc=0
+  aio_pg_final "$pc_new" "$pc_prev" "$AIO_PG_TO" || pc_rc=$?
+  case "$pc_rc" in
+    0) AIO_KEEP_WHY="the new version ran healthy for a minute before its check failed, so that upgrade is final: the image that ran before refuses a newer database that has been written to" ;;
+    2) AIO_KEEP_WHY="its upgrade record could not be read, so going back might meet a database the image that ran before refuses" ;;
+    *) return 1 ;;
+  esac
+  return 0
+}
+
+# The failed update's container stays (aio_pg_confirmed): started again, the
+# reference pointed at its image, the original removed. Sets OUTCOME.
+aio_keep_new() {
+  kn_new="$(svc_container "$AIO_SVC")"
+  kn_ref="$(field_for "$AIO_SVC" "$CONFIG_IMAGES")"
+  kn_img="$(docker inspect -f '{{.Image}}' "$kn_new" 2>/dev/null || true)"
+  log "ERROR: NOT ROLLED BACK: the database in $AIO_NAME was upgraded to PostgreSQL $AIO_PG_TO, and $AIO_KEEP_WHY; going back would leave Kinboard stopped. The new version is started again and kept. The dump from before the upgrade is /data/backups/pre-pg$AIO_PG_TO-upgrade-*.sql.gz; the one from before this update is $BACKUP_DIR/$BACKUP_FILE"
+  if [ -n "$kn_img" ] && [ -n "$kn_ref" ]; then
+    docker tag "$kn_img" "$kn_ref" >>"$LOG_FILE" 2>&1 || log "WARN: could not point $kn_ref back at $kn_img"
+  fi
+  if ! docker start "$kn_new" >>"$LOG_FILE" 2>&1; then
+    log "ERROR: could not start $AIO_NAME ($(printf '%.12s' "$kn_new")) again"
+  fi
+  cm_finish || true
+  OUTCOME=rollback_failed
+}
+
+# Before cm_preflight puts the original back after a tick that was cut short:
+# the same question as aio_pg_confirmed, from the journal alone (the tick
+# that knew the plan is gone). The updater can be stopped or recreated in the
+# hour an upgrade may take. Returns 0 when the new container was kept.
+aio_preflight_keep() {
+  pk_line="$(cm_journal_get "$AIO_SVC")"
+  [ -n "$pk_line" ] || return 1
+  # shellcheck disable=SC2086
+  set -- $pk_line
+  pk_name="$3" pk_img="$6" pk_new="$8" pk_want="$9"
+  pk_from="$(image_env "$pk_img" PG_MAJOR)"
+  pk_to="$(image_env "$pk_want" PG_MAJOR)"
+  [ -n "$pk_from" ] && [ -n "$pk_to" ] && [ "$pk_from" != "$pk_to" ] || return 1
+  [ "$pk_new" != - ] && [ "$(docker inspect -f '{{.Id}}' "$pk_name" 2>/dev/null || true)" = "$pk_new" ] || return 1
+  docker stop -t 60 "$pk_new" >>"$LOG_FILE" 2>&1 || true
+  pk_rc=0
+  aio_pg_final "$pk_new" "$pk_img" "$pk_to" || pk_rc=$?
+  [ "$pk_rc" != 1 ] || return 1
+  log "ERROR: the update that was cut short had upgraded $AIO_NAME's database to PostgreSQL $pk_to$([ "$pk_rc" = 0 ] && echo ", and that version ran healthy for a minute: the upgrade is final" || echo ", and its record cannot be read"); the image that ran before would refuse it, so the new container is kept and started, not the original"
+  docker start "$pk_new" >>"$LOG_FILE" 2>&1 || log "ERROR: could not start $AIO_NAME ($(printf '%.12s' "$pk_new"))"
+  cm_finish || true
+  return 0
+}
+
+# After a healthy update of a container Unraid's Docker page manages (its
+# label net.unraid.docker.managed=dockerman): the digest it now runs, recorded
+# in Unraid's update status the way Unraid's own Apply Update records it
+# (DockerUpdate::setUpdateStatus: local = remote = that digest). Unraid reads
+# `local` from there and only looks at the image when it has nothing, so
+# without this its Docker page would show "update ready" until someone
+# pressed Apply Update, which would then recreate the container once more.
+#
+# Through a short-lived container of the updater's own image (jq): the file is
+# the host's. `--mount`, never `-v`: a file that is not there is refused, not
+# created as a folder in Unraid's place. Only that one entry is written,
+# only into a file that holds a JSON object; anything else is left as it is.
+aio_unraid_status() {
+  us_cid="$(svc_container "$AIO_SVC")"
+  [ "$(docker inspect -f '{{index .Config.Labels "net.unraid.docker.managed"}}' "$us_cid" 2>/dev/null || true)" = dockerman ] || return 0
+  us_ref="$(docker inspect -f '{{.Config.Image}}' "$us_cid" 2>/dev/null || true)"
+  us_img="$(docker inspect -f '{{.Image}}' "$us_cid" 2>/dev/null || true)"
+  us_digest="$(image_digest "$us_img" "$(ref_repo "$us_ref")")"
+  case "$us_digest" in sha256:*) ;; *) log "WARN: no registry digest for $us_ref; Unraid's Docker page may show \"update ready\" until its Apply Update"; return 0 ;; esac
+  # Unraid's key: the reference with its tag (DockerUtil::ensureImageTag).
+  us_key="$us_ref"
+  case "${us_ref##*/}" in *:*) ;; *) us_key="$us_ref:latest" ;; esac
+  us_file="${KINBOARD_UNRAID_STATUS_FILE:-/var/lib/docker/unraid-update-status.json}"
+  us_self="$(docker inspect -f '{{.Image}}' "$(updater_self)" 2>/dev/null || true)"
+  [ -n "$us_self" ] || return 0
+  # shellcheck disable=SC2016
+  if docker run --rm --network none --label app.kinboard.unraid-status=1 --entrypoint sh \
+       --mount "type=bind,source=$us_file,target=/status.json" -e "K=$us_key" -e "D=$us_digest" "$us_self" \
+       -c '[ -f /status.json ] && jq -e "type == \"object\"" /status.json >/dev/null && jq --arg k "$K" --arg d "$D" ".[\$k] = {local: \$d, remote: \$d, status: \"true\"}" /status.json > /tmp/s && [ -s /tmp/s ] && cat /tmp/s > /status.json' \
+       >>"$LOG_FILE" 2>&1; then
+    log "Unraid: recorded $us_key as $us_digest in $us_file, so its Docker page shows the update as applied"
+  else
+    log "WARN: could not record the update in Unraid's $us_file; its Docker page may show \"update ready\" until its Apply Update, which then only recreates the container on the same image"
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -2894,7 +3367,7 @@ if [ "$MODE" = tick ] && [ -z "$(state_get baseline)" ]; then
       log "tick baseline: $svc: the compose files and .env name $want; the next tick applies it"
     fi
     if [ -n "$UPDATER" ] && [ -n "$want" ]; then
-      if [ "$(ref_repo "$want")" != "$(ref_repo "$(field_for webapp "$CONFIG_IMAGES")")" ]; then
+      if [ "$(ref_repo "$want")" != "$(ref_repo "$(field_for "${KB_SVC:-webapp}" "$CONFIG_IMAGES")")" ]; then
         log "tick baseline: $svc: $want moves only with the compose file"
       elif ref_pinned "$want"; then
         log "tick baseline: $svc: $want is pinned; it never moves"
@@ -2920,20 +3393,26 @@ if [ "$MODE" = tick ]; then
   CONFIG_IMAGES="$(config_images)"
   if [ -n "$UPDATER" ]; then
     # The Kinboard image (init, db-init and the webapp run it), and which
-    # compose file revision the file declares (RFC-023 §4.6).
-    KB_REPO="$(ref_repo "$(field_for webapp "$CONFIG_IMAGES")")"
-    FILE_REVISION="$(config_env webapp KINBOARD_COMPOSE_REVISION)"
+    # compose file revision the file declares (RFC-023 §4.6). The all-in-one
+    # container has no compose file, and no revision to hold for.
+    KB_REPO="$(ref_repo "$(field_for "${KB_SVC:-webapp}" "$CONFIG_IMAGES")")"
+    FILE_REVISION=""
+    [ -n "$AIO" ] || FILE_REVISION="$(config_env webapp KINBOARD_COMPOSE_REVISION)"
     REGISTRY_FAIL=""
     REGISTRY_ASKED=""
     UNWATCHED=""
-    if [ -z "$FILE_REVISION" ]; then
+    if [ -z "$FILE_REVISION" ] && [ -z "$AIO" ]; then
       log "ERROR: this stack's webapp declares no KINBOARD_COMPOSE_REVISION, so it is not the one-file compose.yml kinboard-updater is for. Nothing was changed"
       exit 1
     fi
     # The one-shots run the webapp's image and go with it: a webapp someone
     # stopped keeps all three as they are.
-    wcid="$(svc_container webapp running)"
+    wcid="$(svc_container "${KB_SVC:-webapp}" running)"
     if [ -z "$wcid" ] || [ "$(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}' "$wcid" 2>/dev/null | cut -d'|' -f1 || true)" != running ]; then
+      if [ -n "$AIO" ]; then
+        log "=== tick: $AIO_NAME is not running; nothing is updated until it is ==="
+        exit 0
+      fi
       log "=== tick: the webapp is not running; nothing is updated until it is ==="
       exit 0
     fi
@@ -3310,7 +3789,7 @@ EOF
 roll_back() {
   printf '%s' "$UNHEALTHY" | while IFS= read -r line; do log "ERROR: $line"; done
   MIGRATION=""
-  case " $RECREATE " in *" webapp "*) MIGRATION="$(failed_migration)" ;; esac
+  case " $RECREATE " in *" ${KB_SVC:-webapp} "*) MIGRATION="$(failed_migration)" ;; esac
   EXCERPT="$(log_excerpt "$RECREATE")"
   # What each reference names now, read for every service before any is
   # tagged back: on compose.yml init, db-init and webapp share one reference,
@@ -3346,6 +3825,12 @@ roll_back() {
       log "ERROR: could not tag $prev_id as $want_ref"
     fi
   done
+  if [ "$STACK_MODE" = container ] && aio_pg_confirmed; then
+    # The all-in-one image's database upgrade is final: going back would
+    # stop Kinboard (see "The all-in-one image").
+    aio_keep_new
+    return 0
+  fi
   if [ "$STACK_MODE" = container ]; then
     # The originals themselves, set aside by the swap (see "Container mode").
     log "rolling back: the containers from before the update ($RECREATE) back under their names"
@@ -3380,11 +3865,13 @@ if [ -n "$RECREATE" ]; then
   else
     log "docker compose $COMPOSE_FILES up -d --no-build --no-deps --force-recreate $RECREATE"
   fi
+  # A PostgreSQL major upgrade inside the all-in-one image takes longer.
+  [ -z "$AIO" ] || aio_pg_plan
   up_ok=1
   recreate_services "" "$RECREATE" || up_ok=""
   # The versions for the status record, before a rollback re-tags anything.
-  MAIN_SVC=webapp
-  case " $RECREATE " in *" webapp "*) ;; *) MAIN_SVC="${RECREATE%% *}" ;; esac
+  MAIN_SVC="${KB_SVC:-webapp}"
+  case " $RECREATE " in *" ${KB_SVC:-webapp} "*) ;; *) MAIN_SVC="${RECREATE%% *}" ;; esac
   main_prev_id="$(field_for "$MAIN_SVC" "$PREVIOUS")"
   main_prev_ref="$(printf '%s\n' "$PREVIOUS" | awk -v s="$MAIN_SVC" '$1 == s { print $3; exit }')"
   main_ref="$(field_for "$MAIN_SVC" "$CONFIG_IMAGES")"
@@ -3398,6 +3885,7 @@ if [ -n "$RECREATE" ]; then
     OUTCOME=updated
     log "healthy: $RECREATE"
     [ "$STACK_MODE" != container ] || cm_finish
+    [ -z "$AIO" ] || aio_unraid_status
     for svc in $RECREATE; do
       release_held "$(field_for "$svc" "$CONFIG_IMAGES")"
     done
@@ -3435,7 +3923,7 @@ fi
 
 # 6. The status record Settings reads (instance_settings.update_status): a
 # rollback always, an update when the webapp was in it ("Updated to 1.18.0").
-if [ "$OUTCOME" = updated ] && [ "$MAIN_SVC" != webapp ]; then
+if [ "$OUTCOME" = updated ] && [ "$MAIN_SVC" != "${KB_SVC:-webapp}" ]; then
   :
 elif [ "$OUTCOME" != none ]; then
   severe=false

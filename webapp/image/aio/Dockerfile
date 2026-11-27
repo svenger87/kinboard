@@ -222,6 +222,11 @@ ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
 VOLUME ["/data"]
 EXPOSE 3000
 
+# What kinboard-updater looks for to find the all-in-one container on a
+# Docker host (kinboard-self-update.sh, "The all-in-one image"). An image
+# published before this label is found by its KINBOARD_AIO=1 above.
+LABEL app.kinboard.aio="1"
+
 # One probe for all three processes: /api/health checks the database with a
 # timeout, and the webapp answers only once PostgREST and PostgreSQL are up
 # (§4.2.2). A first start (initdb, every migration) or a PostgreSQL major
