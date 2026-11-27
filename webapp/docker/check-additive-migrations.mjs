@@ -53,6 +53,26 @@
 // Matching is textual: comments are ignored, string literals are not (dynamic
 // SQL in EXECUTE format('…') is checked like any other statement).
 //
+// The publication guard (RFC-024 §4.6 step 5), in the same pass because it
+// reads the same files the same way. Since 1.15 nothing reads the
+// `supabase_realtime` publication: live updates come from the
+// kinboard_change_feed trigger (migrations/084_change_feed.sql), and a table
+// that should stream live needs that trigger, not publication membership
+// (e2e/realtime-change-feed.spec.ts checks the trigger side). Stock
+// PostgreSQL installs only have the publication because db-init creates it,
+// empty, so the old files still apply. So a migration numbered after
+// PUBLICATION_FROZEN_THROUGH may not:
+//
+//   publication   CREATE PUBLICATION, ALTER PUBLICATION … ADD …, ALTER
+//                 PUBLICATION … SET <tables> (SET (publish = …) is not
+//                 refused), or FOR ALL TABLES anywhere
+//
+// whatever the case, spacing, quoting or line breaks, and in dynamic SQL too.
+// There is no escape hatch: the allow-list doesn't know the rule. ALTER
+// PUBLICATION … DROP TABLE and DROP PUBLICATION stay allowed: they are how
+// the publication goes away one day. The older files keep their ADD TABLE
+// lines; editing them would re-apply them on every install.
+//
 // Run: node webapp/docker/check-additive-migrations.mjs   (from repo root)
 //      [--dir <migrations dir>] [--allowlist <json file>]
 
@@ -62,6 +82,8 @@ import { dirname, join, resolve } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const GRANDFATHERED_THROUGH = 93;
+// The last migration that may still add tables to a publication.
+export const PUBLICATION_FROZEN_THROUGH = 95;
 
 const RULES = [
   "drop-table",
@@ -264,6 +286,9 @@ export function findViolations(sql) {
     const t = st.text;
 
     for (const m of t.matchAll(new RegExp(String.raw`\bDROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?([^;]*)`, "gi"))) {
+      // ALTER PUBLICATION … DROP TABLE takes a table out of a publication, and
+      // leaves the table alone.
+      if (new RegExp(String.raw`\bALTER\s+PUBLICATION\s+${NAME}\s*$`, "i").test(t.slice(0, m.index))) continue;
       const names = droppedNames(m[1]);
       if (names.length && names.every((n) => inv.tempTables.has(n))) continue;
       hit("drop-table", st.start + m.index, m[0]);
@@ -330,6 +355,34 @@ export function findViolations(sql) {
   });
 }
 
+/**
+ * Statements that would put tables in a publication, or make one:
+ * [{rule: "publication", line, excerpt}]. Comments are ignored; string
+ * literals are not, so EXECUTE 'ALTER PUBLICATION … ADD TABLE …' counts.
+ */
+export function findPublicationChanges(sql) {
+  const { code, statements } = scan(sql);
+  const found = [];
+  const res = [
+    /\bCREATE\s+PUBLICATION\b/gi,
+    new RegExp(String.raw`\bALTER\s+PUBLICATION\s+${NAME}\s+(?:ADD\b|SET\s+(?!\())`, "gi"),
+    /\bFOR\s+ALL\s+TABLES\b/gi,
+  ];
+  for (const st of statements) {
+    // CREATE PUBLICATION … FOR ALL TABLES is one statement, reported once.
+    const make = /\bCREATE\s+PUBLICATION\b/i.test(st.text);
+    for (const re of make ? res.slice(0, 2) : res) {
+      for (const m of st.text.matchAll(re)) {
+        const at = st.start + m.index;
+        const text = code.slice(at, Math.min(st.end, at + 120));
+        found.push({ rule: "publication", offset: at, excerpt: text.replace(/\s+/g, " ").trim().slice(0, 120) });
+      }
+    }
+  }
+  const lineOf = (offset) => sql.slice(0, offset).split("\n").length;
+  return found.map((f) => ({ ...f, line: lineOf(f.offset) }));
+}
+
 export function markersIn(sql) {
   return [...sql.matchAll(MARKER_RE)].map((m) => m[1].trim());
 }
@@ -338,6 +391,7 @@ export function markersIn(sql) {
 
 export function check({ dir, allowlistPath }) {
   const problems = [];
+  const publication = [];
   const files = readdirSync(dir).filter((f) => /^\d+_.*\.sql$/.test(f)).sort();
   let list = { entries: [] };
   if (existsSync(allowlistPath)) {
@@ -345,7 +399,7 @@ export function check({ dir, allowlistPath }) {
       list = JSON.parse(readFileSync(allowlistPath, "utf8"));
     } catch (e) {
       problems.push(`${allowlistPath} is not valid JSON: ${e.message}`);
-      return { problems, files: files.length, allowed: 0 };
+      return { problems, publication, files: files.length, allowed: 0 };
     }
   }
   const entries = new Map();
@@ -370,6 +424,10 @@ export function check({ dir, allowlistPath }) {
     const markers = markersIn(sql);
     const entry = entries.get(f);
     entries.delete(f);
+
+    if (num > PUBLICATION_FROZEN_THROUGH) {
+      for (const v of findPublicationChanges(sql)) publication.push(`${f}:${v.line} [${v.rule}] ${v.excerpt}`);
+    }
 
     if (markers.some((r) => r.length < 10)) {
       problems.push(`${f}: "-- not-additive:" needs a reason after the colon (what an older image does on this schema).`);
@@ -408,7 +466,7 @@ export function check({ dir, allowlistPath }) {
     }
   }
   for (const f of entries.keys()) problems.push(`allow-list names ${f}, which is not a migration file. Remove the entry.`);
-  return { problems, files: files.length, allowed };
+  return { problems, publication, files: files.length, allowed };
 }
 
 // ----------------------------------------------------------------------- main
@@ -421,7 +479,21 @@ if (isMain) {
   };
   const dir = arg("--dir", join(here, "migrations"));
   const allowlistPath = arg("--allowlist", join(here, "migrations-not-additive.json"));
-  const { problems, files, allowed } = check({ dir, allowlistPath });
+  const { problems, publication, files, allowed } = check({ dir, allowlistPath });
+  if (publication.length) {
+    console.error("New migrations don't add tables to a publication. Since 1.15 nothing reads");
+    console.error("supabase_realtime; live updates come from the kinboard_change_feed trigger.");
+    console.error("");
+    for (const p of publication) console.error("  - " + p);
+    console.error("");
+    console.error("For a table that should update live on other screens, put the trigger on it in the same");
+    console.error("migration, as migrations/086_layouts.sql does:");
+    console.error("  DROP TRIGGER IF EXISTS kinboard_change_feed ON public.<table>;");
+    console.error("  CREATE TRIGGER kinboard_change_feed AFTER INSERT OR UPDATE OR DELETE ON public.<table>");
+    console.error("    FOR EACH ROW EXECUTE FUNCTION public.kinboard_notify_change();");
+    console.error("and add the table to ALL_TABLES in src/hooks/use-realtime.ts.");
+    if (problems.length) console.error("");
+  }
   if (problems.length) {
     console.error("Migrations must be additive: an older image has to keep running on the newer schema,");
     console.error("because that is what an update falls back to when the new version doesn't come up.");
@@ -432,7 +504,10 @@ if (isMain) {
     console.error("a later release stops reading it). If it truly cannot be, add a line");
     console.error("  -- not-additive: <why, and what an older image does on this schema>");
     console.error("to the migration and an entry for it in webapp/docker/migrations-not-additive.json.");
-    process.exit(1);
   }
-  console.log(`Migrations additive OK — ${files} files, ${allowed} accepted exception(s) from the allow-list.`);
+  if (problems.length || publication.length) process.exit(1);
+  console.log(
+    `Migrations additive OK — ${files} files, ${allowed} accepted exception(s) from the allow-list; ` +
+      `no publication changes after ${String(PUBLICATION_FROZEN_THROUGH).padStart(3, "0")}.`,
+  );
 }
