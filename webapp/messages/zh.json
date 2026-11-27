@@ -2812,6 +2812,7 @@
       "upgradedOn": "Kinboard 已于 {date} 将数据库从 PostgreSQL {from} 升级到 {to}。",
       "keptBody": "升级前的副本（{size}）会保留到 {until}，以便你回到 Kinboard {previous}（PostgreSQL {from}）。之后，或者当前版本无故障运行满一分钟后，即可删除。",
       "keptBodyNoVersion": "升级前的副本（{size}）会保留到 {until}，以便你回到上一个 Kinboard 版本（PostgreSQL {from}）。之后，或者当前版本无故障运行满一分钟后，即可删除。",
+      "keptBodyUnconfirmed": "升级前的副本（{size}）仍被保留，因为当前版本尚未无故障运行满一分钟：回到上一个 Kinboard 版本（PostgreSQL {from}）仍需要它。当前版本无故障运行满一分钟后即可删除。",
       "deletableBody": "升级前的副本（{size}，位于 Kinboard 数据文件夹中的 db.old 文件夹）已不再需要。删除它可以释放空间，其他一切不变。",
       "interruptedBody": "删除升级前的副本时被中断，还剩 {size}。再删除一次即可完成。",
       "delete": "删除",

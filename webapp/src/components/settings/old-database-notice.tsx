@@ -110,9 +110,11 @@ export function OldDatabaseNotice({ status }: { status: OldDatabaseStatus | null
           <p className="text-muted-foreground">{upgraded}</p>
           {status.rollbackOpen ? (
             <p className="text-muted-foreground">
-              {status.previousVersion
-                ? t("keptBody", { size, previous: status.previousVersion, from: status.fromMajor, until: when(status.rollbackUntil) })
-                : t("keptBodyNoVersion", { size, from: status.fromMajor, until: when(status.rollbackUntil) })}
+              {!status.rollbackUntil
+                ? t("keptBodyUnconfirmed", { size, from: status.fromMajor })
+                : status.previousVersion
+                  ? t("keptBody", { size, previous: status.previousVersion, from: status.fromMajor, until: when(status.rollbackUntil) })
+                  : t("keptBodyNoVersion", { size, from: status.fromMajor, until: when(status.rollbackUntil) })}
             </p>
           ) : (
             <>

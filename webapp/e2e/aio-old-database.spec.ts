@@ -67,13 +67,17 @@ test.describe("the record Settings reads", () => {
     const base = `phase=switched\nfrom=17\nto=18\nconfirmed_at=\n`;
     expect(rollbackWindow(rec(`${base}switched_epoch=${nowS - 60}\n`), NOW)).toEqual({
       open: true,
+      automatic: true,
       until: new Date((nowS - 60 + 86400) * 1000).toISOString(),
     });
-    expect(rollbackWindow(rec(`${base}switched_epoch=${nowS - 86401}\n`), NOW).open, "a day and a second").toBe(false);
-    expect(rollbackWindow(rec(`${base}switched_epoch=${nowS + 3600}\n`), NOW).open, "clock went backwards").toBe(false);
-    expect(rollbackWindow(rec(base), NOW).open, "no switch time").toBe(false);
-    expect(rollbackWindow(rec(`phase=switched\nfrom=17\nto=18\nconfirmed_at=2026-11-27T11:01:05Z\nswitched_epoch=${nowS - 60}\n`), NOW).open, "confirmed").toBe(false);
-    expect(rollbackWindow(rec(`${base}switched_epoch=${nowS - 7200}\n`), NOW, { KINBOARD_PG_ROLLBACK_WINDOW: "3600" }).open, "the image's window setting").toBe(false);
+    // Past the automatic day, never confirmed: KINBOARD_PG_ROLLBACK=1 still goes back, so still open.
+    expect(rollbackWindow(rec(`${base}switched_epoch=${nowS - 86401}\n`), NOW), "a day and a second").toEqual({ open: true, automatic: false, until: null });
+    expect(rollbackWindow(rec(`${base}switched_epoch=${nowS + 3600}\n`), NOW), "clock went backwards").toEqual({ open: true, automatic: false, until: null });
+    expect(rollbackWindow(rec(base), NOW), "no switch time").toEqual({ open: true, automatic: false, until: null });
+    expect(rollbackWindow(rec(`phase=switched\nfrom=17\nto=18\nconfirmed_at=2026-11-27T11:01:05Z\nswitched_epoch=${nowS - 60}\n`), NOW).open, "confirmed: closed").toBe(false);
+    expect(rollbackWindow(rec(`phase=failed\nfrom=17\nto=18\nconfirmed_at=\n`), NOW).open, "not switched").toBe(false);
+    expect(rollbackWindow(rec(`${base}switched_epoch=${nowS - 7200}\n`), NOW, { KINBOARD_PG_ROLLBACK_WINDOW: "3600" }).automatic, "the image's window setting").toBe(false);
+    expect(rollbackWindow(rec(`${base}switched_epoch=${nowS - 7200}\n`), NOW, { KINBOARD_PG_ROLLBACK_WINDOW: "99999999999" }).automatic, "any number, as the shell takes it").toBe(true);
     // The same default as pg-lib.sh.
     expect(read(join(LIB, "pg-lib.sh"))).toContain('window="${KINBOARD_PG_ROLLBACK_WINDOW:-86400}"');
   });
@@ -94,14 +98,17 @@ test.describe("the record Settings reads", () => {
     } finally { f.done(); }
   });
 
-  test("after the window: deletable (confirmed, or a day old)", async () => {
+  test("deletable only once confirmed; never confirmed, it is kept even past the day", async () => {
     const f = fakeData();
     try {
       f.cluster("db.old", "17");
       f.switched({ confirmed: true });
       expect((await readOldDatabaseStatus(f.env, NOW))!.rollbackOpen).toBe(false);
+      // A day old and never confirmed: KINBOARD_PG_ROLLBACK=1 on the previous image still needs it.
       f.switched({ ageS: 90000 });
-      expect((await readOldDatabaseStatus(f.env, NOW))!.rollbackOpen).toBe(false);
+      expect(await readOldDatabaseStatus(f.env, NOW)).toMatchObject({ rollbackOpen: true, rollbackUntil: null });
+      expect(await deleteOldDatabase(f.env, NOW)).toEqual({ ok: false, refusal: "rollback_window" });
+      expect(f.has("db.old")).toBe(true);
     } finally { f.done(); }
   });
 

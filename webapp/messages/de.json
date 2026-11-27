@@ -2812,6 +2812,7 @@
       "upgradedOn": "Kinboard hat seine Datenbank am {date} von PostgreSQL {from} auf {to} umgestellt.",
       "keptBody": "Die Kopie von vorher ({size}) wird aufbewahrt, damit du bis {until} zu Kinboard {previous} (PostgreSQL {from}) zurückkehren kannst. Danach kann sie gelöscht werden, oder sobald diese Version eine Minute lang ohne Probleme gelaufen ist.",
       "keptBodyNoVersion": "Die Kopie von vorher ({size}) wird aufbewahrt, damit du bis {until} zur vorherigen Kinboard-Version (PostgreSQL {from}) zurückkehren kannst. Danach kann sie gelöscht werden, oder sobald diese Version eine Minute lang ohne Probleme gelaufen ist.",
+      "keptBodyUnconfirmed": "Die Kopie von vorher ({size}) wird aufbewahrt, weil diese Version noch nicht eine Minute lang ohne Probleme gelaufen ist: Für die Rückkehr zur vorherigen Kinboard-Version (PostgreSQL {from}) wird sie noch gebraucht. Sie kann gelöscht werden, sobald diese Version eine Minute lang ohne Probleme gelaufen ist.",
       "deletableBody": "Die Kopie von vorher ({size}, der Ordner db.old in Kinboards Datenordner) wird nicht mehr gebraucht. Löschen gibt den Platz frei, sonst ändert sich nichts.",
       "interruptedBody": "Das Löschen der Kopie von vorher wurde unterbrochen, {size} sind noch da. Lösche sie noch einmal, um es abzuschließen.",
       "delete": "Löschen",

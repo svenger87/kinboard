@@ -12,11 +12,12 @@ import { join } from "node:path";
  * /data/db.old, and it records the upgrade in /data/config/updater/pg-upgrade
  * (key=value: phase, from, to, switched_at, switched_epoch, confirmed_at).
  * Until the new version has run healthy for a minute (healthwatch sets
- * confirmed_at) and for at most a day after the switch
- * (KINBOARD_PG_ROLLBACK_WINDOW), starting the previous image puts db.old back
- * (rollback_unconfirmed). That is the rollback window this module mirrors:
- * inside it the folder is the way back and is never deleted; after it, it is
- * a second copy of the database that nothing reads.
+ * confirmed_at), starting the previous image puts db.old back
+ * (rollback_unconfirmed): on its own for a day after the switch
+ * (KINBOARD_PG_ROLLBACK_WINDOW), after that with KINBOARD_PG_ROLLBACK=1. That
+ * is the rollback window this module mirrors: inside it the folder is the way
+ * back and is never deleted; after it, it is a second copy of the database
+ * that nothing reads.
  *
  * Only in the all-in-one image (KINBOARD_AIO=1, set by its Dockerfile and by
  * nothing a compose install runs). Everything else gets null.
@@ -59,11 +60,13 @@ export interface OldDatabaseStatus {
   /** Disk space the folder takes, in bytes (allocated blocks, cached). */
   sizeBytes: number;
   /**
-   * Inside the rollback window: the previous image would still put the
-   * folder back on its own. It is kept, and Delete is refused.
+   * Going back is still possible: the upgrade has not been confirmed by a
+   * healthy minute. The previous image puts the folder back on its own until
+   * `rollbackUntil`, and after that with KINBOARD_PG_ROLLBACK=1. It is kept,
+   * and Delete is refused.
    */
   rollbackOpen: boolean;
-  /** The end of the rollback window (ISO), when the record says when the switch was. */
+  /** Until when the previous image goes back on its own (ISO); null once that has passed, or when unknown. */
   rollbackUntil: string | null;
   /** The Kinboard version that ran on the old database, when last-good still names it. */
   previousVersion: string | null;
@@ -112,26 +115,32 @@ export function parseUpgradeRecord(text: string): UpgradeRecord {
 
 function windowSeconds(env: AioEnv): number {
   const raw = env.KINBOARD_PG_ROLLBACK_WINDOW ?? "";
-  return /^\d{1,9}$/.test(raw) ? Number(raw) : DEFAULT_WINDOW_S;
+  // Any number, as the shell's `-gt "$window"` takes it.
+  return /^\d+$/.test(raw) ? Number(raw) : DEFAULT_WINDOW_S;
 }
 
 /**
- * The rollback window, as rollback_unconfirmed decides it: switched, never
- * confirmed, and no more than the window after the switch. A record without
- * the switch's time, or a time in the future (a clock that went backwards),
- * is outside it there, and so here.
+ * The rollback window, from rollback_unconfirmed in pg-lib.sh. Going back is
+ * possible (`open`) as long as the upgrade is switched and not confirmed by a
+ * healthy minute: on its own (`automatic`) no more than the window after the
+ * switch (a record without the switch's time, or one in the future after a
+ * clock went backwards, is outside it there, and so here), and after that
+ * with KINBOARD_PG_ROLLBACK=1 on the previous image. The folder is kept, and
+ * Delete refused, while going back is possible at all: an install whose new
+ * version never ran healthy for a minute must keep its way back, even past a
+ * day. Once confirmed, the previous image refuses to go back whatever is set.
  */
 export function rollbackWindow(
   rec: UpgradeRecord,
   now: Date,
   env: AioEnv = {},
-): { open: boolean; until: string | null } {
-  const until = rec.switchedEpoch === null ? null : (rec.switchedEpoch + windowSeconds(env)) * 1000;
-  const untilIso = until === null ? null : new Date(until).toISOString();
-  if (rec.phase !== "switched" || rec.confirmedAt !== "" || rec.switchedEpoch === null) return { open: false, until: untilIso };
+): { open: boolean; automatic: boolean; until: string | null } {
+  const open = rec.phase === "switched" && rec.confirmedAt === "";
   const nowS = Math.floor(now.getTime() / 1000);
-  if (nowS < rec.switchedEpoch) return { open: false, until: untilIso };
-  return { open: nowS - rec.switchedEpoch <= windowSeconds(env), until: untilIso };
+  const automatic = open && rec.switchedEpoch !== null && nowS >= rec.switchedEpoch
+    && nowS - rec.switchedEpoch <= windowSeconds(env);
+  const until = automatic ? new Date((rec.switchedEpoch! + windowSeconds(env)) * 1000).toISOString() : null;
+  return { open, automatic, until };
 }
 
 /** A small regular file, never through a link: null when it is anything else. */
@@ -183,6 +192,24 @@ export async function checkOldCluster(
     if (!marker || !marker.split("\n").includes(`major=${from}`)) return { ok: false, reason: "not_the_recorded_cluster" };
   }
   return { ok: true, dev: st.dev, ino: st.ino };
+}
+
+/** Is anything under `path` on another filesystem (a mount inside it)? fs.rm would empty it. */
+export async function crossesDevice(path: string, dev: number, maxEntries = 500_000): Promise<boolean> {
+  let seen = 0;
+  const walk = async (dir: string): Promise<boolean> => {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const e of entries) {
+      if (++seen > maxEntries) return true;
+      if (!e.isDirectory()) continue;
+      const p = join(dir, e.name);
+      const st = await lstat(p);
+      if (st.dev !== dev) return true;
+      if (await walk(p)) return true;
+    }
+    return false;
+  };
+  return walk(path);
 }
 
 /** Allocated bytes under a folder, never following a link. */
@@ -354,6 +381,7 @@ export async function deleteOldDatabase(
       }
       return { ok: false, refusal: before.reason as DeleteRefusal };
     }
+    if (await crossesDevice(old, before.dev)) return { ok: false, refusal: "not_the_recorded_cluster", detail: "a mount inside it" };
     const bytes = await folderSize(old);
     await rename(old, trash);
     const after = await lstatOrNull(trash);
