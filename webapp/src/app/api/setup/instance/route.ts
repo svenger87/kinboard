@@ -5,6 +5,7 @@ import { isInstallOperator } from "@/lib/install-operator";
 import { deleteInstanceKey, readInstanceKey, writeInstanceKey } from "@/lib/instance-settings";
 import { forgetInstanceConfig } from "@/lib/instance-config";
 import { isVapidConfigured } from "@/lib/push-sender";
+import { aioDataDir } from "@/lib/aio-old-database";
 import {
   INSTANCE_FIRST_RUN_KEY,
   INSTANCE_SITE_URL_KEY,
@@ -57,6 +58,9 @@ export async function GET(request: NextRequest) {
       siteUrl,
       pushContact: { value: vapid.value ? subjectForDisplay(vapid.value) : null, source: vapid.source },
       pushReady: isVapidConfigured(),
+      // The all-in-one image (KINBOARD_AIO=1): its data is the folder mapped
+      // to /data, not a compose install's DATA_DIR.
+      aio: aioDataDir() !== null,
     });
   } catch (err) {
     console.error("setup/instance GET:", err);

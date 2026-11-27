@@ -11,7 +11,7 @@ import { useFamilyStore } from "@/stores/family-store";
 import { detectCategory } from "@/lib/shopping-categories";
 import { parseBarcode } from "@/lib/barcode/gtin";
 import { cameraAvailable, cameraNeedsHttps, createBarcodeDecoder, toCanvas, type BarcodeDecoder } from "@/lib/barcode/decoder";
-import { HTTPS_GUIDE_URL } from "@/lib/https-guide";
+import { HttpsGuideLink } from "@/components/https-guide-link";
 
 /** What the scanner hands the list to add. */
 export interface ScannedItem {
@@ -274,16 +274,7 @@ export function BarcodeScannerDialog({ open, onOpenChange, onAdd }: BarcodeScann
             {cameraNeedsHttps() ? (
               <>
                 {t("cameraNeedsHttps")}{" "}
-                <a
-                  href={HTTPS_GUIDE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-primary hover:underline"
-                  data-testid="barcode-https-guide"
-                >
-                  {t("httpsGuide")}
-                  <ExternalLink className="size-3" />
-                </a>
+                <HttpsGuideLink testId="barcode-https-guide" />
               </>
             ) : cameraState === "blocked" ? (
               t("cameraBlocked")

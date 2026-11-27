@@ -218,6 +218,16 @@ until CA can list it)
   Afterwards the Docker page shows Kinboard up to date (Unraid's
   `/var/lib/docker/unraid-update-status.json` holds the new digest) and
   *Apply Update* is not offered.
+- In the updater: `docker exec kinboard-updater kinboard-updater --help`
+  prints the usage and exits 0, `--check-now` runs one check and exits, and
+  `docker top kinboard-updater` still shows a single loop afterwards.
+- **A scripted rehearsal** that builds the `docker run` line with
+  dockerMan's `xmlToCommand()` alone misses one thing *Apply* does: for a
+  container with *Use Tailscale* on, `CreateDocker.php` adds
+  `-e ORG_ENTRYPOINT=…`, the image's own entrypoint, which Unraid's Tailscale
+  hook runs once Tailscale is up. Without it the hook has nothing to hand
+  over to, so add `-e ORG_ENTRYPOINT="/init"` (the all-in-one image's
+  entrypoint) to the generated command yourself.
 
 **Portainer** (Settings → App Templates → this repository's raw
 `dist/portainer/templates.json`)

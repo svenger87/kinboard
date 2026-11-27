@@ -11,10 +11,12 @@ import { WizardStepFooter } from "@/components/setup/wizard-step-footer";
 import { PushContactField } from "@/components/setup/instance-fields";
 import { useFinishInstanceSteps, useInstanceSetup, useSaveInstanceSetup } from "@/hooks/use-instance-setup";
 import { normaliseVapidSubject, subjectForDisplay } from "@/lib/first-run";
+import { HttpsGuideLink } from "@/components/https-guide-link";
 
 /**
  * Push (RFC-024 §8, step 2): it works already, because the install made its
- * own VAPID keys; optionally, the contact push services are given. Leaving
+ * own VAPID keys (on https or localhost; on plain http it says push needs
+ * https and links the guide); optionally, the contact push services are given. Leaving
  * this step, by Continue or Skip, closes the install's steps for good.
  */
 export default function SetupPushPage() {
@@ -25,6 +27,11 @@ export default function SetupPushPage() {
   const finish = useFinishInstanceSteps();
   const [contact, setContact] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);
+  // Push needs a secure context: https, or localhost. On a plain http LAN
+  // address the keys are there but no browser will subscribe, so "works
+  // already" would be wrong. Read after mount: the server can't know.
+  const [insecure, setInsecure] = useState(false);
+  useEffect(() => setInsecure(!window.isSecureContext), []);
 
   useEffect(() => {
     if (!isLoading && instance && !instance.operator) router.replace("/setup");
@@ -67,7 +74,14 @@ export default function SetupPushPage() {
         <CardContent className="p-6 md:p-8 space-y-6">
           <div>
             <h1 className="text-2xl font-display tracking-tight mb-2">{t("title")}</h1>
-            {instance.pushReady ? (
+            {instance.pushReady && insecure ? (
+              <p className="text-sm flex items-start gap-2" data-testid="push-needs-https">
+                <AlertTriangle className="size-4 shrink-0 text-warning mt-0.5" />
+                <span className="text-muted-foreground">
+                  {t("needsHttps")} <HttpsGuideLink testId="push-https-guide" />
+                </span>
+              </p>
+            ) : instance.pushReady ? (
               <p className="text-sm flex items-start gap-2" data-testid="push-ready">
                 <CheckCircle2 className="size-4 shrink-0 text-success mt-0.5" />
                 <span className="text-muted-foreground">{t("ready")}</span>

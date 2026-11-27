@@ -106,7 +106,8 @@ export function PushContactField({ value, onChange, source, inForce, invalid, di
   );
 }
 
-export function DataLocationNote() {
+/** Where the data is: the folder mapped to /data in the all-in-one image, DATA_DIR in a compose install. */
+export function DataLocationNote({ aio }: { aio?: boolean }) {
   const t = useTranslations("setup.install");
   return (
     <section className="flex items-start gap-3" data-testid="instance-data-location">
@@ -114,7 +115,7 @@ export function DataLocationNote() {
       <div className="min-w-0 space-y-1">
         <p className="text-sm font-medium">{t("dataTitle")}</p>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          {t.rich("dataBody", {
+          {t.rich(aio ? "dataBodyAio" : "dataBody", {
             code: (chunks) => <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">{chunks}</code>,
           })}
         </p>

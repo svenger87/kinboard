@@ -269,7 +269,18 @@ looks for the one container on the machine that runs the all-in-one image,
 and refuses when there are two: one updater for each, each with its name.
 
 **Its log:** `docker logs kinboard-updater`, and `updater/update.log` in its
-folder. **To pause it**, set `KINBOARD_UPDATE_TICK=off` on the updater and
+folder. **To check now** instead of waiting for the next half hour:
+
+```bash
+docker exec kinboard-updater kinboard-updater --check-now
+```
+
+That runs one check, the same one the loop runs and behind the same lock (if a
+check is already running it says so and leaves it to finish), prints its log
+and exits. `kinboard-updater --help` lists the options. Only the container's
+own start runs the 30-minute loop: `kinboard-updater` run any other way
+without an option, or with one it doesn't know, prints the usage and changes
+nothing (before 1.18 every call started a second loop). **To pause it**, set `KINBOARD_UPDATE_TICK=off` on the updater and
 recreate it; **to remove it**, remove its container. **Updating the updater
 itself:** pull its image and recreate it (Unraid: *Apply Update* on it, or the
 Auto Update plugin, which is fine for the updater). It never replaces its own

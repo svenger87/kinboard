@@ -22,7 +22,8 @@
     "confirmDeleteGiftTitle": "Diese Geschenkidee löschen?",
     "confirmDeleteGiftBody": "Sie wird von diesem Geburtstag entfernt. Das lässt sich nicht rückgängig machen.",
     "confirmDeleteDashboardTitle": "Dieses Dashboard löschen?",
-    "confirmDeleteDashboardBody": "Alle Karten darauf verschwinden mit, und du müsstest sie einzeln wieder anlegen. Das lässt sich nicht rückgängig machen."
+    "confirmDeleteDashboardBody": "Alle Karten darauf verschwinden mit, und du müsstest sie einzeln wieder anlegen. Das lässt sich nicht rückgängig machen.",
+    "httpsGuide": "So bekommst du HTTPS"
   },
   "components": {
     "back": "Zurück",
@@ -238,7 +239,6 @@
       "cameraBlocked": "Die Kamera ist für diese Seite nicht erlaubt. Erlaube sie in den Website-Einstellungen des Browsers oder mach stattdessen ein Foto.",
       "cameraMissing": "Auf diesem Gerät wurde keine Kamera gefunden, oder eine andere App nutzt sie gerade. Ein Foto oder die Zahlen gehen.",
       "cameraNeedsHttps": "Die Live-Kamera braucht eine https-Adresse; unter dieser reinen http-Adresse lässt der Browser sie aus. Ein Foto oder die Zahlen gehen hier.",
-      "httpsGuide": "So bekommst du HTTPS",
       "photo": "Barcode fotografieren",
       "photoMissed": "Auf dem Foto wurde kein Barcode gefunden. Versuch es etwas näher und schärfer oder tippe die Zahlen ein.",
       "manualPlaceholder": "Zahlen unter dem Barcode",
@@ -5268,11 +5268,13 @@
       "addressInvalid": "Das ist keine Adresse wie http://192.168.1.20:3000: Schema, Host und Port, nichts dahinter.",
       "dataTitle": "Wo eure Daten liegen",
       "dataBody": "Alles bleibt auf diesem Server. Kalender, Listen, Personen und Einstellungen stehen in seiner Datenbank, Fotos und andere Uploads als Dateien daneben. Beides liegt im Datenordner der Installation (<code>DATA_DIR</code>, <code>./data</code> neben der Compose-Datei, wenn du keinen anderen gewählt hast). Sichere diesen Ordner, oder lade jederzeit unter Einstellungen → Daten & Sicherung eine Kopie herunter.",
+      "dataBodyAio": "Alles bleibt auf diesem Server. Kalender, Listen, Personen und Einstellungen stehen in seiner Datenbank, Fotos und andere Uploads als Dateien daneben. Beides liegt in dem Ordner, den du auf <code>/data</code> gelegt hast (auf Unraid zum Beispiel <code>/mnt/user/appdata/kinboard-aio</code>). Sichere diesen Ordner, oder lade jederzeit unter Einstellungen → Daten & Sicherung eine Kopie herunter.",
       "saveError": "Die Adresse konnte nicht gespeichert werden. Versuch es noch einmal."
     },
     "push": {
       "title": "Benachrichtigungen",
       "ready": "Push-Benachrichtigungen an Handys und Browser funktionieren schon: Diese Installation hat ihre eigenen Schlüssel erzeugt.",
+      "needsHttps": "Push-Benachrichtigungen brauchen eine https-Adresse. Unter dieser reinen http-Adresse meldet der Browser sie nicht an; alles andere funktioniert hier.",
       "notReady": "Push ist noch nicht verfügbar: Diesem Server fehlen die Push-Schlüssel. Alles andere funktioniert auch ohne.",
       "contactLabel": "Kontakt für Push-Dienste (optional)",
       "contactBody": "Push-Dienste wie die von Google, Apple und Mozilla schreiben an diese Adresse, falls Benachrichtigungen von diesem Server Probleme machen. Ohne Angabe bekommen sie admin@example.com.",

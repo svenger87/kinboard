@@ -287,6 +287,40 @@ test.describe("every step can be found again in Settings", () => {
   });
 });
 
+test.describe("what an all-in-one install and a plain http address are told (the Unraid test, 2026-11-27)", () => {
+  test("the data folder: the folder mapped to /data in the all-in-one image, DATA_DIR in a compose install", () => {
+    const route = read("src/app/api/setup/instance/route.ts");
+    // #584's signal: KINBOARD_AIO=1, set only by the all-in-one image.
+    expect(route).toContain("aio: aioDataDir() !== null");
+    expect(read("src/components/setup/instance-fields.tsx")).toContain('t.rich(aio ? "dataBodyAio" : "dataBody"');
+    for (const f of ["src/app/setup/install/page.tsx", "src/components/settings/instance-card.tsx"]) {
+      expect(read(f), f).toContain("<DataLocationNote aio={instance.aio} />");
+    }
+    for (const l of ["en", "de", "fr", "zh"]) {
+      const m = JSON.parse(raw(`messages/${l}.json`));
+      expect(m.setup.install.dataBodyAio, l).toContain("<code>/data</code>");
+      expect(m.setup.install.dataBodyAio, l).toContain("/mnt/user/appdata/kinboard-aio");
+      expect(m.setup.install.dataBodyAio, l).not.toContain("DATA_DIR");
+      expect(m.setup.install.dataBody, l).toContain("DATA_DIR");
+    }
+  });
+
+  test("push: 'works already' only in a secure context; on plain http it needs https and links the guide", () => {
+    const page = read("src/app/setup/push/page.tsx");
+    expect(page).toContain("setInsecure(!window.isSecureContext)");
+    expect(page).toMatch(/instance\.pushReady && insecure \? \(\s*<p[^>]*data-testid="push-needs-https"/);
+    expect(page).toContain('<HttpsGuideLink testId="push-https-guide" />');
+    // The scanner's hint uses the same link, so both say "How to get HTTPS" and point at the same page.
+    expect(read("src/components/shopping/barcode-scanner-dialog.tsx")).toContain('<HttpsGuideLink testId="barcode-https-guide" />');
+    expect(read("src/components/https-guide-link.tsx")).toContain("href={HTTPS_GUIDE_URL}");
+    for (const l of ["en", "de", "fr", "zh"]) {
+      const m = JSON.parse(raw(`messages/${l}.json`));
+      expect(m.setup.push.needsHttps, l).toMatch(/https/);
+      expect(m.common.httpsGuide, l).toBeTruthy();
+    }
+  });
+});
+
 test.describe("texts", () => {
   const LOCALES = ["en", "de", "fr", "zh"] as const;
   const keys = (o: Record<string, unknown>, prefix = ""): string[] =>

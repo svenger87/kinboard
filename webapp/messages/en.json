@@ -22,7 +22,8 @@
     "confirmDeleteGiftTitle": "Delete this gift idea?",
     "confirmDeleteGiftBody": "It will be removed from this birthday. This cannot be undone.",
     "confirmDeleteDashboardTitle": "Delete this dashboard?",
-    "confirmDeleteDashboardBody": "Every card on it goes with it, and you would have to add them again one by one. This cannot be undone."
+    "confirmDeleteDashboardBody": "Every card on it goes with it, and you would have to add them again one by one. This cannot be undone.",
+    "httpsGuide": "How to get HTTPS"
   },
   "components": {
     "back": "Back",
@@ -238,7 +239,6 @@
       "cameraBlocked": "The camera isn't allowed for this page. Allow it in the browser's site settings, or take a photo instead.",
       "cameraMissing": "No camera found on this device, or it's in use by another app. A photo or the numbers work.",
       "cameraNeedsHttps": "The live camera needs an https address; on this plain http address the browser keeps it off. A photo or the numbers work here.",
-      "httpsGuide": "How to get HTTPS",
       "photo": "Take a photo of the barcode",
       "photoMissed": "No barcode found in that photo. Try a little closer and sharper, or type the numbers.",
       "manualPlaceholder": "Numbers under the barcode",
@@ -5268,11 +5268,13 @@
       "addressInvalid": "That isn't an address like http://192.168.1.20:3000: a scheme, a host and a port, nothing after them.",
       "dataTitle": "Where your data lives",
       "dataBody": "Everything stays on this server. Calendars, lists, people and settings are in its database; photos and other uploads are files beside it. Both are in the install's data folder (<code>DATA_DIR</code>, <code>./data</code> next to the compose file unless you chose another). Back up that folder, or download a copy any time under Settings → Data & backup.",
+      "dataBodyAio": "Everything stays on this server. Calendars, lists, people and settings are in its database; photos and other uploads are files beside it. Both are in the folder you mapped to <code>/data</code> (for example <code>/mnt/user/appdata/kinboard-aio</code> on Unraid). Back up that folder, or download a copy any time under Settings → Data & backup.",
       "saveError": "Couldn't save the address. Try again."
     },
     "push": {
       "title": "Notifications",
       "ready": "Push notifications to phones and browsers work already: this install made its own keys.",
+      "needsHttps": "Push notifications need an https address. On this plain http address the browser won't sign up for them; everything else works here.",
       "notReady": "Push isn't available yet: this server has no push keys. Everything else works without them.",
       "contactLabel": "Contact for push services (optional)",
       "contactBody": "Push services such as Google's, Apple's and Mozilla's may write to this address if notifications from this server cause trouble. Without one they get admin@example.com.",

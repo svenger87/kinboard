@@ -32,7 +32,7 @@ need to do anything.
 
 | Way | Reachable from | Needs | Tested by us |
 |---|---|---|---|
-| [Unraid 7: "Use Tailscale"](#unraid-7-use-tailscale) | your devices that run Tailscale | a Tailscale account | to be tested on Unraid 7 before release |
+| [Unraid 7: "Use Tailscale"](#unraid-7-use-tailscale) | your devices that run Tailscale | a Tailscale account | tested on Unraid 7.3.4 with Tailscale 1.104.7 |
 | [Tailscale on other hosts](#tailscale-on-other-hosts) | your devices that run Tailscale | a Tailscale account | not tested by us |
 | [SWAG or Nginx Proxy Manager on Unraid](#swag-or-nginx-proxy-manager-on-unraid) | anywhere, or your network only | a domain | not tested by us |
 | [Synology DSM's reverse proxy](#synology-dsms-reverse-proxy) | anywhere, or your network only | a domain | not tested by us |
@@ -90,9 +90,10 @@ computer that runs the Tailscale app signed in to your tailnet, at home and
 away. Devices without Tailscale can't open it; they keep using the `http://`
 LAN address, which keeps working.
 
-**Status:** to be tested on Unraid 7 before release. What we checked so far:
-Unraid's own Tailscale script runs in the Kinboard image, installs Tailscale
-and reaches the sign-in step without extra settings.
+**Status:** tested on Unraid 7.3.4 with Tailscale 1.104.7 and the all-in-one
+image, installed from the template, updated by `kinboard-updater`, then
+switched to "Use Tailscale" as below. The notes in the steps are what that
+test showed.
 
 ### Before you start
 
@@ -135,14 +136,23 @@ and reaches the sign-in step without extra settings.
    `To authenticate, visit: https://login.tailscale.com/a/…`. Open that link
    and add the machine to your tailnet. **Kinboard itself doesn't start until
    you have**: the script waits for the sign-in first, and the container shows
-   as starting until then.
+   as starting until then. This happens on the first start only; later
+   starts find the sign-in in `/data/tailscale`.
 5. The log then says `Enabling Serve!` and `Generating Tailscale certs!`, and
    Kinboard starts. The Docker page's menu for the container now offers the
    `https://` address.
-6. In the Tailscale admin console, under **Machines**, open `kinboard` and
-   choose **Disable key expiry**. Otherwise the machine drops off your tailnet
-   after 180 days until you sign it in again (Unraid's edit page warns before
-   that).
+
+   **On the first start the log may also say `ERROR: Can't generate
+   certificates!`** That is harmless. Unraid's script gives up waiting for
+   the certificate after 30 seconds, but Tailscale keeps fetching it, and it
+   arrives a little later (in our test after about 5 minutes). Until then the
+   `https://` address answers with a certificate error; after that it works,
+   with nothing to restart. On later starts the certificate is already there
+   and the message doesn't appear.
+6. Optional: the log warns that the machine's key expires in 180 days, after
+   which it drops off your tailnet until you sign it in again. To avoid that,
+   open `kinboard` in the Tailscale admin console under **Machines** and
+   choose **Disable key expiry**.
 
 ### Then, for this way
 
@@ -158,6 +168,13 @@ and reaches the sign-in step without extra settings.
 
 ### Good to know
 
+- **Right after a start, `/api/health` says `"worker":false` (and
+  `degraded`) for about 10 seconds.** The background worker starts a moment
+  after the web server; that is normal, and it turns `true` on its own.
+- **The Unraid server itself may not open the `*.ts.net` address.** Unless
+  Unraid uses MagicDNS as its DNS server, it can't resolve the name, so a
+  `curl` or a browser on the server fails. That doesn't matter for phones,
+  tablets and computers on your tailnet, which resolve it through Tailscale.
 - **Every update installs Tailscale again.** Unraid recreates the container
   on each update, and its script downloads Tailscale anew (about 40 MB) before
   Kinboard starts. The container needs internet access at that moment. The
