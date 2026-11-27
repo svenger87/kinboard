@@ -178,8 +178,8 @@ jobs:
             echo "checking $f"
             bash -n "$f"
           done
-          # Developer rigs (rigs.yml runs them; here they only have to parse).
-          for f in scripts/rigs/*.sh scripts/rigs/stock-postgres/*.sh scripts/stores/*.sh; do
+          # Developer rigs and CI checks (rigs.yml and docker.yml run them; here they only have to parse).
+          for f in scripts/rigs/*.sh scripts/rigs/stock-postgres/*.sh scripts/stores/*.sh scripts/ci/*.sh; do
             echo "checking $f"
             bash -n "$f"
           done
@@ -208,15 +208,15 @@ jobs:
       - name: Use the pinned npm
         run: corepack enable npm
       - name: Check migration apply order
-        run: node webapp/docker/check-migration-order.mjs
+        run: node scripts/ci/check-migration-order.mjs
       # An update that doesn't come up falls back to the previous image on
       # the schema the new one already migrated (RFC-023 §4.11.4); that only
       # works while migrations are additive. Exceptions are reviewed in
-      # webapp/docker/migrations-not-additive.json. The same script refuses a
+      # scripts/ci/migrations-not-additive.json. The same script refuses a
       # new migration that adds tables to a publication (RFC-024 §4.6 step 5):
       # live updates come from the kinboard_change_feed trigger since 1.15.
       - name: Check migrations are additive and add nothing to a publication
-        run: node webapp/docker/check-additive-migrations.mjs
+        run: node scripts/ci/check-additive-migrations.mjs
 
   # RFC-024 §4.6 step 4: src/types/database.generated.ts is what the
   # migrations build, never a hand edit. This starts a throwaway PostgreSQL

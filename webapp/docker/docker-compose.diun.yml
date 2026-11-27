@@ -24,6 +24,10 @@
 #                  -f docker-compose.diun.yml" \
 #     ./start.sh up
 #
+#   or once, in .env (the quotes are optional there):
+#
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml"
+#
 # Required: a git checkout of the kinboard repo at $PROJECT_DIR (the
 # self-updater needs to git pull). For the project-dir layout to make
 # sense, your project root should be one directory above webapp/docker.

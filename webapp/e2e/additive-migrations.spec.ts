@@ -5,7 +5,7 @@ import { tmpdir } from "os";
 import { join, resolve } from "path";
 
 /**
- * webapp/docker/check-additive-migrations.mjs — the lint that keeps the
+ * scripts/ci/check-additive-migrations.mjs — the lint that keeps the
  * "an older image runs on the newer schema" promise (RFC-023 §4.11.4).
  *
  * Each case writes a throwaway migrations directory and allow-list and runs
@@ -13,7 +13,7 @@ import { join, resolve } from "path";
  * PR author would actually see.
  */
 
-const SCRIPT = resolve(__dirname, "../docker/check-additive-migrations.mjs");
+const SCRIPT = resolve(__dirname, "../../scripts/ci/check-additive-migrations.mjs");
 
 type Allow = { file: string; rules: string[]; reason: string; grandfathered?: boolean };
 

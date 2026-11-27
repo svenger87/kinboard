@@ -15,7 +15,7 @@ import yaml from "js-yaml";
  * published 1.17.0 says `licenses: NOASSERTION` and has no SBOM because
  * nothing ever asked for them. These read the files that ask.
  *
- * The pushed result is checked too, by docker/check-image-metadata.sh in the
+ * The pushed result is checked too, by scripts/ci/check-image-metadata.sh in the
  * merge job, against the registry.
  */
 
@@ -184,7 +184,7 @@ test.describe("SBOM and provenance", () => {
   test("the merge job checks the pushed list for all of it", () => {
     const check = workflow.jobs.merge.steps.find((s) => s.run?.includes("check-image-metadata.sh"));
     expect(check?.run).toContain('<<< "$IMAGE_METADATA"');
-    const script = read("webapp/docker/check-image-metadata.sh");
+    const script = read("scripts/ci/check-image-metadata.sh");
     for (const needle of ["{{json .SBOM}}", "{{json .Provenance}}", "buildConfig", "Healthcheck", "package.json", ".license"]) {
       expect(script, needle).toContain(needle);
     }
@@ -456,7 +456,7 @@ echo "unexpected gh $*" >&2; exit 9
 });
 
 test.describe("check-image-metadata.sh against a registry stand-in", () => {
-  const script = join(WEBAPP, "docker", "check-image-metadata.sh");
+  const script = join(WEBAPP, "..", "scripts", "ci", "check-image-metadata.sh");
   const want: Record<string, string> = {
     "org.opencontainers.image.title": "Kinboard",
     "org.opencontainers.image.url": "https://kinboard.app",

@@ -36,7 +36,7 @@
 //
 //   -- not-additive: <why, and what an older image does on the new schema>
 //
-// AND webapp/docker/migrations-not-additive.json has an entry for the file
+// AND scripts/ci/migrations-not-additive.json has an entry for the file
 // naming the rules it breaks. Both, on purpose: the marker is what a reviewer
 // reads in the migration, the list is one place to see every exception the
 // project has accepted. A marker without an entry, an entry without a marker,
@@ -73,7 +73,7 @@
 // the publication goes away one day. The older files keep their ADD TABLE
 // lines; editing them would re-apply them on every install.
 //
-// Run: node webapp/docker/check-additive-migrations.mjs   (from repo root)
+// Run: node scripts/ci/check-additive-migrations.mjs   (from repo root)
 //      [--dir <migrations dir>] [--allowlist <json file>]
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
@@ -81,6 +81,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
+const DOCKER = resolve(here, "../../webapp/docker");
 const GRANDFATHERED_THROUGH = 93;
 // The last migration that may still add tables to a publication.
 export const PUBLICATION_FROZEN_THROUGH = 95;
@@ -477,7 +478,7 @@ if (isMain) {
     const i = process.argv.indexOf(name);
     return i > 0 && process.argv[i + 1] ? resolve(process.argv[i + 1]) : dflt;
   };
-  const dir = arg("--dir", join(here, "migrations"));
+  const dir = arg("--dir", join(DOCKER, "migrations"));
   const allowlistPath = arg("--allowlist", join(here, "migrations-not-additive.json"));
   const { problems, publication, files, allowed } = check({ dir, allowlistPath });
   if (publication.length) {
@@ -503,7 +504,7 @@ if (isMain) {
     console.error("Make the change additive (add a column instead of renaming one, keep the old one until");
     console.error("a later release stops reading it). If it truly cannot be, add a line");
     console.error("  -- not-additive: <why, and what an older image does on this schema>");
-    console.error("to the migration and an entry for it in webapp/docker/migrations-not-additive.json.");
+    console.error("to the migration and an entry for it in scripts/ci/migrations-not-additive.json.");
   }
   if (problems.length || publication.length) process.exit(1);
   console.log(

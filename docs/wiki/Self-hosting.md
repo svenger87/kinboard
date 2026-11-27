@@ -141,7 +141,7 @@ DOMAIN=kinboard.example.com
 SITE_URL=https://kinboard.example.com
 TRAEFIK_CERT_RESOLVER=letsencrypt
 TRAEFIK_NETWORK=proxy
-COMPOSE_FILES=-f docker-compose.yml -f docker-compose.traefik.yml
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml"
 ```
 
 then `./start.sh up`.
@@ -655,7 +655,7 @@ Neither container is exposed externally; both sit on the internal `kinboard` doc
 | `DIUN_WEBHOOK_SECRET` | HMAC shared between Diun and webhook. Auto-generated. |
 | `KINBOARD_PROJECT_DIR` | Absolute host path to the kinboard repo. The webhook bind-mounts this AT THE SAME PATH inside the container so docker-compose's relative paths resolve identically inside and outside. Auto-detected from `setup.sh`'s own location. |
 | `COMPOSE_PROJECT_NAME` | Should be `kinboard`. Without this, compose derives the project name from the cwd (`docker` if you `cd webapp/docker` first), which renames the network and breaks subnet reuse if you migrated from an older flat layout. |
-| `COMPOSE_FILES` | Space-separated `-f …` overlay flags. **Do NOT wrap in literal `"…"`** — the value gets expanded inside the shell script and embedded quotes break word-splitting. |
+| `COMPOSE_FILES` | Space-separated `-f …` overlay flags, such as `COMPOSE_FILES="-f docker-compose.yml -f docker-compose.diun.yml"`. Quotes around the whole value are optional: `.env` is read the way Docker Compose reads it, so the line works with or without them (before 1.18, `./start.sh` needed them). Don't put quotes *inside* the value (`-f "docker-compose.yml"`): those reach `docker compose` as part of the file name. |
 
 #### Bring up the overlay
 
@@ -666,7 +666,7 @@ cp docker-compose.diun.yml.example docker-compose.diun.yml
 #   DIUN_WEBHOOK_SECRET=<random hex>
 #   KINBOARD_PROJECT_DIR=/absolute/host/path/to/kinboard
 #   COMPOSE_PROJECT_NAME=kinboard
-#   COMPOSE_FILES=-f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml -f docker-compose.diun.yml"
 # Then, from the project root:
 ./setup.sh --non-interactive
 cd webapp/docker

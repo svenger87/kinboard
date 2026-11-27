@@ -16,7 +16,7 @@
 # Used by the merge job after it pushes the list, and by hand against a local
 # registry:
 #
-#   webapp/docker/check-image-metadata.sh localhost:5000/kinboard:test <<< "$IMAGE_METADATA"
+#   scripts/ci/check-image-metadata.sh localhost:5000/kinboard:test <<< "$IMAGE_METADATA"
 #
 # Prints one line per check and exits 1 if any failed.
 set -uo pipefail

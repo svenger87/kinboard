@@ -70,7 +70,7 @@ RUN set -e; \
   # The new name also evicts the previous build's static-chunk cache on
   # activation, preventing ChunkLoadError after auto-updates.
   KINBOARD_VERSION=$(node -p "require('./package.json').version"); \
-  sh docker/stamp-sw.sh public/sw.js "$KINBOARD_VERSION" "$BUILD_REVISION"; \
+  sh scripts/stamp-sw.sh public/sw.js "$KINBOARD_VERSION" "$BUILD_REVISION"; \
   if [ -f yarn.lock ]; then yarn build; \
   elif [ -f package-lock.json ]; then npm run build; \
   elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm build; \

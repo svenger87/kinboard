@@ -38,6 +38,22 @@ npm install -g npm@11.19.0
 
 This is also worth doing if you develop on more than one machine (a Windows laptop and a Linux box, say): mismatched npm versions rewrite parts of the lockfile on every install, producing diff noise that has nothing to do with your change.
 
+### `./start.sh up` stops with `.env: line …: docker-compose.yml: command not found`
+
+Before 1.18, `./start.sh` ran `.env` as a shell script, so a value with spaces needed quotes there, though Docker Compose itself reads it fine either way. A line like
+
+```
+COMPOSE_FILES=-f docker-compose.yml -f docker-compose.diun.yml
+```
+
+made bash try to run `docker-compose.yml` as a command. Put the value in double quotes:
+
+```
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.diun.yml"
+```
+
+From 1.18 `./start.sh` reads `.env` the way Compose does, and both lines work. Nothing in `.env` is run as a command any more.
+
 ### `setup.sh` errors on macOS — "command not found: bash"
 
 The script uses bash 4-isms (associative arrays, `[[ ... ]]`). macOS ships bash 3.2 by default. Install via Homebrew:

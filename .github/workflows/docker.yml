@@ -16,7 +16,7 @@ name: Docker image
 # carries come from the `env` block below, read by both jobs (RFC-024 §4.5,
 # §6). Each platform image is built with a provenance attestation (mode=max)
 # and an SBOM; the merge job stitches them into one manifest list, annotates
-# that list too, and checks all three are there (docker/check-image-metadata.sh).
+# that list too, and checks all three are there (scripts/ci/check-image-metadata.sh).
 #
 # Tag scheme:
 #   - main branch → :main, :sha-<short>          (no :latest -- see below)
@@ -192,7 +192,7 @@ jobs:
           platform=${{ matrix.platform }}
           echo "pair=${platform//\//-}" >> "$GITHUB_OUTPUT"
 
-      # The short sha goes into sw.js (docker/stamp-sw.sh), so every image
+      # The short sha goes into sw.js (webapp/scripts/stamp-sw.sh), so every image
       # serves a different service worker and open pages notice the deploy.
       # Same value on both platforms, and the same 7 characters as :sha-<short>.
       - name: Compute build revision
@@ -329,7 +329,7 @@ jobs:
 
       - name: Check annotations, SBOM and provenance
         run: |
-          webapp/docker/check-image-metadata.sh \
+          scripts/ci/check-image-metadata.sh \
             "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
             <<< "$IMAGE_METADATA"
         # It reads the expected licence from webapp/package.json itself.
@@ -401,7 +401,7 @@ jobs:
 
       - name: Check annotations, SBOM and provenance
         run: |
-          webapp/docker/check-image-metadata.sh \
+          scripts/ci/check-image-metadata.sh \
             "${{ env.REGISTRY }}/${{ env.UPDATER_IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
             <<< "$UPDATER_METADATA"
 
@@ -555,7 +555,7 @@ jobs:
         env:
           EXPECTED_LICENSE: ${{ steps.oci.outputs.license }}
         run: |
-          webapp/docker/check-image-metadata.sh \
+          scripts/ci/check-image-metadata.sh \
             "${{ env.REGISTRY }}/${{ env.POSTGRES_IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
             <<< "$POSTGRES_IMAGE_METADATA"
 
