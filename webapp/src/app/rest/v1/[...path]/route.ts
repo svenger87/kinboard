@@ -5,7 +5,7 @@ import {
   postgrestUrl,
   upstreamRequestHeaders,
 } from "@/lib/rest-proxy";
-import { serverAnonKey } from "@/lib/supabase/api-base";
+import { legacyKongAnonKey, legacyKongUrl } from "@/lib/supabase/legacy-kong";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +32,10 @@ async function forward(
   const direct = postgrestUrl();
   const base = direct ?? legacyBase();
   if (!base) return NextResponse.json({ error: "the database API is not configured" }, { status: 503 });
+  // The browser sends no key (RFC-024 §4.6 step 3), and an `apikey` it does
+  // send is dropped with the hop-by-hop headers. Only Kong wants one.
   const headers = upstreamRequestHeaders(request.headers);
-  if (!direct) headers.set("apikey", serverAnonKey());
+  if (!direct) headers.set("apikey", legacyKongAnonKey());
 
   const { path } = await params;
   const target = `${base}/${path.map(encodeURIComponent).join("/")}${request.nextUrl.search}`;
@@ -64,10 +66,10 @@ async function forward(
  * A compose file from before 1.15 sets SUPABASE_URL (Kong) and no
  * POSTGREST_URL. Kong's PostgREST routes sit under /rest/v1 and want the anon
  * key, so that is where this goes, with the key, until the compose file is
- * updated.
+ * updated (lib/supabase/legacy-kong.ts).
  */
 function legacyBase(): string | null {
-  const kong = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "");
+  const kong = legacyKongUrl();
   return kong ? `${kong}/rest/v1` : null;
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { filesRoot, isPublicBucket } from "@/lib/files/store";
 import { serveObject } from "@/lib/files/serve";
+import { legacyKongUrl } from "@/lib/supabase/legacy-kong";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,7 @@ async function legacyStorage(request: NextRequest, path: string[]): Promise<Next
   if (path.some((p) => p === "" || p === "." || p === "..")) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
-  const base = process.env.SUPABASE_URL?.trim().replace(/\/+$/, "");
+  const base = legacyKongUrl();
   if (!base) return NextResponse.json({ error: "storage is not configured" }, { status: 503 });
   const upstream = `${base}/storage/v1/object/public/${path.map(encodeURIComponent).join("/")}`;
 

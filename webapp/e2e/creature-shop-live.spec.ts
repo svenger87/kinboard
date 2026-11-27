@@ -2,7 +2,7 @@ import { test, expect, request as pwRequest, type APIRequestContext } from "@pla
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createPostgrestClient } from "../src/lib/supabase/postgrest";
+import { NO_KEY, createPostgrestClient } from "../src/lib/supabase/postgrest";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { mintFamilyToken } from "../src/lib/family-jwt";
 import type { RpcClient } from "../src/lib/pocket-money/booking";
@@ -268,14 +268,14 @@ test.describe("a parent's refund", () => {
 });
 
 test.describe("a browser's token", () => {
-  const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // No key, as the browser sends none (RFC-024 §4.6 step 3).
   const browser = (familyId: string) =>
-    createPostgrestClient(URL!, ANON!, {
+    createPostgrestClient(URL!, NO_KEY, {
       headers: { Authorization: `Bearer ${mintFamilyToken(familyId).token}` },
     }) as any;
 
   test("reads its own family's purchases only, and writes none, nor calls the function", async () => {
-    test.skip(!ANON || !(process.env.JWT_SECRET || process.env.PGRST_JWT_SECRET), "needs the anon key and JWT secret");
+    test.skip(!(process.env.JWT_SECRET || process.env.PGRST_JWT_SECRET), "needs the JWT secret");
     reset(100);
     expect((await buy("cap")).status).toBe(201);
     const id = psql(`SELECT id FROM point_purchases WHERE person_id = '${KID}'`);

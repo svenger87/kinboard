@@ -91,8 +91,7 @@ webapp/
 
 | Variable | Description |
 |----------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase API URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
+| `POSTGREST_URL` | PostgREST's address for the server; the browser uses this server's own `/rest/v1` and needs no key |
 | `OPENWEATHERMAP_API_KEY` | Weather API key; a family's own in Settings -> Weather wins |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID; a family's own in Settings -> Google Calendar wins |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth secret, the same |

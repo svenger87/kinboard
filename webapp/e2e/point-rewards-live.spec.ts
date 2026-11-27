@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { hasServiceKey } from "./helpers/service-key";
-import { createPostgrestClient } from "../src/lib/supabase/postgrest";
+import { NO_KEY, createPostgrestClient } from "../src/lib/supabase/postgrest";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { mintFamilyToken } from "../src/lib/family-jwt";
 import type { RpcClient } from "../src/lib/pocket-money/booking";
@@ -314,11 +314,11 @@ test.describe("best_tier only climbs, and never past the last stage", () => {
 });
 
 test.describe("a browser's token reads its family's rows and writes nothing", () => {
-  const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  test.skip(!ANON || !(process.env.JWT_SECRET || process.env.PGRST_JWT_SECRET), "needs NEXT_PUBLIC_SUPABASE_ANON_KEY and JWT_SECRET");
+  test.skip(!(process.env.JWT_SECRET || process.env.PGRST_JWT_SECRET), "needs JWT_SECRET");
 
+  // No key, as the browser sends none (RFC-024 §4.6 step 3).
   const browser = (familyId: string) =>
-    createPostgrestClient(URL!, ANON!, {
+    createPostgrestClient(URL!, NO_KEY, {
       headers: { Authorization: `Bearer ${mintFamilyToken(familyId).token}` },
     }) as any;
 

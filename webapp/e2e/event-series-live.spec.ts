@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { hasServiceKey } from "./helpers/service-key";
-import { createPostgrestClient } from "../src/lib/supabase/postgrest";
+import { NO_KEY, createPostgrestClient } from "../src/lib/supabase/postgrest";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { mintFamilyToken } from "../src/lib/family-jwt";
 import { dayKey, wallParts } from "../src/lib/event-repeat";
@@ -23,19 +23,18 @@ import {
  * that keep a browser's own changes and deletes, the two write functions
  * (docker/migrations/082_event_series.sql), the nightly top-up, and
  * the domain events. The writes go through lib/event-series.ts as the routes
- * call it; a browser is the anon key with a family token, as on a screen.
+ * call it; a browser is a family token and no key, as on a screen.
  *
  * Needs a stack: KINBOARD_SERVICE_ROLE_KEY and SUPABASE_URL (or
- * NEXT_PUBLIC_SUPABASE_URL), NEXT_PUBLIC_SUPABASE_ANON_KEY and JWT_SECRET.
+ * NEXT_PUBLIC_SUPABASE_URL) and JWT_SECRET.
  * Skipped without them, unless FAMILY_CODE says a stack is there. It works
  * only in two families of its own, which it creates and deletes again,
  * including whatever an interrupted run left behind.
  */
 
 const URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const HAS_STACK = hasServiceKey() && !!URL && !!ANON && !!(process.env.JWT_SECRET || process.env.PGRST_JWT_SECRET);
-test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs KINBOARD_SERVICE_ROLE_KEY, SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and JWT_SECRET");
+const HAS_STACK = hasServiceKey() && !!URL && !!(process.env.JWT_SECRET || process.env.PGRST_JWT_SECRET);
+test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs KINBOARD_SERVICE_ROLE_KEY, SUPABASE_URL and JWT_SECRET");
 test.describe.configure({ mode: "serial" });
 
 const FAMILY = "5e7e5000-0015-4000-8000-00000000f001";
@@ -49,7 +48,7 @@ const DAY = 86_400_000;
 
 let db: any;
 const browser = (familyId: string) =>
-  createPostgrestClient(URL!, ANON!, {
+  createPostgrestClient(URL!, NO_KEY, {
     headers: { Authorization: `Bearer ${mintFamilyToken(familyId).token}` },
   }) as any;
 

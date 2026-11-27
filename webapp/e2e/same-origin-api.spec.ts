@@ -7,7 +7,7 @@ import vm from "node:vm";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { createPostgrestClient } from "../src/lib/supabase/postgrest";
-import { publicApiEnv, serverSupabaseFetch, serverSupabaseUrl } from "../src/lib/supabase/api-base";
+import { serverSupabaseFetch, serverSupabaseUrl } from "../src/lib/supabase/api-base";
 import { absoluteStorageUrl, publicStorageUrl } from "../src/lib/supabase/public-url";
 import { postgrestFetch } from "../src/lib/rest-proxy";
 
@@ -22,7 +22,6 @@ import { postgrestFetch } from "../src/lib/rest-proxy";
 
 test.describe("which API address the browser gets", () => {
   test("always the page's own origin, whatever an old .env still says", () => {
-    expect(publicApiEnv("anon")).toEqual({ NEXT_PUBLIC_SUPABASE_URL: "same-origin", NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon" });
     const base = readFileSync("src/lib/supabase/api-base.ts", "utf8");
     // Nothing reads the settings that used to pick another address.
     expect(base).not.toMatch(/env\.(API_EXTERNAL_URL|KINBOARD_ENTRY|NEXT_PUBLIC_SUPABASE_URL)/);
@@ -35,10 +34,11 @@ test.describe("which API address the browser gets", () => {
     expect(client).not.toContain("process.env.NEXT_PUBLIC_SUPABASE_URL");
   });
 
-  test("the root layout hands the browser publicApiEnv", () => {
+  test("the root layout hands the browser no address: there is nothing to choose", () => {
+    // Until 1.18 it wrote `same-origin` into window.__ENV (RFC-024 §4.6 step 3).
     const layout = readFileSync("src/app/layout.tsx", "utf8");
-    expect(layout).toContain("publicApiEnv(");
-    expect(layout).not.toMatch(/NEXT_PUBLIC_SUPABASE_URL:\s*process\.env/);
+    expect(layout).not.toMatch(/window\.__ENV\s*=/);
+    expect(layout).not.toContain("NEXT_PUBLIC_SUPABASE_URL");
   });
 });
 

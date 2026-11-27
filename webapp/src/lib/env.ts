@@ -10,7 +10,7 @@ import { createHmac } from "node:crypto";
  *
  * Server-only, and never inlined: the name is looked up when the function
  * runs, so Next has no `process.env.NAME` expression to replace at build time
- * with whatever the build machine had (the trap `serverAnonKey` documents).
+ * with whatever the build machine had (the trap lib/supabase/legacy-kong.ts documents).
  * `node:crypto` keeps it out of any browser bundle; the guard spec
  * (e2e/env-helper.spec.ts) checks that no client component imports it.
  */

@@ -48,14 +48,6 @@ services:
       - ${REPO_ROOT}/webapp/docker/init.sql:/docker-entrypoint-initdb.d/zz-kinboard-init.sql
 
   webapp:
-    build:
-      args:
-        # Pass demo values into the build so the client JS bundle points
-        # the browser at our local Kong (8001) instead of prod's URL,
-        # and uses our demo ANON_KEY (signed with our demo JWT_SECRET)
-        # instead of prod's anon key.
-        NEXT_PUBLIC_SUPABASE_URL: http://localhost:${KONG_PORT:-8001}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
     environment:
       # Redirect OpenWeatherMap calls to the local mock so the weather
       # widget renders without a real API key.

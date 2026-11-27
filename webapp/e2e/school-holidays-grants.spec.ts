@@ -69,11 +69,8 @@ test.describe("through Kong, as the browser", () => {
       execFileSync("docker", ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-d", "postgres", "-tA", "-q", "-c", sql], { encoding: "utf8" }).trim();
 
     await page.goto("/join", { waitUntil: "domcontentloaded" });
-    const env = await page.evaluate(() => (window as unknown as { __ENV: Record<string, string> }).__ENV);
-    // `same-origin` when Kong serves the app (RFC-018): the API is then at the page's own origin.
-    const apiBase = env.NEXT_PUBLIC_SUPABASE_URL === "same-origin"
-      ? await page.evaluate(() => window.location.origin)
-      : env.NEXT_PUBLIC_SUPABASE_URL;
+    // The API is at the page's own origin (RFC-018), and the browser sends no key (RFC-024 §4.6).
+    const apiBase = await page.evaluate(() => window.location.origin);
     // Through postJoin, which waits out a 429: the CI run joins from one IP for
     // every spec, and a single plain fetch here failed on the join limit alone.
     const joinRes = await postJoin(page.request, { joinCode: FAMILY_CODE, hardwareId, deviceName: "claude-grants" });
@@ -84,7 +81,6 @@ test.describe("through Kong, as the browser", () => {
       page.request.fetch(`${apiBase}/rest/v1/${path}`, {
         method,
         headers: {
-          apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
           Authorization: `Bearer ${joined.token}`,
           "content-type": "application/json",
           Prefer: "return=representation",
