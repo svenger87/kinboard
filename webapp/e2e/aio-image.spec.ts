@@ -677,6 +677,19 @@ test.describe("kinboard-init in the all-in-one image: 0600 secrets in a 0700 fol
  * changes the canary it points at, one that does not leaves it alone.
  * scripts/rigs/test-aio.sh's `symlinks` phase runs the same as root.
  */
+test("PUID/PGID: the server can write Next's cache (/app/.next/cache is handed to the run user before su-exec)", () => {
+  // The image makes /app/.next nextjs's; with PUID (always, in the all-in-one
+  // image) the server is another user, and every revalidated fetch logged
+  // "EACCES: permission denied, mkdir '/app/.next/cache'". scripts/rigs/
+  // test-migration-aio.sh checks the real logs for the line.
+  const entry = read(join(IMAGE, "webapp-entrypoint.sh"));
+  const start = entry.slice(entry.indexOf("start_server() {"), entry.indexOf("exec node server.js"));
+  const own = start.indexOf('mkdir -p /app/.next/cache && chown -h "$RUN_AS" /app/.next/cache');
+  expect(own, "the cache folder is created and handed over").toBeGreaterThan(0);
+  expect(own).toBeLessThan(start.indexOf('exec su-exec "$RUN_AS" node server.js'));
+  expect(start).not.toMatch(/chown -R[^\n]*\/app\/\.next/);
+});
+
 test("PUID/PGID: a leading zero is refused (\"000\" is root to su-exec, not to a string test)", () => {
   const dir = mkdtempSync(join(tmpdir(), "kb-puid-"));
   try {
