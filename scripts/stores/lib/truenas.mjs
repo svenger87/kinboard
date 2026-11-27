@@ -82,7 +82,7 @@ export function truenas(src) {
   // (the library adds them to every container); the rest from ours.
   const AUTO = { TZ: "TZ", PUID: "run_as.user", PGID: "run_as.group" };
   const token = (name) => `\u0000${name}\u0000`;
-  const model = serviceModel(src, { images, env: (name) => token(name) });
+  const model = serviceModel(src, { name: "truenas", images, env: (name) => token(name) });
   const own = Object.keys(meta.env).filter((n) => !(n in AUTO));
 
   const lines = ["{% set tpl = ix_lib.base.render.Render(values) %}", ""];

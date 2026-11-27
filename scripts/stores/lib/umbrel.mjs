@@ -29,7 +29,7 @@ export const umbrelHost = (meta, service) => `${meta.slug}_${service}_1`;
 export function umbrel(src) {
   const { meta, images: names } = src;
   const images = pinnedImages(meta, names);
-  const model = serviceModel(src, { images, env: () => undefined });
+  const model = serviceModel(src, { name: "umbrel", images, env: () => undefined });
   const l = links(meta);
   const names_ = Object.keys(model);
   const dbService = names_.find((n) => model[n].kind === "postgres");

@@ -9,8 +9,12 @@
  *      (docker.yml's POSTGRES_IMAGE_NAME), never supabase/postgres and never a
  *      store's own postgres helper, which can't load the library
  *      (RFC-024 §4.2.1, §4.5, §5.2);
- *   2. the services in the metadata's `omit_services` are left out (the
- *      Docker-socket updater: every store updates its own way);
+ *   2. the services the metadata's `omit_services` leaves out of this store
+ *      are left out (the Docker-socket updater, for the stores that update
+ *      their own way). A service kept with a profile (the updater, on
+ *      Portainer) keeps it, and its Docker-socket mount becomes
+ *      {socket: true, target}: the only host path a listing may mount, and
+ *      only in a service that is off until switched on;
  *   3. `${VAR:-default}` becomes a value: the store's own setting for the
  *      variables the metadata offers, compose.yml's default for the rest, and
  *      gone when that default is empty (the secrets an existing install would
@@ -18,6 +22,9 @@
  *   4. volumes and ports become logical ({volume: "db", target, readOnly},
  *      {port: "web"}), for each store to place.
  */
+
+/** The one host path a listing may mount, in an opt-in service only. */
+export const DOCKER_SOCKET = "/var/run/docker.sock";
 
 /** `${VAR}`, `${VAR:-default}`, `${VAR-default}`; `$$` is compose's literal `$`. */
 const VAR = /\$\$|\$\{([A-Za-z_][A-Za-z0-9_]*)(?:(:?-)([^}]*))?\}/g;
@@ -68,9 +75,11 @@ function splitVolume(entry) {
  *
  * @param {ReturnType<typeof import("./sources.mjs").loadSources>} src
  * @param {{
+ *   name: string,
  *   images: { app: string, postgres: string, other: (ref: string) => string },
  *   env: (name: string) => string | undefined,
  * }} store
+ *   name:   the store (truenas, casaos, umbrel, portainer);
  *   images: the full reference for each kind of image;
  *   env:    the store's value for a variable the metadata offers, or
  *           undefined for compose.yml's default.
@@ -78,6 +87,8 @@ function splitVolume(entry) {
 export function serviceModel(src, store) {
   const { meta, compose } = src;
   const slug = meta.slug;
+  if (!store.name) throw new Error("serviceModel: which store?");
+  const omitted = (service) => meta.omit_services?.[service]?.[store.name] !== undefined;
   const appImage = compose[`x-${slug}-image`];
   if (typeof appImage !== "string") throw new Error(`compose.yml has no x-${slug}-image`);
   const services = compose.services ?? {};
@@ -98,8 +109,11 @@ export function serviceModel(src, store) {
   /** @type {Record<string, any>} */
   const out = {};
   for (const [name, svc] of Object.entries(services)) {
-    if (meta.omit_services && name in meta.omit_services) continue;
-    if (svc.profiles) throw new Error(`compose.yml service ${name} has profiles; list it in omit_services or drop the profile`);
+    if (omitted(name)) continue;
+    const profiles = svc.profiles ?? [];
+    if (profiles.length && !profiles.some((pr) => meta.opt_in?.[pr]?.stores?.includes(store.name))) {
+      throw new Error(`compose.yml service ${name} has profiles; leave it out of ${store.name} (omit_services) or offer its profile there (opt_in)`);
+    }
     let kind;
     let image;
     if (svc.image === appImage) {
@@ -123,6 +137,10 @@ export function serviceModel(src, store) {
     }
     const volumes = (svc.volumes ?? []).map((entry) => {
       const { source, target, readOnly } = splitVolume(entry);
+      if (source === DOCKER_SOCKET) {
+        if (!profiles.length) throw new Error(`compose.yml service ${name} mounts the Docker socket without a profile: every install would hand it out`);
+        return { socket: true, target, readOnly };
+      }
       const volume = logicalVolume(source);
       if (!volume) throw new Error(`compose.yml service ${name}: volume ${entry} is not one of the metadata's volumes`);
       return { volume, target, readOnly };
@@ -137,7 +155,7 @@ export function serviceModel(src, store) {
       return port;
     });
     const dependsOn = Object.fromEntries(
-      Object.entries(svc.depends_on ?? {}).filter(([dep]) => !(meta.omit_services && dep in meta.omit_services)),
+      Object.entries(svc.depends_on ?? {}).filter(([dep]) => !omitted(dep)),
     );
     out[name] = {
       kind,
@@ -152,6 +170,7 @@ export function serviceModel(src, store) {
       volumes,
       ports,
       containerName: svc.container_name,
+      profiles,
       oneShot: svc.restart === "no",
     };
   }

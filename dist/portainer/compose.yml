@@ -1,5 +1,6 @@
 # Generated from dist/kinboard.yaml and compose.yml by scripts/stores/build-store-listings.mjs. Do not edit by hand.
 # The stack file of the Portainer app templates in templates.json.
+# updater starts only with COMPOSE_PROFILES=autoupdate (the template's "Automatic updates"); only then does any container get the Docker socket.
 services:
   init:
     image: ${KINBOARD_IMAGE:-ghcr.io/svenger87/kinboard}:${KINBOARD_TAG:-latest}
@@ -173,6 +174,27 @@ services:
     environment:
       TZ: ${TZ:-Europe/Berlin}
       WEBRTC_LAN_IP: ${WEBRTC_LAN_IP:-}
+    networks:
+      - kinboard
+  updater:
+    image: ${KINBOARD_UPDATER_IMAGE:-ghcr.io/svenger87/kinboard-updater}:${KINBOARD_TAG:-latest}
+    container_name: kinboard-updater
+    profiles:
+      - autoupdate
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    entrypoint:
+      - kinboard-updater
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      KINBOARD_UPDATER: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard
     networks:
       - kinboard
 networks:
