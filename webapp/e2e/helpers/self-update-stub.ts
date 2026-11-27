@@ -183,7 +183,7 @@ case "$1" in
         f="$STUB/containers/$(cid "$2")"; IFS='|' read -r ref id created < "$f"
         r="$(cat "$STUB/smoke/$(esc "$id")" 2>/dev/null || echo '200|{"deep":{"ok":true,"missing":[],"write":true}}')"
         printf '%s\n%s\n' "$(printf '%s' "$r" | cut -d'|' -f2-)" "$(printf '%s' "$r" | cut -d'|' -f1)" ;;
-      */kinboard/secrets/*)
+      *STORED_SECRET=*)
         # The real command exits 0 when the folder holds no secrets.
         [ -f "$STUB/stored-secrets-unreadable" ] && { echo "Error response from daemon: stub: exec failed" >&2; exit 1; }
         cat "$STUB/stored-secrets" 2>/dev/null || true ;;

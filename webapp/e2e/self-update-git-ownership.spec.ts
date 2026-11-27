@@ -210,6 +210,33 @@ test.describe("git as root sees it: a checkout another user owns", () => {
     }
   });
 
+  // #589: git's message went to Settings as git printed it. On an
+  // authentication error that is the remote's URL, a token in it when origin
+  // has one; and a .env value it quotes is a secret like any other.
+  test("git's message is cleaned like a log excerpt: credentials in the URL and the .env's values taken out", () => {
+    const r = rigWithRelease();
+    withStubGit(r);
+    r.addEnv("BRING_PASSWORD=bring-secret-value");
+    try {
+      writeFileSync(
+        join(r.stub, "fetch-error"),
+        "fatal: unable to access 'https://svenger:ghp_Tok3nValue123@github.com/svenger87/kinboard.git/' (bring-secret-value): The requested URL returned error: 403\n",
+      );
+      const res = r.run();
+      expect(res.status, res.out).toBe(1);
+      const rec = writes(r).find((w) => w.key === "update_pull");
+      expect(rec, "an update_pull record").toBeTruthy();
+      const detail = String(rec!.value.detail);
+      expect(detail).not.toContain("ghp_Tok3nValue123");
+      expect(detail).not.toContain("svenger:");
+      expect(detail).not.toContain("bring-secret-value");
+      expect(detail).toBe("fatal: unable to access 'https://[redacted]@github.com/svenger87/kinboard.git/' ([redacted]): The requested URL returned error: 403");
+      expect(rec!.value.kind).toBe("fetch");
+    } finally {
+      r.cleanup();
+    }
+  });
+
   test("a pull that local edits stop is reported too, naming the files", () => {
     const r = rigWithRelease();
     try {
