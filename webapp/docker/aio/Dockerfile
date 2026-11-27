@@ -30,6 +30,11 @@ ARG APP_IMAGE=ghcr.io/svenger87/kinboard:main
 # holds the tag and the digest equal.
 ARG POSTGREST_IMAGE=postgrest/postgrest:v14.16@sha256:bea1c76a856fa39d1e542d25911cf95d02fe2bf971992d033044ff209f1504b8
 
+# The Syft that writes the record of what the arm64 PostgREST brings along
+# (below), by its index digest: the version BuildKit's SBOM scanner ran when
+# this was pinned (v1.51.0), so the two parse copyright files alike.
+ARG SYFT_IMAGE=anchore/syft:v1.51.0@sha256:678bfa565b60f747aac0f8e964fe5588a24445b8d0a480e91f6efd70020dfbb0
+
 # PostgREST, per architecture, from the one pinned image. The image is not the
 # same build on both: on amd64 it is FROM scratch with a statically linked
 # binary, which runs on this Alpine (musl) image as it is; on arm64 it is an
@@ -41,27 +46,63 @@ ARG POSTGREST_IMAGE=postgrest/postgrest:v14.16@sha256:bea1c76a856fa39d1e542d2591
 # libraries `ldd` resolves, in glibc's multiarch folder, which musl never
 # searches. The binary itself is unmodified, byte for byte the one compose.yml
 # runs on arm64. Their copyright files go to /usr/share/licenses/postgrest-runtime.
+#
+# The image's SBOM (BuildKit runs Syft over the finished image) would not
+# list them properly: copied files come without a package database, so Syft
+# sees glibc not at all and the rest only by the source-package notes Ubuntu
+# embeds in its ELF files, without a licence. So the Debian packages those
+# files come from (and only those) are written down here: their dpkg status
+# entries, copyright files and Ubuntu's os-release go into /sbom, which is
+# not part of the image; Syft reads that and writes a Syft JSON SBOM into
+# /usr/share/licenses/postgrest-runtime, and BuildKit's scan of the image
+# picks that file up (Syft reads SBOMs it finds) with name, version, Ubuntu
+# purl and licence for each (a copyright file that names no licence in
+# Debian's machine-readable form, krb5's, stays NOASSERTION). The ELF-note
+# entries stay too, under the source packages' names. Not a dpkg database
+# in the image: Syft names its packages after the image's distribution,
+# Alpine, and gives a deb package of an Alpine image no purl, which a
+# vulnerability scanner then cannot match (and it would drop the ELF-note
+# entries, the only ones with a purl, as files the database owns).
+# Not BUILDKIT_SBOM_SCAN_STAGE either: that lists the whole Ubuntu image.
 FROM ${POSTGREST_IMAGE} AS postgrest-image
 FROM scratch AS postgrest-amd64
 COPY --from=postgrest-image /bin/postgrest /out/usr/local/bin/postgrest
 
-FROM ${POSTGREST_IMAGE} AS postgrest-arm64
+FROM ${POSTGREST_IMAGE} AS postgrest-arm64-files
 USER root
 RUN set -eux; \
     bin=/usr/bin/postgrest; dir=/usr/lib/aarch64-linux-gnu; lic=/out/usr/share/licenses/postgrest-runtime; \
-    mkdir -p /out/usr/local/bin "/out$dir" /out/lib "$lic"; \
+    mkdir -p /out/usr/local/bin "/out$dir" /out/lib "$lic" /sbom/var/lib/dpkg /sbom/etc; \
     cp "$bin" /out/usr/local/bin/postgrest; \
     cp -L /usr/lib/ld-linux-aarch64.so.1 /out/lib/ld-linux-aarch64.so.1; \
+    pkgs="$(dpkg -S "$(readlink -f /usr/lib/ld-linux-aarch64.so.1)" | cut -d: -f1)"; \
     libs="$(ldd "$bin" | awk '$2 == "=>" && $3 ~ /^\// { print $3 }')"; \
     test -n "$libs"; \
     for l in $libs; do \
       case "$(readlink -f "$l")" in "$dir"/*) ;; *) echo "unexpected library path: $l" >&2; exit 1 ;; esac; \
       cp -L "$l" "/out$dir/$(basename "$l")"; \
-      pkg="$(dpkg -S "$(readlink -f "$l")" | cut -d: -f1)"; \
-      cp "/usr/share/doc/$pkg/copyright" "$lic/$pkg"; \
+      pkgs="$pkgs $(dpkg -S "$(readlink -f "$l")" | cut -d: -f1)"; \
     done; \
-    cp "/usr/share/doc/libc6/copyright" "$lic/libc6"; \
-    ls -l "/out$dir" "$lic"
+    for pkg in $(printf '%s\n' $pkgs | sort -u); do \
+      cp "/usr/share/doc/$pkg/copyright" "$lic/$pkg"; \
+      mkdir -p "/sbom/usr/share/doc/$pkg"; \
+      cp "/usr/share/doc/$pkg/copyright" "/sbom/usr/share/doc/$pkg/copyright"; \
+      { dpkg-query -s "$pkg"; echo; } >> /sbom/var/lib/dpkg/status; \
+    done; \
+    cp -L /etc/os-release /sbom/etc/os-release; \
+    ls -l "/out$dir" "$lic"; grep '^Package:' /sbom/var/lib/dpkg/status
+
+# Syft is a static Go binary in a scratch image, so it runs on the builder's
+# own platform: what it reads is text.
+FROM --platform=$BUILDPLATFORM ${SYFT_IMAGE} AS postgrest-arm64-sbom
+COPY --from=postgrest-arm64-files /sbom /src
+ENV SYFT_CHECK_FOR_APP_UPDATE=false
+RUN ["/syft", "scan", "dir:/src", "--source-name", "postgrest-runtime", "-o", "syft-json=/postgrest-runtime.syft.json"]
+
+FROM scratch AS postgrest-arm64
+COPY --from=postgrest-arm64-files /out/ /out/
+COPY --from=postgrest-arm64-sbom /postgrest-runtime.syft.json /out/usr/share/licenses/postgrest-runtime/postgrest-runtime.syft.json
+
 # TARGETARCH is set by the builder; a platform other than these two has no stage.
 FROM postgrest-${TARGETARCH} AS postgrest
 

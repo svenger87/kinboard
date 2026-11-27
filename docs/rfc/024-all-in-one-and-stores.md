@@ -117,7 +117,19 @@ top of it:
   data to carry, and moving from compose is logical anyway (§4.4), so a newer
   major costs nothing.
 - **PostgREST**, copied from the pinned `postgrest/postgrest:v14.16` image
-  for the same platform (`COPY --from`). The binary is statically linked.
+  for the same platform (`COPY --from`). On amd64 the binary is statically
+  linked and needs nothing beside it. On arm64 it is not: upstream's arm64
+  image of the 14.x line is an Ubuntu image with a binary linked against
+  glibc, which exits 127 on Alpine's musl. So on arm64 the image also carries
+  that binary's runtime, taken from the same upstream image: glibc's loader
+  and the libraries `ldd` resolves (glibc, libpq, OpenSSL, Kerberos, OpenLDAP,
+  SASL, GMP, zlib, zstd, keyutils, com_err) in `/usr/lib/aarch64-linux-gnu`,
+  their copyright files in `/usr/share/licenses/postgrest-runtime/`, and a
+  record of their Debian packages that the image's SBOM picks up (#575 and
+  its follow-up). This is a workaround with one condition for removal:
+  PostgREST publishes a static arm64 build from 16.x on, so when the pinned
+  line has one, arm64 copies the binary alone, as amd64 does, and the runtime
+  goes.
 - **s6-overlay v3** as the supervisor, from Alpine's package
   (`s6-overlay-3.2.3.0`) or the upstream release tarball.
 

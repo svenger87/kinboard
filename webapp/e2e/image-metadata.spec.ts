@@ -477,15 +477,18 @@ test.describe("check-image-metadata.sh against a registry stand-in", () => {
   };
 
   /** Runs the check with a fake `docker` serving one pushed amd64 image. */
-  const check = (licence: string, opts: { sbom?: boolean; healthcheck?: boolean; packageLicence?: string; stdinLicence?: string; defaultPackageJson?: boolean } = {}) => {
+  type Pkg = { name: string; versionInfo?: string; licenseDeclared?: string };
+  const check = (licence: string, opts: { sbom?: boolean; healthcheck?: boolean; packageLicence?: string; stdinLicence?: string; defaultPackageJson?: boolean; packages?: Pkg[]; sbomExpect?: string } = {}) => {
     const dir = mkdtempSync(join(tmpdir(), "imgcheck-"));
     try {
       const labels = { ...want, ...auto, "org.opencontainers.image.licenses": licence };
+      // With packages, imagetools answers as for a multi-platform list: keyed by platform.
+      const plat = <T,>(v: T) => (opts.packages ? { "linux/amd64": v } : v);
       const fx = {
         raw: { annotations: labels, manifests: [{ digest: "sha256:aa", platform: { os: "linux", architecture: "amd64" } }] },
-        image: { config: { Labels: labels } },
-        sbom: opts.sbom === false ? {} : { SPDX: { packages: [{ name: "a" }, { name: "b" }] } },
-        prov: { SLSA: { invocation: { parameters: {} }, metadata: { "https://mobyproject.org/buildkit@v1#metadata": { buildConfig: {} } } } },
+        image: plat({ config: { Labels: labels } }),
+        sbom: plat(opts.sbom === false ? {} : { SPDX: { packages: opts.packages ?? [{ name: "a" }, { name: "b" }] } }),
+        prov: plat({ SLSA: { invocation: { parameters: {} }, metadata: { "https://mobyproject.org/buildkit@v1#metadata": { buildConfig: {} } } } }),
         hc: opts.healthcheck === false ? "" : '{"Test":["CMD-SHELL","curl"]}',
       };
       for (const [k, v] of Object.entries(fx)) writeFileSync(join(dir, k), typeof v === "string" ? v : JSON.stringify(v));
@@ -515,6 +518,7 @@ esac
           env: cleanEnv({
             PATH: `${join(dir, "bin")}:${process.env.PATH}`,
             ...(opts.defaultPackageJson ? {} : { PACKAGE_JSON: join(dir, "package.json") }),
+            ...(opts.sbomExpect === undefined ? {} : { SBOM_EXPECT: opts.sbomExpect }),
           }),
           encoding: "utf8",
         });
@@ -562,6 +566,33 @@ esac
     expect(check("PolyForm-Noncommercial-1.0.0", { sbom: false })).toContain("FAIL  no SBOM");
     expect(check("PolyForm-Noncommercial-1.0.0", { healthcheck: false })).toContain("FAIL  no HEALTHCHECK");
   });
+
+  // SBOM_EXPECT: the aio's arm64 SBOM must name the glibc runtime its PostgREST
+  // brings along, with version and licence (#575 shipped it unlisted).
+  test("SBOM_EXPECT: a named package must be there with a version and a licence, a !package must not", () => {
+    const L = "PolyForm-Noncommercial-1.0.0";
+    const libc = { name: "libc6", versionInfo: "2.43-2ubuntu2", licenseDeclared: "LGPL-2.1-or-later" };
+    const libpq = { name: "libpq5", versionInfo: "18.4-0ubuntu0.26.04.1", licenseDeclared: "PostgreSQL" };
+    const want = "linux/amd64=libc6 linux/amd64=libpq5";
+    const ok = check(L, { packages: [libc, libpq], sbomExpect: want });
+    expect(ok).toContain("ok    SBOM: libc6 2.43-2ubuntu2 (LGPL-2.1-or-later)");
+    expect(ok).toContain("all checks passed");
+    // The published sha-8fceaaf arm64 SBOM: neither, so red.
+    const missing = check(L, { packages: [{ name: "postgresql-18", versionInfo: "18.4" }], sbomExpect: want });
+    expect(missing).toMatch(/^exit 1/);
+    expect(missing).toContain("FAIL  SBOM: no libc6");
+    expect(missing).toContain("FAIL  SBOM: no libpq5");
+    expect(check(L, { packages: [{ ...libc, licenseDeclared: "NOASSERTION" }, libpq], sbomExpect: want }))
+      .toContain("FAIL  SBOM: libc6 2.43-2ubuntu2 without a licence");
+    expect(check(L, { packages: [{ name: "libc6" }, libpq], sbomExpect: want })).toContain("FAIL  SBOM: libc6 without a version");
+    // Absent where it must be absent: amd64's PostgREST is static, so a libc6 there is a phantom.
+    expect(check(L, { packages: [{ name: "a" }], sbomExpect: "linux/amd64=!libc6" })).toContain("all checks passed");
+    expect(check(L, { packages: [libc], sbomExpect: "linux/amd64=!libc6" })).toContain("FAIL  SBOM: libc6 listed, and must not be");
+    // A platform the image does not have is a failure, not a skipped check.
+    expect(check(L, { packages: [libc, libpq], sbomExpect: "linux/arm64=libc6" }))
+      .toContain("FAIL  SBOM_EXPECT names linux/arm64, which reg.example/o/kinboard:1.18.0 does not have");
+    expect(check(L, { packages: [libc], sbomExpect: "libc6" })).toMatch(/^exit 2/);
+  });
 });
 
 test.describe("kinboard-aio, the all-in-one image (RFC-024 §4.5, phase 5)", () => {
@@ -599,6 +630,8 @@ test.describe("kinboard-aio, the all-in-one image (RFC-024 §4.5, phase 5)", () 
     const check = merge.steps.find((s) => s.run?.includes("check-image-metadata.sh"));
     expect(check?.run).toContain("${{ env.AIO_IMAGE_NAME }}");
     expect(check?.env?.EXPECTED_LICENSE).toBe("${{ steps.oci.outputs.license }}");
+    // arm64's PostgREST brings glibc and libpq along; the SBOM must say so, and amd64's must not.
+    expect(String(check?.env?.SBOM_EXPECT).split(/\s+/).sort()).toEqual(["linux/amd64=!libc6", "linux/arm64=libc6", "linux/arm64=libpq5"]);
   });
 
   test("`next`, `main`, sha and version tags, but no `latest`, `X` or `X.Y` until phase 5's gates are met", () => {

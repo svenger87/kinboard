@@ -60,9 +60,23 @@ test.describe("one build, two shapes (RFC-024 §2, §4.5)", () => {
     // which needs its loader and libraries from the same image (on musl it exits 127 without them).
     expect(dockerfile).toMatch(/^FROM postgrest-\$\{TARGETARCH\} AS postgrest$/m);
     expect(dockerfile).toContain("COPY --from=postgrest-image /bin/postgrest /out/usr/local/bin/postgrest");
-    expect(dockerfile).toMatch(/^FROM \$\{POSTGREST_IMAGE\} AS postgrest-arm64$/m);
+    expect(dockerfile).toMatch(/^FROM \$\{POSTGREST_IMAGE\} AS postgrest-arm64-files$/m);
     expect(dockerfile).toContain("cp -L /usr/lib/ld-linux-aarch64.so.1 /out/lib/ld-linux-aarch64.so.1");
     expect(dockerfile).toContain("COPY --from=postgrest /out/ /");
+    // The SBOM: those libraries' Debian packages, and only those, recorded by a Syft pinned by digest, in a
+    // file the image's own SBOM scan reads (Syft reads *.syft.json); the Ubuntu files it reads stay out.
+    expect(dockerfile).toMatch(/^ARG SYFT_IMAGE=anchore\/syft:v[\d.]+@sha256:[0-9a-f]{64}$/m);
+    expect(dockerfile).toMatch(/^FROM --platform=\$BUILDPLATFORM \$\{SYFT_IMAGE\} AS postgrest-arm64-sbom$/m);
+    expect(dockerfile).toContain('{ dpkg-query -s "$pkg"; echo; } >> /sbom/var/lib/dpkg/status');
+    expect(dockerfile).toContain("COPY --from=postgrest-arm64-files /sbom /src");
+    expect(dockerfile).toContain(
+      "COPY --from=postgrest-arm64-sbom /postgrest-runtime.syft.json /out/usr/share/licenses/postgrest-runtime/postgrest-runtime.syft.json",
+    );
+    const arm64 = dockerfile.slice(dockerfile.indexOf("AS postgrest-arm64\n"), dockerfile.indexOf("AS postgrest\n"));
+    expect(arm64, "only /out reaches the image, never /sbom").not.toContain("/sbom");
+    // amd64's static binary needs nothing beside it, so its stage carries no runtime and no SBOM fragment.
+    const amd64 = dockerfile.slice(dockerfile.indexOf("AS postgrest-amd64\n"), dockerfile.indexOf("AS postgrest-arm64-files\n"));
+    expect(amd64).not.toMatch(/syft|licenses|aarch64/);
     // ...and the build itself runs it, and refuses another version than the pin.
     expect(dockerfile).toContain('test "$(/usr/local/bin/postgrest --version)" = "PostgREST $v"');
   });

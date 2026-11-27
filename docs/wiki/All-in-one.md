@@ -184,6 +184,28 @@ not in it; each install keeps its own.
 | *PUID and PGID must not be 0* | set them to the folder owner's ids |
 | *not writable* | mount `/data` read-write |
 
+## Third-party licences
+
+The image's licence label names Kinboard's own licence and those of the
+software it is built around: PostgreSQL, PostgREST (MIT), pg-safeupdate and
+s6-overlay (ISC).
+
+On **arm64** the image also carries the runtime libraries PostgREST's arm64
+build is linked against, taken unchanged from the official PostgREST image:
+glibc, libpq, OpenSSL, Kerberos, OpenLDAP, Cyrus SASL, GMP, zlib, zstd,
+keyutils and com_err. They are under the LGPL (some parts also offered under
+the GPL), the Apache License 2.0, the PostgreSQL licence, and BSD-, MIT- and
+zlib-style licences. Each package's copyright file is in
+`/usr/share/licenses/postgrest-runtime/`, named after the Debian package, and
+the image's SBOM lists them with their versions:
+
+```bash
+docker run --rm --entrypoint ls ghcr.io/svenger87/kinboard-aio:next /usr/share/licenses/postgrest-runtime
+docker buildx imagetools inspect ghcr.io/svenger87/kinboard-aio:next --format '{{ json (index .SBOM "linux/arm64") }}'
+```
+
+The amd64 image needs none of them: PostgREST is a single static binary there.
+
 ## Resources
 
 Measured on the development machine (amd64); the Raspberry Pi measurements
