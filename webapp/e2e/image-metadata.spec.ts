@@ -477,7 +477,7 @@ test.describe("check-image-metadata.sh against a registry stand-in", () => {
   };
 
   /** Runs the check with a fake `docker` serving one pushed amd64 image. */
-  const check = (licence: string, opts: { sbom?: boolean; healthcheck?: boolean; packageLicence?: string; stdinLicence?: string } = {}) => {
+  const check = (licence: string, opts: { sbom?: boolean; healthcheck?: boolean; packageLicence?: string; stdinLicence?: string; defaultPackageJson?: boolean } = {}) => {
     const dir = mkdtempSync(join(tmpdir(), "imgcheck-"));
     try {
       const labels = { ...want, ...auto, "org.opencontainers.image.licenses": licence };
@@ -512,7 +512,10 @@ esac
       try {
         return execFileSync("bash", [script, "reg.example/o/kinboard:1.18.0"], {
           input: stdin,
-          env: cleanEnv({ PATH: `${join(dir, "bin")}:${process.env.PATH}`, PACKAGE_JSON: join(dir, "package.json") }),
+          env: cleanEnv({
+            PATH: `${join(dir, "bin")}:${process.env.PATH}`,
+            ...(opts.defaultPackageJson ? {} : { PACKAGE_JSON: join(dir, "package.json") }),
+          }),
           encoding: "utf8",
         });
       } catch (e) {
@@ -542,6 +545,17 @@ esac
 
   test("a licence line on stdin does not overrule package.json", () => {
     expect(check("PolyForm-Noncommercial-1.0.0", { stdinLicence: "MIT" })).toContain("all checks passed");
+  });
+
+  // CI runs the script without PACKAGE_JSON, so its own default path must find
+  // webapp/package.json from wherever the script lives. #572 moved the script to
+  // scripts/ci/ and every image's merge job on main then failed with "no license
+  // in …/scripts/package.json", while every test here passed PACKAGE_JSON.
+  test("without PACKAGE_JSON it reads webapp/package.json, as CI runs it", () => {
+    const licence = (JSON.parse(read("webapp/package.json")) as { license: string }).license;
+    const out = check(licence, { defaultPackageJson: true });
+    expect(out).not.toContain("no license in");
+    expect(out).toContain("all checks passed");
   });
 
   test("a missing SBOM or HEALTHCHECK fails", () => {
