@@ -50,7 +50,7 @@
 # containers' Compose labels, so COMPOSE_FILES needs no change for it.
 #
 # Tail the update log:
-#   tail -f /var/lib/kinboard-update/kinboard-update.log
+#   sudo tail -f /var/lib/kinboard-update/kinboard-update.log   (root only: mode 0600)
 #
 # Trigger a manual update (bypassing Diun):
 #   docker exec kinboard-webhook sh -c 'sh "$PROJECT_DIR/webapp/docker/kinboard-self-update.sh"'

@@ -733,22 +733,22 @@ Edit `webapp/docker/diun/diun.yml` — `watch.schedule` is a cron expression (de
 
 #### Tail the update log
 
-Each run of `kinboard-self-update.sh` appends timestamped lines to `/var/lib/kinboard-update/kinboard-update.log` on the host:
+Each run of `kinboard-self-update.sh` appends timestamped lines to `/var/lib/kinboard-update/kinboard-update.log` on the host. The file is readable by root only (mode 0600), hence `sudo`:
 
 ```bash
-tail -f /var/lib/kinboard-update/kinboard-update.log
+sudo tail -f /var/lib/kinboard-update/kinboard-update.log
 ```
 
 #### When an update doesn't start
 
 If a new version doesn't come up healthy, the self-update puts back the images that ran before, on its own, and the top of Settings says *"The update to … didn't start, so Kinboard went back to …"*, with the backup it took and the log under **Details**. Your data is as it was: the backup is from just before the update, and any database change the new version made stays, because migrations are additive and the older version runs on them. If a migration failed partway, the notice names it and the log says so in plain words.
 
-The notice is shown to the install's household: the one family on the install (remembered the first time it opens Settings), or, on an install with several families, the family whose id you put in `INSTANCE_ADMIN_FAMILY_ID` in `.env`; nobody else sees it. The log excerpt and folders show only with the settings unlocked, and passwords, tokens, keys and database rows are taken out of the excerpt before it is stored.
+The notice is shown to the install's household: the one family on the install (remembered the first time it opens Settings), or, on an install with several families, the family whose id you put in `INSTANCE_ADMIN_FAMILY_ID` in `.env`; nobody else sees it. The log excerpt and folders show only with the settings unlocked, and passwords, tokens, keys and database rows are taken out of the excerpt before it is stored. When the update cannot read where those secrets are (the containers' settings, say), it stores no excerpt at all, only a line saying so; the full log is still on the host.
 
 That version is then skipped. Kinboard tries again when a newer one is published, or at its next check after **Try again now** in Settings (the 30-minute tick, or the next update Diun announces). The log has every step:
 
 ```bash
-grep -E 'ERROR|ROLLED BACK|held' /var/lib/kinboard-update/kinboard-update.log
+sudo grep -E 'ERROR|ROLLED BACK|held' /var/lib/kinboard-update/kinboard-update.log
 ```
 
 #### Manually trigger an update (without waiting for Diun)

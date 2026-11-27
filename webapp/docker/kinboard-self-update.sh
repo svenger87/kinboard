@@ -123,9 +123,14 @@ fi
 # Probe and fall back to stderr-only logging on permission failure so
 # `set -e` doesn't abort the script on its first log line.
 mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
-if ! touch "$LOG_FILE" 2>/dev/null; then
+if ! ( umask 077; touch "$LOG_FILE" ) 2>/dev/null; then
   LOG_FILE=/dev/null
 fi
+# The log stays on the host and is the household's to read as root: it names
+# paths, images and what failed, so nobody else's (a log from before this,
+# created 0644, is narrowed too). /dev/null and a share that ignores chmod
+# are left as they are.
+case "$LOG_FILE" in /dev/*) ;; *) chmod 0600 "$LOG_FILE" "$LOG_FILE.1" 2>/dev/null || true ;; esac
 
 log() {
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -1176,20 +1181,17 @@ failed_migration() {
 # keys a library might print). Each line is cut to 300 characters, and the
 # whole to 6000.
 redact() {
-  # Values from .env whose names say they are secret, as written there:
-  # `export` dropped, quotes and a trailing comment taken off, CR removed.
-  # On compose.yml the secrets are files in the config folder, not .env lines:
-  # read through the database container, which mounts that folder. A VAPID
-  # private key is base64url, a shape nothing below would catch. In container
-  # mode, the variables the Kinboard containers were given (a UI's own).
-  secrets="$( { tr -d '\r' < "${STACK_ENV_FILE:-$PROJECT_DIR/webapp/docker/.env}" 2>/dev/null || true
-    case "${STACK_MODE:-}" in compose | container) stored_secrets ;; esac
-    # Container mode has no .env: the variables a UI gave the containers.
-    if [ "${STACK_MODE:-}" = container ]; then
-      for s_svc in init db-init webapp "$AIO_SVC"; do
-        docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$(svc_container "$s_svc")" 2>/dev/null || true
-      done
-    fi; } \
+  # Fail closed: when a place the values come from cannot be read, nothing
+  # of the log is stored, only a note saying so. A secret a Compose UI set
+  # (Portainer, Unraid: no .env) has no shape the rules below would know;
+  # left out of the list, it would reach Settings as written.
+  if ! secrets="$(redaction_sources)"; then
+    cat >/dev/null
+    log "WARN: log excerpt withheld from Settings: could not read the containers' settings to hide secrets in it" >&2
+    printf '%s\n' "$EXCERPT_WITHHELD"
+    return 0
+  fi
+  secrets="$(printf '%s\n' "$secrets" \
     | sed -nE 's/^[[:space:]]*(export[[:space:]]+)?[A-Z0-9_]*(SECRET|PASSWORD|PASS|TOKEN|KEY|URL|URI|DSN|CODE|PAT)[A-Z0-9_]*=(.*)$/\3/p' \
     | sed 's/[[:space:]]#.*$//; s/^"\(.*\)"$/\1/; s/^'"'"'\(.*\)'"'"'$/\1/' \
     | awk 'length($0) >= 6' || true)"
@@ -1247,15 +1249,58 @@ redact() {
     }'
 }
 
+# What Settings shows instead of the excerpt when redact cannot read where
+# the secrets are.
+EXCERPT_WITHHELD="log excerpt withheld: could not read the containers' settings to hide secrets; see the update log on the host"
+
+# The NAME=value lines redact takes its values from, unfiltered. Returns 1
+# when one that should be readable is not:
+#   - the stack's .env, when it exists (a missing one has nothing to hide);
+#   - on compose.yml and in container mode, the secrets kept as files
+#     (stored_secrets);
+#   - in container mode (no .env: the variables a UI gave the containers),
+#     every Kinboard container's environment. The webapp's (the all-in-one
+#     container's) must be among them; an inspect that fails, says nothing,
+#     or prints a line that is not NAME=value is a failure, not an empty list.
+redaction_sources() {
+  rs_env="${STACK_ENV_FILE:-$PROJECT_DIR/webapp/docker/.env}"
+  if [ "$rs_env" != /dev/null ] && [ -e "$rs_env" ]; then
+    rs_out="$(tr -d '\r' < "$rs_env")" || return 1
+    printf '%s\n' "$rs_out"
+  fi
+  case "${STACK_MODE:-}" in
+    compose | container)
+      rs_out="$(stored_secrets)" || return 1
+      [ -z "$rs_out" ] || printf '%s\n' "$rs_out" ;;
+  esac
+  [ "${STACK_MODE:-}" = container ] || return 0
+  rs_main=""
+  for rs_svc in init db-init webapp "$AIO_SVC"; do
+    rs_cid="$(svc_container "$rs_svc")"
+    [ -n "$rs_cid" ] || continue
+    rs_out="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$rs_cid" 2>/dev/null)" || return 1
+    rs_out="$(printf '%s\n' "$rs_out" | tr -d '\r' | sed '/^$/d')"
+    [ -n "$rs_out" ] || return 1
+    # awk, not grep -qv: ugrep (Unraid's grep) gets that exit status wrong.
+    printf '%s\n' "$rs_out" | awk '!/^[A-Za-z_][A-Za-z0-9_.-]*=/ { bad = 1 } END { exit bad }' || return 1
+    printf '%s\n' "$rs_out"
+    [ "$rs_svc" != "${KB_SVC:-webapp}" ] || rs_main=1
+  done
+  [ -n "$rs_main" ]
+}
+
 # The secrets a compose.yml install keeps as files (kinboard-init), one
 # STORED_SECRET=<value> line each, read through the database container, which
-# mounts the config folder at /kinboard. Nothing when that fails.
+# mounts the config folder at /kinboard. Nothing, and success, when the
+# folder has none (an install from before the config folder); returns 1 when
+# they cannot be read: no database container, an exec that fails, a file
+# cat cannot read.
 stored_secrets() {
   db="$(db_container)"
-  [ -n "$db" ] || return 0
+  [ -n "$db" ] || return 1
   # shellcheck disable=SC2016
   # The all-in-one image names its store in KINBOARD_SECRETS_DIR.
-  docker exec "$db" sh -c 'd=/kinboard/secrets/; [ -z "${KINBOARD_SECRETS_DIR:-}" ] || d="$KINBOARD_SECRETS_DIR/"; for f in "$d"*; do [ -f "$f" ] && printf "STORED_SECRET=%s\n" "$(cat "$f")"; done' 2>/dev/null || true
+  docker exec "$db" sh -c 'd=/kinboard/secrets/; [ -z "${KINBOARD_SECRETS_DIR:-}" ] || d="$KINBOARD_SECRETS_DIR/"; for f in "$d"*; do [ -f "$f" ] || continue; v="$(cat "$f")" || exit 3; printf "STORED_SECRET=%s\n" "$v"; done; exit 0' 2>/dev/null
 }
 
 # The last lines each of the given services' containers logged, for Details,
@@ -4014,7 +4059,9 @@ roll_back() {
   printf '%s' "$UNHEALTHY" | while IFS= read -r line; do log "ERROR: $line"; done
   MIGRATION=""
   case " $RECREATE " in *" ${KB_SVC:-webapp} "*) MIGRATION="$(failed_migration)" ;; esac
-  EXCERPT="$(log_excerpt "$RECREATE")"
+  # A redact that fails (an awk that dies) must neither stop the way back
+  # under `set -e` nor leave half a cleaning: the note instead.
+  EXCERPT="$(log_excerpt "$RECREATE")" || EXCERPT="$EXCERPT_WITHHELD"
   # What each reference names now, read for every service before any is
   # tagged back: on compose.yml init, db-init and webapp share one reference,
   # and once the first has been tagged back the others would read their old

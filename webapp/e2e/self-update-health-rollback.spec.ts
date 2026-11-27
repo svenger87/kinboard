@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Rig, SCRIPT, type Scenario, type Service } from "./helpers/self-update-stub";
@@ -181,6 +181,60 @@ test.describe("health wait and rollback", () => {
     }
   });
 
+  test("the update log on the host is the owner's alone (0600), also one an older script created 0644", () => {
+    for (const before of [null, 0o644] as const) {
+      const r = rig({ registry: { [NEXT]: "sha256:web2" } });
+      try {
+        if (before !== null) {
+          writeFileSync(r.logFile, "[older run]\n");
+          chmodSync(r.logFile, before);
+        } else {
+          rmSync(r.logFile, { force: true });
+        }
+        const res = r.run();
+        expect(res.status, res.out).toBe(0);
+        expect(statSync(r.logFile).mode & 0o777, `log ${before === null ? "created by this run" : "from before"}`).toBe(0o600);
+      } finally {
+        r.cleanup();
+      }
+    }
+  });
+
+  test("the stack's .env cannot be read: no log excerpt is stored", () => {
+    const r = rig({ registry: { [NEXT]: "sha256:web2" } });
+    const env = join(r.proj, "webapp", "docker", ".env");
+    r.setHealth("sha256:web2", BROKEN);
+    r.addEnv("SMTP_PASS=plainvalue-no-shape");
+    r.setLogs("webapp", "smtp login with plainvalue-no-shape failed\n");
+    // Unreadable once the recreate has run: before that the update needs it.
+    r.onHealthProbe(`chmod 000 '${env}'`);
+    try {
+      const res = r.run();
+      expect(res.record?.status, res.out).toBe("rolled_back");
+      expect(res.record?.log).toBe("log excerpt withheld: could not read the containers' settings to hide secrets; see the update log on the host");
+      expect(JSON.stringify(res.record)).not.toContain("plainvalue-no-shape");
+    } finally {
+      chmodSync(env, 0o600);
+      r.cleanup();
+    }
+  });
+
+  test("the cleaning itself fails (awk cannot start: the secrets list is too long to pass): the rollback still runs, and the note is stored instead", () => {
+    const r = rig({ registry: { [NEXT]: "sha256:web2" } });
+    r.setHealth("sha256:web2", BROKEN);
+    // One value over Linux's 128 KiB limit for a single variable: exec fails with E2BIG.
+    r.addEnv(`HUGE_SECRET=${"s".repeat(140_000)}`);
+    r.setLogs("webapp", "boot failed\n");
+    try {
+      const res = r.run();
+      expect(r.container("webapp")!.id, res.out).toBe("sha256:web1");
+      expect(res.record?.status, res.out).toBe("rolled_back");
+      expect(res.record?.log).toBe("log excerpt withheld: could not read the containers' settings to hide secrets; see the update log on the host");
+    } finally {
+      r.cleanup();
+    }
+  });
+
   test("secrets are taken out of the log excerpt before it is stored", () => {
     const r = rig({ registry: { [NEXT]: "sha256:web2" } });
     r.setHealth("sha256:web2", BROKEN);
@@ -249,7 +303,7 @@ test.describe("health wait and rollback", () => {
       for (const tool of ["awk", "sed", "tr", "grep", "cut"]) symlinkSync(busybox!, join(dir, tool));
       mkdirSync(join(dir, "proj", "webapp", "docker"), { recursive: true });
       writeFileSync(join(dir, "proj", "webapp", "docker", ".env"), "CRON_SECRET=abcdefgh12345678\n");
-      const fns = ["json_str", "redact"].map((f) => /\n(\w+)\(\) \{\n[\s\S]*?\n\}\n/g.exec(script.slice(script.indexOf(`\n${f}() {`)))![0]).join("\n");
+      const fns = ["json_str", "redact", "redaction_sources"].map((f) => /\n(\w+)\(\) \{\n[\s\S]*?\n\}\n/g.exec(script.slice(script.indexOf(`\n${f}() {`)))![0]).join("\n");
       writeFileSync(join(dir, "in.txt"), 'C:\\p "q"\tt\r\nkey abcdefgh12345678\n');
       const out = execFileSync(busybox!, ["sh", "-c", `${fns}\njson_str "$(redact < "$IN")"`], {
         encoding: "utf8",
