@@ -24,7 +24,8 @@ set -uo pipefail
 ref="${1:?usage: check-image-metadata.sh <image ref> < key=value lines}"
 # The licence is not taken from stdin: it must be the SPDX id the source
 # states, webapp/package.json's "license".
-package_json="${PACKAGE_JSON:-$(cd "$(dirname "$0")/.." && pwd)/package.json}"
+# This script lives in scripts/ci/; the webapp is two levels up, then webapp/.
+package_json="${PACKAGE_JSON:-$(cd "$(dirname "$0")/../.." && pwd)/webapp/package.json}"
 if [ -n "${EXPECTED_LICENSE:-}" ]; then
   license="$EXPECTED_LICENSE"
 else
