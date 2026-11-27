@@ -22,7 +22,7 @@ on:
         description: Which rig to run
         type: choice
         default: all
-        options: [all, fresh-install, upgrade, rollback, backup-restore, integration-api, one-file, stock-postgres, stock-postgres-arm64, store-listings, aio, aio-arm64]
+        options: [all, fresh-install, upgrade, rollback, backup-restore, integration-api, one-file, stock-postgres, stock-postgres-arm64, store-listings, aio, aio-arm64, migration-aio]
       iterations:
         description: Iterations for the repeating rigs (fresh install, backup/restore)
         type: string
@@ -53,7 +53,7 @@ jobs:
         run: |
           want="${{ github.event.inputs.rig || 'all' }}"
           if [ "$want" = "all" ]; then
-            echo 'rigs=["fresh-install","upgrade","rollback","backup-restore","integration-api","one-file","stock-postgres","stock-postgres-arm64","store-listings","aio","aio-arm64"]' >> "$GITHUB_OUTPUT"
+            echo 'rigs=["fresh-install","upgrade","rollback","backup-restore","integration-api","one-file","stock-postgres","stock-postgres-arm64","store-listings","aio","aio-arm64","migration-aio"]' >> "$GITHUB_OUTPUT"
           else
             echo "rigs=[\"$want\"]" >> "$GITHUB_OUTPUT"
           fi
@@ -97,17 +97,27 @@ jobs:
 
       # The stock PostgreSQL gates run Playwright specs against their stack.
       - uses: actions/setup-node@v4
-        if: startsWith(matrix.rig, 'stock-postgres') || matrix.rig == 'store-listings' || startsWith(matrix.rig, 'aio')
+        if: startsWith(matrix.rig, 'stock-postgres') || matrix.rig == 'store-listings' || startsWith(matrix.rig, 'aio') || matrix.rig == 'migration-aio'
         with:
           node-version: "22"
           cache: "npm"
           cache-dependency-path: webapp/package-lock.json
       - name: Install webapp deps
-        if: startsWith(matrix.rig, 'stock-postgres') || matrix.rig == 'store-listings' || startsWith(matrix.rig, 'aio')
+        if: startsWith(matrix.rig, 'stock-postgres') || matrix.rig == 'store-listings' || startsWith(matrix.rig, 'aio') || matrix.rig == 'migration-aio'
         working-directory: webapp
         run: |
           corepack enable npm
           npm ci
+
+      # The migration rig drives a real browser through onboarding and every
+      # page, in Chromium and in WebKit (Safari's engine: iPads on the wall).
+      - name: Install Chromium and WebKit
+        if: matrix.rig == 'migration-aio'
+        timeout-minutes: 20
+        run: |
+          bash webapp/scripts/ci-playwright-deps.sh chromium
+          bash webapp/scripts/ci-playwright-deps.sh webkit
+          cd webapp && npx playwright install chromium webkit
 
       - name: Run ${{ matrix.rig }}
         env:
@@ -150,6 +160,12 @@ jobs:
             # PostgreSQL 17 -> 18 upgrade with its forced failures.
             aio)             scripts/rigs/test-aio.sh ;;
             aio-arm64)       RIG_PHASES="fresh gates puid migrate upgrade measure" scripts/rigs/test-aio.sh ;;
+            # Moving a household to the all-in-one image and back (RFC-024
+            # §4.4): a fresh install, a v1.17.0 git install, a one-file
+            # install, what an import must refuse or undo (killed, disk full,
+            # another version, a compose folder) and the wiki's commands, with
+            # Chromium and WebKit where a person would click.
+            migration-aio)   scripts/rigs/test-migration-aio.sh ;;
           esac
 
       # A rig that fails has already printed why, but the stack's own logs are
@@ -192,3 +208,6 @@ jobs:
           docker rm -f kinboard-init kinboard-db kinboard-db-init kinboard-rest \
             kinboard-webapp kinboard-go2rtc >/dev/null 2>&1 || true
           docker volume rm kinboard-db kinboard-storage kinboard-config >/dev/null 2>&1 || true
+          # The migration rig: everything it makes is kbmig-*.
+          docker ps -a --format '{{.Names}}' | grep -E '^kbmig-' | xargs -r docker rm -f >/dev/null 2>&1 || true
+          docker volume ls --format '{{.Name}}' | grep -E '^kbmig-' | xargs -r docker volume rm >/dev/null 2>&1 || true

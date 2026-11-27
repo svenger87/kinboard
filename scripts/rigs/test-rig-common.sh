@@ -20,6 +20,9 @@
 #     and /mnt/user/appdata/kinboard-fresh-data the devbox's own stack uses —
 #     a rig teardown there is `down -v` plus deleting the data directory)
 #   backup/restore   kbbak       3041      5472      8140  10.222.0.0/24
+#   migration to AIO kbmig-*  3081-3093     5481         -  10.224.0.0/24
+#     (test-migration-aio.sh: its own git clone, compose.yml copies and
+#     all-in-one containers, every name kbmig-*)
 #   one-file install kbone,      3051         -         -  Docker's choice
 #                    kbpaste     (compose.yml's fixed kinboard-* names and
 #     volumes, and 8555/udp; test-one-file.sh refuses a host that has them)
