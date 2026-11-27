@@ -33,7 +33,8 @@ interface InitModule {
   randomHex(): string;
   generateVapid(): { publicKey: string; privateKey: string };
   vapidPairMatches(pub: string, priv: string): boolean;
-  dbUri(password: string): string;
+  dbUri(password: string, host?: string): string;
+  dbHost(env: Record<string, string | undefined>): { host?: string; error?: string };
   needsRewrite(raw: string): boolean;
   postgrestCanEnter(st: { mode: number; uid: number; gid: number }): boolean;
   planSecrets(o: { env: Record<string, string | undefined>; current: Record<string, string | null>; cluster: boolean; gen?: Gen }): Plan;
@@ -157,6 +158,32 @@ test.describe("generation: a fresh install with no .env", () => {
     expect(u.username).toBe("authenticator");
     expect(u.host).toBe("db:5432");
     expect(u.pathname).toBe("/postgres");
+  });
+
+  // RFC-024 §5.4: on Umbrel's shared network a bare `db` can answer from
+  // another app's database, so its listing names the container. Unset (every
+  // compose.yml and git install): `db`, exactly as before.
+  test("db_uri points at POSTGRES_HOST when set, and at db when not", async () => {
+    const { planSecrets } = await init;
+    const uriOf = (env: Record<string, string | undefined>) => {
+      const plan = planSecrets({ env, current: {}, cluster: false });
+      expect(plan.errors).toEqual([]);
+      return new URL(plan.writes.find((w) => w.file === "db_uri")!.value);
+    };
+    expect(uriOf({}).host).toBe("db:5432");
+    expect(uriOf({ POSTGRES_HOST: "" }).host).toBe("db:5432");
+    expect(uriOf({ POSTGRES_HOST: "kinboard_db_1" }).host).toBe("kinboard_db_1:5432");
+    expect(uriOf({ POSTGRES_HOST: "kinboard_db_1" }).pathname).toBe("/postgres");
+  });
+
+  test("a POSTGRES_HOST that is not a host name is refused, and nothing is written", async () => {
+    const { planSecrets, dbHost } = await init;
+    for (const bad of ["/var/run/postgresql", "db:5432", "evil@host", "a b", "db/x"]) {
+      expect(dbHost({ POSTGRES_HOST: bad }).error, bad).toContain("is not a host name");
+      const plan = planSecrets({ env: { POSTGRES_HOST: bad }, current: {}, cluster: false });
+      expect(plan.writes, bad).toEqual([]);
+      expect(plan.errors.join(" "), bad).toContain("POSTGRES_HOST");
+    }
   });
 });
 

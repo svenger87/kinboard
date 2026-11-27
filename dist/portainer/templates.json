@@ -1,0 +1,155 @@
+{
+  "version": "3",
+  "templates": [
+    {
+      "id": 1,
+      "title": "Kinboard",
+      "description": "Self-hosted family dashboard for kitchen wall displays: calendars, shopping, weather, photos, smart home, energy and daily life in one screen.",
+      "note": "Open the app and create your family; every other device joins with the family's code. The passwords and keys create themselves on the first start and are kept in the config folder: back up all three folders together, and keep the backups private. Open it at port 3001 of this machine. Documentation: https://github.com/svenger87/kinboard/wiki",
+      "type": 3,
+      "categories": [
+        "Productivity",
+        "Home"
+      ],
+      "platform": "linux",
+      "logo": "https://raw.githubusercontent.com/svenger87/kinboard/main/assets/logos/kinboard-logo-icon-512.png",
+      "repository": {
+        "url": "https://github.com/svenger87/kinboard",
+        "stackfile": "dist/portainer/compose.yml"
+      },
+      "env": [
+        {
+          "name": "WEBAPP_PORT",
+          "label": "Web port",
+          "default": "3001"
+        },
+        {
+          "name": "TZ",
+          "label": "Time zone",
+          "default": "Europe/Berlin"
+        },
+        {
+          "name": "SITE_URL",
+          "label": "Address other apps get in links (calendar feed); empty means the address the page was opened at"
+        },
+        {
+          "name": "WEBRTC_LAN_IP",
+          "label": "This machine's LAN address, for cameras over WebRTC"
+        },
+        {
+          "name": "PUID",
+          "label": "User that owns the uploaded files",
+          "default": "1000"
+        },
+        {
+          "name": "PGID",
+          "label": "Group that owns the uploaded files",
+          "default": "1000"
+        },
+        {
+          "name": "INSTANCE_ADMIN_FAMILY_ID",
+          "label": "The family that sees update notices, when there is more than one"
+        },
+        {
+          "name": "KINBOARD_CONFIG_DIR",
+          "label": "Configuration and secrets: an absolute host folder instead of a Docker volume (set before the first start)"
+        },
+        {
+          "name": "KINBOARD_DB_DIR",
+          "label": "Database: an absolute host folder instead of a Docker volume (set before the first start)"
+        },
+        {
+          "name": "KINBOARD_STORAGE_DIR",
+          "label": "Uploaded files: an absolute host folder instead of a Docker volume (set before the first start)"
+        },
+        {
+          "name": "KINBOARD_TAG",
+          "label": "Image tag",
+          "default": "latest",
+          "preset": true
+        },
+        {
+          "name": "KINBOARD_POSTGRES_TAG",
+          "label": "Database image tag",
+          "default": "17",
+          "preset": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Kinboard (release candidates)",
+      "description": "Self-hosted family dashboard for kitchen wall displays: calendars, shopping, weather, photos, smart home, energy and daily life in one screen. Release candidates, for trying the next version before it is released.",
+      "note": "Open the app and create your family; every other device joins with the family's code. The passwords and keys create themselves on the first start and are kept in the config folder: back up all three folders together, and keep the backups private. Release candidates change often; for a household's everyday screen, use the stable template.",
+      "type": 3,
+      "categories": [
+        "Productivity",
+        "Home"
+      ],
+      "platform": "linux",
+      "logo": "https://raw.githubusercontent.com/svenger87/kinboard/main/assets/logos/kinboard-logo-icon-512.png",
+      "repository": {
+        "url": "https://github.com/svenger87/kinboard",
+        "stackfile": "dist/portainer/compose.yml"
+      },
+      "env": [
+        {
+          "name": "WEBAPP_PORT",
+          "label": "Web port",
+          "default": "3001"
+        },
+        {
+          "name": "TZ",
+          "label": "Time zone",
+          "default": "Europe/Berlin"
+        },
+        {
+          "name": "SITE_URL",
+          "label": "Address other apps get in links (calendar feed); empty means the address the page was opened at"
+        },
+        {
+          "name": "WEBRTC_LAN_IP",
+          "label": "This machine's LAN address, for cameras over WebRTC"
+        },
+        {
+          "name": "PUID",
+          "label": "User that owns the uploaded files",
+          "default": "1000"
+        },
+        {
+          "name": "PGID",
+          "label": "Group that owns the uploaded files",
+          "default": "1000"
+        },
+        {
+          "name": "INSTANCE_ADMIN_FAMILY_ID",
+          "label": "The family that sees update notices, when there is more than one"
+        },
+        {
+          "name": "KINBOARD_CONFIG_DIR",
+          "label": "Configuration and secrets: an absolute host folder instead of a Docker volume (set before the first start)"
+        },
+        {
+          "name": "KINBOARD_DB_DIR",
+          "label": "Database: an absolute host folder instead of a Docker volume (set before the first start)"
+        },
+        {
+          "name": "KINBOARD_STORAGE_DIR",
+          "label": "Uploaded files: an absolute host folder instead of a Docker volume (set before the first start)"
+        },
+        {
+          "name": "KINBOARD_TAG",
+          "label": "Image tag",
+          "default": "next",
+          "preset": true
+        },
+        {
+          "name": "KINBOARD_POSTGRES_TAG",
+          "label": "Database image tag",
+          "default": "17-next",
+          "preset": true
+        }
+      ]
+    }
+  ]
+}

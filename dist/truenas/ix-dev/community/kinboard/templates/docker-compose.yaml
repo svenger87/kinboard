@@ -1,0 +1,86 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{# init #}
+{% set c_init = tpl.add_container("init", "image") %}
+{% do c_init.set_entrypoint(["/bin/sh","-c","if [ -x /usr/local/bin/kinboard-init ]; then exec /app/webapp-entrypoint.sh kinboard-init; fi; echo \"This Kinboard image is older than 1.18 and can't run the one-file setup. Set KINBOARD_TAG to 1.18 or newer (or leave it unset).\" >&2; exit 1"]) %}
+{% do c_init.restart.set_policy("on-failure", 1) %}
+{% do c_init.healthcheck.disable() %}
+{% do c_init.add_caps(["CHOWN","DAC_OVERRIDE","FOWNER","SETGID","SETUID"]) %}
+{% do c_init.add_storage("/kinboard", values.storage.config) %}
+{% do c_init.add_storage("/kinboard-db", dict(values.storage.db, **{"read_only": true})) %}
+
+{# db #}
+{% set c_db = tpl.add_container("db", "postgres_image") %}
+{% do c_db.healthcheck.set_custom_test(["CMD","pg_isready","-U","postgres"]) %}
+{% do c_db.healthcheck.set_interval(5) %}
+{% do c_db.healthcheck.set_timeout(5) %}
+{% do c_db.healthcheck.set_retries(10) %}
+{% do c_db.add_caps(["CHOWN","DAC_OVERRIDE","FOWNER","SETGID","SETUID"]) %}
+{% do c_db.set_grace_period(60) %}
+{% do c_db.depends.add_dependency("init", "service_completed_successfully") %}
+{% do c_db.environment.add_env("POSTGRES_PASSWORD_FILE", "/kinboard/secrets/postgres_password") %}
+{% do c_db.environment.add_env("POSTGRES_HOST", "/var/run/postgresql") %}
+{% do c_db.environment.add_env("PGPORT", "5432") %}
+{% do c_db.environment.add_env("POSTGRES_PORT", "5432") %}
+{% do c_db.environment.add_env("PGDATABASE", "postgres") %}
+{% do c_db.environment.add_env("POSTGRES_DB", "postgres") %}
+{% do c_db.add_storage("/var/lib/postgresql/data", values.storage.db) %}
+{% do c_db.add_storage("/kinboard", dict(values.storage.config, **{"read_only": true})) %}
+
+{# db-init #}
+{% set c_db_init = tpl.add_container("db-init", "image") %}
+{% do c_db_init.set_command(["kinboard-db-init"]) %}
+{% do c_db_init.restart.set_policy("on-failure", 1) %}
+{% do c_db_init.healthcheck.disable() %}
+{% do c_db_init.add_caps(["CHOWN","DAC_OVERRIDE","FOWNER","SETGID","SETUID"]) %}
+{% do c_db_init.depends.add_dependency("db", "service_healthy") %}
+{% do c_db_init.add_storage("/kinboard", dict(values.storage.config, **{"read_only": true})) %}
+
+{# rest #}
+{% set c_rest = tpl.add_container("rest", "postgrest_image") %}
+{% do c_rest.set_command(["postgrest"]) %}
+{% do c_rest.healthcheck.disable() %}
+{% do c_rest.depends.add_dependency("db", "service_healthy") %}
+{% do c_rest.depends.add_dependency("db-init", "service_completed_successfully") %}
+{% do c_rest.environment.add_env("PGRST_DB_URI", "@/kinboard/secrets/db_uri") %}
+{% do c_rest.environment.add_env("PGRST_JWT_SECRET", "@/kinboard/secrets/jwt_secret") %}
+{% do c_rest.environment.add_env("PGRST_DB_SCHEMAS", "public,graphql_public") %}
+{% do c_rest.environment.add_env("PGRST_DB_ANON_ROLE", "anon") %}
+{% do c_rest.add_storage("/kinboard", dict(values.storage.config, **{"read_only": true})) %}
+
+{# webapp #}
+{% set c_webapp = tpl.add_container("webapp", "image") %}
+{% do c_webapp.healthcheck.set_custom_test(["CMD","curl","-sf","http://localhost:3000/api/health"]) %}
+{% do c_webapp.healthcheck.set_interval(30) %}
+{% do c_webapp.healthcheck.set_timeout(5) %}
+{% do c_webapp.healthcheck.set_retries(3) %}
+{% do c_webapp.healthcheck.set_start_period(30) %}
+{% do c_webapp.add_caps(["CHOWN","DAC_OVERRIDE","FOWNER","SETGID","SETUID"]) %}
+{% do c_webapp.depends.add_dependency("db", "service_healthy") %}
+{% do c_webapp.depends.add_dependency("db-init", "service_completed_successfully") %}
+{% do c_webapp.depends.add_dependency("rest", "service_started") %}
+{% do c_webapp.environment.add_env("SITE_URL", values.kinboard.site_url) %}
+{% do c_webapp.environment.add_env("KINBOARD_SCHEDULER", "internal") %}
+{% do c_webapp.environment.add_env("KINBOARD_COMPOSE_REVISION", "1") %}
+{% do c_webapp.environment.add_env("POSTGREST_URL", "http://rest:3000") %}
+{% do c_webapp.environment.add_env("FILES_DIR", "/var/lib/storage/files") %}
+{% do c_webapp.environment.add_env("GO2RTC_URL", "http://go2rtc:1984") %}
+{% do c_webapp.environment.add_env("POSTGRES_HOST", "db") %}
+{% do c_webapp.environment.add_env("POSTGRES_PORT", "5432") %}
+{% do c_webapp.environment.add_env("POSTGRES_USER", "postgres") %}
+{% do c_webapp.environment.add_env("POSTGRES_DB", "postgres") %}
+{% do c_webapp.environment.add_env("INSTANCE_ADMIN_FAMILY_ID", values.kinboard.instance_admin_family_id) %}
+{% do c_webapp.add_port(values.network.web_port, {"container_port": 3000}) %}
+{% do c_webapp.add_storage("/var/lib/storage", values.storage.storage) %}
+{% do c_webapp.add_storage("/kinboard", dict(values.storage.config, **{"read_only": true})) %}
+
+{# go2rtc #}
+{% set c_go2rtc = tpl.add_container("go2rtc", "go2rtc_image") %}
+{% do c_go2rtc.set_command(["go2rtc","-config","{webrtc: {candidates: ['${WEBRTC_LAN_IP:}:8555', 'stun:8555']}}"]) %}
+{% do c_go2rtc.healthcheck.disable() %}
+{% do c_go2rtc.environment.add_env("WEBRTC_LAN_IP", values.kinboard.webrtc_lan_ip) %}
+{% do c_go2rtc.add_port(values.network.webrtc_port, {"container_port": 8555, "protocol": "udp"}) %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}

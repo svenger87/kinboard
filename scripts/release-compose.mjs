@@ -30,8 +30,8 @@
  * Anything the transformation expects and doesn't find is a refusal (exit 1)
  * rather than an asset that quietly differs from what was meant.
  */
-import { readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** The one line every Kinboard image reference in compose.yml goes through. */
@@ -42,14 +42,28 @@ const TAG = /^v(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?$/;
 const IMAGE = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[0-9]+)?(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)+$/;
 
 /**
+ * The product's name, from the store-listing metadata (dist/<app>.yaml, the
+ * one place it is written, RFC-024 §7). Read with a pattern rather than a
+ * YAML parser: this script runs in the release job with no packages.
+ */
+export function productName(root = resolve(fileURLToPath(new URL("..", import.meta.url)))) {
+  const dist = join(root, "dist");
+  const files = readdirSync(dist).filter((f) => f.endsWith(".yaml"));
+  if (files.length !== 1) throw new Error(`dist/ must hold exactly one metadata *.yaml; found ${files.length}`);
+  const m = /^name:[ \t]*(\S.*?)[ \t]*$/m.exec(readFileSync(join(dist, files[0]), "utf8"));
+  if (!m) throw new Error(`dist/${files[0]} has no name:`);
+  return m[1].replace(/^(["'])(.*)\1$/, "$2");
+}
+
+/**
  * The asset's text for a tag and an image name. Throws with a reason when the
  * input is not what this expects.
  *
  * @param {string} text  the repository's compose.yml
- * @param {{ tag: string, image: string, updaterImage?: string, repo?: string }} release
+ * @param {{ tag: string, image: string, updaterImage?: string, repo?: string, name?: string }} release
  * @returns {{ text: string, channel: "latest" | "next", revision: number }}
  */
-export function releaseCompose(text, { tag, image, updaterImage, repo = "svenger87/kinboard" }) {
+export function releaseCompose(text, { tag, image, updaterImage, repo = "svenger87/kinboard", name = productName() }) {
   const t = TAG.exec(tag ?? "");
   if (!t) throw new Error(`"${tag}" is not a release tag (vX.Y.Z or vX.Y.Z-rc.N)`);
   // Docker references are lowercase; GitHub owners need not be (GHCR lowercases them too).
@@ -80,7 +94,7 @@ export function releaseCompose(text, { tag, image, updaterImage, repo = "svenger
       UPDATER_LINE,
       `x-kinboard-updater-image: &kinboard-updater-image \${KINBOARD_UPDATER_IMAGE:-${updaterImage}}:\${KINBOARD_TAG:-${channel}}`,
     );
-  const header = `# compose.yml from Kinboard ${tag}, revision ${revision}. Current file: ` +
+  const header = `# compose.yml from ${name} ${tag}, revision ${revision}. Current file: ` +
     `https://github.com/${repo}/releases/latest/download/compose.yml\n`;
   return { text: header + body, channel, revision };
 }

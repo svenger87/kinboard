@@ -109,6 +109,7 @@ test("the rigs are where rigs.yml expects them, and none is left next to start.s
     "test-integration-api.sh",
     "test-one-file.sh",
     "test-stock-postgres.sh",
+    "test-store-listings.sh",
     "test-upgrade.sh",
   ]);
   const docker = readdirSync(join(REPO, "webapp/docker"));
@@ -153,9 +154,9 @@ for (const rig of RIG_SCRIPTS) {
     }
   });
 
-  // The one-file and stock PostgreSQL rigs never read or write
+  // The one-file, stock PostgreSQL and store-listing rigs never read or write
   // webapp/docker/.env; their guard is the host's own one-file install (below).
-  if (rig === "test-one-file.sh" || rig === "test-stock-postgres.sh") continue;
+  if (rig === "test-one-file.sh" || rig === "test-stock-postgres.sh" || rig === "test-store-listings.sh") continue;
   test(`${rig}, run on purpose, still will not rewrite an installed copy's .env`, () => {
     const sb = sandbox();
     try {
