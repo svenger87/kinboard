@@ -704,6 +704,29 @@ test.describe("kinboard-updater, container mode (RFC-023 PR 14)", () => {
     }
   });
 
+  test("the database container will not run the exec: the secrets kept as files are read beside it, from its mounts, and taken out", () => {
+    const r = rig();
+    try {
+      r.edit((s) => (s.logs = { webapp: "push key Zx3_kQ9-wPq7mN2bV5cL8aR1tY4uI6oE0sD3fG7hJ9k rejected\n" }));
+      baseline(r);
+      publish2(r);
+      r.behave(WEB2, { webapp: "exit" });
+      r.edit((s) => {
+        s.secretsExecFails = true;
+        // Saved on Windows: the file's value ends in a CR the log never shows.
+        s.storedSecrets = ["Zx3_kQ9-wPq7mN2bV5cL8aR1tY4uI6oE0sD3fG7hJ9k\r\n"];
+      });
+      const res = r.run();
+      expect(res.record?.status, res.out).toBe("rolled_back");
+      expect(res.record?.log).toContain("push key [redacted] rejected");
+      expect(JSON.stringify(res.record)).not.toContain("Zx3_kQ9");
+      const read = res.calls.find((c) => c.includes("app.kinboard.secrets-read=1"));
+      expect(read).toMatch(/--network none .*--volumes-from [0-9a-f]{64}:ro .*KINBOARD_SECRETS_DIR=\/kinboard\/secrets/);
+    } finally {
+      r.cleanup();
+    }
+  });
+
   test("a container outside Kinboard whose environment cannot be read (go2rtc) changes nothing: the excerpt is stored, redacted", () => {
     const r = rig();
     try {
@@ -720,6 +743,103 @@ test.describe("kinboard-updater, container mode (RFC-023 PR 14)", () => {
       const res = r.run();
       expect(res.record?.status, res.out).toBe("rolled_back");
       expect(String(res.record?.log)).toContain("boot with key [redacted]");
+      expect(JSON.stringify(res.record)).not.toContain("Zm9vYmFyLXNlcnZpY2Utcm9sZQ");
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  // Every value a UI gave the Kinboard containers is taken out, whatever its
+  // name, except a short list of settings that are not secret (TZ, ports,
+  // paths...). Until this, only names saying SECRET/PASSWORD/TOKEN/KEY/...
+  // counted, and only values of 6 characters or more.
+  test("a UI's secrets under names of its own (ADMIN_PIN, SALT, TOKEN2, MY_PASS) are taken out, literally; settings and short switches stay readable", () => {
+    const r = rig();
+    const odd = "a/b&c\\d|e$f.*[x]";
+    try {
+      r.edit((s) => {
+        const w = Object.values(s.containers).find((x: any) => x.Name === "/kinboard-webapp") as Inspect;
+        // LONG_ID holds the PIN: the longer value goes first, or "zy-long" would be left over.
+        // The database's own variables count too (an Unraid template's db sets its password there).
+        const db = Object.values(s.containers).find((x: any) => x.Name === "/kinboard-db") as Inspect;
+        db.Config.Env.push("POSTGRES_PASSWORD=dbpass-from-ui");
+        w.Config.Env.push("ADMIN_PIN=4821", "SALT=pepper-and-salt", "TOKEN2=tk2value", "MY_PASS=" + odd, "DEBUG=true", "RETRIES=3", "DOT=a.c", "LONG_ID=xq4821zy-long");
+        s.logs = {
+          webapp: [
+            "pin 4821 rejected",
+            "salt pepper-and-salt loaded",
+            "second token tk2value",
+            `pass ${odd} (odd characters)`,
+            "TZ is Europe/Berlin, debug true, attempt 3 of 3",
+            "abc stays: a value is text, never a pattern",
+            "listening on 192.168.1.20:3000",
+            "id xq4821zy-long",
+            "db auth dbpass-from-ui failed",
+            "",
+          ].join("\n"),
+        };
+      });
+      baseline(r);
+      publish2(r);
+      r.behave(WEB2, { webapp: "exit" });
+      const res = r.run();
+      expect(res.record?.status, res.out).toBe("rolled_back");
+      const log = String(res.record?.log);
+      for (const leak of ["4821", "pepper-and-salt", "tk2value", odd, "b&c", "zy-long", "xq", "dbpass-from-ui"]) expect(log, leak).not.toContain(leak);
+      expect(log).toContain("id [redacted]");
+      expect(log).toContain("pin [redacted] rejected");
+      expect(log).toContain("salt [redacted] loaded");
+      expect(log).toContain("second token [redacted]");
+      expect(log).toContain("pass [redacted] (odd characters)");
+      expect(log).toContain("TZ is Europe/Berlin, debug true, attempt 3 of 3");
+      expect(log).toContain("abc stays: a value is text, never a pattern");
+      expect(log).toContain("listening on 192.168.1.20:3000");
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  // A multi-line value (a PEM key) used to fail the NAME=value line check and
+  // withhold the excerpt every time; each of its lines is taken out now.
+  test("a variable holding a PEM key: the excerpt is stored, each line of the key taken out", () => {
+    const r = rig();
+    try {
+      r.edit((s) => {
+        const w = Object.values(s.containers).find((x: any) => x.Name === "/kinboard-webapp") as Inspect;
+        w.Config.Env.push("TLS_KEY=-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\r\nBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj\n-----END PRIVATE KEY-----");
+        s.logs = { webapp: "loaded key MIIEvQIBADANBgkqhkiG9w0BAQEFAASC\nthen BKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj\nboot failed\n" };
+      });
+      baseline(r);
+      publish2(r);
+      r.behave(WEB2, { webapp: "exit" });
+      const res = r.run();
+      expect(res.record?.status, res.out).toBe("rolled_back");
+      const log = String(res.record?.log);
+      expect(log).toContain("loaded key [redacted]");
+      expect(log).toContain("then [redacted]");
+      expect(log).toContain("boot failed");
+      expect(JSON.stringify(res.record)).not.toContain("MIIEvQ");
+      expect(JSON.stringify(res.record)).not.toContain("BKcwgg");
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  test("an environment that is JSON but holds an entry that is not NAME=value: still withheld", () => {
+    const r = rig();
+    try {
+      r.edit((s) => {
+        const w = Object.values(s.containers).find((x: any) => x.Name === "/kinboard-webapp") as Inspect;
+        w.Config.Env.push("KINBOARD_SERVICE_ROLE_KEY=Zm9vYmFyLXNlcnZpY2Utcm9sZQ");
+        s.logs = { webapp: "boot with key Zm9vYmFyLXNlcnZpY2Utcm9sZQ\n" };
+      });
+      baseline(r);
+      publish2(r);
+      r.behave(WEB2, { webapp: "exit" });
+      r.edit((s) => (s.envInspect = { [WEB2]: "nameless" }));
+      const res = r.run();
+      expect(res.record?.status, res.out).toBe("rolled_back");
+      expect(res.record?.log).toBe(WITHHELD);
       expect(JSON.stringify(res.record)).not.toContain("Zm9vYmFyLXNlcnZpY2Utcm9sZQ");
     } finally {
       r.cleanup();

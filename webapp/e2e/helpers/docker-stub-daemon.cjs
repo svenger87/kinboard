@@ -347,6 +347,9 @@ function start(s, c) {
   } else if (b.webapp === "exit") {
     Object.assign(c.State, { Status: "exited", Running: false, ExitCode: 1 });
     c.RestartCount = 0;
+  } else if (b.webapp === "created") {
+    // Never got as far as running (an entrypoint that cannot be found, say).
+    Object.assign(c.State, { Status: "created", Running: false, Restarting: false, ExitCode: 127 });
   } else if (b.webapp === "restarting") {
     Object.assign(c.State, { Status: "restarting", Running: true, Restarting: true, ExitCode: 1 });
     c.RestartCount = 5;
@@ -458,6 +461,12 @@ function curl(argv) {
 
 // ---------------------------------------------------------------- docker
 
+// What the secrets-store script prints: s.storedSecrets holds the files'
+// contents, one line per line of each.
+function storedSecrets(s) {
+  return (s.storedSecrets || []).map((v) => v.replace(/\n+$/, "").split("\n").map((l) => `STORED_SECRET=${l}\n`).join("")).join("");
+}
+
 function docker(argv) {
   record("docker " + argv.join(" "));
   const s = load();
@@ -488,6 +497,7 @@ function docker(argv) {
       const envFail = f && f.includes(".Config.Env") && (ei[c.Image] || ei[(c.Config.Labels || {})["com.docker.compose.service"]]);
       if (envFail === "fail") return done(1, out, "Error response from daemon: stub: inspect failed\n");
       if (envFail === "empty") { out += "\n"; continue; }
+      if (envFail === "nameless") { out += JSON.stringify([...(c.Config.Env || []), "NOT_A_VARIABLE"]) + "\n"; continue; }
       if (envFail === "garbled") { out += render(parseTemplate(f), c) + "\n<html>502 Bad Gateway</html>\n"; continue; }
       found.push(c);
       if (f) out += render(parseTemplate(f), c) + "\n";
@@ -595,7 +605,9 @@ function docker(argv) {
   }
   if (cmd === "logs") {
     const c = findContainer(s, argv[argv.length - 1]);
-    return done(0, (c && (s.logs || {})[(c.Config.Labels || {})["com.docker.compose.service"]]) || "");
+    // By Compose service; the all-in-one container, which has none, by image id.
+    const logs = s.logs || {};
+    return done(0, (c && (logs[(c.Config.Labels || {})["com.docker.compose.service"]] ?? logs[c.Image])) || "");
   }
   if (cmd === "exec") {
     const line = argv.join(" ");
@@ -604,7 +616,16 @@ function docker(argv) {
       const r = ((s.smoke || {})[c ? c.Image : ""] || '200|{"deep":{"ok":true,"missing":[],"write":true}}').split("|");
       return done(0, `${r.slice(1).join("|")}\n${r[0]}\n`);
     }
-    if (/\/kinboard\/secrets\//.test(line)) return s.secretsUnreadable ? done(1, "", "Error response from daemon: stub: exec failed\n") : done(0, "");
+    // The secrets store, read in the database (all-in-one) container: Docker
+    // runs no exec in a container that is not running, or is restarting.
+    if (/STORED_SECRET=/.test(line)) {
+      const c = findContainer(s, argv[argv.indexOf("exec") + 1] === "-i" ? argv[2] : argv[1]);
+      if (!c) return done(1, "", "Error response from daemon: No such container\n");
+      if (!c.State.Running) return done(1, "", `Error response from daemon: container ${c.Id} is not running\n`);
+      if (c.State.Restarting) return done(1, "", `Error response from daemon: Container ${c.Id} is restarting, wait until the container is running\n`);
+      if (s.secretsUnreadable || s.secretsExecFails) return done(1, "", "Error response from daemon: stub: exec failed\n");
+      return done(0, storedSecrets(s));
+    }
     if (/ test -s \/data\/backups\//.test(line)) return s.dumpMissing ? done(1) : done(0);
     // The all-in-one image's own verified dump (kinboard-backup.sh).
     if (/kinboard-backup\.sh/.test(line)) {
@@ -660,6 +681,15 @@ function docker(argv) {
       for (let i = 0; i < argv.length; i++) if (argv[i] === "-e") { const [k, ...v] = argv[++i].split("="); env[k] = v.join("="); }
       s.unraidStatus = { ...(s.unraidStatus || {}), [env.K]: { local: env.D, remote: env.D, status: "true" } };
       return done(0);
+    }
+    // The secrets store, read beside a database (all-in-one) container that
+    // will not run an exec: its mounts, read-only, in a container of its image.
+    if (line.includes("app.kinboard.secrets-read=1")) {
+      const from = argv[argv.indexOf("--volumes-from") + 1] || "";
+      const c = findContainer(s, from.replace(/:ro$/, ""));
+      if (!c) return done(125, "", `docker: Error response from daemon: No such container: ${from}\n`);
+      if (s.secretsUnreadable) return done(3);
+      return done(0, storedSecrets(s));
     }
     if (argv.includes("-i")) fs.readFileSync(0);
     if (/grep -vc|wc -l/.test(line)) return done(0, "0\n");

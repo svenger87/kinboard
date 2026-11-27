@@ -295,6 +295,47 @@ test.describe("health wait and rollback", () => {
     }
   });
 
+  test("every .env value is taken out whatever its name (a 4-digit PIN, odd characters, a PEM over several lines); settings stay readable", () => {
+    const r = rig({ registry: { [NEXT]: "sha256:web2" } });
+    r.setHealth("sha256:web2", BROKEN);
+    r.addEnv("ADMIN_PIN=4821");
+    r.addEnv("export SALT = 'pepper-and-salt' # a comment");
+    r.addEnv("MY_PASS=a/b&c\\d|e$f # after a blank: a comment, as Compose reads it");
+    r.addEnv('TLS_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\nBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj\n-----END PRIVATE KEY-----"');
+    r.addEnv('ESCAPED="line-one-secret\\nline-two-secret"');
+    // Compose reads these as ab"cd-ef and pa$word-x.
+    r.addEnv('QUOTED="ab\\"cd-ef"');
+    r.addEnv('DOLLARS="pa$$word-x"');
+    r.addEnv("TZ=Europe/Berlin");
+    r.addEnv("WEBAPP_PORT=3001");
+    r.addEnv("SCHOOL_HOLIDAY_SYNC=true");
+    r.setLogs(
+      "webapp",
+      [
+        "pin 4821 rejected",
+        "salt pepper-and-salt loaded",
+        "pass a/b&c\\d|e$f used",
+        "key MIIEvQIBADANBgkqhkiG9w0BAQEFAASC and BKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj",
+        "escaped line-two-secret",
+        'quoted ab"cd-ef and pa$word-x',
+        "TZ Europe/Berlin, listening on 3001, sync true",
+        "",
+      ].join("\n"),
+    );
+    try {
+      const res = r.run();
+      expect(res.record?.status, res.out).toBe("rolled_back");
+      const log = String(res.record!.log);
+      for (const leak of ["4821", "pepper-and-salt", "a/b&c", "MIIEvQ", "BKcwgg", "line-two-secret", "cd-ef", "word-x"]) expect(log, leak).not.toContain(leak);
+      expect(log).toContain("pin [redacted] rejected");
+      expect(log).toContain("pass [redacted] used");
+      expect(log).toContain("key [redacted] and [redacted]");
+      expect(log).toContain("TZ Europe/Berlin, listening on 3001, sync true");
+    } finally {
+      r.cleanup();
+    }
+  });
+
   test("the JSON and the redaction hold under busybox's awk, sed and tr, as in the webhook image", () => {
     const busybox = ["/usr/bin/busybox", "/bin/busybox"].find((p) => existsSync(p));
     test.skip(!busybox, "no busybox on this host");
@@ -302,14 +343,20 @@ test.describe("health wait and rollback", () => {
     try {
       for (const tool of ["awk", "sed", "tr", "grep", "cut"]) symlinkSync(busybox!, join(dir, tool));
       mkdirSync(join(dir, "proj", "webapp", "docker"), { recursive: true });
-      writeFileSync(join(dir, "proj", "webapp", "docker", ".env"), "CRON_SECRET=abcdefgh12345678\n");
-      const fns = ["json_str", "redact", "redaction_sources"].map((f) => /\n(\w+)\(\) \{\n[\s\S]*?\n\}\n/g.exec(script.slice(script.indexOf(`\n${f}() {`)))![0]).join("\n");
-      writeFileSync(join(dir, "in.txt"), 'C:\\p "q"\tt\r\nkey abcdefgh12345678\n');
-      const out = execFileSync(busybox!, ["sh", "-c", `${fns}\njson_str "$(redact < "$IN")"`], {
+      writeFileSync(
+        join(dir, "proj", "webapp", "docker", ".env"),
+        'CRON_SECRET=abcdefgh12345678\nADMIN_PIN=4821\nODD=x/y&z\\w|v$u\nPEM="-----BEGIN KEY-----\nQUJDREVGR0hJSktMTU5PUA\n-----END KEY-----"\nTZ=Europe/Berlin\n',
+      );
+      const fns = ["json_str", "redact", "secret_values", "env_file_lines", "redaction_sources"]
+        .map((f) => /\n(\w+)\(\) \{\n[\s\S]*?\n\}\n/g.exec(script.slice(script.indexOf(`\n${f}() {`)))![0])
+        .join("\n");
+      const allow = /\nREDACT_ALLOW="[^"]*"\n/.exec(script)![0];
+      writeFileSync(join(dir, "in.txt"), 'C:\\p "q"\tt\r\nkey abcdefgh12345678\npin 4821 odd x/y&z\\w|v$u pem QUJDREVGR0hJSktMTU5PUA\nTZ Europe/Berlin\n');
+      const out = execFileSync(busybox!, ["sh", "-c", `${allow}\n${fns}\njson_str "$(redact < "$IN")"`], {
         encoding: "utf8",
         env: { ...process.env, PATH: `${dir}:/usr/bin:/bin`, PROJECT_DIR: join(dir, "proj"), IN: join(dir, "in.txt") },
       });
-      expect(JSON.parse(out)).toBe('C:\\p "q"\tt\nkey [redacted]');
+      expect(JSON.parse(out)).toBe('C:\\p "q"\tt\nkey [redacted]\npin [redacted] odd [redacted] pem [redacted]\nTZ Europe/Berlin');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

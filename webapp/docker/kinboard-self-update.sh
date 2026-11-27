@@ -969,14 +969,22 @@ write_status() {
 # GitHub, a refused key), pull (fetched, but local edits or commits stopped the
 # pull; the images were still updated). $2: git's first line, or (pull) the
 # files in the way, one per line, empty when it was commits.
+#
+# $2 goes through redact like a log excerpt (#589): git prints the remote's
+# URL on an authentication error, with a token in it when origin has one.
 record_pull_failure() {
   rpf_log="$LOG_FILE"
   [ "$LOG_FILE" != /var/log/kinboard-update.log ] || rpf_log=/var/lib/kinboard-update/kinboard-update.log
-  rpf_rec="{\"status\":\"pull_failed\",\"kind\":$(json_str "$1"),\"at\":$(json_str "$(date -u +%Y-%m-%dT%H:%M:%SZ)"),\"detail\":$(json_str "$2"),\"dir\":$(json_str "$PROJECT_DIR"),\"stack\":$(json_str "$STACK_MODE"),\"log_file\":$(json_str "$rpf_log")}"
+  rpf_detail="$(printf '%s\n' "$2" | REDACT_NOTE="$PULL_DETAIL_WITHHELD" redact)" || rpf_detail="$PULL_DETAIL_WITHHELD"
+  rpf_rec="{\"status\":\"pull_failed\",\"kind\":$(json_str "$1"),\"at\":$(json_str "$(date -u +%Y-%m-%dT%H:%M:%SZ)"),\"detail\":$(json_str "$rpf_detail"),\"dir\":$(json_str "$PROJECT_DIR"),\"stack\":$(json_str "$STACK_MODE"),\"log_file\":$(json_str "$rpf_log")}"
   # From the folder the stack's relative -f paths are read from (the git
   # step runs at the checkout's root).
   ( in_stack_dir; STATUS_KEY=update_pull write_status "$rpf_rec" "git could not $( [ "$1" = pull ] && echo pull || echo fetch ) ($1: $(printf '%s' "$2" | tr '\n' ' '))" )
 }
+
+# What Settings shows instead of git's message when redact cannot read where
+# the secrets are.
+PULL_DETAIL_WITHHELD="git's message withheld: could not read the settings to hide secrets in it; see the update log on the host"
 
 # Into webapp/docker, where a legacy stack's COMPOSE_FILES are relative to.
 in_stack_dir() {
@@ -1173,28 +1181,29 @@ failed_migration() {
   docker logs "$cid" 2>&1 | sed -n 's/.*\[migrate\] FAILED: *\([^ ]*\).*/\1/p' | tail -n1 || true
 }
 
-# Secret-shaped text out of a log excerpt before it is stored where Settings
-# shows it: every value in .env whose name says secret, password, token or
-# key, as written; JWTs; credentials in a URL; Bearer tokens; name=value and
+# Secret text out of a log excerpt before it is stored where Settings shows
+# it. Taken out literally, wherever it appears: every value of the stack's
+# .env, every secret kept as a file and, in container mode, every value the
+# Kinboard containers were given; all but the values of the names in
+# REDACT_ALLOW, which are settings and not secrets (see there). Then by
+# shape: JWTs; credentials in a URL; Bearer and Basic tokens; name=value and
 # name: value pairs for password, secret, token and API keys; and any run of
-# 32 or more hex digits (the webhook secret and CRON_SECRET are hex, and so are
-# keys a library might print). Each line is cut to 300 characters, and the
-# whole to 6000.
+# 32 or more hex digits. Each line is cut to 300 characters, and the whole
+# to 6000. REDACT_NOTE: what to print instead when the values cannot be read
+# (EXCERPT_WITHHELD by default).
 redact() {
   # Fail closed: when a place the values come from cannot be read, nothing
-  # of the log is stored, only a note saying so. A secret a Compose UI set
+  # of the input is printed, only a note saying so. A secret a Compose UI set
   # (Portainer, Unraid: no .env) has no shape the rules below would know;
   # left out of the list, it would reach Settings as written.
-  if ! secrets="$(redaction_sources)"; then
+  if ! secrets="$(redaction_sources)" || ! secrets="$(printf '%s\n' "$secrets" | secret_values)"; then
     cat >/dev/null
     log "WARN: log excerpt withheld from Settings: could not read the containers' settings to hide secrets in it" >&2
-    printf '%s\n' "$EXCERPT_WITHHELD"
+    printf '%s\n' "${REDACT_NOTE:-$EXCERPT_WITHHELD}"
     return 0
   fi
-  secrets="$(printf '%s\n' "$secrets" \
-    | sed -nE 's/^[[:space:]]*(export[[:space:]]+)?[A-Z0-9_]*(SECRET|PASSWORD|PASS|TOKEN|KEY|URL|URI|DSN|CODE|PAT)[A-Z0-9_]*=(.*)$/\3/p' \
-    | sed 's/[[:space:]]#.*$//; s/^"\(.*\)"$/\1/; s/^'"'"'\(.*\)'"'"'$/\1/' \
-    | awk 'length($0) >= 6' || true)"
+  # ENVIRON, not -v: -v would turn a backslash in a value into an escape.
+  # index(), not gsub(): a value is text to find, never a pattern.
   SECRETS="$secrets" awk '
     BEGIN {
       n = split(ENVIRON["SECRETS"], s, "\n")
@@ -1253,19 +1262,196 @@ redact() {
 # the secrets are.
 EXCERPT_WITHHELD="log excerpt withheld: could not read the containers' settings to hide secrets; see the update log on the host"
 
-# The NAME=value lines redact takes its values from, unfiltered. Returns 1
-# when one that should be readable is not:
+# The names whose values redact leaves in a log: settings, not secrets, that
+# taken out would blank ordinary words of the log (a time zone, "postgres", a
+# port, a path, the container's own name). Every other value is taken out,
+# whatever its name: a secret a household set in a UI under a name of its own
+# (ADMIN_PIN, SALT, TOKEN2) is still a secret, and until this list existed it
+# was the names that decided, so such a value went to Settings as written.
+# Taken from compose.yml, webapp/docker/.env.example and the images' ENV:
+#   - the images' own wiring, the same on every install and published with
+#     the image (node's, PostgreSQL's, s6-overlay's S6_* and the all-in-one
+#     image's paths), and paths into the secrets store, not its contents
+#     (KINBOARD_SECRETS_DIR, POSTGRES_PASSWORD_FILE);
+#   - the database's address, which is not its password (POSTGRES_HOST,
+#     POSTGRES_PORT, PGPORT, POSTGRES_USER, POSTGRES_DB, PGDATABASE) and
+#     PostgREST's schema and role names;
+#   - the release's own version number (KINBOARD_VERSION);
+#   - where and how the install runs, which Settings or the compose file
+#     shows anyway: TZ, PUID, PGID, UMASK, SITE_URL (credentials in a URL are
+#     still taken out by shape), KINBOARD_TAG, the image names, the Compose
+#     and data folders, the ports and bind address, the network, the domain
+#     and the Traefik names, the SMTP host and port, the WebRTC addresses,
+#     JWT_EXPIRY, the holiday and rate-limit switches;
+#   - what Unraid's template adds to every container (HOST_OS, HOST_HOSTNAME,
+#     HOST_CONTAINERNAME): taken out, the container's name ("Kinboard")
+#     would blank every line that mentions it.
+# Left out on purpose, so taken out: logins and e-mail addresses (SMTP_USER,
+# BRING_EMAIL, VAPID_SUBJECT), client ids, camera hosts, every URL but
+# SITE_URL (one may carry a token), INSTANCE_ADMIN_FAMILY_ID. None of them is
+# needed to read the log.
+REDACT_ALLOW="PATH HOME HOSTNAME NODE_VERSION YARN_VERSION NODE_ENV NODE_OPTIONS NPM_CONFIG_UPDATE_NOTIFIER NEXT_TELEMETRY_DISABLED PORT
+LANG LANGUAGE LC_ALL LOCALE_ARCHIVE GRN_PLUGINS_DIR PGDATA POSTGRES_INITDB_ARGS PG_MAJOR UMASK
+KINBOARD_AIO KINBOARD_DATA KINBOARD_SECRETS_DIR KINBOARD_MIGRATE_BACKUP_DIR KINBOARD_START_STATE_DIR KINBOARD_SCHEDULER
+KINBOARD_COMPOSE_REVISION KINBOARD_VERSION KINBOARD_UPDATER FILES_DIR POSTGREST_URL GO2RTC_URL POSTGRES_PASSWORD_FILE PGRST_DB_SCHEMAS PGRST_DB_ANON_ROLE
+POSTGRES_HOST POSTGRES_PORT PGPORT POSTGRES_USER POSTGRES_DB PGDATABASE
+TZ PUID PGID SITE_URL KINBOARD_TAG KINBOARD_IMAGE KINBOARD_UPDATER_IMAGE COMPOSE_FILES COMPOSE_PROFILES COMPOSE_PROJECT_NAME
+PROJECT_NAME KINBOARD_PROJECT_DIR DATA_DIR KINBOARD_DB_DIR KINBOARD_STORAGE_DIR KINBOARD_CONFIG_DIR
+WEBAPP_PORT GO2RTC_HTTP_BIND GO2RTC_HTTP_PORT GO2RTC_WEBRTC_PORT SMTP_HOST SMTP_PORT NETWORK_SUBNET DOMAIN TRAEFIK_CERT_RESOLVER TRAEFIK_NETWORK
+WEBRTC_LAN_IP WEBRTC_PUBLIC_HOST JWT_EXPIRY SCHOOL_HOLIDAY_SYNC SESSION_RATE_LIMIT_PER_MINUTE
+HOST_OS HOST_HOSTNAME HOST_CONTAINERNAME"
+
+# The values redact takes out, one per line, from NAME=value lines on stdin
+# (one line of a value each): every value but those of REDACT_ALLOW's names
+# (and S6_*), with surrounding blanks (and a CR from a file saved on
+# Windows) and without; longest first, so that a
+# short one found inside a longer one cannot cut that one apart and leave the
+# rest of it in the log.
+#
+# A value of fewer than 4 characters is left in: taken out, a "1" or an "on"
+# would blank every digit and every word with it, and an excerpt of
+# "[redacted]" helps nobody. 4, not more, so that a 4-digit PIN kept in a
+# variable is still taken out. A value that is a word for yes or no is a
+# switch, not a secret.
+secret_values() {
+  awk -v allow="$REDACT_ALLOW" '
+    function add(x) {
+      if (length(x) < 4 || (tolower(x) in word) || (x in seen)) return
+      seen[x] = 1
+      vals[++n] = x
+    }
+    BEGIN {
+      gsub(/\n/, " ", allow)
+      na = split(allow, a, " ")
+      for (i = 1; i <= na; i++) ok[a[i]] = 1
+      nw = split("true false yes no on off none null", w, " ")
+      for (i = 1; i <= nw; i++) word[w[i]] = 1
+      n = 0
+    }
+    {
+      p = index($0, "=")
+      if (p < 2) next
+      name = substr($0, 1, p - 1)
+      if ((name in ok) || name ~ /^S6_/) next
+      v = substr($0, p + 1)
+      add(v)
+      t = v
+      sub(/^[ \t\r]+/, "", t)
+      sub(/[ \t\r]+$/, "", t)
+      if (t != v) add(t)
+    }
+    END {
+      for (i = 2; i <= n; i++) {
+        x = vals[i]
+        for (j = i - 1; j > 0 && length(vals[j]) < length(x); j--) vals[j + 1] = vals[j]
+        vals[j + 1] = x
+      }
+      for (i = 1; i <= n; i++) print vals[i]
+    }'
+}
+
+# A .env file (on stdin) as NAME=value lines, the way Compose reads it:
+# `export` and quotes taken off, a comment after an unquoted value dropped.
+# A quoted value over several lines gives one line each, and so does one
+# that holds \n. A line that is none of these is kept under the name before
+# it, so that a value spread over lines in a way this does not know is still
+# taken out line by line. Each value is also given as written.
+env_file_lines() {
+  awk '
+    function emit(n, v,   k, parts, i) {
+      print n "=" v
+      k = split(v, parts, /\\n/)
+      if (k > 1) for (i = 1; i <= k; i++) print n "=" parts[i]
+    }
+    # Where quote q closes in x (0: not on this line); in double quotes a
+    # backslash escapes the next character.
+    function closing(x, q,   k, ch) {
+      for (k = 1; k <= length(x); k++) {
+        ch = substr(x, k, 1)
+        if (q == "\"" && ch == "\\") { k++; continue }
+        if (ch == q) return k
+      }
+      return 0
+    }
+    # A double-quoted value as Compose reads it: \" \\ \$ and $$ unescaped
+    # (\n is split by emit).
+    function unescape(x,   out, k, ch, nx) {
+      out = ""
+      for (k = 1; k <= length(x); k++) {
+        ch = substr(x, k, 1); nx = substr(x, k + 1, 1)
+        if (ch == "\\" && (nx == "\"" || nx == "\\" || nx == "$")) { out = out nx; k++ }
+        else if (ch == "$" && nx == "$") { out = out "$"; k++ }
+        else out = out ch
+      }
+      return out
+    }
+    function value(n, x, q) {
+      emit(n, x)
+      if (q == "\"" && unescape(x) != x) emit(n, unescape(x))
+    }
+    {
+      line = $0
+      if (open != "") {
+        e = closing(line, open)
+        if (e > 0) { value(name, substr(line, 1, e - 1), open); open = "" }
+        else value(name, line, open)
+        next
+      }
+      if (line ~ /^[ \t]*(#|$)/) next
+      if (match(line, /^[ \t]*(export[ \t]+)?[A-Za-z_][A-Za-z0-9_.-]*[ \t]*=/)) {
+        name = substr(line, 1, RLENGTH - 1)
+        v = substr(line, RLENGTH + 1)
+        sub(/^[ \t]*(export[ \t]+)?/, "", name)
+        sub(/[ \t]+$/, "", name)
+        print name "=" v
+        sub(/^[ \t]+/, "", v)
+        qc = substr(v, 1, 1)
+        if (qc == "\"" || qc == "\047") {
+          rest = substr(v, 2)
+          e = closing(rest, qc)
+          if (e > 0) value(name, substr(rest, 1, e - 1), qc)
+          else { value(name, rest, qc); open = qc }
+        } else {
+          sub(/[ \t]+#.*$/, "", v)
+          sub(/[ \t]+$/, "", v)
+          emit(name, v)
+        }
+        next
+      }
+      if (name != "") emit(name, line)
+    }'
+}
+
+# Container $1's environment as NAME=value lines, one line of a value each (a
+# PEM key in a variable gives one line per line of the key). From Docker's
+# JSON, not a template's lines, which cannot tell a value's second line from
+# the next variable. Returns 1 on anything else: an inspect that fails or says
+# nothing, output that is not one JSON array of NAME=value strings, no jq.
+container_env() {
+  command -v jq >/dev/null 2>&1 || return 1
+  ce_raw="$(docker inspect -f '{{json .Config.Env}}' "$1" 2>/dev/null)" || return 1
+  [ -n "$(printf '%s' "$ce_raw" | tr -d '[:space:]')" ] || return 1
+  printf '%s\n' "$ce_raw" | jq -rs '
+    if length != 1 or (.[0] | type) != "array" or (.[0] | length) == 0 then error("not one list of variables") else .[0][] end
+    | if type != "string" then error("not a string") else split("=") end
+    | if length < 2 or (.[0] | test("\\A[A-Za-z_][A-Za-z0-9_.-]*\\z") | not) then error("not NAME=value") else . end
+    | .[0] as $n | .[1:] | join("=") | split("\n")[] | rtrimstr("\r") | $n + "=" + .' 2>/dev/null
+}
+
+# The NAME=value lines redact takes its values from (one line of a value
+# each), unfiltered. Returns 1 when one that should be readable is not:
 #   - the stack's .env, when it exists (a missing one has nothing to hide);
 #   - on compose.yml and in container mode, the secrets kept as files
 #     (stored_secrets);
 #   - in container mode (no .env: the variables a UI gave the containers),
-#     every Kinboard container's environment. The webapp's (the all-in-one
-#     container's) must be among them; an inspect that fails, says nothing,
-#     or prints a line that is not NAME=value is a failure, not an empty list.
+#     every Kinboard container's environment (container_env): init,
+#     db-init, the database, PostgREST, the webapp (the all-in-one
+#     container), whichever exist. The webapp's must be among them.
 redaction_sources() {
   rs_env="${STACK_ENV_FILE:-$PROJECT_DIR/webapp/docker/.env}"
   if [ "$rs_env" != /dev/null ] && [ -e "$rs_env" ]; then
     rs_out="$(tr -d '\r' < "$rs_env")" || return 1
+    rs_out="$(printf '%s\n' "$rs_out" | env_file_lines)" || return 1
     printf '%s\n' "$rs_out"
   fi
   case "${STACK_MODE:-}" in
@@ -1275,32 +1461,61 @@ redaction_sources() {
   esac
   [ "${STACK_MODE:-}" = container ] || return 0
   rs_main=""
-  for rs_svc in init db-init webapp "$AIO_SVC"; do
+  for rs_svc in init db-init db rest webapp "$AIO_SVC"; do
     rs_cid="$(svc_container "$rs_svc")"
     [ -n "$rs_cid" ] || continue
-    rs_out="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$rs_cid" 2>/dev/null)" || return 1
-    rs_out="$(printf '%s\n' "$rs_out" | tr -d '\r' | sed '/^$/d')"
-    [ -n "$rs_out" ] || return 1
-    # awk, not grep -qv: ugrep (Unraid's grep) gets that exit status wrong.
-    printf '%s\n' "$rs_out" | awk '!/^[A-Za-z_][A-Za-z0-9_.-]*=/ { bad = 1 } END { exit bad }' || return 1
+    rs_out="$(container_env "$rs_cid")" || return 1
     printf '%s\n' "$rs_out"
     [ "$rs_svc" != "${KB_SVC:-webapp}" ] || rs_main=1
   done
   [ -n "$rs_main" ]
 }
 
-# The secrets a compose.yml install keeps as files (kinboard-init), one
-# STORED_SECRET=<value> line each, read through the database container, which
-# mounts the config folder at /kinboard. Nothing, and success, when the
-# folder has none (an install from before the config folder); returns 1 when
-# they cannot be read: no database container, an exec that fails, a file
-# cat cannot read.
+# Run inside the database container (or beside it, below): every file in the
+# secrets store, one STORED_SECRET=<line> per line. Success, and nothing, when
+# there is no store (an install from before the config folder); 3 when a file
+# cannot be read.
+# shellcheck disable=SC2016
+STORED_SECRETS_SH='d="${KINBOARD_SECRETS_DIR:-/kinboard/secrets}"; for f in "${d%/}"/*; do [ -f "$f" ] || continue; v="$(cat "$f")" || exit 3; printf "%s\n" "$v" | sed "s/^/STORED_SECRET=/" || exit 3; done; exit 0'
+
+# The secrets a compose.yml install keeps as files (kinboard-init), and the
+# all-in-one image keeps in KINBOARD_SECRETS_DIR, as STORED_SECRET= lines.
+# Read through the database container (the all-in-one container) while it
+# runs. When it does not, or will not run an exec (exited, restarting, never
+# started: after a failed update, exactly when the excerpt matters), read
+# from its mounts by a short-lived container of its own image: no network,
+# the mounts read-only, the values printed with printf and never expanded.
+# Returns 1 when they cannot be read: no database container at all, the
+# store not on one of its mounts (then only the container itself could see
+# it), a container that does not start, a file cat cannot read.
 stored_secrets() {
-  db="$(db_container)"
-  [ -n "$db" ] || return 1
-  # shellcheck disable=SC2016
-  # The all-in-one image names its store in KINBOARD_SECRETS_DIR.
-  docker exec "$db" sh -c 'd=/kinboard/secrets/; [ -z "${KINBOARD_SECRETS_DIR:-}" ] || d="$KINBOARD_SECRETS_DIR/"; for f in "$d"*; do [ -f "$f" ] || continue; v="$(cat "$f")" || exit 3; printf "STORED_SECRET=%s\n" "$v"; done; exit 0' 2>/dev/null
+  ss_cid="$(db_container)"
+  if [ -n "$ss_cid" ] && ss_out="$(docker exec "$ss_cid" sh -c "$STORED_SECRETS_SH" 2>/dev/null)"; then
+    [ -z "$ss_out" ] || printf '%s\n' "$ss_out"
+    return 0
+  fi
+  ss_svc=db
+  [ -z "$AIO" ] || ss_svc="$AIO_SVC"
+  ss_cid="$(svc_container "$ss_svc")"
+  [ -n "$ss_cid" ] || return 1
+  ss_info="$(docker inspect -f '{{.Image}}{{range .Mounts}}{{println}}{{.Destination}}{{end}}' "$ss_cid" 2>/dev/null)" || return 1
+  ss_image="$(printf '%s\n' "$ss_info" | head -n1)"
+  [ -n "$ss_image" ] || return 1
+  # Where the store is, as the exec above would have found it: the
+  # container's KINBOARD_SECRETS_DIR (the all-in-one image sets it), else
+  # /kinboard/secrets. Template lines, not container_env: a compose.yml
+  # stack's script may run on a host without jq.
+  ss_env="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$ss_cid" 2>/dev/null)" || return 1
+  ss_dir="$(printf '%s\n' "$ss_env" | awk 'index($0, "KINBOARD_SECRETS_DIR=") == 1 { print substr($0, 22); exit }')"
+  [ -n "$ss_dir" ] || ss_dir=/kinboard/secrets
+  printf '%s\n' "$ss_info" | tail -n +2 \
+    | awk -v p="${ss_dir%/}" 'NF { d = $0; sub(/\/$/, "", d); if (d == "" || p == d || index(p, d "/") == 1) f = 1 } END { exit !f }' \
+    || return 1
+  ss_out="$(docker run --rm --network none --user 0:0 --label app.kinboard.secrets-read=1 \
+    --volumes-from "$ss_cid:ro" -e "KINBOARD_SECRETS_DIR=$ss_dir" --entrypoint sh "$ss_image" \
+    -c "$STORED_SECRETS_SH" 2>/dev/null)" || return 1
+  [ -z "$ss_out" ] || printf '%s\n' "$ss_out"
+  return 0
 }
 
 # The last lines each of the given services' containers logged, for Details,

@@ -245,6 +245,78 @@ test.describe("kinboard-updater and the all-in-one image (RFC-024 §4.7)", () =>
     }
   });
 
+  // The new container is down exactly when the excerpt matters: after a
+  // failed update. Its secrets are read from its mounts then, by a container
+  // of its image with no network and the mounts read-only; until this the
+  // excerpt was always withheld here, because an exec into it fails.
+  const PEM = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\nBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj\n-----END PRIVATE KEY-----\n";
+  for (const [how, what] of [
+    ["exit", "has exited"],
+    ["restarting", "is restarting (Docker runs no exec in it)"],
+    ["created", "was never started"],
+  ] as const) {
+    test(`a broken release whose new container ${what}: the log excerpt is stored, with the secrets kept as files taken out`, () => {
+      const r = new AioRig();
+      try {
+        baseline(r);
+        r.publish(AIO2, D2, "1.18.1");
+        r.behave(AIO2, { webapp: how });
+        r.edit((s) => {
+          s.storedSecrets = ["Zx3_kQ9-wPq7mN2bV5cL8aR1tY4uI6oE0sD3fG7hJ9k", PEM];
+          s.logs = { [AIO2]: "[push] key Zx3_kQ9-wPq7mN2bV5cL8aR1tY4uI6oE0sD3fG7hJ9k rejected\npem line BKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj\nmigrations: 3 applied\n" };
+        });
+        const res = r.run();
+        expect(res.record?.status, res.out).toBe("rolled_back");
+        const log = String(res.record?.log);
+        expect(log).toContain("[push] key [redacted] rejected");
+        expect(log).toContain("pem line [redacted]");
+        expect(log).toContain("migrations: 3 applied");
+        expect(JSON.stringify(res.record)).not.toContain("Zx3_kQ9");
+        expect(JSON.stringify(res.record)).not.toContain("BKcwggSj");
+        // Read beside it, not in it: its own image, no network, its mounts read-only.
+        const runs = res.calls.filter((c) => c.includes("app.kinboard.secrets-read=1"));
+        expect(runs.length).toBeGreaterThan(0);
+        for (const c of runs) {
+          expect(c).toContain("--network none");
+          expect(c).toMatch(/--volumes-from [0-9a-f]{64}:ro /);
+          expect(c).toContain(` --entrypoint sh ${AIO2} `);
+          expect(c).toContain("KINBOARD_SECRETS_DIR=/data/config/secrets");
+        }
+      } finally {
+        r.cleanup();
+      }
+    });
+  }
+
+  test("a broken release whose secrets cannot be read even beside it (the folder unreadable, or not on a mount): still withheld", () => {
+    for (const how of ["unreadable", "not on a mount"] as const) {
+      const r = new AioRig();
+      try {
+        if (how === "not on a mount") {
+          // A store in the container's own layer: a container beside it sees nothing there.
+          r.edit((s) => {
+            const c = Object.values(s.containers).find((x: any) => x.Name === `/${NAME}`) as Inspect;
+            c.Config.Env.push("KINBOARD_SECRETS_DIR=/secrets");
+          });
+        }
+        baseline(r);
+        r.publish(AIO2, D2, "1.18.1");
+        r.behave(AIO2, { webapp: "exit" });
+        r.edit((s) => {
+          s.storedSecrets = ["Zx3_kQ9-wPq7mN2bV5cL8aR1tY4uI6oE0sD3fG7hJ9k"];
+          s.logs = { [AIO2]: "[push] key Zx3_kQ9-wPq7mN2bV5cL8aR1tY4uI6oE0sD3fG7hJ9k rejected\n" };
+          if (how === "unreadable") s.secretsUnreadable = true;
+        });
+        const res = r.run();
+        expect(res.record?.status, `${how}: ${res.out}`).toBe("rolled_back");
+        expect(res.record?.log, how).toBe("log excerpt withheld: could not read the containers' settings to hide secrets; see the update log on the host");
+        expect(JSON.stringify(res.record), how).not.toContain("Zx3_kQ9");
+      } finally {
+        r.cleanup();
+      }
+    }
+  });
+
   test("killed in the middle of the swap: the next check puts the original back, and the one after updates", () => {
     const r = new AioRig();
     try {
