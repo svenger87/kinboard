@@ -195,7 +195,8 @@ opt_in:
       image tag, takes a verified backup, recreates only the app's containers
       and goes back to the previous version if the new one doesn't come up
       healthy. A pinned version never moves. It is the only container that gets
-      the Docker socket, and only when this is on.
+      the Docker socket, and only when this is on. Switched off later, the
+      running updater stays until you remove kinboard-updater under Containers.
     off: "Off"
     on: On, with the Docker socket in the updater container
 

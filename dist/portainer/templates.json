@@ -77,7 +77,7 @@
         {
           "name": "COMPOSE_PROFILES",
           "label": "Automatic updates",
-          "description": "On starts the updater: every 30 minutes it looks for a newer image of the image tag, takes a verified backup, recreates only the app's containers and goes back to the previous version if the new one doesn't come up healthy. A pinned version never moves. It is the only container that gets the Docker socket, and only when this is on.",
+          "description": "On starts the updater: every 30 minutes it looks for a newer image of the image tag, takes a verified backup, recreates only the app's containers and goes back to the previous version if the new one doesn't come up healthy. A pinned version never moves. It is the only container that gets the Docker socket, and only when this is on. Switched off later, the running updater stays until you remove kinboard-updater under Containers.",
           "select": [
             {
               "text": "Off",
@@ -168,7 +168,7 @@
         {
           "name": "COMPOSE_PROFILES",
           "label": "Automatic updates",
-          "description": "On starts the updater: every 30 minutes it looks for a newer image of the image tag, takes a verified backup, recreates only the app's containers and goes back to the previous version if the new one doesn't come up healthy. A pinned version never moves. It is the only container that gets the Docker socket, and only when this is on.",
+          "description": "On starts the updater: every 30 minutes it looks for a newer image of the image tag, takes a verified backup, recreates only the app's containers and goes back to the previous version if the new one doesn't come up healthy. A pinned version never moves. It is the only container that gets the Docker socket, and only when this is on. Switched off later, the running updater stays until you remove kinboard-updater under Containers.",
           "select": [
             {
               "text": "Off",

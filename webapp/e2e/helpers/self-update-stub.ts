@@ -175,7 +175,8 @@ case "$1" in
       */kinboard/secrets/*)
         cat "$STUB/stored-secrets" 2>/dev/null ;;
       *pg_dumpall*)
-        echo "CREATE SCHEMA auth;"; i=0; while [ $i -lt 60 ]; do echo "CREATE TABLE t$i ();"; i=$((i + 1)); done ;;
+        [ -f "$STUB/dump" ] && { cat "$STUB/dump"; exit 0; }
+        echo "CREATE SCHEMA auth;"; echo "CREATE TABLE public.families ("; echo ");"; i=0; while [ $i -lt 60 ]; do echo "CREATE TABLE t$i ();"; i=$((i + 1)); done ;;
       *psql*)
         case "$*" in *" -i "*) cat >> "$STUB/psql" ;; esac
         for a in "$@"; do case "$a" in v=*) printf '%s' "$a" | cut -c3- > "$STUB/status" ;; k=*) printf '%s' "$a" | cut -c3- > "$STUB/status-key" ;; esac; done
@@ -407,6 +408,10 @@ export class Rig {
   }
 
   /** Compose labels, "project|working_dir|config_files|environment_file", on every container (and the webhook's). */
+  /** What pg_dumpall prints; unset, a supabase/postgres-shaped dump of 61 tables. */
+  setDump(text: string) {
+    writeFileSync(join(this.stub, "dump"), text);
+  }
   setLabels(line: string) {
     // The webhook's labels on a git install (the overlay), the updater's on a one-file one.
     const own = this.sc.updater ? "updater" : "webhook";
