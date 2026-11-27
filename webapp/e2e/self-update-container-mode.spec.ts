@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CmRig, D2, D3, EXTRA, KB, NET, NEXT, WEB1, WEB2, WEB3, ownConfig, type Inspect } from "./helpers/updater-container-stub";
 
@@ -618,6 +619,34 @@ test.describe("kinboard-updater, container mode (RFC-023 PR 14)", () => {
       expect(res.record?.status).toBe("rolled_back");
       expect(String(res.record?.log)).toContain("boot with key [redacted]");
       expect(JSON.stringify(res.record)).not.toContain("Zm9vYmFyLXNlcnZpY2Utcm9sZQ");
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  // The excerpt above pipes `docker logs` into redact, which runs `docker exec`
+  // and `docker inspect` meanwhile: stub calls side by side. When every call
+  // rewrote state.json through one shared temporary name, the second rename
+  // now and then found it gone and that call died before printing (CI, three
+  // times in one day). The calls the excerpt makes change nothing, so they
+  // write nothing; a call that changes something still does.
+  test("the stub daemon's calls that change nothing leave its state file alone, so the excerpt's side-by-side calls cannot collide", () => {
+    const r = rig();
+    try {
+      const file = join(r.stub, "state.json");
+      const env = { ...process.env, PATH: `${r.bin}:${process.env.PATH}`, STUB: r.stub };
+      const docker = (...a: string[]) => spawnSync("docker", a, { encoding: "utf8", env });
+      const before = statSync(file);
+      expect(docker("logs", "--tail", "30", "kinboard-webapp").status).toBe(0);
+      expect(docker("inspect", "-f", "{{range .Config.Env}}{{println .}}{{end}}", "kinboard-webapp").status).toBe(0);
+      expect(docker("exec", "kinboard-db", "sh", "-c", "for f in /kinboard/secrets/*; do :; done").status).toBe(0);
+      const after = statSync(file);
+      expect([after.ino, after.mtimeMs]).toEqual([before.ino, before.mtimeMs]);
+      expect(readdirSync(r.stub).filter((f) => f.endsWith(".tmp"))).toEqual([]);
+      // Not vacuous: a call that changes the state writes it.
+      expect(docker("update", "--restart=no", "kinboard-webapp").status).toBe(0);
+      expect(statSync(file).ino).not.toBe(before.ino);
+      expect(r.container("webapp")?.HostConfig.RestartPolicy).toEqual({ Name: "no", MaximumRetryCount: 0 });
     } finally {
       r.cleanup();
     }
