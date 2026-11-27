@@ -1,0 +1,23 @@
+# Build the Diun overlay's webhook on this machine instead of pulling the
+# published ghcr.io/svenger87/kinboard-webhook. Only for whoever needs to: a
+# host that cannot reach ghcr.io but can reach Alpine's mirrors, or a change
+# to Dockerfile.webhook being tried out. Add it after docker-compose.diun.yml:
+#
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.diun.yml -f docker-compose.webhook-build.yml"
+#
+# Tagged kinboard-webhook:local, as every git install's webhook was until the
+# image was published, so a local build is never mistaken for, or overwritten
+# by, a pulled one. `pull_policy: build` builds it at every `up` (from
+# Docker's build cache when nothing changed) and never tries a registry for
+# it. The self-update never builds: it leaves this image as it is, and runs
+# the checkout's kinboard-self-update.sh through it like the published one.
+
+services:
+  webhook:
+    image: kinboard-webhook:local
+    pull_policy: build
+    build:
+      # Absolute, as docker-compose.diun.yml's paths: a relative path is read
+      # from the folder of the first compose file.
+      context: ${KINBOARD_PROJECT_DIR}/webapp/docker
+      dockerfile: Dockerfile.webhook

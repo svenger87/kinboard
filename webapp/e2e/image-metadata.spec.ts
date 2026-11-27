@@ -23,7 +23,7 @@ const WEBAPP = join(__dirname, "..");
 const REPO = join(WEBAPP, "..");
 const read = (p: string) => readFileSync(join(REPO, p), "utf8");
 
-type Step = { name?: string; uses?: string; id?: string; run?: string; env?: Record<string, string>; with?: Record<string, string> };
+type Step = { name?: string; uses?: string; id?: string; if?: string; run?: string; env?: Record<string, string>; with?: Record<string, string> };
 type Job = { steps: Step[]; needs?: string[]; if?: string };
 type Workflow = { env: Record<string, string>; jobs: Record<string, Job> };
 
@@ -96,16 +96,18 @@ test.describe("OCI labels and annotations, from one place", () => {
     expect(metaSteps("merge")[0].env?.DOCKER_METADATA_ANNOTATIONS_LEVELS).toBe("index");
   });
 
-  test("the image name is set once, and the updater's", () => {
+  test("the image name is set once, and the updater's and the webhook's", () => {
     const text = read(".github/workflows/docker.yml");
     expect(workflow.env.IMAGE_NAME).toBe("${{ github.repository_owner }}/kinboard");
     expect(workflow.env.UPDATER_IMAGE_NAME).toBe("${{ github.repository_owner }}/kinboard-updater");
+    expect(workflow.env.WEBHOOK_IMAGE_NAME).toBe("${{ github.repository_owner }}/kinboard-webhook");
     expect(text.match(/^\s*IMAGE_NAME:/gm)).toHaveLength(1);
     expect(text.match(/^\s*UPDATER_IMAGE_NAME:/gm)).toHaveLength(1);
+    expect(text.match(/^\s*WEBHOOK_IMAGE_NAME:/gm)).toHaveLength(1);
     // Every other mention goes through the variable: no step spells it out.
     const code = text.split("\n").filter((l) => !l.trim().startsWith("#"));
-    // (UPDATER_, POSTGRES_ and AIO_IMAGE_NAME are the other images' one places, beside it.)
-    expect(code.filter((l) => /\/kinboard\b(?![./])/.test(l) && !/^\s*(UPDATER_|POSTGRES_|AIO_)?IMAGE_NAME:/.test(l))).toEqual([]);
+    // (UPDATER_, WEBHOOK_, POSTGRES_ and AIO_IMAGE_NAME are the other images' one places, beside it.)
+    expect(code.filter((l) => /\/kinboard\b(?![./])/.test(l) && !/^\s*(UPDATER_|WEBHOOK_|POSTGRES_|AIO_)?IMAGE_NAME:/.test(l))).toEqual([]);
   });
 
   test("the platform images get labels and annotations, the list gets annotations", () => {
@@ -166,11 +168,136 @@ test.describe("kinboard-updater, published beside the webapp (RFC-023 §4.11.3)"
     expect(df).toMatch(/^HEALTHCHECK /m);
     expect(df).toContain("COPY kinboard-self-update.sh /usr/local/bin/kinboard-self-update.sh");
     expect(df).toContain("'export KINBOARD_UPDATER=1'");
-    // Git installs keep the webhook as the entrypoint (docker-compose.diun.yml builds this file).
+    // Git installs keep the webhook as the entrypoint (kinboard-webhook, the same file).
     expect(df).toMatch(/^ENTRYPOINT \["\/usr\/local\/bin\/webhook"\]$/m);
-    const diun = read("webapp/docker/docker-compose.diun.yml");
-    expect(diun).toContain("dockerfile: Dockerfile.webhook");
-    expect(diun).toContain("image: kinboard-webhook:local");
+  });
+});
+
+/**
+ * kinboard-webhook: the Diun overlay's webhook on a git install. Every such
+ * install used to build it on its own machine (kinboard-webhook:local), and on
+ * one host Docker crashed in that build, so automatic updates never started
+ * (#539). Published like the updater, from the same Dockerfile, so no
+ * household builds anything.
+ */
+test.describe("kinboard-webhook, published for the Diun overlay (#539)", () => {
+  const job = workflow.jobs.webhook;
+  const step = (uses: string) => job.steps.find((s) => s.uses?.startsWith(uses));
+
+  test("its own job, gated like the webapp's build", () => {
+    expect(job, "a webhook job").toBeTruthy();
+    expect(job.needs).toEqual(workflow.jobs.build.needs);
+    expect(job.if).toBe(workflow.jobs.build.if);
+  });
+
+  test("multi-arch from Dockerfile.webhook, with the webapp's tags, provenance and SBOM", () => {
+    const build = step("docker/build-push-action@");
+    expect(build?.with?.file).toBe("webapp/docker/Dockerfile.webhook");
+    expect(build?.with?.context).toBe("webapp/docker");
+    expect(build?.with?.platforms).toBe("linux/amd64,linux/arm64");
+    expect(String(build?.with?.push)).toBe("true");
+    expect(build?.with?.provenance).toBe("mode=max");
+    expect(String(build?.with?.sbom)).toBe("true");
+    const meta = step("docker/metadata-action@");
+    expect(meta?.with?.images).toBe("${{ env.REGISTRY }}/${{ env.WEBHOOK_IMAGE_NAME }}");
+    // The overlay pulls it under KINBOARD_TAG: it needs every tag the webapp has.
+    expect(meta?.with?.tags, "the same tags as the webapp").toBe("${{ env.IMAGE_TAGS }}");
+    expect(meta?.with?.flavor).toBe("latest=false");
+    expect(meta?.with?.labels).toBe("${{ steps.oci.outputs.metadata }}");
+    expect(meta?.with?.annotations).toBe("${{ steps.oci.outputs.metadata }}");
+    expect(meta?.env?.DOCKER_METADATA_ANNOTATIONS_LEVELS).toBe("manifest,index");
+    expect(build?.with?.tags).toBe("${{ steps.meta.outputs.tags }}");
+    expect(build?.with?.labels).toBe("${{ steps.meta.outputs.labels }}");
+    expect(build?.with?.annotations).toBe("${{ steps.meta.outputs.annotations }}");
+  });
+
+  test("its metadata: its own title and description, the licence from package.json, checked after the push", () => {
+    const wm = Object.fromEntries(
+      workflow.env.WEBHOOK_METADATA.trim().split("\n").map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)]),
+    );
+    expect(wm["org.opencontainers.image.title"]).toBe("Kinboard webhook");
+    expect(wm["org.opencontainers.image.description"]).toBeTruthy();
+    for (const key of ["url", "documentation", "vendor"]) expect(wm[`org.opencontainers.image.${key}`], key).toBeTruthy();
+    expect(wm["org.opencontainers.image.licenses"]).toBeUndefined();
+    const oci = job.steps.find((s) => s.id === "oci");
+    expect(job.steps.indexOf(oci!)).toBeLessThan(job.steps.indexOf(step("docker/metadata-action@")!));
+    // Run the step's own script, as the runner would, and read its output.
+    const dir = mkdtempSync(join(tmpdir(), "oci-"));
+    try {
+      const out = join(dir, "out");
+      writeFileSync(out, "");
+      execFileSync("bash", ["-eo", "pipefail", "-c", oci!.run!], {
+        cwd: REPO,
+        env: cleanEnv({ PATH: process.env.PATH ?? "", GITHUB_OUTPUT: out, WEBHOOK_METADATA: "a=1\nb=2\n" }),
+      });
+      expect(readFileSync(out, "utf8")).toBe(
+        "metadata<<OCI_METADATA_EOF\na=1\nb=2\norg.opencontainers.image.licenses=PolyForm-Noncommercial-1.0.0\nOCI_METADATA_EOF\n",
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+    // The metadata check as the other jobs run it: no PACKAGE_JSON, so its own default path (#573).
+    const check = job.steps.find((s) => s.run?.includes("check-image-metadata.sh"));
+    expect(check?.run).toContain("scripts/ci/check-image-metadata.sh");
+    expect(check?.run).toContain("${{ env.WEBHOOK_IMAGE_NAME }}:${{ steps.meta.outputs.version }}");
+    expect(check?.run).toContain('<<< "$WEBHOOK_METADATA"');
+    expect(check?.run).not.toContain("PACKAGE_JSON");
+    expect(check?.env).toBeUndefined();
+    expect(job.steps.indexOf(check!)).toBeGreaterThan(job.steps.indexOf(step("docker/build-push-action@")!));
+  });
+
+  /**
+   * Every git install follows main's compose files, so the first update after
+   * a release asks for kinboard-webhook under the tag Diun just saw move. The
+   * webapp's tags appear in `merge`; it waits for the webhook and the updater,
+   * so no tag of the webapp exists before theirs, and a failed webhook or
+   * updater build leaves the webapp's tags where they were for that run.
+   */
+  const publishOrder = (wf: Workflow) => {
+    const needs = wf.jobs.merge.needs ?? [];
+    const p: string[] = [];
+    for (const j of ["build", "webhook", "updater"]) if (!needs.includes(j)) p.push(`merge does not wait for ${j}`);
+    // success() is implied only when `if` names no status function: always() or failure() would publish anyway.
+    if (/\b(always|failure|cancelled)\(\)/.test(wf.jobs.merge.if ?? "")) p.push("merge runs even when a job it needs failed");
+    // No step anywhere creates a webhook tag of its own outside metadata-action's list.
+    for (const [name, job] of Object.entries(wf.jobs))
+      for (const st of job.steps) if (st.run?.includes("WEBHOOK_IMAGE_NAME") && st.run.includes("imagetools create")) p.push(`${name}: creates a webhook tag by hand`);
+    return p;
+  };
+
+  test("the webapp's tags wait for the webhook and the updater, and only on their success", () => {
+    expect(publishOrder(workflow)).toEqual([]);
+  });
+
+  test("red: merge without the webhook, without the updater, or run regardless, fails", () => {
+    for (const gone of ["webhook", "updater"]) {
+      const wf = structuredClone(workflow);
+      wf.jobs.merge.needs = (wf.jobs.merge.needs ?? []).filter((n) => n !== gone);
+      expect(publishOrder(wf)).toContain(`merge does not wait for ${gone}`);
+    }
+    const always = structuredClone(workflow);
+    always.jobs.merge.if = `always() && ${always.jobs.merge.if}`;
+    expect(publishOrder(always)).toContain("merge runs even when a job it needs failed");
+  });
+
+  test("the overlay pulls it under the webapp's tag, and builds nothing", () => {
+    const diun = yaml.load(read("webapp/docker/docker-compose.diun.yml")) as { services: Record<string, Record<string, unknown>> };
+    const hook = diun.services.webhook;
+    expect(hook.image).toBe("${KINBOARD_WEBHOOK_IMAGE:-ghcr.io/svenger87/kinboard-webhook}:${KINBOARD_WEBHOOK_TAG:-${KINBOARD_TAG:-latest}}");
+    // With a build section Compose builds whenever the pull fails: there must be none.
+    expect(hook.build).toBeUndefined();
+    // Unset: `missing` makes `docker compose pull` skip an image already on the machine, so the
+    // webhook would never get a newer one; `always` stops an `up` at boot without network.
+    expect(hook.pull_policy).toBeUndefined();
+    // The webapp's own reference, for the tag it follows.
+    expect(read("webapp/docker/docker-compose.yml")).toContain("image: ghcr.io/svenger87/kinboard:${KINBOARD_TAG:-latest}");
+    // The name the overlay pulls is the name docker.yml publishes.
+    expect(String(hook.image)).toContain(`ghcr.io/svenger87/${workflow.env.WEBHOOK_IMAGE_NAME.split("/")[1]}}:`);
+    // Building it here is a separate overlay, on purpose.
+    const build = yaml.load(read("webapp/docker/docker-compose.webhook-build.yml")) as { services: Record<string, Record<string, unknown>> };
+    expect(build.services.webhook.image).toBe("kinboard-webhook:local");
+    expect(build.services.webhook.pull_policy).toBe("build");
+    expect(build.services.webhook.build).toEqual({ context: "${KINBOARD_PROJECT_DIR}/webapp/docker", dockerfile: "Dockerfile.webhook" });
   });
 });
 
@@ -728,6 +855,12 @@ const WANT: Record<string, Record<string, string[]>> = {
     rc: ["1.18.0-rc.1", "next", "sha-abcdef1"],
     main: ["main", "sha-abcdef1"],
   },
+  // Pulled under the webapp's KINBOARD_TAG, so every one of its tags.
+  "kinboard-webhook": {
+    stable: ["1", "1.18", "1.18.0", "latest", "sha-abcdef1"],
+    rc: ["1.18.0-rc.1", "next", "sha-abcdef1"],
+    main: ["main", "sha-abcdef1"],
+  },
   // The PostgreSQL major first: the bare `17` is the stable channel, never `latest`.
   "kinboard-postgres": {
     stable: ["17", "17-1.18.0", "17-sha-abcdef1"],
@@ -742,7 +875,8 @@ const WANT: Record<string, Record<string, string[]>> = {
   },
 };
 const IMAGE_OF: Record<string, string> = {
-  IMAGE_NAME: "kinboard", UPDATER_IMAGE_NAME: "kinboard-updater", POSTGRES_IMAGE_NAME: "kinboard-postgres", AIO_IMAGE_NAME: "kinboard-aio",
+  IMAGE_NAME: "kinboard", UPDATER_IMAGE_NAME: "kinboard-updater", WEBHOOK_IMAGE_NAME: "kinboard-webhook",
+  POSTGRES_IMAGE_NAME: "kinboard-postgres", AIO_IMAGE_NAME: "kinboard-aio",
 };
 
 /** Every problem with the tags docker.yml's metadata steps publish, as sentences. */
@@ -772,7 +906,7 @@ function tagProblems(wf: Workflow): string[] {
 }
 
 test.describe("every image's tags, per channel (RFC-024 §4.5, §9)", () => {
-  test("each image publishes exactly its channel's tags: latest only for kinboard and kinboard-updater", () => {
+  test("each image publishes exactly its channel's tags: latest only for kinboard, kinboard-updater and kinboard-webhook", () => {
     expect(tagProblems(workflow)).toEqual([]);
   });
 
@@ -801,8 +935,24 @@ test.describe("every image's tags, per channel (RFC-024 §4.5, §9)", () => {
     const problems = tagProblems(wf);
     expect(problems).toContain("postgres-merge: kinboard-postgres would not publish 17 on v1.18.0");
     expect(problems).toContain("merge: kinboard would not publish latest on v1.18.0");
-    // and the updater, which shares the webapp's list
+    // and the updater and the webhook, which share the webapp's list
     expect(problems).toContain("updater: kinboard-updater would not publish latest on v1.18.0");
+    expect(problems).toContain("webhook: kinboard-webhook would not publish latest on v1.18.0");
+  });
+
+  test("red: the flavor taken off the webhook's metadata step fails", () => {
+    const wf = structuredClone(workflow);
+    for (const s of wf.jobs.webhook.steps) if (s.uses?.startsWith("docker/metadata-action@") && s.with) delete s.with.flavor;
+    expect(tagProblems(wf)).toContain("webhook: kinboard-webhook's metadata step does not set flavor: latest=false");
+  });
+
+  test("red: a webhook job gone, or on another list, fails", () => {
+    const gone = structuredClone(workflow);
+    delete gone.jobs.webhook;
+    expect(tagProblems(gone)).toContain("no metadata step publishes kinboard-webhook");
+    const aio = structuredClone(workflow);
+    for (const s of aio.jobs.webhook.steps) if (s.uses?.startsWith("docker/metadata-action@") && s.with) s.with.tags = "${{ env.AIO_IMAGE_TAGS }}";
+    expect(tagProblems(aio)).toContain("webhook: kinboard-webhook would not publish latest on v1.18.0");
   });
 
   test("red: a stable alias added to kinboard-aio before its gates fails", () => {

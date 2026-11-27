@@ -9,7 +9,7 @@ The releases below are the exceptions.
 
 ## 1.18 — a one-file install, and nothing changes for yours
 
-**Nothing to do**, unless you once copied `docker-compose.diun.yml.example` (below). An install made with `git clone`, `setup.sh` or the
+**Nothing to do**, unless you once copied `docker-compose.diun.yml.example`, or pin `KINBOARD_TAG` to an older version with the Diun auto-update (both below). An install made with `git clone`, `setup.sh` or the
 one-line installer updates exactly as before: `git pull` and `./start.sh up`,
 or the Diun auto-update. Its `webapp/docker/docker-compose.yml`, `.env`,
 overlays and data folder are not touched, no new folder appears in `DATA_DIR`,
@@ -51,6 +51,27 @@ docker exec kinboard-webhook sh -c 'sh "$PROJECT_DIR/webapp/docker/kinboard-self
 
 The second line runs the update now instead of at the next release. From 1.18
 on the auto-update puts such a copy back by itself.
+
+### The auto-update's webhook is downloaded, not built
+
+With the Diun auto-update (`docker-compose.diun.yml`), the `webhook`
+container used to be built on your machine at the first `up`
+(`kinboard-webhook:local`). From 1.18 it is a published image,
+`ghcr.io/svenger87/kinboard-webhook`, that follows your `KINBOARD_TAG` like
+the webapp. **Nothing to do:** the first automatic update to 1.18 downloads
+it and, once that update has finished, switches the webhook over by itself
+(so does your next `./start.sh up`). Afterwards `docker rmi
+kinboard-webhook:local` frees the old local image.
+
+Two cases need one line in `.env`:
+
+- `KINBOARD_TAG` pinned to a version **before 1.18** (`KINBOARD_TAG=1.17.0`):
+  that version has no webhook image. Add `KINBOARD_WEBHOOK_TAG=latest`.
+  Until you do, the auto-update keeps the webhook it has and logs a warning,
+  and `./start.sh up` says what to add.
+- You **want** to build the webhook yourself: add
+  `-f docker-compose.webhook-build.yml` after `docker-compose.diun.yml` in
+  `COMPOSE_FILES`.
 
 ### Moving an existing install to it
 

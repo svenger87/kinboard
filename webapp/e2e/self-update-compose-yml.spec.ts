@@ -448,8 +448,9 @@ test("the script still parses as POSIX sh", () => {
 });
 
 test.describe("the Diun overlay on compose.yml (RFC-023 §4.11.2)", () => {
-  const overlays = ["docker/docker-compose.diun.yml"];
-  /** Each path as the overlay names it now, and as it did before (relative to webapp/docker). */
+  // The webhook's build context moved to its own overlay when the webhook became a published image.
+  const overlays = ["docker/docker-compose.diun.yml", "docker/docker-compose.webhook-build.yml"];
+  /** Each path as the overlays name it now, and as it did before (relative to webapp/docker). */
   const MOVED: [string, string][] = [
     ["- ${KINBOARD_PROJECT_DIR}/webapp/docker/diun/diun.yml:/diun.yml:ro", "- ./diun/diun.yml:/diun.yml:ro"],
     ["- ${KINBOARD_PROJECT_DIR}/webapp/docker/data/diun:/data", "- ./data/diun:/data"],
@@ -460,9 +461,9 @@ test.describe("the Diun overlay on compose.yml (RFC-023 §4.11.2)", () => {
   // A relative path in an overlay is read from the folder of the FIRST compose
   // file: webapp/docker for docker-compose.yml, but the checkout's root for
   // compose.yml, where ./diun does not exist.
-  for (const file of overlays) {
-    test(`${file} names its own files by absolute path, from KINBOARD_PROJECT_DIR`, () => {
-      const text = readFileSync(file, "utf8");
+  {
+    test(`${overlays.join(" and ")} name their own files by absolute path, from KINBOARD_PROJECT_DIR`, () => {
+      const text = overlays.map((file) => readFileSync(file, "utf8")).join("\n");
       const sources = [...text.matchAll(/^\s+- ([^:\s#][^:\s]*):\/[^\s]*$/gm)].map((m) => m[1]);
       const contexts = [...text.matchAll(/^\s+context: (\S+)$/gm)].map((m) => m[1]);
       expect(sources.length + contexts.length, "found no volume or build context").toBeGreaterThan(3);

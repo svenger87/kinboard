@@ -420,6 +420,33 @@ case "$cmd" in
       fi
     fi
 
+    # The Diun overlay's webhook, the same way: it is published
+    # (ghcr.io/svenger87/kinboard-webhook) and pulled, never built here
+    # (#539). --ignore-buildable leaves a webhook built on purpose
+    # (docker-compose.webhook-build.yml) to the up below. A failed pull with
+    # no image on the machine would stop that whole up, so the rest of the
+    # stack starts without it and Diun (webhook and Diun containers from
+    # before keep running as they are), and this says why.
+    up_services=""
+    if $COMPOSE $COMPOSE_FILES config --services 2>/dev/null | grep -qx webhook; then
+      webhook_ref="$($COMPOSE $COMPOSE_FILES config --images webhook 2>/dev/null | head -n1)"
+      echo "→ fetching ${webhook_ref:-the webhook image}"
+      if ! $COMPOSE $COMPOSE_FILES pull --ignore-buildable webhook; then
+        if [[ -n "$webhook_ref" ]] && ! docker image inspect "$webhook_ref" >/dev/null 2>&1; then
+          echo "warning: could not fetch $webhook_ref, and it is not on this machine," >&2
+          echo "         so the auto-update (webhook and Diun) is left as it is; everything else starts." >&2
+          echo "         Offline? Then run ./start.sh up again later." >&2
+          echo "         A KINBOARD_TAG pinned to a version older than the published webhook" >&2
+          echo "         image has none: add KINBOARD_WEBHOOK_TAG=latest to .env." >&2
+          # Diun too: it depends on the webhook, and Compose would start it.
+          up_services="$($COMPOSE $COMPOSE_FILES config --services 2>/dev/null | grep -vxE 'webhook|diun' | tr '\n' ' ')"
+        else
+          echo "warning: could not fetch the webhook image (offline?);" >&2
+          echo "         starting with the one already on this machine." >&2
+        fi
+      fi
+    fi
+
     # Containers of services 1.15 retired (kong, auth, realtime, storage,
     # imgproxy) go first: Kong may hold WEBAPP_PORT, which the webapp
     # publishes now. --remove-orphans below would get them too, but only in
@@ -428,7 +455,8 @@ case "$cmd" in
 
     webapp_before="$(webapp_container)"
     set +e
-    $COMPOSE $COMPOSE_FILES up -d --remove-orphans
+    # shellcheck disable=SC2086
+    $COMPOSE $COMPOSE_FILES up -d --remove-orphans $up_services
     up_status=$?
     set -e
     if [[ $up_status -ne 0 ]]; then

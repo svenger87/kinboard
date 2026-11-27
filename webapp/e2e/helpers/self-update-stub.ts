@@ -94,11 +94,19 @@ if [ "$1" = compose ]; then
         echo 'Error response from daemon: toomanyrequests: retry-after: 0.001s' >&2
         exit 1
       fi
-      for ref in $(awk '{ print $2 }' ./stack.txt); do
+      # The services named (all without any), as Compose pulls them; a
+      # reference listed in unpullable is a tag the registry does not have.
+      svcs=""; for a in "$@"; do case "$a" in -*) ;; *) svcs="$svcs $a" ;; esac; done
+      if [ -n "$svcs" ]; then refs="$(for s in $svcs; do awk -v s="$s" '$1 == s { print $2 }' ./stack.txt; done)"
+      else refs="$(awk '{ print $2 }' ./stack.txt)"; fi
+      for ref in $refs; do
+        if grep -qxF "$ref" "$STUB/unpullable" 2>/dev/null; then echo "Error response from daemon: manifest unknown: $ref" >&2; exit 1; fi
+      done
+      for ref in $refs; do
         r="$STUB/registry/$(esc "$ref")"
         [ -f "$r" ] && cp "$r" "$STUB/images/$(esc "$ref")"
       done
-      echo pulled >> "$STUB/pulls" ;;
+      echo "pulled$svcs" >> "$STUB/pulls" ;;
     up)
       svcs=""; skipnext=""
       for a in "$@"; do
@@ -468,6 +476,10 @@ export class Rig {
     const p = join(this.stub, "pullfail");
     if (on) writeFileSync(p, "");
     else rmSync(p, { force: true });
+  }
+  /** References the registry has no tag for: a pull naming one fails, as Compose's does ("manifest unknown"). */
+  setUnpullable(refs: string[]) {
+    writeFileSync(join(this.stub, "unpullable"), refs.map((r) => `${r}\n`).join(""));
   }
   /** What the compose file says service svc mounts now ("dest source" lines), unlike its container. */
   setConfigMounts(svc: string, lines: string[]) {

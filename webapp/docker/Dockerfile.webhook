@@ -6,12 +6,15 @@
 # webhook binary on a busybox base, so it can't actually `git pull` or
 # `docker compose` — exactly the things the update script needs to do.
 #
-# Two uses of one image:
+# Two uses of one image, both published multi-arch by docker.yml:
 #
-#   - Git installs build it locally on `compose up` against the Diun overlay
-#     (kinboard-webhook:local); the webhook there runs the checkout's own
-#     kinboard-self-update.sh through the project mount, as always.
-#   - docker.yml publishes it multi-arch as kinboard-updater (RFC-023
+#   - kinboard-webhook: the Diun overlay's webhook on a git install
+#     (docker-compose.diun.yml), pulled under the webapp's tag. Households
+#     used to build it here on their first `compose up` (kinboard-webhook:local;
+#     docker-compose.webhook-build.yml still does, for whoever needs to). The
+#     webhook runs the checkout's own kinboard-self-update.sh through the
+#     project mount, never the copy below, so a `git pull` updates it.
+#   - kinboard-updater (RFC-023
 #     §4.11.3): compose.yml's `updater` service, under the `autoupdate`
 #     profile, for an install with no git checkout. That has no script of
 #     its own on disk, so the image carries it, and `kinboard-updater` runs
@@ -46,8 +49,9 @@ RUN curl -fsSL "https://github.com/adnanh/webhook/releases/download/${WEBHOOK_VE
  && rm -rf /tmp/webhook-linux-${TARGETARCH}
 
 # The script, for kinboard-updater. A git install's webhook never runs this
-# copy: its hook runs the checkout's (diun/hooks.yaml), which `git pull`
-# keeps current.
+# copy: its hook and its tick run the checkout's (diun/hooks.yaml, the
+# overlay's entrypoint), which `git pull` keeps current, whichever release
+# the image itself comes from.
 COPY kinboard-self-update.sh /usr/local/bin/kinboard-self-update.sh
 RUN chmod 0755 /usr/local/bin/kinboard-self-update.sh \
  && printf '%s\n' '#!/bin/sh' \
