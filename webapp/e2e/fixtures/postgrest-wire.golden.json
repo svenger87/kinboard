@@ -1,0 +1,7805 @@
+{
+  "recordedWith": {
+    "@supabase/supabase-js": "2.105.3",
+    "@supabase/ssr": "0.5.2"
+  },
+  "records": [
+    {
+      "shape": "browser, no family session",
+      "scenario": "select with filters, order and range",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id%2Ctitle%2Cassignee%3Apeople%28name%29&family_id=eq.fam-1&status=neq.done&person_id=in.%28p1%2Cp2%29&due=gte.2026-11-01&due=lt.2026-12-01&title=ilike.%25milch%25&deleted_at=is.null&or=%28priority.eq.high%2Cpinned.is.true%29&category=not.is.null&tags=cs.%7Bkitchen%7D&order=due.asc.nullslast%2Ccreated_at.desc&offset=0&limit=10",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "select with an exact count and head",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "HEAD",
+          "url": "http://localhost/rest/v1/families?select=id&id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 42,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "select with a planned count and limit",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/events?select=*&family_id=eq.fam-1&limit=2",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "prefer",
+              "count=planned"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": 120,
+        "status": 206,
+        "statusText": "Error",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "single",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id%2Ctitle&id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1",
+          "title": "Milch"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "single, no row (406)",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id&id=eq.missing",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 406,
+        "statusText": "Error",
+        "error": {
+          "message": "Cannot coerce the result to a single JSON object",
+          "details": "The result contains 0 rows",
+          "hint": null,
+          "code": "PGRST116"
+        }
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "maybeSingle",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id%2Ctitle&id=eq.2",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "2",
+          "title": "Brot"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "maybeSingle, no row",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id&id=eq.missing",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "insert one, returning it",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/todos?select=id%2Ctitle",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"family_id\":\"fam-1\",\"title\":\"Milch\",\"due\":null}"
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1",
+          "title": "Milch"
+        },
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "insert many, minimal",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/shopping_items?columns=%22family_id%22%2C%22name%22%2C%22quantity%22",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "[{\"family_id\":\"fam-1\",\"name\":\"Brot\"},{\"family_id\":\"fam-1\",\"name\":\"Käse\",\"quantity\":2}]"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "upsert on a conflict column",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/settings?on_conflict=family_id%2Ckey&select=*",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "resolution=merge-duplicates, return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"family_id\":\"fam-1\",\"key\":\"theme\",\"value\":\"dark\"}"
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          }
+        ],
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "upsert ignoring duplicates, with a count",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/devices?on_conflict=id&columns=%22id%22%2C%22name%22",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "resolution=ignore-duplicates, count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "[{\"id\":\"d1\",\"name\":\"Küche\"}]"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 1,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "update with filters, returning rows",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://localhost/rest/v1/todos?id=eq.1&family_id=eq.fam-1&select=id",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"title\":\"Milch\",\"done_at\":null}"
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "update with match",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://localhost/rest/v1/todos?family_id=eq.fam-1&id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "delete with filters",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "DELETE",
+          "url": "http://localhost/rest/v1/todos?family_id=eq.fam-1&id=in.%281%2C2%29",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "delete with an exact count",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "DELETE",
+          "url": "http://localhost/rest/v1/todos?family_id=eq.fam-1",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 2,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "a PostgREST error comes back as { error }",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=nope&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 400,
+        "statusText": "Error",
+        "error": {
+          "message": "column todos.nope does not exist",
+          "details": null,
+          "hint": null,
+          "code": "42703"
+        }
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "throwOnError throws the PostgREST error",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/todos",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"id\":\"1\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "error": null,
+        "threw": {
+          "name": "PostgrestError",
+          "message": "duplicate key value"
+        }
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "rpc POST with arguments",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/rpc/award_points",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"p_person_id\":\"p1\",\"p_points\":5,\"p_reason\":\"Zähne geputzt\"}"
+        }
+      ],
+      "result": {
+        "data": 7,
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "rpc POST without arguments",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/rpc/current_family_id",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{}"
+        }
+      ],
+      "result": {
+        "data": "fam-1",
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "rpc GET",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/rpc/family_days?p_from=2026-11-01&p_to=2026-11-30",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "day": "2026-11-27"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "rpc with a count and head",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "HEAD",
+          "url": "http://localhost/rest/v1/rpc/open_todos?p_family=fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 3,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "rpc with filters on its result, single",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/rpc/search_todos?id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"q\":\"milch\"}"
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "a call site's own header",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ],
+            [
+              "x-kinboard-test",
+              "1"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "a call site's own Authorization wins",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer call-site"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "401, then a fresh family token and one retry",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id%2Ctitle&family_id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token-2"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 401,
+        "statusText": "Error",
+        "error": {
+          "message": "JWT expired",
+          "details": null,
+          "hint": null,
+          "code": "PGRST301"
+        }
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "401 on a write, then a fresh family token and one retry",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://localhost/rest/v1/todos?id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token-2"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 401,
+        "statusText": "Error",
+        "error": {
+          "message": "JWT expired",
+          "details": null,
+          "hint": null,
+          "code": "PGRST301"
+        }
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "another schema",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/schema_migrations?select=version&limit=2",
+          "headers": [
+            [
+              "accept-profile",
+              "kinboard"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, no family session",
+      "scenario": "csv",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "text/csv"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer anon-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": "id\n1",
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "select with filters, order and range",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id%2Ctitle%2Cassignee%3Apeople%28name%29&family_id=eq.fam-1&status=neq.done&person_id=in.%28p1%2Cp2%29&due=gte.2026-11-01&due=lt.2026-12-01&title=ilike.%25milch%25&deleted_at=is.null&or=%28priority.eq.high%2Cpinned.is.true%29&category=not.is.null&tags=cs.%7Bkitchen%7D&order=due.asc.nullslast%2Ccreated_at.desc&offset=0&limit=10",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "select with an exact count and head",
+      "requests": [
+        {
+          "input": "string",
+          "method": "HEAD",
+          "url": "http://localhost/rest/v1/families?select=id&id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 42,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "select with a planned count and limit",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/events?select=*&family_id=eq.fam-1&limit=2",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "prefer",
+              "count=planned"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": 120,
+        "status": 206,
+        "statusText": "Error",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "single",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id%2Ctitle&id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1",
+          "title": "Milch"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "single, no row (406)",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id&id=eq.missing",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 406,
+        "statusText": "Error",
+        "error": {
+          "message": "Cannot coerce the result to a single JSON object",
+          "details": "The result contains 0 rows",
+          "hint": null,
+          "code": "PGRST116"
+        }
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "maybeSingle",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id%2Ctitle&id=eq.2",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "2",
+          "title": "Brot"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "maybeSingle, no row",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id&id=eq.missing",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "insert one, returning it",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/todos?select=id%2Ctitle",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"family_id\":\"fam-1\",\"title\":\"Milch\",\"due\":null}"
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1",
+          "title": "Milch"
+        },
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "insert many, minimal",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/shopping_items?columns=%22family_id%22%2C%22name%22%2C%22quantity%22",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "[{\"family_id\":\"fam-1\",\"name\":\"Brot\"},{\"family_id\":\"fam-1\",\"name\":\"Käse\",\"quantity\":2}]"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "upsert on a conflict column",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/settings?on_conflict=family_id%2Ckey&select=*",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "resolution=merge-duplicates, return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"family_id\":\"fam-1\",\"key\":\"theme\",\"value\":\"dark\"}"
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          }
+        ],
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "upsert ignoring duplicates, with a count",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/devices?on_conflict=id&columns=%22id%22%2C%22name%22",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "resolution=ignore-duplicates, count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "[{\"id\":\"d1\",\"name\":\"Küche\"}]"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 1,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "update with filters, returning rows",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://localhost/rest/v1/todos?id=eq.1&family_id=eq.fam-1&select=id",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"title\":\"Milch\",\"done_at\":null}"
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "update with match",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://localhost/rest/v1/todos?family_id=eq.fam-1&id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "delete with filters",
+      "requests": [
+        {
+          "input": "string",
+          "method": "DELETE",
+          "url": "http://localhost/rest/v1/todos?family_id=eq.fam-1&id=in.%281%2C2%29",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "delete with an exact count",
+      "requests": [
+        {
+          "input": "string",
+          "method": "DELETE",
+          "url": "http://localhost/rest/v1/todos?family_id=eq.fam-1",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 2,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "a PostgREST error comes back as { error }",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=nope&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 400,
+        "statusText": "Error",
+        "error": {
+          "message": "column todos.nope does not exist",
+          "details": null,
+          "hint": null,
+          "code": "42703"
+        }
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "throwOnError throws the PostgREST error",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/todos",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"id\":\"1\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "error": null,
+        "threw": {
+          "name": "PostgrestError",
+          "message": "duplicate key value"
+        }
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "rpc POST with arguments",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/rpc/award_points",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"p_person_id\":\"p1\",\"p_points\":5,\"p_reason\":\"Zähne geputzt\"}"
+        }
+      ],
+      "result": {
+        "data": 7,
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "rpc POST without arguments",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/rpc/current_family_id",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{}"
+        }
+      ],
+      "result": {
+        "data": "fam-1",
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "rpc GET",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/rpc/family_days?p_from=2026-11-01&p_to=2026-11-30",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "day": "2026-11-27"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "rpc with a count and head",
+      "requests": [
+        {
+          "input": "string",
+          "method": "HEAD",
+          "url": "http://localhost/rest/v1/rpc/open_todos?p_family=fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 3,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "rpc with filters on its result, single",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://localhost/rest/v1/rpc/search_todos?id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"q\":\"milch\"}"
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "a call site's own header",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ],
+            [
+              "x-kinboard-test",
+              "1"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "a call site's own Authorization wins",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "401, then a fresh family token and one retry",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id%2Ctitle&family_id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id%2Ctitle&family_id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token-2"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "401 on a write, then a fresh family token and one retry",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://localhost/rest/v1/todos?id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        },
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "/api/session/token",
+          "headers": [],
+          "body": null
+        },
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://localhost/rest/v1/todos?id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token-2"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "another schema",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/schema_migrations?select=version&limit=2",
+          "headers": [
+            [
+              "accept-profile",
+              "kinboard"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "browser, family token",
+      "scenario": "csv",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://localhost/rest/v1/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "text/csv"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "anon-key"
+            ],
+            [
+              "authorization",
+              "Bearer family-token"
+            ],
+            [
+              "x-client-info",
+              "supabase-ssr/0.5.2"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": "id\n1",
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "select with filters, order and range",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id%2Ctitle%2Cassignee%3Apeople%28name%29&family_id=eq.fam-1&status=neq.done&person_id=in.%28p1%2Cp2%29&due=gte.2026-11-01&due=lt.2026-12-01&title=ilike.%25milch%25&deleted_at=is.null&or=%28priority.eq.high%2Cpinned.is.true%29&category=not.is.null&tags=cs.%7Bkitchen%7D&order=due.asc.nullslast%2Ccreated_at.desc&offset=0&limit=10",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "select with an exact count and head",
+      "requests": [
+        {
+          "input": "string",
+          "method": "HEAD",
+          "url": "http://rest.test:3000/families?select=id&id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 42,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "select with a planned count and limit",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/events?select=*&family_id=eq.fam-1&limit=2",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "prefer",
+              "count=planned"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": 120,
+        "status": 206,
+        "statusText": "Error",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "single",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id%2Ctitle&id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1",
+          "title": "Milch"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "single, no row (406)",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id&id=eq.missing",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 406,
+        "statusText": "Error",
+        "error": {
+          "message": "Cannot coerce the result to a single JSON object",
+          "details": "The result contains 0 rows",
+          "hint": null,
+          "code": "PGRST116"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "maybeSingle",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id%2Ctitle&id=eq.2",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "2",
+          "title": "Brot"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "maybeSingle, no row",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id&id=eq.missing",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "insert one, returning it",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/todos?select=id%2Ctitle",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"family_id\":\"fam-1\",\"title\":\"Milch\",\"due\":null}"
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1",
+          "title": "Milch"
+        },
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "insert many, minimal",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/shopping_items?columns=%22family_id%22%2C%22name%22%2C%22quantity%22",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "[{\"family_id\":\"fam-1\",\"name\":\"Brot\"},{\"family_id\":\"fam-1\",\"name\":\"Käse\",\"quantity\":2}]"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "upsert on a conflict column",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/settings?on_conflict=family_id%2Ckey&select=*",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "resolution=merge-duplicates, return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"family_id\":\"fam-1\",\"key\":\"theme\",\"value\":\"dark\"}"
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          }
+        ],
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "upsert ignoring duplicates, with a count",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/devices?on_conflict=id&columns=%22id%22%2C%22name%22",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "resolution=ignore-duplicates, count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "[{\"id\":\"d1\",\"name\":\"Küche\"}]"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 1,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "update with filters, returning rows",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://rest.test:3000/todos?id=eq.1&family_id=eq.fam-1&select=id",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"title\":\"Milch\",\"done_at\":null}"
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "update with match",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://rest.test:3000/todos?family_id=eq.fam-1&id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "delete with filters",
+      "requests": [
+        {
+          "input": "string",
+          "method": "DELETE",
+          "url": "http://rest.test:3000/todos?family_id=eq.fam-1&id=in.%281%2C2%29",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "delete with an exact count",
+      "requests": [
+        {
+          "input": "string",
+          "method": "DELETE",
+          "url": "http://rest.test:3000/todos?family_id=eq.fam-1",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 2,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "a PostgREST error comes back as { error }",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=nope&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 400,
+        "statusText": "Error",
+        "error": {
+          "message": "column todos.nope does not exist",
+          "details": null,
+          "hint": null,
+          "code": "42703"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "throwOnError throws the PostgREST error",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/todos",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"id\":\"1\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "error": null,
+        "threw": {
+          "name": "PostgrestError",
+          "message": "duplicate key value"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "rpc POST with arguments",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/rpc/award_points",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"p_person_id\":\"p1\",\"p_points\":5,\"p_reason\":\"Zähne geputzt\"}"
+        }
+      ],
+      "result": {
+        "data": 7,
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "rpc POST without arguments",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/rpc/current_family_id",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{}"
+        }
+      ],
+      "result": {
+        "data": "fam-1",
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "rpc GET",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/rpc/family_days?p_from=2026-11-01&p_to=2026-11-30",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "day": "2026-11-27"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "rpc with a count and head",
+      "requests": [
+        {
+          "input": "string",
+          "method": "HEAD",
+          "url": "http://rest.test:3000/rpc/open_todos?p_family=fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 3,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "rpc with filters on its result, single",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/rpc/search_todos?id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"q\":\"milch\"}"
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "a call site's own header",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-test",
+              "1"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "a call site's own Authorization wins",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer call-site"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "401, then a fresh family token and one retry",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id%2Ctitle&family_id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 401,
+        "statusText": "Error",
+        "error": {
+          "message": "JWT expired",
+          "details": null,
+          "hint": null,
+          "code": "PGRST301"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "401 on a write, then a fresh family token and one retry",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://rest.test:3000/todos?id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 401,
+        "statusText": "Error",
+        "error": {
+          "message": "JWT expired",
+          "details": null,
+          "hint": null,
+          "code": "PGRST301"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "another schema",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/schema_migrations?select=version&limit=2",
+          "headers": [
+            [
+              "accept-profile",
+              "kinboard"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (POSTGREST_URL)",
+      "scenario": "csv",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "text/csv"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": "id\n1",
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "select with filters, order and range",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id%2Ctitle%2Cassignee%3Apeople%28name%29&family_id=eq.fam-1&status=neq.done&person_id=in.%28p1%2Cp2%29&due=gte.2026-11-01&due=lt.2026-12-01&title=ilike.%25milch%25&deleted_at=is.null&or=%28priority.eq.high%2Cpinned.is.true%29&category=not.is.null&tags=cs.%7Bkitchen%7D&order=due.asc.nullslast%2Ccreated_at.desc&offset=0&limit=10",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "select with an exact count and head",
+      "requests": [
+        {
+          "input": "string",
+          "method": "HEAD",
+          "url": "http://rest.test:3000/families?select=id&id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 42,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "select with a planned count and limit",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/events?select=*&family_id=eq.fam-1&limit=2",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "prefer",
+              "count=planned"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": 120,
+        "status": 206,
+        "statusText": "Error",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "single",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id%2Ctitle&id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1",
+          "title": "Milch"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "single, no row (406)",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id&id=eq.missing",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 406,
+        "statusText": "Error",
+        "error": {
+          "message": "Cannot coerce the result to a single JSON object",
+          "details": "The result contains 0 rows",
+          "hint": null,
+          "code": "PGRST116"
+        }
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "maybeSingle",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id%2Ctitle&id=eq.2",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "2",
+          "title": "Brot"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "maybeSingle, no row",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id&id=eq.missing",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "insert one, returning it",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/todos?select=id%2Ctitle",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": "{\"family_id\":\"fam-1\",\"title\":\"Milch\",\"due\":null}"
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1",
+          "title": "Milch"
+        },
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "insert many, minimal",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/shopping_items?columns=%22family_id%22%2C%22name%22%2C%22quantity%22",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": "[{\"family_id\":\"fam-1\",\"name\":\"Brot\"},{\"family_id\":\"fam-1\",\"name\":\"Käse\",\"quantity\":2}]"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "upsert on a conflict column",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/settings?on_conflict=family_id%2Ckey&select=*",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "resolution=merge-duplicates, return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": "{\"family_id\":\"fam-1\",\"key\":\"theme\",\"value\":\"dark\"}"
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          }
+        ],
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "upsert ignoring duplicates, with a count",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/devices?on_conflict=id&columns=%22id%22%2C%22name%22",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "resolution=ignore-duplicates, count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": "[{\"id\":\"d1\",\"name\":\"Küche\"}]"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 1,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "update with filters, returning rows",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://rest.test:3000/todos?id=eq.1&family_id=eq.fam-1&select=id",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": "{\"title\":\"Milch\",\"done_at\":null}"
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "update with match",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://rest.test:3000/todos?family_id=eq.fam-1&id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "delete with filters",
+      "requests": [
+        {
+          "input": "string",
+          "method": "DELETE",
+          "url": "http://rest.test:3000/todos?family_id=eq.fam-1&id=in.%281%2C2%29",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "delete with an exact count",
+      "requests": [
+        {
+          "input": "string",
+          "method": "DELETE",
+          "url": "http://rest.test:3000/todos?family_id=eq.fam-1",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 2,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "a PostgREST error comes back as { error }",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=nope&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 400,
+        "statusText": "Error",
+        "error": {
+          "message": "column todos.nope does not exist",
+          "details": null,
+          "hint": null,
+          "code": "42703"
+        }
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "throwOnError throws the PostgREST error",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/todos",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": "{\"id\":\"1\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "error": null,
+        "threw": {
+          "name": "PostgrestError",
+          "message": "duplicate key value"
+        }
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "rpc POST with arguments",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/rpc/award_points",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": "{\"p_person_id\":\"p1\",\"p_points\":5,\"p_reason\":\"Zähne geputzt\"}"
+        }
+      ],
+      "result": {
+        "data": 7,
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "rpc POST without arguments",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/rpc/current_family_id",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": "{}"
+        }
+      ],
+      "result": {
+        "data": "fam-1",
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "rpc GET",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/rpc/family_days?p_from=2026-11-01&p_to=2026-11-30",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "day": "2026-11-27"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "rpc with a count and head",
+      "requests": [
+        {
+          "input": "string",
+          "method": "HEAD",
+          "url": "http://rest.test:3000/rpc/open_todos?p_family=fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 3,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "rpc with filters on its result, single",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://rest.test:3000/rpc/search_todos?id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": "{\"q\":\"milch\"}"
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "a call site's own header",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ],
+            [
+              "x-kinboard-test",
+              "1"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "a call site's own Authorization wins",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer call-site"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "401, then a fresh family token and one retry",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id%2Ctitle&family_id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 401,
+        "statusText": "Error",
+        "error": {
+          "message": "JWT expired",
+          "details": null,
+          "hint": null,
+          "code": "PGRST301"
+        }
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "401 on a write, then a fresh family token and one retry",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://rest.test:3000/todos?id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 401,
+        "statusText": "Error",
+        "error": {
+          "message": "JWT expired",
+          "details": null,
+          "hint": null,
+          "code": "PGRST301"
+        }
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "another schema",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/schema_migrations?select=version&limit=2",
+          "headers": [
+            [
+              "accept-profile",
+              "kinboard"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role as integration",
+      "scenario": "csv",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://rest.test:3000/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "text/csv"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-actor",
+              "integration"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": "id\n1",
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "select with filters, order and range",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/todos?select=id%2Ctitle%2Cassignee%3Apeople%28name%29&family_id=eq.fam-1&status=neq.done&person_id=in.%28p1%2Cp2%29&due=gte.2026-11-01&due=lt.2026-12-01&title=ilike.%25milch%25&deleted_at=is.null&or=%28priority.eq.high%2Cpinned.is.true%29&category=not.is.null&tags=cs.%7Bkitchen%7D&order=due.asc.nullslast%2Ccreated_at.desc&offset=0&limit=10",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "select with an exact count and head",
+      "requests": [
+        {
+          "input": "string",
+          "method": "HEAD",
+          "url": "http://kong.test:8000/rest/v1/families?select=id&id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 42,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "select with a planned count and limit",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/events?select=*&family_id=eq.fam-1&limit=2",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "prefer",
+              "count=planned"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": 120,
+        "status": 206,
+        "statusText": "Error",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "single",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/todos?select=id%2Ctitle&id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1",
+          "title": "Milch"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "single, no row (406)",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/todos?select=id&id=eq.missing",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 406,
+        "statusText": "Error",
+        "error": {
+          "message": "Cannot coerce the result to a single JSON object",
+          "details": "The result contains 0 rows",
+          "hint": null,
+          "code": "PGRST116"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "maybeSingle",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/todos?select=id%2Ctitle&id=eq.2",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "2",
+          "title": "Brot"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "maybeSingle, no row",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/todos?select=id&id=eq.missing",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "insert one, returning it",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/rest/v1/todos?select=id%2Ctitle",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"family_id\":\"fam-1\",\"title\":\"Milch\",\"due\":null}"
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1",
+          "title": "Milch"
+        },
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "insert many, minimal",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/rest/v1/shopping_items?columns=%22family_id%22%2C%22name%22%2C%22quantity%22",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "[{\"family_id\":\"fam-1\",\"name\":\"Brot\"},{\"family_id\":\"fam-1\",\"name\":\"Käse\",\"quantity\":2}]"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "upsert on a conflict column",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/rest/v1/settings?on_conflict=family_id%2Ckey&select=*",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "resolution=merge-duplicates, return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"family_id\":\"fam-1\",\"key\":\"theme\",\"value\":\"dark\"}"
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          }
+        ],
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "upsert ignoring duplicates, with a count",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/rest/v1/devices?on_conflict=id&columns=%22id%22%2C%22name%22",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "resolution=ignore-duplicates, count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "[{\"id\":\"d1\",\"name\":\"Küche\"}]"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 1,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "update with filters, returning rows",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://kong.test:8000/rest/v1/todos?id=eq.1&family_id=eq.fam-1&select=id",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"title\":\"Milch\",\"done_at\":null}"
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "update with match",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://kong.test:8000/rest/v1/todos?family_id=eq.fam-1&id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "delete with filters",
+      "requests": [
+        {
+          "input": "string",
+          "method": "DELETE",
+          "url": "http://kong.test:8000/rest/v1/todos?family_id=eq.fam-1&id=in.%281%2C2%29",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "delete with an exact count",
+      "requests": [
+        {
+          "input": "string",
+          "method": "DELETE",
+          "url": "http://kong.test:8000/rest/v1/todos?family_id=eq.fam-1",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 2,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "a PostgREST error comes back as { error }",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/todos?select=nope&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 400,
+        "statusText": "Error",
+        "error": {
+          "message": "column todos.nope does not exist",
+          "details": null,
+          "hint": null,
+          "code": "42703"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "throwOnError throws the PostgREST error",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/rest/v1/todos",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"id\":\"1\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "error": null,
+        "threw": {
+          "name": "PostgrestError",
+          "message": "duplicate key value"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "rpc POST with arguments",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/rest/v1/rpc/award_points",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"p_person_id\":\"p1\",\"p_points\":5,\"p_reason\":\"Zähne geputzt\"}"
+        }
+      ],
+      "result": {
+        "data": 7,
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "rpc POST without arguments",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/rest/v1/rpc/current_family_id",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{}"
+        }
+      ],
+      "result": {
+        "data": "fam-1",
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "rpc GET",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/rpc/family_days?p_from=2026-11-01&p_to=2026-11-30",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "day": "2026-11-27"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "rpc with a count and head",
+      "requests": [
+        {
+          "input": "string",
+          "method": "HEAD",
+          "url": "http://kong.test:8000/rest/v1/rpc/open_todos?p_family=fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 3,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "rpc with filters on its result, single",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/rest/v1/rpc/search_todos?id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"q\":\"milch\"}"
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "a call site's own header",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-test",
+              "1"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "a call site's own Authorization wins",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer call-site"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "401, then a fresh family token and one retry",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/todos?select=id%2Ctitle&family_id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 401,
+        "statusText": "Error",
+        "error": {
+          "message": "JWT expired",
+          "details": null,
+          "hint": null,
+          "code": "PGRST301"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "401 on a write, then a fresh family token and one retry",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://kong.test:8000/rest/v1/todos?id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 401,
+        "statusText": "Error",
+        "error": {
+          "message": "JWT expired",
+          "details": null,
+          "hint": null,
+          "code": "PGRST301"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "another schema",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/schema_migrations?select=version&limit=2",
+          "headers": [
+            [
+              "accept-profile",
+              "kinboard"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong SUPABASE_URL)",
+      "scenario": "csv",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/rest/v1/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "text/csv"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": "id\n1",
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "select with filters, order and range",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?select=id%2Ctitle%2Cassignee%3Apeople%28name%29&family_id=eq.fam-1&status=neq.done&person_id=in.%28p1%2Cp2%29&due=gte.2026-11-01&due=lt.2026-12-01&title=ilike.%25milch%25&deleted_at=is.null&or=%28priority.eq.high%2Cpinned.is.true%29&category=not.is.null&tags=cs.%7Bkitchen%7D&order=due.asc.nullslast%2Ccreated_at.desc&offset=0&limit=10",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "select with an exact count and head",
+      "requests": [
+        {
+          "input": "string",
+          "method": "HEAD",
+          "url": "http://kong.test:8000/kinboard/rest/v1/families?select=id&id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 42,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "select with a planned count and limit",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/events?select=*&family_id=eq.fam-1&limit=2",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "prefer",
+              "count=planned"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": 120,
+        "status": 206,
+        "statusText": "Error",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "single",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?select=id%2Ctitle&id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1",
+          "title": "Milch"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "single, no row (406)",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?select=id&id=eq.missing",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 406,
+        "statusText": "Error",
+        "error": {
+          "message": "Cannot coerce the result to a single JSON object",
+          "details": "The result contains 0 rows",
+          "hint": null,
+          "code": "PGRST116"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "maybeSingle",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?select=id%2Ctitle&id=eq.2",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "2",
+          "title": "Brot"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "maybeSingle, no row",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?select=id&id=eq.missing",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "insert one, returning it",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?select=id%2Ctitle",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"family_id\":\"fam-1\",\"title\":\"Milch\",\"due\":null}"
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1",
+          "title": "Milch"
+        },
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "insert many, minimal",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/kinboard/rest/v1/shopping_items?columns=%22family_id%22%2C%22name%22%2C%22quantity%22",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "[{\"family_id\":\"fam-1\",\"name\":\"Brot\"},{\"family_id\":\"fam-1\",\"name\":\"Käse\",\"quantity\":2}]"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "upsert on a conflict column",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/kinboard/rest/v1/settings?on_conflict=family_id%2Ckey&select=*",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "resolution=merge-duplicates, return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"family_id\":\"fam-1\",\"key\":\"theme\",\"value\":\"dark\"}"
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          }
+        ],
+        "count": null,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "upsert ignoring duplicates, with a count",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/kinboard/rest/v1/devices?on_conflict=id&columns=%22id%22%2C%22name%22",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "resolution=ignore-duplicates, count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "[{\"id\":\"d1\",\"name\":\"Küche\"}]"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 1,
+        "status": 201,
+        "statusText": "Created",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "update with filters, returning rows",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?id=eq.1&family_id=eq.fam-1&select=id",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "return=representation"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"title\":\"Milch\",\"done_at\":null}"
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "update with match",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?family_id=eq.fam-1&id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "delete with filters",
+      "requests": [
+        {
+          "input": "string",
+          "method": "DELETE",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?family_id=eq.fam-1&id=in.%281%2C2%29",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "delete with an exact count",
+      "requests": [
+        {
+          "input": "string",
+          "method": "DELETE",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?family_id=eq.fam-1",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 2,
+        "status": 204,
+        "statusText": "No Content",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "a PostgREST error comes back as { error }",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?select=nope&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 400,
+        "statusText": "Error",
+        "error": {
+          "message": "column todos.nope does not exist",
+          "details": null,
+          "hint": null,
+          "code": "42703"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "throwOnError throws the PostgREST error",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"id\":\"1\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "error": null,
+        "threw": {
+          "name": "PostgrestError",
+          "message": "duplicate key value"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "rpc POST with arguments",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/kinboard/rest/v1/rpc/award_points",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"p_person_id\":\"p1\",\"p_points\":5,\"p_reason\":\"Zähne geputzt\"}"
+        }
+      ],
+      "result": {
+        "data": 7,
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "rpc POST without arguments",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/kinboard/rest/v1/rpc/current_family_id",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{}"
+        }
+      ],
+      "result": {
+        "data": "fam-1",
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "rpc GET",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/rpc/family_days?p_from=2026-11-01&p_to=2026-11-30",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "day": "2026-11-27"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "rpc with a count and head",
+      "requests": [
+        {
+          "input": "string",
+          "method": "HEAD",
+          "url": "http://kong.test:8000/kinboard/rest/v1/rpc/open_todos?p_family=fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "prefer",
+              "count=exact"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": 3,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "rpc with filters on its result, single",
+      "requests": [
+        {
+          "input": "string",
+          "method": "POST",
+          "url": "http://kong.test:8000/kinboard/rest/v1/rpc/search_todos?id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "application/vnd.pgrst.object+json"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"q\":\"milch\"}"
+        }
+      ],
+      "result": {
+        "data": {
+          "id": "1"
+        },
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "a call site's own header",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ],
+            [
+              "x-kinboard-test",
+              "1"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "a call site's own Authorization wins",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer call-site"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "401, then a fresh family token and one retry",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?select=id%2Ctitle&family_id=eq.fam-1",
+          "headers": [
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 401,
+        "statusText": "Error",
+        "error": {
+          "message": "JWT expired",
+          "details": null,
+          "hint": null,
+          "code": "PGRST301"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "401 on a write, then a fresh family token and one retry",
+      "requests": [
+        {
+          "input": "string",
+          "method": "PATCH",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?id=eq.1",
+          "headers": [
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "content-profile",
+              "public"
+            ],
+            [
+              "content-type",
+              "application/json"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": "{\"status\":\"done\"}"
+        }
+      ],
+      "result": {
+        "data": null,
+        "count": null,
+        "status": 401,
+        "statusText": "Error",
+        "error": {
+          "message": "JWT expired",
+          "details": null,
+          "hint": null,
+          "code": "PGRST301"
+        }
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "another schema",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/schema_migrations?select=version&limit=2",
+          "headers": [
+            [
+              "accept-profile",
+              "kinboard"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": [
+          {
+            "id": "1",
+            "title": "Milch"
+          },
+          {
+            "id": "2",
+            "title": "Brot"
+          }
+        ],
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    },
+    {
+      "shape": "server, service role (legacy Kong, a base with a path and a trailing slash)",
+      "scenario": "csv",
+      "requests": [
+        {
+          "input": "string",
+          "method": "GET",
+          "url": "http://kong.test:8000/kinboard/rest/v1/todos?select=id&id=eq.1",
+          "headers": [
+            [
+              "accept",
+              "text/csv"
+            ],
+            [
+              "accept-profile",
+              "public"
+            ],
+            [
+              "apikey",
+              "service-role-key"
+            ],
+            [
+              "authorization",
+              "Bearer service-role-key"
+            ],
+            [
+              "x-client-info",
+              "supabase-js-node/2.105.3"
+            ]
+          ],
+          "body": null
+        }
+      ],
+      "result": {
+        "data": "id\n1",
+        "count": null,
+        "status": 200,
+        "statusText": "OK",
+        "error": null
+      }
+    }
+  ]
+}

@@ -40,7 +40,7 @@ export function roleOf(token: string | null): string | null {
   }
 }
 
-/** Whether a request carries the service_role key in either header supabase-js uses. */
+/** Whether a request carries the service_role key in either header the PostgREST client sets. */
 export function carriesServiceRole(headers: Headers): boolean {
   return [headers.get("authorization"), headers.get("apikey")].some((h) => roleOf(h) === "service_role");
 }
@@ -90,9 +90,9 @@ export function downstreamResponseHeaders(upstream: Headers): Headers {
 }
 
 /**
- * A fetch for supabase-js on the server that goes straight to PostgREST.
+ * A fetch for the server's PostgREST client that goes straight to PostgREST.
  *
- * supabase-js builds `${url}/rest/v1/<table>`; PostgREST serves `/<table>`.
+ * The client builds `${url}/rest/v1/<table>` (lib/supabase/postgrest.ts); PostgREST serves `/<table>`.
  * Kong used to strip the prefix. With POSTGREST_URL set the clients are built
  * on that address and this strips it instead — one hop, no gateway. Without
  * it (a compose file from before 1.15, still running Kong), requests go to

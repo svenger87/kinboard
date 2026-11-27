@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
+import { createPostgrestClient } from "../src/lib/supabase/postgrest";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { mintFamilyToken } from "../src/lib/family-jwt";
 import type { RpcClient } from "../src/lib/pocket-money/booking";
@@ -317,9 +317,8 @@ test.describe("a browser's token reads its family's rows and writes nothing", ()
   test.skip(!ANON || !(process.env.JWT_SECRET || process.env.PGRST_JWT_SECRET), "needs NEXT_PUBLIC_SUPABASE_ANON_KEY and JWT_SECRET");
 
   const browser = (familyId: string) =>
-    createClient(URL!, ANON!, {
-      global: { headers: { Authorization: `Bearer ${mintFamilyToken(familyId).token}` } },
-      auth: { persistSession: false, autoRefreshToken: false },
+    createPostgrestClient(URL!, ANON!, {
+      headers: { Authorization: `Bearer ${mintFamilyToken(familyId).token}` },
     }) as any;
 
   test("reads: its own family's rewards and requests, never another's", async () => {

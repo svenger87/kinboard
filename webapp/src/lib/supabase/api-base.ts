@@ -55,12 +55,12 @@ export function publicApiEnv(anonKey: string): PublicEnv {
 }
 
 /**
- * The base server-side supabase-js clients are built on.
+ * The base the server-side PostgREST client is built on.
  *
  * POSTGREST_URL (`http://rest:3000` in the stack, a published port for
  * `next dev`): the clients talk to PostgREST directly, through
  * lib/rest-proxy.ts `postgrestFetch`, which strips the `/rest/v1` prefix
- * supabase-js adds. SUPABASE_URL is the pre-1.15 compose file's Kong address,
+ * the client adds (lib/supabase/postgrest.ts). SUPABASE_URL is the pre-1.15 compose file's Kong address,
  * honoured until that file is updated.
  */
 export function serverSupabaseUrl(env: EnvLike = process.env): string {
@@ -76,16 +76,16 @@ export function serverSupabaseUrl(env: EnvLike = process.env): string {
 
 /**
  * The fetch the server clients are built with. Against PostgREST it strips the
- * `/rest/v1` prefix supabase-js adds; against Kong (a compose file from before
+ * `/rest/v1` prefix the client adds; against Kong (a compose file from before
  * 1.15, POSTGREST_URL unset) it leaves the URL alone, because Kong routes on
  * that prefix. Stripping it there sent every server query to a path Kong has
  * no route for: the family count came back empty, and the join page offered to
  * create a family on an install that had three.
  *
- * Both server factories (lib/supabase/server.ts: the anon client and the
- * service-role client) use this, so the unfiltered-write guard (RFC-024
- * §4.2.1) sits here, outside the prefix strip, where the URL still reads
- * `/rest/v1/<table>`.
+ * The server factory (lib/supabase/server.ts `createAdminClient`, with or
+ * without the integration actor) uses this, so the unfiltered-write guard
+ * (RFC-024 §4.2.1) sits here, outside the prefix strip, where the URL still
+ * reads `/rest/v1/<table>`.
  */
 export function serverSupabaseFetch(env: EnvLike = process.env): typeof fetch {
   const direct = postgrestUrl(env);

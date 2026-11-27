@@ -6,7 +6,7 @@ import { join } from "node:path";
 import vm from "node:vm";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createPostgrestClient } from "../src/lib/supabase/postgrest";
 import { publicApiEnv, serverSupabaseFetch, serverSupabaseUrl } from "../src/lib/supabase/api-base";
 import { absoluteStorageUrl, publicStorageUrl } from "../src/lib/supabase/public-url";
 import { postgrestFetch } from "../src/lib/rest-proxy";
@@ -71,9 +71,9 @@ test.describe("server-side code goes straight to PostgREST", () => {
     ]);
   });
 
-  test("both server clients use it, through the one helper", () => {
+  test("the server client uses it, through the one helper", () => {
     const server = readFileSync("src/lib/supabase/server.ts", "utf8");
-    expect(server.match(/serverSupabaseFetch\(\)/g)?.length).toBe(2);
+    expect(server.match(/serverSupabaseFetch\(\)/g)?.length).toBe(1);
     expect(server).not.toContain("postgrestFetch(");
   });
 
@@ -96,10 +96,7 @@ test.describe("server-side code goes straight to PostgREST", () => {
     await new Promise<void>((done) => kong.listen(0, "127.0.0.1", done));
     const env = { SUPABASE_URL: `http://127.0.0.1:${(kong.address() as AddressInfo).port}` };
     try {
-      const db = createSupabaseClient(serverSupabaseUrl(env), "service-key", {
-        auth: { autoRefreshToken: false, persistSession: false },
-        global: { fetch: serverSupabaseFetch(env) },
-      });
+      const db = createPostgrestClient(serverSupabaseUrl(env), "service-key", { fetch: serverSupabaseFetch(env) });
       const { count, error } = await db.from("families").select("id", { count: "exact", head: true });
       expect(error).toBeNull();
       expect(count).toBe(3);
