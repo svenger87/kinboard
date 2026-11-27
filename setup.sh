@@ -61,6 +61,195 @@ require() {
 
 require openssl
 
+# ----------------------------------------------------------------------
+# 0. How this script writes files
+# ----------------------------------------------------------------------
+# .env holds every secret an install has, so a write must never lose one.
+# Until this was tightened, three things could (#539):
+#
+#   - every change went through one shared name (`awk … > .env.tmp && mv`),
+#     so two runs at once — the self-update's and one started by hand —
+#     wrote into the same temp file and one renamed the other's half-written
+#     copy over .env;
+#   - the copy was a new file owned by whoever ran this. The self-update runs
+#     it as root inside the webhook container, so after every update .env
+#     belonged to root, mode 0644, and the household could no longer edit it;
+#   - nothing checked the result: an empty or cut-short copy replaced .env
+#     as readily as a good one.
+#
+# So: one run at a time (the lock below); every write goes to its own temp
+# file next to the target, gets the target's owner, group and mode, is synced
+# and renamed over it; and a result that is empty, shorter, or missing a key
+# the file had is refused — the original stays and the script exits non-zero.
+# A file that does not exist yet belongs to whoever owns its folder (the
+# checkout's owner, also when root runs this) and is created 0600.
+
+DOCKER_DIR="$REPO_ROOT/webapp/docker"
+TEMP_FILES=()
+LOCK_DIR_HELD=""
+cleanup() {
+  local f
+  for f in "${TEMP_FILES[@]}"; do rm -f "$f" 2>/dev/null || true; done
+  [[ -z "$LOCK_DIR_HELD" ]] || rm -rf "$LOCK_DIR_HELD" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+die() {
+  echo "error: $*" >&2
+  exit 1
+}
+
+# "uid gid mode" of a file or folder. GNU and busybox stat take -c, BSD -f.
+file_meta() {
+  stat -c '%u %g %a' "$1" 2>/dev/null || stat -f '%u %g %Lp' "$1" 2>/dev/null
+}
+
+# A new temp file next to $1 (same filesystem, so the rename is atomic), in
+# NEW_TEMP — not printed, so it is recorded here rather than in a subshell
+# and the exit trap removes it. mktemp creates it 0600, so a secret is never
+# readable by others, not even for a moment. Next to .env its name matches
+# .env.*, which git ignores.
+new_temp() {
+  NEW_TEMP="$(mktemp "$1.XXXXXX")" || die "could not create a temporary file next to $1"
+  TEMP_FILES+=("$NEW_TEMP")
+}
+
+# KEY= names in a file, one per line.
+env_keys() {
+  { grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$1" 2>/dev/null || true; } | sort -u
+}
+
+# commit_file TARGET TEMP [replace]
+# Puts TEMP in TARGET's place, keeping TARGET's owner, group and mode. Unless
+# the third argument is "replace" (--force starting over from .env.example),
+# TEMP must keep every line and every KEY= that TARGET has.
+commit_file() {
+  local target="$1" tmp="$2" how="${3:-}"
+  local uid gid mode lost tu tg
+
+  if [[ -f "$target" && "$how" != replace ]]; then
+    if [[ -s "$target" && ! -s "$tmp" ]]; then
+      die "the new $target came out empty; kept the original and stopped"
+    fi
+    if (( $(wc -l < "$tmp") < $(wc -l < "$target") )); then
+      die "the new $target came out shorter than the original ($(wc -l < "$tmp") < $(wc -l < "$target") lines); kept the original and stopped"
+    fi
+    lost="$(env_keys "$target" | grep -vxF -f <(env_keys "$tmp") || true)"
+    if [[ -n "$lost" ]]; then
+      die "the new $target lacks $(echo $lost | tr -d =); kept the original and stopped"
+    fi
+  fi
+
+  if [[ -e "$target" ]]; then
+    read -r uid gid mode < <(file_meta "$target") || true
+  else
+    read -r uid gid _ < <(file_meta "$(dirname "$target")") || true
+    mode=600
+  fi
+
+  if [[ -n "${uid:-}" && -n "${gid:-}" ]] \
+     && ! { read -r tu tg _ < <(file_meta "$tmp") && [[ "$tu" == "$uid" && "$tg" == "$gid" ]]; } \
+     && ! chown "$uid:$gid" "$tmp" 2>/dev/null; then
+    # Not root, or a filesystem that refuses chown. Writing into the file
+    # itself keeps who owns it; it is not atomic, but the lock keeps other
+    # runs of this script out, and the content was checked above.
+    if [[ -f "$target" && -w "$target" ]]; then
+      cat "$tmp" > "$target"
+      sync "$target" 2>/dev/null || true
+      rm -f "$tmp"
+      return 0
+    fi
+    echo "  note: could not give $target its owner back ($uid:$gid); it now belongs to $(id -un 2>/dev/null || id -u)" >&2
+  fi
+  [[ -z "${mode:-}" ]] || chmod "$mode" "$tmp"
+  # Flush the data before the rename, so a crash leaves the old file or the
+  # new one, never an empty one. `sync FILE` syncs that file (GNU, busybox);
+  # where it takes no argument, plain sync.
+  sync "$tmp" 2>/dev/null || sync 2>/dev/null || true
+  mv -f "$tmp" "$target"
+  sync "$(dirname "$target")" 2>/dev/null || true
+}
+
+# A symlinked file is written where the link points, and the link stays:
+# replacing the link would also take stat's answer for the link itself
+# (mode 0777) as the mode to give a file full of secrets.
+real_path() {
+  if [[ -L "$1" ]]; then
+    readlink -f "$1" 2>/dev/null || die "could not resolve the link $1"
+  else
+    printf '%s\n' "$1"
+  fi
+}
+
+# rewrite FILE CMD ARGS… — FILE becomes what CMD prints reading it on stdin.
+rewrite() {
+  local target tmp
+  target="$(real_path "$1")"
+  shift
+  new_temp "$target"; tmp="$NEW_TEMP"
+  "$@" < "$target" > "$tmp" || die "could not rewrite $target; kept the original"
+  commit_file "$target" "$tmp"
+}
+
+# install_from SOURCE TARGET [replace] — TARGET becomes a copy of SOURCE.
+install_from() {
+  local target tmp
+  target="$(real_path "$2")"
+  new_temp "$target"; tmp="$NEW_TEMP"
+  cat "$1" > "$tmp" || die "could not copy $1"
+  commit_file "$target" "$tmp" "${3:-}"
+}
+
+# env_set FILE KEY VALUE — every KEY= line gets VALUE; added when missing.
+env_set() {
+  # shellcheck disable=SC2016
+  rewrite "$1" awk -v k="$2" -v v="$3" '
+    $0 ~ "^"k"=" { print k"="v; found = 1; next }
+    { print }
+    END { if (!found) print k"="v }
+  '
+}
+
+# One setup.sh at a time. flock where there is one (util-linux, busybox in
+# the webhook image), released by the kernel when a run dies; otherwise a
+# lock folder, taken over once it is older than the wait. The lock file is
+# opened read-only, so one that root created still works for everyone. This
+# is not the self-update's lock (.git/kinboard-update.lock, which it holds
+# while it runs this): a different file, so neither waits on the other.
+SETUP_LOCK="$DOCKER_DIR/.env.lock"   # .env.* is gitignored
+take_lock() {
+  local wait="${KINBOARD_SETUP_LOCK_WAIT:-600}" end said=0 age
+  end=$(( $(date +%s) + wait ))
+  if command -v flock >/dev/null 2>&1; then
+    if [[ ! -e "$SETUP_LOCK" ]] && : >> "$SETUP_LOCK" 2>/dev/null; then
+      chmod 0644 "$SETUP_LOCK" 2>/dev/null || true
+      read -r lu lg _ < <(file_meta "$DOCKER_DIR") && chown "$lu:$lg" "$SETUP_LOCK" 2>/dev/null || true
+    fi
+    if [[ -r "$SETUP_LOCK" ]]; then
+      exec 7<"$SETUP_LOCK"
+      while ! flock -n 7; do
+        [[ $said -eq 1 ]] || { echo "→ another setup.sh is running; waiting for it (up to ${wait}s)"; said=1; }
+        (( $(date +%s) < end )) || die "another setup.sh still runs after ${wait}s (one waiting for answers in a terminal?); nothing was changed"
+        sleep 1
+      done
+      return 0
+    fi
+  fi
+  while ! mkdir "$SETUP_LOCK.d" 2>/dev/null; do
+    age=$(( $(date +%s) - $(stat -c %Y "$SETUP_LOCK.d" 2>/dev/null || stat -f %m "$SETUP_LOCK.d" 2>/dev/null || date +%s) ))
+    if (( age > wait )); then
+      echo "  note: $SETUP_LOCK.d is ${age}s old; taking it over" >&2
+      rm -rf "$SETUP_LOCK.d"
+      continue
+    fi
+    [[ $said -eq 1 ]] || { echo "→ another setup.sh is running; waiting for it (up to ${wait}s)"; said=1; }
+    (( $(date +%s) < end )) || die "another setup.sh still runs after ${wait}s; nothing was changed. If none is, remove $SETUP_LOCK.d"
+    sleep 1
+  done
+  LOCK_DIR_HELD="$SETUP_LOCK.d"
+}
+take_lock
+
 # node + npx are only needed for VAPID push-notification key generation.
 # Without them setup still completes; push notifications just stay
 # disabled until the user generates VAPID keys themselves later.
@@ -77,7 +266,7 @@ fi
 fresh_env=0
 if [[ ! -f "$DOCKER_ENV" ]] || [[ $force -eq 1 ]]; then
   echo "→ creating $DOCKER_ENV from .env.example"
-  cp "$DOCKER_ENV_EXAMPLE" "$DOCKER_ENV"
+  install_from "$DOCKER_ENV_EXAMPLE" "$DOCKER_ENV" replace
   fresh_env=1
 fi
 
@@ -174,11 +363,7 @@ site_url="${site_url%/}"
 
 # Force-update on idempotent re-runs. awk, so any character is safe; a key
 # the file does not have yet is appended.
-if ! grep -qE "^SITE_URL=" "$DOCKER_ENV"; then
-  printf 'SITE_URL=\n' >> "$DOCKER_ENV"
-fi
-awk -v v="$site_url" '$0 ~ /^SITE_URL=/ { print "SITE_URL=" v; next } { print }' \
-  "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
+env_set "$DOCKER_ENV" SITE_URL "$site_url"
 echo "  SITE_URL=$site_url"
 
 # ----------------------------------------------------------------------
@@ -190,24 +375,13 @@ fill_secret() {
   local file="$3"
   local current
 
-  # Append the line with an empty value if the file doesn't have it at
-  # all yet (e.g. existing self-hosters whose .env predates a new key
-  # introduced in a later release). Without this, awk's pattern-match
-  # rewrite below silently no-ops on missing keys and the new secret
-  # never lands.
-  if ! grep -qE "^${key}=" "$file"; then
-    printf '%s=\n' "$key" >> "$file"
-  fi
-
+  # A key the file doesn't have at all yet (an existing self-hoster's .env
+  # predating a key a later release introduced) counts as empty; env_set
+  # appends it.
   # Strip trailing \r in case the .env was edited on Windows (CRLF)
-  current=$(grep -E "^${key}=" "$file" | head -n1 | cut -d= -f2- | tr -d '\r')
+  current=$({ grep -E "^${key}=" "$file" || true; } | head -n1 | cut -d= -f2- | tr -d '\r')
   if [[ -z "$current" ]] || [[ $force -eq 1 ]]; then
-    # macOS sed needs an empty backup arg; use a tmp file for portability
-    awk -v k="$key" -v v="$value" '
-      $0 ~ "^"k"=" { print k"="v; next }
-      { print }
-    ' "$file" > "$file.tmp"
-    mv "$file.tmp" "$file"
+    env_set "$file" "$key" "$value"
     echo "  set $key"
   else
     echo "  $key already set, leaving alone"
@@ -355,10 +529,7 @@ prompt_for_key() {
   local value
   read -r -p "  $key (Enter to skip): " value
   if [[ -n "$value" ]]; then
-    awk -v k="$key" -v v="$value" '
-      $0 ~ "^"k"=" { print k"="v; next }
-      { print }
-    ' "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
+    env_set "$DOCKER_ENV" "$key" "$value"
     echo "  ✓ $key set"
   else
     echo "  → $key skipped"
@@ -389,10 +560,7 @@ EOF
   if [[ -n "$smtp_admin" ]] \
      && [[ "$smtp_admin" != "admin@example.com" ]] \
      && { [[ "$vapid_subject" == "mailto:admin@example.com" ]] || [[ -z "$vapid_subject" ]]; }; then
-    awk -v v="mailto:$smtp_admin" '
-      /^VAPID_SUBJECT=/ { print "VAPID_SUBJECT="v; next }
-      { print }
-    ' "$DOCKER_ENV" > "$DOCKER_ENV.tmp" && mv "$DOCKER_ENV.tmp" "$DOCKER_ENV"
+    env_set "$DOCKER_ENV" VAPID_SUBJECT "mailto:$smtp_admin"
     echo "  ✓ VAPID_SUBJECT mirrored to mailto:$smtp_admin"
   fi
 
@@ -435,7 +603,7 @@ fi
 # ----------------------------------------------------------------------
 if [[ ! -f "$WEBAPP_ENV" ]]; then
   echo "→ creating $WEBAPP_ENV from .env.example"
-  cp "$WEBAPP_ENV_EXAMPLE" "$WEBAPP_ENV"
+  install_from "$WEBAPP_ENV_EXAMPLE" "$WEBAPP_ENV"
   echo "  edit it after Supabase keys are issued"
 fi
 
@@ -457,14 +625,14 @@ if [[ -f "$DIUN_YML" ]]; then
   if [[ -n "$diun_secret" ]]; then
     if grep -q "REPLACE_WITH_DIUN_WEBHOOK_SECRET\|X-Diun-Token: '{{ env " "$DIUN_YML"; then
       echo "→ substituting DIUN_WEBHOOK_SECRET into diun.yml"
-      awk -v s="$diun_secret" '
+      rewrite "$DIUN_YML" awk -v s="$diun_secret" '
         {
           gsub(/REPLACE_WITH_DIUN_WEBHOOK_SECRET/, s);
           # Recover stacks that still have the old broken Go-template syntax.
           gsub(/X-Diun-Token: '\''\{\{ env "DIUN_WEBHOOK_SECRET" \}\}'\''/, "X-Diun-Token: " s);
           print
         }
-      ' "$DIUN_YML" > "$DIUN_YML.tmp" && mv "$DIUN_YML.tmp" "$DIUN_YML"
+      '
     fi
   fi
 fi
