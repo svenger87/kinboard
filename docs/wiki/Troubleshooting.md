@@ -60,10 +60,10 @@ From 1.18 `./start.sh` reads `.env` the way Compose does, and both lines work. N
 
 **With a copy** (`.env.keep`, `.env.before-fix`, a backup): copy it back to `webapp/docker/.env` and `./start.sh up`.
 
-**Without one,** don't just run `./setup.sh` and start: it makes a new `.env` with new passwords, and the existing database refuses them (`kinboard-db-init` keeps waiting, then *password authentication failed for user "supabase_admin"*). Your data is fine. Make the new `.env`, then give the database its new password before starting the rest:
+**Without one,** a new `.env` has new passwords, and the existing database refuses them (`kinboard-db-init` keeps waiting, then *password authentication failed for user "supabase_admin"*). Your data is fine. Plain `./setup.sh` stops here and says so; `--new-passwords` makes the new `.env` anyway. Then give the database its new password before starting the rest:
 
 ```bash
-cd /path/to/kinboard && ./setup.sh
+cd /path/to/kinboard && ./setup.sh --new-passwords
 cd webapp/docker
 docker compose -f docker-compose.yml up -d db
 until docker exec kinboard-db pg_isready -q; do sleep 2; done
