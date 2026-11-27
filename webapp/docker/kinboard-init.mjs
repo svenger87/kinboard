@@ -23,7 +23,9 @@
  *   3. Write what changed, each file through a temporary name and a rename.
  *      A file whose bytes the database and the webapp would read differently
  *      (a byte-order mark, a Windows line ending) is rewritten as its value.
- *   4. Write db_uri for PostgREST's `@file` from the database password.
+ *   4. Write db_uri for PostgREST's `@file` from the database password, to
+ *      the host in POSTGRES_HOST (`db` when unset: the compose service name;
+ *      a store whose apps share one network names the container instead).
  *   5. Set the directory to 0750 and every file to 0640, owner root:0
  *      (PostgREST runs as uid 1000, gid 0), and read them back; a share that
  *      ignores chmod gets a warning naming the files (RFC-023 §6.3).
@@ -45,7 +47,10 @@ export const FILE_MODE = 0o640;
 export const DB_URI_FILE = "db_uri";
 
 /** Where PostgREST finds the database, as the legacy file's PGRST_DB_URI has it. */
-const DB_URI_HOST = "db:5432/postgres";
+export const DEFAULT_DB_HOST = "db";
+const DB_URI_TAIL = "5432/postgres";
+/** A host name or IPv4 address; nothing that could end the URI early. */
+const HOST_NAME = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,251}[A-Za-z0-9])?$/;
 
 /**
  * Filesystems the database directory must not be on, and why. Matched against
@@ -167,8 +172,21 @@ export function vapidPairMatches(publicKey, privateKey) {
 }
 
 /** PostgREST's connection string; the password URL-encoded, so any character is safe. */
-export function dbUri(password) {
-  return `postgres://authenticator:${encodeURIComponent(password)}@${DB_URI_HOST}`;
+export function dbUri(password, host = DEFAULT_DB_HOST) {
+  return `postgres://authenticator:${encodeURIComponent(password)}@${host}:${DB_URI_TAIL}`;
+}
+
+/**
+ * The database's host for db_uri: POSTGRES_HOST, as the webapp and
+ * kinboard-db-init read it, or `db`. Umbrel runs every app on one shared
+ * network, where `db` can answer from another app's database, so its listing
+ * names the container (RFC-024 §5.4). Returns { host } or { error }.
+ */
+export function dbHost(env) {
+  const raw = env.POSTGRES_HOST ?? "";
+  if (raw === "") return { host: DEFAULT_DB_HOST };
+  if (!HOST_NAME.test(raw)) return { error: `POSTGRES_HOST "${raw}" is not a host name; PostgREST could not reach the database with it.` };
+  return { host: raw };
 }
 
 /**
@@ -301,6 +319,9 @@ export function planSecrets({ env, current, cluster, gen = { hex: randomHex, vap
     }
   }
 
+  const where = dbHost(env);
+  if (where.error) errors.push(where.error);
+
   if (errors.length > 0) return { writes: [], lines: [], warnings, errors };
 
   const writes = [];
@@ -312,7 +333,7 @@ export function planSecrets({ env, current, cluster, gen = { hex: randomHex, vap
     if (d.write) writes.push({ file, value: d.value, previous: d.previous });
   }
 
-  const uri = dbUri(decided.POSTGRES_PASSWORD.value);
+  const uri = dbUri(decided.POSTGRES_PASSWORD.value, where.host);
   if (current[DB_URI_FILE] !== uri) {
     writes.push({ file: DB_URI_FILE, value: uri, previous: false });
     lines.push(`${DB_URI_FILE}: written from postgres_password`);

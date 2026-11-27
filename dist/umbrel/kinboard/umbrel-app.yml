@@ -1,0 +1,27 @@
+# Generated from dist/kinboard.yaml and compose.yml by scripts/stores/build-store-listings.mjs. Do not edit by hand.
+manifestVersion: 1
+id: kinboard
+category: automation
+name: Kinboard
+version: 1.18.0-main.2e83c9f
+tagline: Your family's day, on one screen
+description: |-
+  Kinboard is a self-hosted family dashboard, built for a touchscreen on the kitchen wall and every phone in the house. Calendars (Google, CalDAV and iCal), meals and recipes, shopping lists, tasks, chores and rewards, a photo screensaver, weather, and your smart home through Home Assistant, on one screen everyone in the family can use.
+
+  Everything stays on your own hardware. There is no account to create and no cloud service in between: the first device creates the family, and every other device joins it with the family's code.
+
+
+  Open the app and create your family; every other device joins with the family's code. The passwords and keys create themselves on the first start and are kept in the config folder: back up all three folders together, and keep the backups private.
+releaseNotes: ""
+developer: svenger87
+website: https://kinboard.app
+dependencies: []
+repo: https://github.com/svenger87/kinboard
+support: https://github.com/svenger87/kinboard/discussions
+port: 3388
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+submitter: svenger87
+submission: https://github.com/svenger87/kinboard/blob/main/dist/README.md

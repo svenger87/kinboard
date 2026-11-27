@@ -1,0 +1,70 @@
+annotations:
+  min_scale_version: 24.10.2.2
+app_version: sha-2e83c9f
+capabilities:
+  - description: Db, Webapp are able to change file ownership arbitrarily
+    name: CHOWN
+  - description: Db, Webapp are able to bypass file permission checks
+    name: DAC_OVERRIDE
+  - description: Db, Webapp are able to bypass permission checks for file operations
+    name: FOWNER
+  - description: Db, Webapp are able to change group ID of processes
+    name: SETGID
+  - description: Db, Webapp are able to change user ID of processes
+    name: SETUID
+categories:
+  - productivity
+changelog_url: https://github.com/svenger87/kinboard/releases
+description: "Self-hosted family dashboard for kitchen wall displays: calendars, shopping, weather, photos, smart home, energy and daily life in one screen."
+home: https://kinboard.app
+host_mounts: []
+icon: https://media.sys.truenas.net/apps/kinboard/icons/icon.png
+keywords:
+  - family
+  - calendar
+  - dashboard
+  - kiosk
+  - shopping list
+  - home assistant
+lib_version: 2.3.22
+lib_version_hash: 9e1c926d174eeac7c158a956a7aa3e2d87b01c2e99c733dd500f388468e95213
+maintainers:
+  - email: dev@truenas.com
+    name: truenas
+    url: https://www.truenas.com/
+name: kinboard
+run_as_context:
+  - description: Container [db] runs as root user and group.
+    gid: 0
+    group_name: Host group is [root]
+    uid: 0
+    user_name: Host user is [root]
+  - description: Container [go2rtc] runs as root user and group.
+    gid: 0
+    group_name: Host group is [root]
+    uid: 0
+    user_name: Host user is [root]
+  - description: Container [rest] runs as root user and group.
+    gid: 0
+    group_name: Host group is [root]
+    uid: 0
+    user_name: Host user is [root]
+  - description: Container [webapp] runs as root user and group.
+    gid: 0
+    group_name: Host group is [root]
+    uid: 0
+    user_name: Host user is [root]
+screenshots:
+  - https://media.sys.truenas.net/apps/kinboard/screenshots/screenshot1.png
+  - https://media.sys.truenas.net/apps/kinboard/screenshots/screenshot2.png
+  - https://media.sys.truenas.net/apps/kinboard/screenshots/screenshot3.png
+  - https://media.sys.truenas.net/apps/kinboard/screenshots/screenshot4.png
+  - https://media.sys.truenas.net/apps/kinboard/screenshots/screenshot5.png
+  - https://media.sys.truenas.net/apps/kinboard/screenshots/screenshot6.png
+sources:
+  - https://apps.truenas.com/catalog/kinboard_community/
+  - https://github.com/svenger87/kinboard
+title: Kinboard
+train: community
+version: 1.0.0
+risks: []

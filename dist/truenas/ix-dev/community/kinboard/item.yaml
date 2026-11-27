@@ -1,0 +1,17 @@
+categories:
+  - productivity
+icon_url: https://media.sys.truenas.net/apps/kinboard/icons/icon.png
+screenshots:
+  - https://media.sys.truenas.net/apps/kinboard/screenshots/screenshot1.png
+  - https://media.sys.truenas.net/apps/kinboard/screenshots/screenshot2.png
+  - https://media.sys.truenas.net/apps/kinboard/screenshots/screenshot3.png
+  - https://media.sys.truenas.net/apps/kinboard/screenshots/screenshot4.png
+  - https://media.sys.truenas.net/apps/kinboard/screenshots/screenshot5.png
+  - https://media.sys.truenas.net/apps/kinboard/screenshots/screenshot6.png
+tags:
+  - family
+  - calendar
+  - dashboard
+  - kiosk
+  - shopping list
+  - home assistant

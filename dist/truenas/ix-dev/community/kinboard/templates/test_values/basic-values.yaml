@@ -1,0 +1,39 @@
+resources:
+  limits:
+    cpus: 2
+    memory: 4096
+TZ: Etc/UTC
+kinboard:
+  site_url: ""
+  webrtc_lan_ip: ""
+  instance_admin_family_id: ""
+network:
+  web_port:
+    bind_mode: published
+    port_number: 31088
+  webrtc_port:
+    bind_mode: published
+    port_number: 8555
+run_as:
+  user: 1000
+  group: 1000
+ix_volumes:
+  config: /opt/tests/mnt/kinboard/config
+  db: /opt/tests/mnt/kinboard/db
+  storage: /opt/tests/mnt/kinboard/storage
+storage:
+  config:
+    type: ix_volume
+    ix_volume_config:
+      dataset_name: config
+      create_host_path: true
+  db:
+    type: ix_volume
+    ix_volume_config:
+      dataset_name: db
+      create_host_path: true
+  storage:
+    type: ix_volume
+    ix_volume_config:
+      dataset_name: storage
+      create_host_path: true

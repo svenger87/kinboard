@@ -179,7 +179,7 @@ jobs:
             bash -n "$f"
           done
           # Developer rigs (rigs.yml runs them; here they only have to parse).
-          for f in scripts/rigs/*.sh scripts/rigs/stock-postgres/*.sh; do
+          for f in scripts/rigs/*.sh scripts/rigs/stock-postgres/*.sh scripts/stores/*.sh; do
             echo "checking $f"
             bash -n "$f"
           done
@@ -349,6 +349,64 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
         run: npm run build
+
+  # RFC-024 §6.5 and §7: every app-store listing is generated from one
+  # metadata file (dist/<app>.yaml) with compose.yml and docker.yml, and
+  # committed under dist/. The Specs job already fails when dist/ is not what
+  # the generator writes (e2e/store-listings.spec.ts). This one puts each
+  # listing through its store's own tooling, pinned in
+  # scripts/stores/upstream.json: Umbrel's lint-apps.mjs with its image checks,
+  # CasaOS's validate_compose.py and store build, TrueNAS's metadata generator
+  # and renderer, Portainer's template schema. Only when something it guards
+  # changed; it pulls TrueNAS's 3.8 GB validation image.
+  store-listings-decide:
+    name: Store listings (decide)
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: decide
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          guarded="dist/ scripts/stores/ compose.yml .github/workflows/docker.yml webapp/package.json .github/workflows/ci.yml"
+          if [ -z "$BASE" ] || [[ "$BASE" =~ ^0+$ ]] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; echo "no usable base: run"; exit 0
+          fi
+          run=false
+          while IFS= read -r f; do
+            for p in $guarded; do case "$f" in "$p"*) run=true; echo "guarded: $f" ;; esac; done
+          done < <(git diff --name-only "$BASE" "$GITHUB_SHA")
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+  store-listings:
+    name: Store listings (each store's own tooling)
+    needs: store-listings-decide
+    if: needs.store-listings-decide.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reclaim disk
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/share/swift || true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+      # js-yaml, which the generator reads the inputs with.
+      - name: Install webapp deps
+        working-directory: webapp
+        run: |
+          corepack enable npm
+          npm ci
+      - name: Generated listings up to date
+        run: node scripts/stores/build-store-listings.mjs --check
+      - name: Each store's own validation
+        run: scripts/stores/validate-upstream.sh
 
   # RFC-024 §6.5: the gates for stock PostgreSQL, mandatory for any install on
   # kinboard-postgres (scripts/rigs/test-stock-postgres.sh): the policy, grant

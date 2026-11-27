@@ -1,0 +1,186 @@
+# Generated from dist/kinboard.yaml and compose.yml by scripts/stores/build-store-listings.mjs. Do not edit by hand.
+# The stack file of the Portainer app templates in templates.json.
+services:
+  init:
+    image: ${KINBOARD_IMAGE:-ghcr.io/svenger87/kinboard}:${KINBOARD_TAG:-latest}
+    container_name: kinboard-init
+    entrypoint:
+      - /bin/sh
+      - "-c"
+      - if [ -x /usr/local/bin/kinboard-init ]; then exec /app/webapp-entrypoint.sh kinboard-init; fi; echo "This Kinboard image is older than 1.18 and can't run the one-file setup. Set KINBOARD_TAG to 1.18 or newer (or leave it unset)." >&2; exit 1
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      disable: true
+    environment:
+      POSTGRES_PASSWORD: ${KINBOARD_POSTGRES_PASSWORD:-}
+      JWT_SECRET: ${KINBOARD_JWT_SECRET:-}
+      CRON_SECRET: ${KINBOARD_CRON_SECRET:-}
+      PRESENCE_SENSOR_TOKEN: ${KINBOARD_PRESENCE_SENSOR_TOKEN:-}
+      VAPID_PUBLIC_KEY: ${KINBOARD_VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${KINBOARD_VAPID_PRIVATE_KEY:-}
+    volumes:
+      - ${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard
+      - ${KINBOARD_DB_DIR:-kinboard-db}:/kinboard-db:ro
+    networks:
+      - kinboard
+  db:
+    image: ${KINBOARD_POSTGRES_IMAGE:-ghcr.io/svenger87/kinboard-postgres}:${KINBOARD_POSTGRES_TAG:-17}
+    container_name: kinboard-db
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - pg_isready
+        - "-U"
+        - postgres
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_PASSWORD_FILE: /kinboard/secrets/postgres_password
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+      PGDATABASE: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - ${KINBOARD_DB_DIR:-kinboard-db}:/var/lib/postgresql/data
+      - ${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard:ro
+    networks:
+      - kinboard
+  db-init:
+    image: ${KINBOARD_IMAGE:-ghcr.io/svenger87/kinboard}:${KINBOARD_TAG:-latest}
+    container_name: kinboard-db-init
+    command:
+      - kinboard-db-init
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard:ro
+    networks:
+      - kinboard
+  rest:
+    image: postgrest/postgrest:v14.16
+    container_name: kinboard-rest
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    depends_on:
+      db:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      PGRST_DB_URI: "@/kinboard/secrets/db_uri"
+      PGRST_JWT_SECRET: "@/kinboard/secrets/jwt_secret"
+      PGRST_DB_SCHEMAS: public,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+    command: postgrest
+    volumes:
+      - ${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard:ro
+    networks:
+      - kinboard
+  webapp:
+    image: ${KINBOARD_IMAGE:-ghcr.io/svenger87/kinboard}:${KINBOARD_TAG:-latest}
+    container_name: kinboard-webapp
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    depends_on:
+      db:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+      rest:
+        condition: service_started
+    ports:
+      - ${WEBAPP_PORT:-3001}:3000
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - "-sf"
+        - http://localhost:3000/api/health
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      SITE_URL: ${SITE_URL:-}
+      KINBOARD_SCHEDULER: internal
+      KINBOARD_COMPOSE_REVISION: "1"
+      POSTGREST_URL: http://rest:3000
+      FILES_DIR: /var/lib/storage/files
+      GO2RTC_URL: http://go2rtc:1984
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${KINBOARD_ANON_KEY:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${KINBOARD_SERVICE_ROLE_KEY:-}
+      PUID: ${PUID:-}
+      PGID: ${PGID:-}
+      INSTANCE_ADMIN_FAMILY_ID: ${INSTANCE_ADMIN_FAMILY_ID:-}
+    volumes:
+      - ${KINBOARD_STORAGE_DIR:-kinboard-storage}:/var/lib/storage
+      - ${KINBOARD_CONFIG_DIR:-kinboard-config}:/kinboard:ro
+    networks:
+      - kinboard
+  go2rtc:
+    image: alexxit/go2rtc:1.9.14
+    container_name: kinboard-go2rtc
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    command:
+      - go2rtc
+      - "-config"
+      - "{webrtc: {candidates: ['$${WEBRTC_LAN_IP:}:8555', 'stun:8555']}}"
+    ports:
+      - 8555:8555/udp
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      WEBRTC_LAN_IP: ${WEBRTC_LAN_IP:-}
+    networks:
+      - kinboard
+networks:
+  kinboard: {}
+volumes:
+  kinboard-db:
+    name: kinboard-db
+  kinboard-storage:
+    name: kinboard-storage
+  kinboard-config:
+    name: kinboard-config

@@ -1,0 +1,195 @@
+# The one source for every app-store listing (RFC-024 §7).
+#
+# Edit this file, then run
+#
+#   node scripts/stores/build-store-listings.mjs
+#
+# and commit dist/ together with it. Every file under dist/<store>/ is generated
+# from this file, from compose.yml (the services) and from
+# .github/workflows/docker.yml (the image names); CI fails when one of them is
+# out of date (`--check`). Nothing here is a secret, and nothing may be: every
+# listing is public.
+#
+# The product's name is written here and nowhere else in the listings or the
+# generator. How listings are produced and rehearsed: dist/README.md.
+
+schema: 1
+
+name: Kinboard
+# Lowercase, kebab-case: Umbrel's and TrueNAS's app id, the folder data lives
+# in, and the prefix of compose.yml's container and volume names.
+slug: kinboard
+# Reverse-domain id (CasaOS/ZimaOS requires one).
+id: app.kinboard
+# owner/name on GitHub. The images' owner and every GitHub link derive from it.
+repository: svenger87/kinboard
+
+tagline:
+  en: Your family's day, on one screen
+  de: Der Tag deiner Familie auf einem Bildschirm
+
+description:
+  # The repository's description (OCI description, Portainer); under 512
+  # characters, GHCR's limit for the description annotation.
+  short: >-
+    Self-hosted family dashboard for kitchen wall displays: calendars, shopping,
+    weather, photos, smart home, energy and daily life in one screen.
+  long:
+    en: >-
+      Kinboard is a self-hosted family dashboard, built for a touchscreen on the
+      kitchen wall and every phone in the house. Calendars (Google, CalDAV and
+      iCal), meals and recipes, shopping lists, tasks, chores and rewards, a
+      photo screensaver, weather, and your smart home through Home Assistant,
+      on one screen everyone in the family can use.
+
+
+      Everything stays on your own hardware. There is no account to create and
+      no cloud service in between: the first device creates the family, and
+      every other device joins it with the family's code.
+    de: >-
+      Kinboard ist ein selbst gehostetes Familien-Dashboard, gemacht für einen
+      Touchscreen an der Küchenwand und für jedes Handy im Haus. Kalender
+      (Google, CalDAV und iCal), Essensplan und Rezepte, Einkaufslisten,
+      Aufgaben, Haushaltspflichten und Belohnungen, ein Foto-Bildschirmschoner, das Wetter
+      und euer Smart Home über Home Assistant, auf einem Bildschirm, den die
+      ganze Familie bedienen kann.
+
+
+      Alles bleibt auf eurer eigenen Hardware. Es gibt kein Konto anzulegen und
+      keinen Cloud-Dienst dazwischen: Das erste Gerät legt die Familie an, jedes
+      weitere tritt ihr mit dem Familiencode bei.
+
+# Shown before or right after the install (CasaOS `tips`, the TrueNAS README,
+# Portainer's note, Umbrel's description).
+first_run:
+  en: >-
+    Open the app and create your family; every other device joins with the
+    family's code. The passwords and keys create themselves on the first start
+    and are kept in the config folder: back up all three folders together, and
+    keep the backups private.
+  de: >-
+    Öffne die App und lege deine Familie an; jedes weitere Gerät tritt mit dem
+    Familiencode bei. Passwörter und Schlüssel entstehen beim ersten Start von
+    selbst und liegen im Config-Ordner: Sichere alle drei Ordner zusammen und
+    halte die Sicherungen privat.
+
+# One internal list, mapped to each store's own taxonomy below.
+categories: [home, productivity]
+store_categories:
+  casaos: Home              # fixed list: docs/specs/compose-and-x-casaos.md
+  umbrel: automation        # VALID_CATEGORIES in .tools/lint-apps.mjs
+  truenas: productivity     # exactly one (generate_metadata.py)
+  portainer: [Productivity, Home]
+
+keywords: [family, calendar, dashboard, kiosk, shopping list, home assistant]
+
+icon:
+  png: assets/logos/kinboard-logo-icon-512.png
+  svg: webapp/public/icons/icon-512.svg
+
+# From the wiki for now (RFC-024 §11.8: a dedicated set from the screen matrix
+# replaces them later). Light theme.
+screenshots:
+  - docs/wiki/images/dashboard-portrait-light.png
+  - docs/wiki/images/calendar-month-view-light.png
+  - docs/wiki/images/meals-week-board-light.png
+  - docs/wiki/images/shopping-list-mixed-light.png
+  - docs/wiki/images/todos-overview-light.png
+  - docs/wiki/images/screensaver-designed.png
+
+links:
+  website: https://kinboard.app
+  # Relative to https://github.com/<repository>.
+  docs: wiki
+  support: discussions
+  changelog: releases
+  security: blob/main/SECURITY.md
+
+# SPDX, the same as webapp/package.json's "license" (a check holds them equal).
+license: PolyForm-Noncommercial-1.0.0
+
+# A GitHub account, never a personal email address.
+maintainer:
+  name: svenger87
+  url: https://github.com/svenger87
+
+ports:
+  # The web UI. container is what the webapp listens on (compose.yml).
+  web:
+    container: 3000
+    host: 3001
+    # Unique across Umbrel's store (checked by its linter).
+    umbrel: 3388
+    # TrueNAS's convention: a high port of the app's own.
+    truenas: 31088
+  # go2rtc's WebRTC port, for cameras; the same on the host.
+  webrtc:
+    container: 8555
+    host: 8555
+    protocol: udp
+
+# compose.yml's three volumes, by the part of their name after "<slug>-".
+volumes:
+  db:
+    label: Database
+    description: every family, calendar, list and setting
+  storage:
+    label: Uploaded files
+    description: family photos, recipe pictures, vehicle images
+  config:
+    label: Configuration and secrets
+    description: the database password, the key that signs logins, the push keys
+# Where each store keeps them. {slug} and {volume} are filled in.
+volume_paths:
+  casaos: /DATA/AppData/{slug}/{volume}
+  umbrel: ${APP_DATA_DIR}/data/{volume}
+  synology: /volume1/docker/{slug}/{volume}
+  unraid: /mnt/user/appdata/{slug}/{volume}
+
+# The optional variables a household may set (RFC-023 §4.6), by compose.yml's
+# variable name. `default` overrides compose.yml's for every store; `stores`
+# overrides per store. Anything compose.yml reads that is not listed here takes
+# compose.yml's default, and is left out when that default is empty.
+env:
+  TZ:
+    label: Time zone
+    default: Europe/Berlin
+  SITE_URL:
+    label: Address other apps get in links (calendar feed); empty means the address the page was opened at
+    advanced: true
+  WEBRTC_LAN_IP:
+    label: This machine's LAN address, for cameras over WebRTC
+    advanced: true
+  PUID:
+    label: User that owns the uploaded files
+    default: "1000"
+  PGID:
+    label: Group that owns the uploaded files
+    default: "1000"
+  INSTANCE_ADMIN_FAMILY_ID:
+    label: The family that sees update notices, when there is more than one
+    advanced: true
+
+# Services of compose.yml a store listing leaves out, and why.
+omit_services:
+  # Automatic updates through the Docker socket. Every store has its own update
+  # path (RFC-024 §4.7), Umbrel forbids the socket, and Portainer's web editor
+  # keeps the file where the updater can't reach it (wiki Compose-UIs).
+  updater: each store updates through its own mechanism
+
+# The release the pinned listings (TrueNAS, CasaOS, Umbrel) point at. Written by
+#   node scripts/stores/pin-release.mjs <tag>
+# never by hand: it resolves every image's multi-arch index digest from the
+# registry. Until the first release that carries kinboard-postgres and the role
+# bootstrap (1.18), this is a build of main, so the listings can be validated
+# and rehearsed against images that exist; it is replaced before any
+# submission (RFC-024 §9, phase 6).
+release:
+  version: 1.18.0-main.2e83c9f
+  app_tag: sha-2e83c9f
+  postgres_tag: 17-sha-2e83c9f
+  digests:
+    ghcr.io/svenger87/kinboard:sha-2e83c9f: sha256:a18e6874cdd961654364815562b2ba3b848bde25648d29905e0e61135189a498
+    ghcr.io/svenger87/kinboard-postgres:17-sha-2e83c9f: sha256:c58ef7e1e2fe121efee8bf5b6277568ff7f6068831a2a439348dacf13c7c1388
+    postgrest/postgrest:v14.16: sha256:bea1c76a856fa39d1e542d25911cf95d02fe2bf971992d033044ff209f1504b8
+    alexxit/go2rtc:1.9.14: sha256:675c318b23c06fd862a61d262240c9a63436b4050d177ffc68a32710d9e05bae

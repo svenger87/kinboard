@@ -1,0 +1,33 @@
+{
+  "_comment": "Each store's own tooling, pinned to the commit the listings were checked against (scripts/stores/validate-upstream.sh). Raise a pin on purpose, re-run the validation, and commit the regenerated listings with it.",
+  "truenas": {
+    "repository": "https://github.com/truenas/apps",
+    "commit": "15bff0f60361b70e39b81c09556b70e03fc60f0f",
+    "validation_image": "ghcr.io/truenas/apps_validation:slim",
+    "lib_version": "2.3.22",
+    "lib_version_hash": "9e1c926d174eeac7c158a956a7aa3e2d87b01c2e99c733dd500f388468e95213",
+    "min_scale_version": "24.10.2.2",
+    "app_version": "1.0.0"
+  },
+  "casaos": {
+    "repository": "https://github.com/IceWhaleTech/CasaOS-AppStore",
+    "commit": "07178f6d2c2797bd93e4260ba72f3ee972b1041e",
+    "build_action_repository": "https://github.com/IceWhaleTech/build-appstore-action",
+    "build_action_commit": "c9bb47fad5b32d7928a07978fad68801f52e910f"
+  },
+  "umbrel": {
+    "repository": "https://github.com/getumbrel/umbrel-apps",
+    "commit": "e18dd37b5e3ae9e150b443e1233898e35ada51bb"
+  },
+  "portainer": {
+    "repository": "https://github.com/portainer/templates",
+    "commit": "b1a27a2192d204aac678cd9ad618c0a9389c1cce",
+    "schema": "schema.json"
+  },
+  "python": [
+    "PyYAML==6.0.2",
+    "ruamel.yaml==0.18.10",
+    "Pillow==11.1.0",
+    "jsonschema==4.23.0"
+  ]
+}
