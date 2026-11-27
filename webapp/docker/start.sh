@@ -14,7 +14,12 @@
 # published image. Override the full set in .env or your shell, e.g.:
 #   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml"
 #   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.build.yml"   # from source
+# In .env the quotes are optional: COMPOSE_FILES=-f docker-compose.yml -f
+# docker-compose.diun.yml works too. .env is read the way Docker Compose reads
+# it, never run as a shell script (see env_file_value below).
 
+# $COMPOSE and $COMPOSE_FILES are word lists on purpose (`docker compose`, `-f a -f b`).
+# shellcheck disable=SC2086
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,14 +32,128 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-# Source .env so user-set vars (especially COMPOSE_FILES) take
-# effect for this script's own logic. docker compose reads .env on
-# its own for compose-file substitution, but doesn't propagate
-# COMPOSE_FILES back into the calling shell.
-set -a
-# shellcheck disable=SC1091
-. ./.env
-set +a
+# The value of $1 in the .env file $2, read the way Docker Compose reads it,
+# and nothing run: status 1 when the file does not set it.
+#
+# This used to be `set -a; . ./.env`, which runs .env as a shell script. That
+# is not what .env is: Compose reads `KEY=two words` as one value, bash runs
+# `words` as a command. Discussion #539: COMPOSE_FILES=-f docker-compose.yml
+# -f docker-compose.diun.yml, unquoted as the wiki showed it, ended
+# `./start.sh up` with "docker-compose.yml: command not found", where
+# `docker compose` on its own read the same file fine. And a `$(…)` or a
+# backtick in any value ran.
+#
+# What it follows (checked against Compose v5): blank lines and `#` lines are
+# skipped; `export ` before a key is allowed; spaces around the key, `=` and
+# an unquoted value are dropped, as is ` # comment` after it. 'single quotes'
+# keep everything as written. "double quotes" may span lines and turn \n, \\,
+# \" and \$ into their characters. Outside single quotes, ${VAR}, $VAR,
+# ${VAR:-default}, ${VAR-default}, ${VAR:+alt}, ${VAR+alt} take VAR from the
+# environment, else from earlier lines, and $$ is one $. Anything else,
+# $(…) and backticks included, stays text. CRLF line ends are fine.
+env_file_value() {
+  awk -v want="$1" '
+    function lookup(n) { return (n in ENVIRON) ? ENVIRON[n] : ((n in val) ? val[n] : "") }
+    function isset(n) { return (n in ENVIRON) || (n in val) }
+    # The $-references in s expanded; dq: also the escapes of a "…" value.
+    function expand(s, dq,    out, i, n, c, d, j, k, depth, inner, name, rest, op, word, v) {
+      out = ""; n = length(s); i = 1
+      while (i <= n) {
+        c = substr(s, i, 1)
+        if (dq && c == "\\" && i < n) {
+          d = substr(s, i + 1, 1)
+          if (d == "n") out = out "\n"
+          else if (d == "\\" || d == "\"" || d == "$") out = out d
+          else out = out c d
+          i += 2; continue
+        }
+        if (c != "$" || i == n) { out = out c; i++; continue }
+        d = substr(s, i + 1, 1)
+        if (d == "$") { out = out "$"; i += 2; continue }
+        if (d == "{") {
+          depth = 1; j = i + 2
+          while (j <= n && depth > 0) {
+            k = substr(s, j, 1)
+            if (k == "{") depth++
+            else if (k == "}") depth--
+            j++
+          }
+          inner = substr(s, i + 2, j - i - 3)
+          if (depth > 0 || !match(inner, /^[A-Za-z_][A-Za-z0-9_]*/)) { out = out substr(s, i, j - i); i = j; continue }
+          name = substr(inner, 1, RLENGTH); rest = substr(inner, RLENGTH + 1); v = lookup(name)
+          if (rest == "") out = out v
+          else {
+            op = substr(rest, 1, 2)
+            if (op == ":-") out = out (v != "" ? v : expand(substr(rest, 3), 0))
+            else if (op == ":+") out = out (v != "" ? expand(substr(rest, 3), 0) : "")
+            else if (substr(rest, 1, 1) == "-") out = out (isset(name) ? v : expand(substr(rest, 2), 0))
+            else if (substr(rest, 1, 1) == "+") out = out (isset(name) ? expand(substr(rest, 2), 0) : "")
+            else out = out substr(s, i, j - i)
+          }
+          i = j; continue
+        }
+        if (match(substr(s, i + 1), /^[A-Za-z_][A-Za-z0-9_]*/)) {
+          out = out lookup(substr(s, i + 1, RLENGTH)); i += 1 + RLENGTH; continue
+        }
+        out = out c; i++
+      }
+      return out
+    }
+    # Where the closing quote q is in s (escaped ones skipped inside "…"), or 0.
+    function closing(s, q,    i, n, c) {
+      n = length(s)
+      for (i = 1; i <= n; i++) {
+        c = substr(s, i, 1)
+        if (q == "\"" && c == "\\") { i++; continue }
+        if (c == q) return i
+      }
+      return 0
+    }
+    { sub(/\r$/, ""); line[++lines] = $0 }
+    END {
+      for (l = 1; l <= lines; l++) {
+        s = line[l]
+        sub(/^[ \t]+/, "", s)
+        if (s == "" || substr(s, 1, 1) == "#") continue
+        sub(/^export[ \t]+/, "", s)
+        if (!match(s, /^[A-Za-z_][A-Za-z0-9_.-]*/)) continue
+        key = substr(s, 1, RLENGTH); s = substr(s, RLENGTH + 1)
+        sub(/^[ \t]+/, "", s)
+        if (substr(s, 1, 1) != "=") continue
+        s = substr(s, 2)
+        sub(/^[ \t]+/, "", s)
+        q = substr(s, 1, 1)
+        if (q == "\"" || q == "\047") {
+          body = substr(s, 2)
+          while ((p = closing(body, q)) == 0 && l < lines) body = body "\n" line[++l]
+          v = (p == 0) ? body : substr(body, 1, p - 1)
+          if (q == "\"") v = expand(v, 1)
+        } else {
+          v = s
+          if (match(v, /[ \t]#/)) v = substr(v, 1, RSTART - 1)
+          sub(/[ \t]+$/, "", v)
+          v = expand(v, 0)
+        }
+        val[key] = v
+      }
+      if (!(want in val)) exit 1
+      printf "%s", val[want]
+    }
+  ' "$2"
+}
+
+# The keys this script uses, from .env where it sets them (.env wins over the
+# shell, as when it was sourced); others keep what the shell had. Nothing is
+# exported: `docker compose` reads .env itself, the same way.
+env_file_load() {
+  local key value
+  for key in "$@"; do
+    if value="$(env_file_value "$key" ./.env)"; then
+      printf -v "$key" '%s' "$value"
+    fi
+  done
+}
+env_file_load COMPOSE_FILES PROJECT_NAME KINBOARD_TAG KINBOARD_RIG DATA_DIR BUILD_REVISION
 
 # The base file runs the published image (docker-compose.image.yml used to be
 # needed for that and is now only kept for COMPOSE_FILES lines that name it).
@@ -48,12 +167,6 @@ fi
 
 cmd="${1:-up}"
 
-# Source .env so PROJECT_NAME / POSTGRES_PASSWORD are available to the
-# helper functions below.
-set -a
-# shellcheck disable=SC1091
-source ./.env
-set +a
 PROJECT_NAME="${PROJECT_NAME:-kinboard}"
 
 # A developer test rig run in an installed copy rewrites this .env for its own
@@ -361,7 +474,7 @@ case "$cmd" in
     ;;
   *)
     echo "unknown command: $cmd" >&2
-    sed -n '4,16p' "$0"
+    sed -n '4,19p' "$0"
     exit 2
     ;;
 esac
