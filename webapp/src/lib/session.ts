@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 
 /**
  * Server-issued device sessions.

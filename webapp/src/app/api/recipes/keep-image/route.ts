@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { putObject, removeObjects } from "@/lib/files/store";
-import { publicStorageUrl } from "@/lib/supabase/public-url";
-import { createAdminClient } from "@/lib/supabase/server";
+import { publicStorageUrl } from "@/lib/db/public-url";
+import { createAdminClient } from "@/lib/db/server";
 import { requireSession } from "@/lib/require-session";
 import { safeFetch, BlockedAddressError } from "@/lib/safe-fetch";
 import { hitLimit } from "@/lib/rate-limit";

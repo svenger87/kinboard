@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { loadOwnedCalendar, loadOwnedEvent } from "@/lib/family-event-scope";
 import { getGoogleOAuth2Client } from "@/lib/google-calendar-auth";

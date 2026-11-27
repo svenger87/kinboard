@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { SUPPORTED_LOCALES, type Locale } from "@/i18n/locales";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 

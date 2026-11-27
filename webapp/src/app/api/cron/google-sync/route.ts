@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google, type calendar_v3 } from "googleapis";
 import { resolveGoogleClient } from "@/lib/api-keys";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import type { PersonMappingRule } from "@/lib/calendar-person-matcher";
 import { familyPersonIds, syncedEventPersonId } from "@/lib/google-sync-person";
 import { getMergedSetting, splitSecrets, upsertSecrets } from "@/lib/integration-secrets";

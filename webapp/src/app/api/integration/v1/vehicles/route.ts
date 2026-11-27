@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { logApiError } from "@/lib/api-error";
 import { getHaStates } from "@/lib/home/ha-client";
 import { listVehicleStatuses, type VehicleDeps, type VehicleRow } from "@/lib/vehicles/status";

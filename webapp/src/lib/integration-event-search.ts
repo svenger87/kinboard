@@ -1,6 +1,6 @@
 import { familyDateKey } from "@/lib/family-time";
 import { zonedWallTimeToUtc } from "@/lib/integration-event-input";
-import type { createAdminClient } from "@/lib/supabase/server";
+import type { createAdminClient } from "@/lib/db/server";
 import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 
 /**

@@ -13,7 +13,7 @@
  * so all of this is tested without a stack (e2e/integration-timers.spec.ts).
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { endsAt, remainingSeconds, timerState } from "@/lib/timer-math";
 import type { Timer } from "@/types/database";
 

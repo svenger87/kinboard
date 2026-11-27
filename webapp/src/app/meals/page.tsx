@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/db/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { showUndoToast } from "@/lib/undo-toast";
 import { getIntlLocale } from "@/i18n/intl-locale";

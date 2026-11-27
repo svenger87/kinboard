@@ -25,7 +25,7 @@
  * the child's own (lib/notifications/rewards.ts).
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { getFamilyLocale } from "@/lib/family-locale";
 import { getTranslator } from "@/lib/notifications/messages";
 import { UUID } from "@/lib/home/action-requests";

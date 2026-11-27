@@ -35,7 +35,7 @@
  * database, and both are parameters, so the rules are tested without either.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { getMergedSetting } from "@/lib/integration-secrets";
 import { getFamilyLocale } from "@/lib/family-locale";
 import { LOCALES } from "@/i18n/locales";

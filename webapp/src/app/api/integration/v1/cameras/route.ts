@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { logApiError } from "@/lib/api-error";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { readCameraListing } from "@/lib/camera-takeover";
 
 export const dynamic = "force-dynamic";

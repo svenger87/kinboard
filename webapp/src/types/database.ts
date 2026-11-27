@@ -1,5 +1,5 @@
 /**
- * The database's types, for the PostgREST client (`@/lib/supabase/postgrest`)
+ * The database's types, for the PostgREST client (`@/lib/db/postgrest`)
  * and everything that names a row.
  *
  * The columns, tables, relationships and functions come from

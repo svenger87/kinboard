@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { UPDATE_OPERATOR_KEY, decideOperator } from "@/lib/update-status";
 
 /**

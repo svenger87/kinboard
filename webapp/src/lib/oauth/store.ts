@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { DCR_CLIENT_PREFIX, MCP_SCOPES, type McpScope } from "@/lib/oauth/config";
 import type { AuthRequest, GrantRecord, OAuthClient, OAuthStore } from "@/lib/oauth/types";
 

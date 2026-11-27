@@ -1,6 +1,6 @@
 import { withSourceAddresses } from "@/lib/recipe-image-keep";
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { SECRET_FIELDS, splitSecrets } from "@/lib/integration-secrets";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";

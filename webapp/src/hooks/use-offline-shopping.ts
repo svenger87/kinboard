@@ -16,7 +16,7 @@ import { useOfflineCachedQuery } from "./use-offline-cache";
 import { useOfflineQueue } from "./use-offline-queue";
 import { useOnlineStatus } from "./use-online-status";
 import { useFamilyStore } from "@/stores/family-store";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/db/client";
 import {
   saveLocalItem,
   getLocalItems,

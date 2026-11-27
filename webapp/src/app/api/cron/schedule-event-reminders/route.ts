@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 import { formatEventTime } from "@/lib/notifications/format";
 

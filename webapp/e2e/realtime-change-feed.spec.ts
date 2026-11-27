@@ -168,5 +168,5 @@ test("the stream is the session's family's, and the hook reads it", () => {
   expect(hook).toMatch(/new EventSource\("\/api\/realtime"\)/);
   expect(hook).not.toMatch(/postgres_changes|\.channel\(/);
   // The realtime-only token option is gone from the browser client.
-  expect(codeOnly(read("src", "lib", "supabase", "client.ts"))).not.toMatch(/accessToken:/);
+  expect(codeOnly(read("src", "lib", "db", "client.ts"))).not.toMatch(/accessToken:/);
 });

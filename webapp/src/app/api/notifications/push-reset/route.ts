@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { requireSession } from "@/lib/require-session";
 import { getPublicVapidKey } from "@/lib/push-sender";
 import { devicesNeedingPush, vapidKeyFingerprint, type SubscriptionKeyRow } from "@/lib/push-key";

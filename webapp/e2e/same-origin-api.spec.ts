@@ -6,9 +6,9 @@ import { join } from "node:path";
 import vm from "node:vm";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createPostgrestClient } from "../src/lib/supabase/postgrest";
-import { serverSupabaseFetch, serverSupabaseUrl } from "../src/lib/supabase/api-base";
-import { absoluteStorageUrl, publicStorageUrl } from "../src/lib/supabase/public-url";
+import { createPostgrestClient } from "../src/lib/db/postgrest";
+import { serverSupabaseFetch, serverSupabaseUrl } from "../src/lib/db/api-base";
+import { absoluteStorageUrl, publicStorageUrl } from "../src/lib/db/public-url";
 import { postgrestFetch } from "../src/lib/rest-proxy";
 
 /**
@@ -22,14 +22,14 @@ import { postgrestFetch } from "../src/lib/rest-proxy";
 
 test.describe("which API address the browser gets", () => {
   test("always the page's own origin, whatever an old .env still says", () => {
-    const base = readFileSync("src/lib/supabase/api-base.ts", "utf8");
+    const base = readFileSync("src/lib/db/api-base.ts", "utf8");
     // Nothing reads the settings that used to pick another address.
     expect(base).not.toMatch(/env\.(API_EXTERNAL_URL|KINBOARD_ENTRY|NEXT_PUBLIC_SUPABASE_URL)/);
   });
 
   test("the browser client builds on window.location.origin, never a baked value", () => {
     // The 2026-08-06 outage: a build carrying localhost:8130, read ahead of the runtime value.
-    const client = readFileSync("src/lib/supabase/client.ts", "utf8");
+    const client = readFileSync("src/lib/db/client.ts", "utf8");
     expect(client).toContain("return window.location.origin;");
     expect(client).not.toContain("process.env.NEXT_PUBLIC_SUPABASE_URL");
   });
@@ -72,7 +72,7 @@ test.describe("server-side code goes straight to PostgREST", () => {
   });
 
   test("the server client uses it, through the one helper", () => {
-    const server = readFileSync("src/lib/supabase/server.ts", "utf8");
+    const server = readFileSync("src/lib/db/server.ts", "utf8");
     expect(server.match(/serverSupabaseFetch\(\)/g)?.length).toBe(1);
     expect(server).not.toContain("postgrestFetch(");
   });

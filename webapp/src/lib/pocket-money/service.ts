@@ -17,7 +17,7 @@
  * an assistant's token books nothing here.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { bookPocketMoney, type RpcClient } from "@/lib/pocket-money/booking";
 
 export interface ServiceResult {

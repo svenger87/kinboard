@@ -13,7 +13,7 @@
  * Kong's port loses nothing, because the browser no longer goes there.
  *
  * Nothing to hand over, then: the browser client builds on
- * `window.location.origin` (lib/supabase/client.ts), and neither it nor the
+ * `window.location.origin` (lib/db/client.ts), and neither it nor the
  * root layout reads an address from the environment. Until 1.18 the layout
  * still wrote `same-origin` and the anon key into `window.__ENV`; a
  * `process.env.NEXT_PUBLIC_*` read in their place, which Next replaces at
@@ -22,8 +22,8 @@
  */
 
 import { postgrestFetch, postgrestUrl } from "@/lib/rest-proxy";
-import { guardUnfilteredWrites } from "@/lib/supabase/unfiltered-write-guard";
-import { legacyKongUrl } from "@/lib/supabase/legacy-kong";
+import { guardUnfilteredWrites } from "@/lib/db/unfiltered-write-guard";
+import { legacyKongUrl } from "@/lib/db/legacy-kong";
 
 type EnvLike = Record<string, string | undefined>;
 
@@ -33,7 +33,7 @@ type EnvLike = Record<string, string | undefined>;
  * POSTGREST_URL (`http://rest:3000` in the stack, a published port for
  * `next dev`): the clients talk to PostgREST directly, through
  * lib/rest-proxy.ts `postgrestFetch`, which strips the `/rest/v1` prefix
- * the client adds (lib/supabase/postgrest.ts). SUPABASE_URL is the pre-1.15 compose file's Kong address,
+ * the client adds (lib/db/postgrest.ts). SUPABASE_URL is the pre-1.15 compose file's Kong address,
  * honoured until that file is updated.
  */
 export function serverSupabaseUrl(env: EnvLike = process.env): string {
@@ -55,7 +55,7 @@ export function serverSupabaseUrl(env: EnvLike = process.env): string {
  * no route for: the family count came back empty, and the join page offered to
  * create a family on an install that had three.
  *
- * The server factory (lib/supabase/server.ts `createAdminClient`, with or
+ * The server factory (lib/db/server.ts `createAdminClient`, with or
  * without the integration actor) uses this, so the unfiltered-write guard
  * (RFC-024 §4.2.1) sits here, outside the prefix strip, where the URL still
  * reads `/rest/v1/<table>`.

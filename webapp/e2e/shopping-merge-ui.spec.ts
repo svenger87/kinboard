@@ -78,5 +78,5 @@ test("the recipe and meal-plan pages merge instead of inserting", () => {
 
 test("lib/shopping-add.ts stays browser-safe", () => {
   const source = readFileSync(join(__dirname, "..", "src", "lib", "shopping-add.ts"), "utf8");
-  expect(source).not.toMatch(/supabase\/server|integration-secrets|bring-server|node:/);
+  expect(source).not.toMatch(/lib\/db\/server|integration-secrets|bring-server|node:/);
 });

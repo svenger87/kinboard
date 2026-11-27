@@ -6,7 +6,7 @@
  * and `/storage/v1` to the services behind it and refuses a request without
  * the anon key in an `apikey` header. So, for those installs only:
  *
- * - `SUPABASE_URL` is Kong's address inside the stack (lib/supabase/api-base.ts
+ * - `SUPABASE_URL` is Kong's address inside the stack (lib/db/api-base.ts
  *   `serverSupabaseUrl`, app/rest/v1, app/storage/v1);
  * - `NEXT_PUBLIC_SUPABASE_ANON_KEY` is the key app/rest/v1 adds on the way to
  *   Kong;

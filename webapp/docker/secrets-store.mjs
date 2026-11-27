@@ -48,7 +48,7 @@ export const STORED = [
 
 /**
  * The two keys that are minted, never stored. `env` is the name the app reads
- * (lib/env.ts `serviceRoleKey`; the anon key only lib/supabase/legacy-kong.ts
+ * (lib/env.ts `serviceRoleKey`; the anon key only lib/db/legacy-kong.ts
  * since 1.18, RFC-024 §4.6 step 3); `older` are names read in its
  * place, in order, when it is not set. For the service-role key (RFC-024
  * §4.6): SUPABASE_SERVICE_ROLE_KEY, the name docker-compose.yml (the pre-1.18

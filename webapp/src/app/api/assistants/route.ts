@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/require-session";
 import { requireSettingsUnlock } from "@/lib/settings-pin";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { assistantsEnabledFor, forgetAssistantsEnabled } from "@/lib/oauth/enabled";
 import { logApiError } from "@/lib/api-error";

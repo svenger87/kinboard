@@ -10,7 +10,7 @@
  * is the caller's own family.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { BRING_TO_LOCAL_CATEGORY, detectCategory } from "@/lib/shopping-categories";
 
 // Bring! catalog URL for German locale

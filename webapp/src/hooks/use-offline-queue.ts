@@ -22,7 +22,7 @@ import {
 } from "@/lib/offline-db";
 import { useOnlineStatus } from "./use-online-status";
 import { useFamilyStore } from "@/stores/family-store";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/db/client";
 
 interface UseOfflineQueueOptions {
   // Auto-sync when coming back online

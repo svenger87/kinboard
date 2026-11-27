@@ -12,7 +12,7 @@ import {
   SERVICE_ROLE_KEY_NAMES,
   serviceRoleKey,
 } from "../src/lib/env";
-import { createAdminClient } from "../src/lib/supabase/server";
+import { createAdminClient } from "../src/lib/db/server";
 
 /**
  * RFC-024 §4.6, phase 7 step 1: `env(new, ...old)`, and the service-role key
@@ -280,7 +280,7 @@ function resolveImport(root: string, from: string, spec: string): string | null 
 /**
  * Files under webapp/src marked "use client" from which lib/env.ts can be
  * reached through imports, directly or through any chain of modules
- * (a client component importing lib/supabase/server pulls it in too).
+ * (a client component importing lib/db/server pulls it in too).
  * Type-only imports are skipped: they leave nothing in the bundle.
  */
 function clientImports(root: string): string[] {

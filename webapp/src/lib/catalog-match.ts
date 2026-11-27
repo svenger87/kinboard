@@ -13,7 +13,7 @@
  * responsible for that being the authenticated family.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 
 // Bring! catalog URL for German locale
 const BRING_CATALOG_URL = "https://web.getbring.com/locale/catalog.de-DE.json";

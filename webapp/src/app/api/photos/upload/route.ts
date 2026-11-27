@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { FilesNotConfiguredError, putObject, removeObjects } from "@/lib/files/store";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { checkPhotoUpload } from "@/lib/photo-upload-rules";

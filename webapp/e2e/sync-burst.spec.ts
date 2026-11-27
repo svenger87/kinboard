@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { eventRowChanged, syncedColumns } from "../src/lib/event-sync-write";
 import { invalidationBatch } from "../src/lib/realtime/invalidation-batch";
-import { withReadTimeout } from "../src/lib/supabase/client";
+import { withReadTimeout } from "../src/lib/db/client";
 
 /**
  * Production, 3 Nov 2026: the kitchen display sat on "loading". Every 15

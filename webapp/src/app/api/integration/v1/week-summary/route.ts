@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { logApiError } from "@/lib/api-error";
 import { familyTimeZone } from "@/lib/family-time";
 import { getFamilyLocale } from "@/lib/family-locale";

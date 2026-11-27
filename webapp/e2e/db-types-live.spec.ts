@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { hasServiceKey } from "./helpers/service-key";
-import { NO_KEY, createPostgrestClient, type DbClient } from "../src/lib/supabase/postgrest";
-import { createAdminClient } from "../src/lib/supabase/server";
+import { NO_KEY, createPostgrestClient, type DbClient } from "../src/lib/db/postgrest";
+import { createAdminClient } from "../src/lib/db/server";
 import { mintFamilyToken } from "../src/lib/family-jwt";
 import { VISIBLE_CALENDARS } from "../src/lib/google-calendar-reconcile";
 

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { hasServiceKey } from "./helpers/service-key";
 import { NextRequest } from "next/server";
-import { createAdminClient } from "../src/lib/supabase/server";
+import { createAdminClient } from "../src/lib/db/server";
 import { SESSION_COOKIE } from "../src/lib/session";
 import { POST as createFamily } from "../src/app/api/session/create/route";
 import { POST as pinRoute } from "../src/app/api/pin/route";

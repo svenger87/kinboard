@@ -222,7 +222,7 @@ test.describe("wiring", () => {
   });
 
   test("the browser client is typed as strictly as the server's", () => {
-    const src = readFileSync("src/lib/supabase/postgrest.ts", "utf8");
+    const src = readFileSync("src/lib/db/postgrest.ts", "utf8");
     expect(src).toContain("export type BrowserDbClient = DbClient;");
     expect(src).not.toMatch(/PostgrestClient<Database, ClientOptions, "public", any>/);
   });

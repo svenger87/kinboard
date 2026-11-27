@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { collectSignals, resetSignalCaches, type CollectOptions } from "./signals";
 import { answerStillHolds, evaluate, resolveDayContext, type EvaluatedItem, type FamilyRuleState } from "./engine";
 import { RULES, RULES_BY_ID } from "./rules";

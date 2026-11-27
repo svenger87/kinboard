@@ -1,7 +1,7 @@
-import { NO_KEY, createPostgrestClient, type BrowserDbClient } from "@/lib/supabase/postgrest";
-import { legacyKongBrowserApikey } from "@/lib/supabase/legacy-kong";
-import { getFamilyToken, invalidateFamilyToken } from "@/lib/supabase/family-token";
-import { guardUnfilteredWrites } from "@/lib/supabase/unfiltered-write-guard";
+import { NO_KEY, createPostgrestClient, type BrowserDbClient } from "@/lib/db/postgrest";
+import { legacyKongBrowserApikey } from "@/lib/db/legacy-kong";
+import { getFamilyToken, invalidateFamilyToken } from "@/lib/db/family-token";
+import { guardUnfilteredWrites } from "@/lib/db/unfiltered-write-guard";
 
 // No key, and nothing read from the build (RFC-024 §4.6, phase 7 step 3).
 //
@@ -18,14 +18,14 @@ import { guardUnfilteredWrites } from "@/lib/supabase/unfiltered-write-guard";
 // before 1.15 with Kong as its front door, where Kong answers `/rest/v1`
 // and refuses a request without `apikey`. There the layout still hands the
 // page the key in `window.__ENV`, and this client sends it as `apikey`, and
-// only that (lib/supabase/legacy-kong.ts). A page rendered before the
+// only that (lib/db/legacy-kong.ts). A page rendered before the
 // update, still carrying the old `window.__ENV`, works the same way; its old
 // NEXT_PUBLIC_SUPABASE_URL is never read. e2e/anon-key-retired.spec.ts
 // holds all of it.
 
 /**
  * The API base for this browser: the page's own origin, always (1.15 —
- * `/rest/v1` is served by the webapp itself, see lib/supabase/api-base.ts).
+ * `/rest/v1` is served by the webapp itself, see lib/db/api-base.ts).
  */
 export function browserApiBase(): string {
   // Server render of a client component: nothing is fetched there (queries

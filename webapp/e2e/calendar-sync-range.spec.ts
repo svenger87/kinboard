@@ -173,5 +173,5 @@ test.describe("every sync caller passes the family's value", () => {
 // build fails ("You're importing a module that depends on next/headers").
 test("the client-side half imports nothing server-only", () => {
   const src = readFileSync(join(__dirname, "../src/lib/calendar-sync-range.ts"), "utf8");
-  expect(src).not.toMatch(/supabase\/server|next\/headers/);
+  expect(src).not.toMatch(/lib\/db\/server|next\/headers/);
 });

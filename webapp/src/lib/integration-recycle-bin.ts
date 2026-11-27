@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import type { IntegrationScope } from "@/lib/integration-auth";
 import { RECYCLABLE, describeDeletedRow, type RecyclableTable } from "@/lib/recycle-bin";
 

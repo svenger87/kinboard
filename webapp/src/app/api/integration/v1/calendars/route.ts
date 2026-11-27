@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 import { logApiError } from "@/lib/api-error";
 import { calendarWriteMode, type WritableCalendar } from "@/lib/calendar-write-mode";

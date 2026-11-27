@@ -30,7 +30,7 @@
  *   "in 0 days" turns over at the family's midnight, not the server's.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { familyPersonId, invalidRequest, isUuid, type TaskDb } from "@/lib/integration-tasks";
 
 export type BirthdayDb = TaskDb;

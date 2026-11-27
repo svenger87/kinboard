@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { validateExternalUrl } from "@/lib/validate-external-url";
 import { CUSTOM_FEED_PREFIX, type CustomFeed } from "@/lib/news-providers";

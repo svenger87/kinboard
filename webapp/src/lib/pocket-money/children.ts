@@ -6,7 +6,7 @@
  * before it runs.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { UUID } from "@/lib/home/action-requests";
 import { bookPocketMoney, type BookingInput, type BookingResult, type RpcClient } from "@/lib/pocket-money/booking";
 

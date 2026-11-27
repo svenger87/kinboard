@@ -10,7 +10,7 @@
  * credential must not be able to reach a query, a log line or an error message.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { shouldRefreshLastUsed } from "@/lib/integration-auth";
 
 export interface StoredToken {

@@ -2,8 +2,8 @@ import { test, expect, request as pwRequest, type APIRequestContext } from "@pla
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { NO_KEY, createPostgrestClient } from "../src/lib/supabase/postgrest";
-import { createAdminClient } from "../src/lib/supabase/server";
+import { NO_KEY, createPostgrestClient } from "../src/lib/db/postgrest";
+import { createAdminClient } from "../src/lib/db/server";
 import { mintFamilyToken } from "../src/lib/family-jwt";
 import type { RpcClient } from "../src/lib/pocket-money/booking";
 import { buyItem, refundPurchase } from "../src/lib/creatures/purchases";

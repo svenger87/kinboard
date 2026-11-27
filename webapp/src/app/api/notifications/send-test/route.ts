@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { sendPushNotification, isVapidConfigured, type DatabaseSubscription } from "@/lib/push-sender";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 

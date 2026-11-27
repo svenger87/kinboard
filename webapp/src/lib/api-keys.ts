@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { SESSION_COOKIE, verifySession } from "@/lib/session";
 import { deleteSecrets, upsertSecrets } from "@/lib/integration-secrets";
 import {

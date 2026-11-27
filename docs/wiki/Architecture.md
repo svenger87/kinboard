@@ -56,7 +56,7 @@ Since 1.15 the webapp is the only thing a browser talks to. It serves the pages,
 1. **All data is family-scoped.** A `family_id` UUID column exists on every row. The browser reads and writes through PostgREST with a short-lived family-scoped token, and **row-level security** limits every query to that family; API routes establish the family from the device session and filter on it themselves. See [Row-Level Security](#row-level-security) below and [Security-and-Threat-Model](Security-and-Threat-Model) for the full threat model.
 2. **Devices join families via 6-character join codes.** Stored in `families.join_code`. Auth model is "join code, then the device's own saved random id" — see [Security-and-Threat-Model](Security-and-Threat-Model).
 3. **Real-time updates** come from the webapp itself: it listens to Postgres with `LISTEN`/`NOTIFY` and streams changes to the browser as Server-Sent Events from `/api/realtime`. The hook `use-realtime.ts` subscribes to a table and the relevant TanStack Query cache invalidates automatically.
-4. **Server-side data access** uses the service-role client, `createAdminClient()` (`src/lib/supabase/server.ts`). It bypasses row-level security, so every API route and cron job establishes the family from the device session (or the integration token) first and filters on `family_id` itself. The anon-key `createClient()` in the same file is not used by any route: under RLS, with no family claim, it would read nothing.
+4. **Server-side data access** uses the service-role client, `createAdminClient()` (`src/lib/db/server.ts`). It bypasses row-level security, so every API route and cron job establishes the family from the device session (or the integration token) first and filters on `family_id` itself. The anon-key `createClient()` in the same file is not used by any route: under RLS, with no family claim, it would read nothing.
 
 ## Project layout
 
@@ -76,7 +76,7 @@ Since 1.15 the webapp is the only thing a browser talks to. It serves the pages,
 │   │   ├── hooks/               # TanStack Query hooks + custom hooks
 │   │   ├── stores/              # Zustand stores
 │   │   ├── lib/
-│   │   │   ├── supabase/        # Client / server / admin helpers
+│   │   │   ├── db/              # Client / server / admin helpers
 │   │   │   ├── holidays/        # date-holidays adapter, regions, curated names
 │   │   │   ├── shopping-categories.ts
 │   │   │   ├── unsplash-defaults.ts
@@ -131,7 +131,7 @@ families  (id, name, join_code)
 The browser talks to PostgREST directly, so the Next.js API is not in that request path and can't police it. The database does. Row-level security is **on** for every family-scoped table (52 of the 59 tables in `public`), and every policy resolves the caller's family from a `family_id` claim on the request's JWT:
 
 - **The anon key that ships in the browser bundle carries no `family_id`**, so on its own it reads nothing.
-- **A device that has joined gets a family-scoped token** from `/api/session/token`, which is gated by the HttpOnly device-session cookie. The token is signed with the stack's JWT secret, lasts an hour, and the client refreshes it well before then, so a kiosk never needs attention (`src/lib/family-jwt.ts`, `src/lib/supabase/family-token.ts`).
+- **A device that has joined gets a family-scoped token** from `/api/session/token`, which is gated by the HttpOnly device-session cookie. The token is signed with the stack's JWT secret, lasts an hour, and the client refreshes it well before then, so a kiosk never needs attention (`src/lib/family-jwt.ts`, `src/lib/db/family-token.ts`).
 - **The service role bypasses RLS.** Every API route and cron job uses it and establishes the family server-side, so RLS is the backstop for the direct-PostgREST path, not a replacement for the `family_id` filtering in the routes.
 
 The policies live in `webapp/docker/migrations/049_row_level_security.sql`. It sorts after every other migration on purpose: it drops any policy that isn't one of its own family-scope policies, so a later migration that creates a policy is cleaned up instead of quietly widening access.

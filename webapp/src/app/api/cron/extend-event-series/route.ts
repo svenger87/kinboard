@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { extendAllSeries } from "@/lib/event-series";
 
 const CRON_SECRET = process.env.CRON_SECRET;

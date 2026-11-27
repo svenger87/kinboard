@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { destructiveLimitResponse } from "@/lib/integration-limits";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { logApiError } from "@/lib/api-error";
 import { LISTS, isListId, itemDue, itemSummary } from "@/lib/integration-lists";
 import { completionUpdate } from "@/lib/task-completion";
