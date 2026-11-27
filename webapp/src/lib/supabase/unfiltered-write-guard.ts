@@ -11,9 +11,9 @@
  *
  * It sits in the custom `fetch` every PostgREST client the app builds goes
  * through (lib/supabase/client.ts for the browser, api-base.ts
- * `serverSupabaseFetch` for both server factories), so it covers every call
- * path: the browser's family client, the server's anon client, the
- * service-role client and the `x-kinboard-actor: integration` one. What it
+ * `serverSupabaseFetch` for the server's), so it covers every call path: the
+ * browser's family client, the service-role client and the
+ * `x-kinboard-actor: integration` one. What it
  * looks at is the outgoing request itself — a PATCH or DELETE to
  * `/rest/v1/<table>` whose query string carries no filter — not the builder
  * chain, so it does not depend on how the query was put together.

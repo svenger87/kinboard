@@ -247,7 +247,7 @@ Niche integrations (Tesla Fleet, Zendure SolarFlow batteries, etc.) ship as opt-
 - **[Next.js](https://nextjs.org/) 16** (App Router) + **[React](https://react.dev/) 19**
 - **[shadcn/ui](https://ui.shadcn.com/)** + **[Tailwind CSS](https://tailwindcss.com/)** for UI
 - **[TanStack Query](https://tanstack.com/query)** (server state) + **[Zustand](https://zustand-demo.pmnd.rs/)** (client state)
-- **PostgreSQL** (the [Supabase](https://supabase.com/) Postgres image) + **[PostgREST](https://postgrest.org/)**, queried with `supabase-js` — self-hosted; uploads and live updates (Server-Sent Events over Postgres `LISTEN`/`NOTIFY`) are served by the Next.js app itself
+- **PostgreSQL** (the [Supabase](https://supabase.com/) Postgres image) + **[PostgREST](https://postgrest.org/)**, queried with `@supabase/postgrest-js` — self-hosted; uploads and live updates (Server-Sent Events over Postgres `LISTEN`/`NOTIFY`) are served by the Next.js app itself
 - **Six containers**: `db`, `db-init` (one-shot), `rest`, `webapp`, `cron` (Ofelia), `go2rtc` — the family opens one address on one port
 - **[next-intl](https://next-intl.dev/)** for i18n (EN/DE/FR)
 - **[Framer Motion](https://www.framer.com/motion/)** for transitions
@@ -336,7 +336,7 @@ Kinboard is built and maintained on personal time. If it's useful to your family
 
 Kinboard stands on the shoulders of an incredible amount of open-source work:
 
-- **[Supabase](https://supabase.com/)** — the Postgres image and the `supabase-js` client Kinboard is built on (and, until 1.15, much more of its self-hosted stack)
+- **[Supabase](https://supabase.com/)** — the Postgres image and the `postgrest-js` query builder Kinboard is built on (and, until 1.15, much more of its self-hosted stack)
 - **[PostgREST](https://postgrest.org/)** — the database API the browser talks to
 - **[Next.js](https://nextjs.org/)** + **[Vercel](https://vercel.com/)** — the application framework
 - **[shadcn/ui](https://ui.shadcn.com/)** — the component primitives. UI quality starts here.

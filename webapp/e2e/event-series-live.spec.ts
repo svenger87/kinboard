@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
+import { createPostgrestClient } from "../src/lib/supabase/postgrest";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { mintFamilyToken } from "../src/lib/family-jwt";
 import { dayKey, wallParts } from "../src/lib/event-repeat";
@@ -48,9 +48,8 @@ const DAY = 86_400_000;
 
 let db: any;
 const browser = (familyId: string) =>
-  createClient(URL!, ANON!, {
-    global: { headers: { Authorization: `Bearer ${mintFamilyToken(familyId).token}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
+  createPostgrestClient(URL!, ANON!, {
+    headers: { Authorization: `Bearer ${mintFamilyToken(familyId).token}` },
   }) as any;
 
 const today = () => wallParts(new Date(), ZONE).day;

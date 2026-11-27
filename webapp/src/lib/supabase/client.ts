@@ -1,5 +1,4 @@
-import { createBrowserClient } from "@supabase/ssr";
-import type { Database } from "@/types/database";
+import { createPostgrestClient, type BrowserDbClient } from "@/lib/supabase/postgrest";
 import { getFamilyToken, invalidateFamilyToken } from "@/lib/supabase/family-token";
 import { guardUnfilteredWrites } from "@/lib/supabase/unfiltered-write-guard";
 
@@ -61,63 +60,68 @@ export function withReadTimeout(init?: RequestInit): RequestInit | undefined {
   return { ...init, signal: AbortSignal.any([init.signal, timeout]) };
 }
 
-export function createClient() {
-  return createBrowserClient<Database>(
+/**
+ * One client per page, as `@supabase/ssr`'s `createBrowserClient` kept it:
+ * the ~24 callers call `createClient()` freely, in render and in effects.
+ * Only in a browser; a server render of a client component gets a fresh one.
+ */
+let browserClient: BrowserDbClient | undefined;
+
+export function createClient(): BrowserDbClient {
+  const isBrowser = typeof window !== "undefined" && typeof window.document !== "undefined";
+  if (isBrowser && browserClient) return browserClient;
+  const client = createPostgrestClient(
     browserApiBase(),
     publicEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     {
-      // No `accessToken` option: it existed only for the Supabase Realtime
-      // WebSocket, which never goes through `fetch`. Live updates now come
-      // from /api/realtime, authenticated by the session cookie
-      // (hooks/use-realtime.ts).
-      global: {
-        /**
-         * Attach the family-scoped token to every direct Supabase call.
-         *
-         * Row-level security reads a `family_id` claim from the request's JWT.
-         * The anon key above carries no such claim — with RLS enabled it can
-         * read nothing, which is the point — so without this the app would see
-         * an empty database.
-         *
-         * Done here rather than at the ~200 call sites because `createClient()`
-         * is synchronous and used everywhere; a custom fetch is the one place
-         * every request passes through. It also means the token can be
-         * refreshed transparently, which a kiosk needs: nobody is going to
-         * reload the wall display every hour.
-         *
-         * The anon key stays as the `apikey` header (Kong requires it to route
-         * at all); the Authorization header is what PostgREST verifies and what
-         * the policies read.
-         *
-         * Wrapped in the unfiltered-write guard (RFC-024 §4.2.1): an UPDATE
-         * or DELETE without a filter is refused before a token is even asked
-         * for.
-         */
-        fetch: guardUnfilteredWrites(async (input: RequestInfo | URL, rawInit?: RequestInit) => {
-          const init = withReadTimeout(rawInit);
-          const token = await getFamilyToken();
-          if (!token) return fetch(input, init);
+      /**
+       * Attach the family-scoped token to every direct Supabase call.
+       *
+       * Row-level security reads a `family_id` claim from the request's JWT.
+       * The anon key above carries no such claim — with RLS enabled it can
+       * read nothing, which is the point — so without this the app would see
+       * an empty database.
+       *
+       * Done here rather than at the ~200 call sites because `createClient()`
+       * is synchronous and used everywhere; a custom fetch is the one place
+       * every request passes through. It also means the token can be
+       * refreshed transparently, which a kiosk needs: nobody is going to
+       * reload the wall display every hour.
+       *
+       * The anon key stays as the `apikey` header (Kong requires it to route
+       * at all); the Authorization header is what PostgREST verifies and what
+       * the policies read.
+       *
+       * Wrapped in the unfiltered-write guard (RFC-024 §4.2.1): an UPDATE
+       * or DELETE without a filter is refused before a token is even asked
+       * for.
+       */
+      fetch: guardUnfilteredWrites(async (input: RequestInfo | URL, rawInit?: RequestInit) => {
+        const init = withReadTimeout(rawInit);
+        const token = await getFamilyToken();
+        if (!token) return fetch(input, init);
 
-          const headers = new Headers(init?.headers);
-          headers.set("Authorization", `Bearer ${token}`);
-          const response = await fetch(input, { ...init, headers });
+        const headers = new Headers(init?.headers);
+        headers.set("Authorization", `Bearer ${token}`);
+        const response = await fetch(input, { ...init, headers });
 
-          // The token expired between the freshness check and the request
-          // landing, or the session was revoked. Mint once and retry once —
-          // never loop, or a genuinely revoked session becomes a hot spin.
-          if (response.status === 401) {
-            invalidateFamilyToken();
-            const retryToken = await getFamilyToken();
-            if (retryToken && retryToken !== token) {
-              const retryHeaders = new Headers(init?.headers);
-              retryHeaders.set("Authorization", `Bearer ${retryToken}`);
-              return fetch(input, { ...init, headers: retryHeaders });
-            }
+        // The token expired between the freshness check and the request
+        // landing, or the session was revoked. Mint once and retry once —
+        // never loop, or a genuinely revoked session becomes a hot spin.
+        if (response.status === 401) {
+          invalidateFamilyToken();
+          const retryToken = await getFamilyToken();
+          if (retryToken && retryToken !== token) {
+            const retryHeaders = new Headers(init?.headers);
+            retryHeaders.set("Authorization", `Bearer ${retryToken}`);
+            return fetch(input, { ...init, headers: retryHeaders });
           }
+        }
 
-          return response;
-        }),
-      },
+        return response;
+      }),
     },
-  );
+  ) as BrowserDbClient;
+  if (isBrowser) browserClient = client;
+  return client;
 }

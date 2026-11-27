@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createPostgrestClient } from "../src/lib/supabase/postgrest";
 import { createClient as createBrowserSupabaseClient } from "../src/lib/supabase/client";
 import { createAdminClient } from "../src/lib/supabase/server";
 import { serverSupabaseFetch } from "../src/lib/supabase/api-base";
@@ -20,9 +20,8 @@ import {
  *
  * The clients under test are the real factories (the browser's
  * `createClient`, the server's `createAdminClient`, with and without the
- * integration actor) and the server's anon client built on the same
- * `serverSupabaseFetch` the cookie-bound factory uses (that factory needs a
- * request scope for `cookies()`). The network is a stub `fetch` on
+ * integration actor) and an anon-key client built on the same
+ * `serverSupabaseFetch` the server factory uses. The network is a stub `fetch` on
  * globalThis that records every request: a refused write must leave it
  * untouched.
  *
@@ -99,10 +98,7 @@ const CLIENTS: Array<{ name: string; make: () => Client }> = [
   {
     name: "server, anon key",
     make: () =>
-      createSupabaseClient("http://rest.test:3000", "anon-key", {
-        auth: { autoRefreshToken: false, persistSession: false },
-        global: { fetch: serverSupabaseFetch(SERVER_ENV) },
-      }) as unknown as Client,
+      createPostgrestClient("http://rest.test:3000", "anon-key", { fetch: serverSupabaseFetch(SERVER_ENV) }) as unknown as Client,
   },
   { name: "server, service role", make: () => createAdminClient() },
   { name: "server, service role as integration", make: () => createAdminClient({ actor: "integration" }) },
@@ -218,10 +214,7 @@ test("control: without the guard the same unfiltered writes do go out (the stub 
   // The same requests as above, through a client whose fetch is the stub
   // alone. If this ever stops seeing them, the refusal tests above prove
   // nothing.
-  const bare = createSupabaseClient("http://rest.test:3000", "anon-key", {
-    auth: { autoRefreshToken: false, persistSession: false },
-    global: { fetch: stubFetch as typeof fetch },
-  }) as unknown as Client;
+  const bare = createPostgrestClient("http://rest.test:3000", "anon-key", { fetch: stubFetch as typeof fetch }) as unknown as Client;
   await table(bare).update({ title: "x" });
   await table(bare).delete();
   expect(seen.map((s) => `${s.method} ${new URL(s.url).pathname}${new URL(s.url).search}`)).toEqual([
