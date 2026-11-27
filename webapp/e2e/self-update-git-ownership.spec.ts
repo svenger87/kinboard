@@ -233,7 +233,16 @@ test("the other scripts that run git name the checkout too, and none trusts ever
   const runsGit = (file: string) =>
     readFileSync(file, "utf8")
       .split("\n")
-      .filter((l) => !/^\s*#/.test(l) && !/^\s*(echo|printf|log)\b/.test(l) && /(^|[\s($`])git\s/.test(l));
+      .filter(
+        (l) =>
+          !/^\s*#/.test(l) &&
+          !/^\s*(echo|printf|log)\b/.test(l) &&
+          // A git command, not the word in a message ("A git install and …" in a
+          // multi-line warning matched the bare `git\s` before).
+          /(^|[\s($`])git\s+(-[cC]\b|(fetch|pull|push|rev-parse|diff|checkout|ls-files|status|log|describe|config|show|merge|reset|stash|clean|cat-file|update-index|remote|branch|tag|symbolic-ref|for-each-ref|clone|init|add|commit)\b)/.test(
+            l,
+          ),
+      );
   const start = runsGit("docker/start.sh");
   expect(start.length, "start.sh reads the revision with git").toBeGreaterThan(0);
   for (const l of start) expect(l, "start.sh").toContain('safe.directory="$CHECKOUT_DIR"');
