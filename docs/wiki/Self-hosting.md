@@ -34,7 +34,7 @@ Until 1.15 a separate API gateway (Kong) sat in the stack, and some installs had
 
 There's nothing to change for the browser. For `SITE_URL` (calendar-feed links), run `./setup.sh --url <address>` from the repo root, then `cd webapp/docker && ./start.sh up` so the webapp picks it up.
 
-`./setup.sh` without `--force` is idempotent: it won't regenerate secrets that already exist. `--force` regenerates everything and **invalidates existing device join codes**.
+`./setup.sh` without `--force` is idempotent: it won't regenerate secrets that already exist, and fills in only what is missing. `--force` regenerates everything, passwords included, and an existing database accepts only the password it was created with, so `--force` stops when `DATA_DIR` holds one. `--force --new-passwords` goes ahead anyway; the database then needs the new password ([Troubleshooting](Troubleshooting#startsh-up-says-env-is-missing-or-env-keeps-disappearing)).
 
 ## Compose file overlay
 

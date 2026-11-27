@@ -16,7 +16,12 @@
 #                       handed to other apps. Also settable via KINBOARD_URL.
 #   --api-url <URL>     accepted and ignored since 1.15: the API is always on
 #                       the address Kinboard was opened from.
-#   --force, -f         regenerate everything from scratch (re-prompts for keys)
+#   --force, -f         regenerate everything from scratch (re-prompts for keys).
+#                       New passwords too: an existing database refuses them,
+#                       so it stops when there is one, unless --new-passwords
+#   --new-passwords     make a new .env (or --force) beside an existing database
+#                       anyway; the database then needs the new password, see
+#                       the wiki's Troubleshooting
 #   --non-interactive   never prompt; useful for CI / Docker entrypoint use
 #   --advanced          also prompt for the go2rtc example cameras
 #   --help, -h          show this help
@@ -30,12 +35,14 @@ WEBAPP_ENV_EXAMPLE="$REPO_ROOT/webapp/.env.example"
 WEBAPP_ENV="$REPO_ROOT/webapp/.env.local"
 
 force=0
+new_passwords=0
 non_interactive=0
 advanced=0
 cli_url="${KINBOARD_URL:-}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --force|-f) force=1 ;;
+    --new-passwords) new_passwords=1 ;;
     --non-interactive) non_interactive=1 ;;
     --advanced) advanced=1 ;;
     --url=*) cli_url="${1#*=}" ;;
@@ -43,7 +50,7 @@ while [[ $# -gt 0 ]]; do
     --api-url=*) echo "note: --api-url is ignored since 1.15 (the API is on the app's own address)" >&2 ;;
     --api-url) echo "note: --api-url is ignored since 1.15 (the API is on the app's own address)" >&2; shift || true ;;
     --help|-h)
-      sed -n '3,22p' "$0"
+      sed -n '3,26p' "$0"
       exit 0
       ;;
   esac
@@ -248,6 +255,98 @@ take_lock() {
   done
   LOCK_DIR_HELD="$SETUP_LOCK.d"
 }
+
+# ----------------------------------------------------------------------
+# 0b. Not over an existing database
+# ----------------------------------------------------------------------
+# A new .env (none there, or --force) gets a new POSTGRES_PASSWORD, JWT
+# secret and so on. The database keeps the password it was created with, so
+# beside an existing one the install stops at kinboard-db-init ("password
+# authentication failed for user supabase_admin") with the family's data
+# intact but out of reach. #539: .env vanished (OpenMediaVault's Compose
+# plugin deletes it in a folder it manages), and running this script was the
+# obvious next step; until now it was also what the push-key hint below
+# suggested, as --force. So it stops first and says how to get .env back.
+#
+# Only DATA_DIR's db folder counts: from the environment or .env (--force),
+# else the default ./data. It runs before the lock and reads only, so a
+# refusal writes nothing and never waits on another run. A folder this user can't look into (PostgreSQL
+# makes it 0700 for its own uid) counts as a database; an empty one doesn't.
+existing_database() {
+  # As Compose resolves it: the environment wins over .env. An unquoted
+  # value ends at " #"; an `export ` in front is allowed.
+  local data_dir="./data" line
+  if [[ -n "${DATA_DIR:-}" ]]; then
+    data_dir="$DATA_DIR"
+  elif [[ -f "$DOCKER_ENV" ]]; then
+    line=$({ grep -E '^(export[[:space:]]+)?DATA_DIR=' "$DOCKER_ENV" || true; } | tail -n1 | cut -d= -f2- | tr -d '\r')
+    case "$line" in
+      \"*) line="${line#\"}"; line="${line%%\"*}" ;;
+      \'*) line="${line#\'}"; line="${line%%\'*}" ;;
+      *) line="${line%% #*}"; line="${line%"${line##*[![:space:]]}"}" ;;
+    esac
+    [[ -z "$line" ]] || data_dir="$line"
+  fi
+  [[ "$data_dir" == /* ]] || data_dir="$REPO_ROOT/webapp/docker/${data_dir#./}"
+  local db="${data_dir%/}/db"
+  [[ -d "$db" ]] || return 1
+  if [[ ! -r "$db" || ! -x "$db" ]]; then
+    echo "$db"
+    return 0
+  fi
+  if [[ -e "$db/PG_VERSION" || -n "$(ls -A "$db" 2>/dev/null)" ]]; then
+    echo "$db"
+    return 0
+  fi
+  return 1
+}
+
+if { [[ ! -f "$DOCKER_ENV" ]] || [[ $force -eq 1 ]]; } && [[ $new_passwords -eq 0 ]] \
+  && db_dir="$(existing_database)"; then
+  # Copies a household may have (.env.keep, .env.before-fix, backups next to
+  # it): anything named .env.* that holds a POSTGRES_PASSWORD line.
+  copies=""
+  for f in "$(dirname "$DOCKER_ENV")"/.env.* "$(dirname "$DOCKER_ENV")"/env-*; do
+    [[ -f "$f" && "$f" != "$DOCKER_ENV_EXAMPLE" ]] || continue
+    grep -qE '^POSTGRES_PASSWORD=.' "$f" 2>/dev/null && copies="$copies
+           $f"
+  done
+  if [[ $force -eq 1 && -f "$DOCKER_ENV" ]]; then
+    cat >&2 <<MSG
+error: --force makes new passwords for everything, but $db_dir
+       already holds this install's database, which only accepts the password
+       it was created with. Kinboard would stop at kinboard-db-init. Nothing
+       was changed.
+
+       To fill in only what is missing (push keys, a new key from a newer
+       release), run ./setup.sh without --force.
+       To start over with new passwords on purpose: ./setup.sh --force --new-passwords,
+       then give the database the new password: wiki, Troubleshooting,
+       "./start.sh up says .env is missing".
+MSG
+  else
+    cat >&2 <<MSG
+error: $DOCKER_ENV is missing, but
+       $db_dir already holds this install's database.
+       A new .env would get new passwords, and the database only accepts the
+       one it was created with: Kinboard would stop at kinboard-db-init. Your
+       data is fine. Nothing was changed.
+
+       Put your copy of .env back, if you have one:
+         cp <your copy> $DOCKER_ENV${copies:+
+       These look like copies:$copies}
+
+       Without a copy: ./setup.sh --new-passwords, then give the database the
+       new password (wiki, Troubleshooting, "./start.sh up says .env is missing").
+
+       Why it went: on OpenMediaVault, the Compose plugin deletes .env in a
+       folder it manages (wiki, Compose UIs, "A git install and the Compose
+       plugin"). Kinboard's own scripts don't.
+MSG
+  fi
+  exit 1
+fi
+
 take_lock
 
 # node + npx are only needed for VAPID push-notification key generation.
@@ -476,7 +575,8 @@ if [[ -z "$existing_vapid_pub" ]] || [[ $force -eq 1 ]]; then
   else
     echo "⚠ skipping VAPID key generation (Node.js not on PATH)"
     echo "  Push notifications will be disabled until you generate keys."
-    echo "  To enable later: install Node.js + npx, then re-run setup.sh --force,"
+    echo "  To enable later: install Node.js + npx, then re-run ./setup.sh"
+    echo "  (without --force, which would make new passwords too),"
     echo "  or generate keys manually:"
     echo "    npx web-push generate-vapid-keys --json"
     echo "  and add VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY to webapp/docker/.env"
@@ -693,7 +793,7 @@ if [[ -z "$vapid_pub_now" ]]; then
 ⚠ Push notifications are OFF — no VAPID keys are set (Node.js wasn't found
   when secrets were generated). Calendar reminders and other push alerts
   stay disabled until you add them. To enable:
-       install Node.js + npx, then re-run:  ./setup.sh --force
+       install Node.js + npx, then re-run:  ./setup.sh
 
 EOF
 fi
