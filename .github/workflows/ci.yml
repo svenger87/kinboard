@@ -212,8 +212,10 @@ jobs:
       # An update that doesn't come up falls back to the previous image on
       # the schema the new one already migrated (RFC-023 §4.11.4); that only
       # works while migrations are additive. Exceptions are reviewed in
-      # webapp/docker/migrations-not-additive.json.
-      - name: Check migrations are additive
+      # webapp/docker/migrations-not-additive.json. The same script refuses a
+      # new migration that adds tables to a publication (RFC-024 §4.6 step 5):
+      # live updates come from the kinboard_change_feed trigger since 1.15.
+      - name: Check migrations are additive and add nothing to a publication
         run: node webapp/docker/check-additive-migrations.mjs
 
   # RFC-024 §4.6 step 4: src/types/database.generated.ts is what the
