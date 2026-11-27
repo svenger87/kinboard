@@ -28,7 +28,9 @@
  *      a store whose apps share one network names the container instead).
  *   5. Set the directory to 0750 and every file to 0640, owner root:0
  *      (PostgREST runs as uid 1000, gid 0), and read them back; a share that
- *      ignores chmod gets a warning naming the files (RFC-023 §6.3).
+ *      ignores chmod gets a warning naming the files (RFC-023 §6.3). In the
+ *      all-in-one image (KINBOARD_SECRETS_PRIVATE=1, run as PUID:PGID, not
+ *      root) 0700 and 0600 instead, owned by that user (RFC-024 §6.3).
  *
  * One log line per secret; never a value. A second run with nothing changed
  * writes nothing and touches no file.
@@ -44,6 +46,13 @@ import { STORED, fileValue } from "./secrets-store.mjs";
 
 export const DIR_MODE = 0o750;
 export const FILE_MODE = 0o640;
+/**
+ * The all-in-one image (RFC-024 §6.3): one user runs every process, PostgREST
+ * included, so nothing needs the group bit, and the secrets are 0600 in a 0700
+ * folder, owned by that user. Chosen with KINBOARD_SECRETS_PRIVATE=1.
+ */
+export const PRIVATE_MODES = Object.freeze({ dir: 0o700, file: 0o600, postgrest: false });
+export const SHARED_MODES = Object.freeze({ dir: DIR_MODE, file: FILE_MODE, postgrest: true });
 export const DB_URI_FILE = "db_uri";
 
 /** Where PostgREST finds the database, as the legacy file's PGRST_DB_URI has it. */
@@ -365,10 +374,10 @@ function syncDir(dir) {
  * host folder might hold) and fsynced before the rename; the caller fsyncs
  * the directory.
  */
-function writeAtomic(dir, file, value) {
+function writeAtomic(dir, file, value, mode = FILE_MODE) {
   const tmp = join(dir, tmpName(file));
   rmSync(tmp, { force: true });
-  const fd = openSync(tmp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, FILE_MODE);
+  const fd = openSync(tmp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, mode);
   try {
     writeSync(fd, value);
     fsyncSync(fd);
@@ -449,6 +458,7 @@ function readSecret(path) {
  *   asRoot?: boolean,
  *   gen?: { hex: () => string, vapid: () => { publicKey: string, privateKey: string } },
  *   chmod?: (path: string, mode: number) => void,
+ *   modes?: { dir: number, file: number, postgrest: boolean },
  * }} [options]
  */
 export function runInit({
@@ -461,6 +471,9 @@ export function runInit({
   gen,
   // Swappable so a test can be a filesystem that ignores or refuses chmod.
   chmod = chmodSync,
+  // SHARED_MODES for compose (PostgREST's own image reads through the group),
+  // PRIVATE_MODES for the all-in-one image.
+  modes = SHARED_MODES,
 } = {}) {
   const secretsDir = join(configDir, "secrets");
   const warnings = [];
@@ -516,14 +529,14 @@ export function runInit({
   if (plan.errors.length > 0) return fail(plan.errors);
 
   // 3 and 4. Write.
-  if (!dirExists) mkdirSync(secretsDir, { recursive: true, mode: DIR_MODE });
+  if (!dirExists) mkdirSync(secretsDir, { recursive: true, mode: modes.dir });
   // A temporary file left by an interrupted run is never a secret anyone reads.
   for (const name of readdirSync(secretsDir)) {
     if (/^\..+\.init-tmp$/.test(name)) rmSync(join(secretsDir, name), { force: true });
   }
   for (const w of plan.writes) {
     if (w.previous && current[w.file] !== null) keepPrevious(secretsDir, w.file, now);
-    writeAtomic(secretsDir, w.file, w.value);
+    writeAtomic(secretsDir, w.file, w.value, modes.file);
   }
   if (plan.writes.length > 0 || !dirExists) {
     syncDir(secretsDir);
@@ -532,10 +545,10 @@ export function runInit({
 
   // 5. Modes and owner, then read them back. Only plain files are touched:
   // anything else in the folder is reported, never followed.
-  settle(secretsDir, DIR_MODE, asRoot, chmod);
+  settle(secretsDir, modes.dir, asRoot, chmod);
   const entries = readdirSync(secretsDir);
   const files = entries.filter((n) => lstatSync(join(secretsDir, n)).isFile());
-  for (const name of files) settle(join(secretsDir, name), FILE_MODE, asRoot, chmod);
+  for (const name of files) settle(join(secretsDir, name), modes.file, asRoot, chmod);
 
   const loose = [];
   const check = (path, mode) => {
@@ -544,11 +557,11 @@ export function runInit({
       loose.push(`${path} (${(st.mode & 0o777).toString(8).padStart(4, "0")} ${st.uid}:${st.gid})`);
     }
   };
-  check(secretsDir, DIR_MODE);
-  for (const name of files) check(join(secretsDir, name), FILE_MODE);
+  check(secretsDir, modes.dir);
+  for (const name of files) check(join(secretsDir, name), modes.file);
   if (loose.length > 0) {
     warnings.push(
-      `These did not keep their permissions (wanted ${DIR_MODE.toString(8)} for the folder and ${FILE_MODE.toString(8)} ` +
+      `These did not keep their permissions (wanted ${modes.dir.toString(8)} for the folder and ${modes.file.toString(8)} ` +
       `for the files, owner root:0); the filesystem probably ignores chmod, so whoever can read it can read the secrets: ${loose.join(", ")}`,
     );
   }
@@ -556,7 +569,7 @@ export function runInit({
   if (others.length > 0) warnings.push(`Left alone, not plain files: ${others.map((n) => join(secretsDir, n)).join(", ")}`);
   // PostgREST (uid 1000, gid 0) must be able to get through the config folder to secrets/.
   const top = statSync(configDir);
-  if (!postgrestCanEnter(top)) {
+  if (modes.postgrest && !postgrestCanEnter(top)) {
     warnings.push(`${configDir} is ${(top.mode & 0o777).toString(8).padStart(4, "0")} ${top.uid}:${top.gid}: PostgREST (uid 1000, group 0) cannot enter it to read its secrets. Give the group or others execute permission (e.g. 0755).`);
   }
 
@@ -570,6 +583,7 @@ function main() {
     result = runInit({
       configDir: process.env.KINBOARD_CONFIG_ROOT || "/kinboard",
       dbDir: process.env.KINBOARD_DB_MOUNT || "/kinboard-db",
+      modes: process.env.KINBOARD_SECRETS_PRIVATE === "1" ? PRIVATE_MODES : SHARED_MODES,
     });
   } catch (err) {
     process.stderr.write(`${tag} failed: ${err?.message ?? err}\n`);

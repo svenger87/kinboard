@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!-- Generated from dist/kinboard.yaml, compose.yml and docker.yml by scripts/stores/build-store-listings.mjs. Do not edit by hand. -->
+<Container version="2">
+  <Name>Kinboard</Name>
+  <Repository>ghcr.io/svenger87/kinboard-aio:next</Repository>
+  <Registry>https://github.com/svenger87/kinboard/pkgs/container/kinboard-aio</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/svenger87/kinboard/discussions</Support>
+  <Project>https://kinboard.app</Project>
+  <Overview>Kinboard is a self-hosted family dashboard, built for a touchscreen on the kitchen wall and every phone in the house. Calendars (Google, CalDAV and iCal), meals and recipes, shopping lists, tasks, chores and rewards, a photo screensaver, weather, and your smart home through Home Assistant, on one screen everyone in the family can use.
+
+Everything stays on your own hardware. There is no account to create and no cloud service in between: the first device creates the family, and every other device joins it with the family&apos;s code.
+
+Everything runs in this one container: the app, its PostgreSQL database and the scheduled jobs. Give it one folder for its data; back up that folder, and keep the backups private. go2rtc is not included: snapshot and MJPEG cameras work without it, and RTSP cameras need a separate go2rtc container (set GO2RTC_URL).
+
+Open the app and create your family; every other device joins with the family&apos;s code. The passwords and keys create themselves on the first start and are kept in the data folder.</Overview>
+  <Category>HomeAutomation: Productivity:</Category>
+  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/svenger87/kinboard-unraid/main/templates/kinboard.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/svenger87/kinboard/main/assets/logos/kinboard-logo-icon-512.png</Icon>
+  <ExtraParams>--stop-timeout=60</ExtraParams>
+  <Requires>amd64 or arm64. Nothing else: PostgreSQL and PostgREST run inside the container. RTSP cameras need a separate go2rtc container.</Requires>
+  <ExtraSearchTerms>family calendar dashboard kiosk shopping list home assistant</ExtraSearchTerms>
+  <Changes>Release notes for every version: https://github.com/svenger87/kinboard/releases</Changes>
+  <MinVer>6.12</MinVer>
+  <License>PolyForm-Noncommercial-1.0.0</License>
+  <Beta>true</Beta>
+  <Screenshot>https://raw.githubusercontent.com/svenger87/kinboard/main/docs/wiki/images/dashboard-portrait-light.png</Screenshot>
+  <Screenshot>https://raw.githubusercontent.com/svenger87/kinboard/main/docs/wiki/images/calendar-month-view-light.png</Screenshot>
+  <Screenshot>https://raw.githubusercontent.com/svenger87/kinboard/main/docs/wiki/images/meals-week-board-light.png</Screenshot>
+  <Screenshot>https://raw.githubusercontent.com/svenger87/kinboard/main/docs/wiki/images/shopping-list-mixed-light.png</Screenshot>
+  <Screenshot>https://raw.githubusercontent.com/svenger87/kinboard/main/docs/wiki/images/todos-overview-light.png</Screenshot>
+  <Screenshot>https://raw.githubusercontent.com/svenger87/kinboard/main/docs/wiki/images/screensaver-designed.png</Screenshot>
+  <Config Name="Web UI" Target="3000" Default="3001" Mode="tcp" Description="The port families open in a browser." Type="Port" Display="always" Required="true" Mask="false">3001</Config>
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/kinboard" Mode="rw" Description="Everything Kinboard keeps: every family, calendar, list and setting; family photos, recipe pictures, vehicle images; the database password, the key that signs logins, the push keys. Back it up, and keep the backups private." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/kinboard</Config>
+  <Config Name="Time zone" Target="TZ" Default="Europe/Berlin" Description="Time zone" Type="Variable" Display="always" Required="false" Mask="false">Europe/Berlin</Config>
+  <Config Name="Address other apps get in links (calendar feed); empty means the address the page was opened at" Target="SITE_URL" Default="" Description="Address other apps get in links (calendar feed); empty means the address the page was opened at" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="User that runs Kinboard and owns its data folder" Target="PUID" Default="99" Description="User that runs Kinboard and owns its data folder" Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="Group that owns the data folder" Target="PGID" Default="100" Description="Group that owns the data folder" Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+  <Config Name="The family that sees update notices, when there is more than one" Target="INSTANCE_ADMIN_FAMILY_ID" Default="" Description="The family that sees update notices, when there is more than one" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Address of a separate go2rtc container, for RTSP cameras (snapshot and MJPEG cameras work without it)" Target="GO2RTC_URL" Default="" Description="Address of a separate go2rtc container, for RTSP cameras (snapshot and MJPEG cameras work without it)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+</Container>

@@ -583,7 +583,8 @@ test.describe("wiring", () => {
   const dockerfile = readFileSync(join(DOCKER, "Dockerfile"), "utf8");
 
   test("the entrypoint hands kinboard-init and kinboard-db-init off before it reads a secret", () => {
-    const dispatch = entry.indexOf("kinboard-init | kinboard-db-init)");
+    // (and `kinboard`, export/import, RFC-024 §4.4: e2e/aio-image.spec.ts)
+    const dispatch = entry.indexOf("kinboard-init | kinboard-db-init | kinboard)");
     expect(dispatch).toBeGreaterThan(0);
     expect(dispatch).toBeLessThan(entry.indexOf("node /app/secrets-store.mjs"));
     expect(dispatch).toBeLessThan(entry.indexOf("PUID"));
@@ -950,7 +951,8 @@ test.describe("after review: crashes, odd filesystems and odd files", () => {
 
   test("the run warns when it cannot, naming the folder", () => {
     const src = readFileSync(join(DOCKER, "kinboard-init.mjs"), "utf8");
-    expect(src).toMatch(/if \(!postgrestCanEnter\(top\)\) \{\n\s+warnings\.push\(`\$\{configDir\} is/);
+    // Not in the all-in-one image, where PostgREST runs as the folder's owner (PRIVATE_MODES).
+    expect(src).toMatch(/if \(modes\.postgrest && !postgrestCanEnter\(top\)\) \{\n\s+warnings\.push\(`\$\{configDir\} is/);
   });
 });
 

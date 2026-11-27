@@ -182,6 +182,58 @@
           ]
         }
       ]
+    },
+    {
+      "id": 3,
+      "type": 1,
+      "title": "Kinboard (all-in-one, release candidates)",
+      "description": "Self-hosted family dashboard for kitchen wall displays: calendars, shopping, weather, photos, smart home, energy and daily life in one screen. One container with its database inside.",
+      "note": "Everything runs in this one container: the app, its PostgreSQL database and the scheduled jobs. Give it one folder for its data; back up that folder, and keep the backups private. go2rtc is not included: snapshot and MJPEG cameras work without it, and RTSP cameras need a separate go2rtc container (set GO2RTC_URL). Open the app and create your family; every other device joins with the family's code. The passwords and keys create themselves on the first start and are kept in the data folder. Under Advanced, set the stop timeout to 60 seconds if your Portainer offers it, so the database always shuts down cleanly. Documentation: https://github.com/svenger87/kinboard/wiki",
+      "categories": [
+        "Productivity",
+        "Home"
+      ],
+      "platform": "linux",
+      "logo": "https://raw.githubusercontent.com/svenger87/kinboard/main/assets/logos/kinboard-logo-icon-512.png",
+      "image": "ghcr.io/svenger87/kinboard-aio:next",
+      "restart_policy": "unless-stopped",
+      "ports": [
+        "3001:3000/tcp"
+      ],
+      "volumes": [
+        {
+          "container": "/data"
+        }
+      ],
+      "env": [
+        {
+          "name": "TZ",
+          "label": "Time zone",
+          "default": "Europe/Berlin"
+        },
+        {
+          "name": "SITE_URL",
+          "label": "Address other apps get in links (calendar feed); empty means the address the page was opened at"
+        },
+        {
+          "name": "PUID",
+          "label": "User that runs Kinboard and owns its data folder",
+          "default": "1000"
+        },
+        {
+          "name": "PGID",
+          "label": "Group that owns the data folder",
+          "default": "1000"
+        },
+        {
+          "name": "INSTANCE_ADMIN_FAMILY_ID",
+          "label": "The family that sees update notices, when there is more than one"
+        },
+        {
+          "name": "GO2RTC_URL",
+          "label": "Address of a separate go2rtc container, for RTSP cameras (snapshot and MJPEG cameras work without it)"
+        }
+      ]
     }
   ]
 }

@@ -23,11 +23,21 @@
  *              install resolves it) is there, with its value
  *   metadata   each listing's name, tagline and descriptions are the
  *              metadata's, in every language the store takes
+ *   unraid     the template read back as CA documents it (a well-formed
+ *              `<Container version="2">`; Name and Repository; Category, Icon,
+ *              Overview, Project, Support, TemplateURL; every Config with the
+ *              starter template's attributes and values in their allowed
+ *              sets); the image docker.yml's all-in-one image on one of its
+ *              channel tags, Beta exactly while there is no stable one; the
+ *              web port and the one /data path; PUID/PGID Unraid's; the stop
+ *              timeout above PostgreSQL's shutdown window; ca_profile.xml
+ *              with a Profile
  */
 import { CASA_LOCALE, links, pinnedImages, splitRef, volumePath } from "./common.mjs";
 import { DOCKER_SOCKET, interpolate, serviceModel } from "./model.mjs";
-import { yaml } from "./sources.mjs";
+import { parseXml, yaml } from "./sources.mjs";
 import { umbrelHost } from "./umbrel.mjs";
+import { aioEnv, unraidRepo } from "./unraid.mjs";
 
 const SECRET_KEY = /(PASSWORD|SECRET|TOKEN|PRIVATE|_KEY|_KEYS)$/;
 
@@ -244,7 +254,8 @@ export function listingProblems(files, src) {
     // The switch for the opt-in profiles: there exactly when the stack has
     // them, every profile among its choices, and off unless chosen.
     const stackProfiles = [...new Set(Object.values(listings.portainer?.services ?? {}).flatMap((x) => x.raw?.profiles ?? []))];
-    for (const tpl of pt.templates ?? []) {
+    // (stack templates only: the all-in-one template is one container, no profiles)
+    for (const tpl of (pt.templates ?? []).filter((x) => x.type === 3)) {
       const f = (tpl.env ?? []).find((e) => e.name === "COMPOSE_PROFILES");
       if (!stackProfiles.length) { if (f) p.push(`portainer: template ${tpl.id} offers COMPOSE_PROFILES, and the stack has no profile`); continue; }
       if (!f) { p.push(`portainer: template ${tpl.id} has no switch for ${stackProfiles.join(", ")} (COMPOSE_PROFILES)`); continue; }
@@ -261,9 +272,115 @@ export function listingProblems(files, src) {
     const t = pt.templates?.[0] ?? {};
     if (t.title !== meta.name) p.push("portainer: title differs from the metadata");
     if (t.description !== meta.description.short) p.push("portainer: description differs from the metadata");
-    for (const tpl of pt.templates ?? []) {
+    for (const tpl of (pt.templates ?? []).filter((x) => x.type !== 1)) {
       if (tpl.repository?.url !== l.repo) p.push(`portainer: template ${tpl.id} points at ${tpl.repository?.url}, not ${l.repo}`);
       if (!(tpl.repository?.stackfile?.replace(/^dist\//, "") in files)) p.push(`portainer: template ${tpl.id}'s stackfile ${tpl.repository?.stackfile} is not generated`);
+    }
+  }
+  if (pt) {
+    const aio = (pt.templates ?? []).find((t) => t.type === 1);
+    if (!aio) p.push("portainer: no single-container template for the all-in-one image");
+    else p.push(...aioImageProblems("portainer", aio.image, src));
+    if (aio && !(aio.volumes ?? []).some((v) => v.container === meta.aio.data)) p.push(`portainer: the all-in-one template has no ${meta.aio.data} volume`);
+  }
+  const uPath = `unraid/${unraidRepo(meta).file}`;
+  if (read(uPath) !== null) p.push(...unraidProblems(files[uPath], files["unraid/ca_profile.xml"], src));
+  return p;
+}
+
+/** The all-in-one image reference: docker.yml's name, on one of its channel tags. */
+function aioImageProblems(where, image, src) {
+  const { images, channels } = src;
+  const p = [];
+  const m = /^(.*):([^:/@]+)$/.exec(String(image ?? ""));
+  if (!m) return [`${where}: the all-in-one image ${image} has no tag`];
+  if (m[1] !== images.aio) p.push(`${where}: runs ${m[1]}, not docker.yml's all-in-one image ${images.aio}`);
+  const want = channels.aio.stable ?? channels.aio.next;
+  if (m[2] !== want) p.push(`${where}: the all-in-one image's tag is ${m[2]}, docker.yml's ${channels.aio.stable ? "stable" : "only"} channel is ${want}`);
+  return p;
+}
+
+const CA_CONFIG_ATTRS = ["Name", "Target", "Default", "Description", "Type", "Display", "Required", "Mask"];
+const CA_ALLOWED = {
+  Type: ["Port", "Path", "Variable", "Label", "Device"],
+  Display: ["always", "always-hide", "advanced", "advanced-hide"],
+  Required: ["true", "false"],
+  Mask: ["true", "false"],
+};
+
+/**
+ * The Unraid template and profile, read back as CA documents them.
+ * @param {string} xml
+ * @param {string | undefined} profileXml
+ */
+export function unraidProblems(xml, profileXml, src) {
+  const { meta, channels } = src;
+  const p = [];
+  const at = "unraid";
+  let doc;
+  try { doc = parseXml(xml); } catch (err) { return [`${at}: the template is ${err.message}`]; }
+  const root = doc.documentElement;
+  if (root.tagName !== "Container" || root.getAttribute("version") !== "2") p.push(`${at}: the root is not <Container version="2">`);
+  const one = (tag) => {
+    const els = [...root.children].filter((e) => e.tagName === tag);
+    if (els.length > 1) p.push(`${at}: <${tag}> appears ${els.length} times`);
+    return els[0]?.textContent ?? null;
+  };
+  for (const tag of ["Name", "Repository", "Category", "Icon", "Overview", "Project", "Support", "TemplateURL", "WebUI", "Network"]) {
+    if (!one(tag)?.trim()) p.push(`${at}: <${tag}> is missing or empty`);
+  }
+  if (one("Name") !== meta.name) p.push(`${at}: Name is not the metadata's`);
+  p.push(...aioImageProblems(at, one("Repository"), src));
+  const beta = one("Beta");
+  if (!channels.aio.stable && beta !== "true") p.push(`${at}: no stable all-in-one channel yet, so <Beta>true</Beta> is required`);
+  if (channels.aio.stable && beta !== null) p.push(`${at}: <Beta> on a stable channel`);
+  if (one("TemplateURL") !== unraidRepo(meta).templateUrl) p.push(`${at}: TemplateURL is not the template repository's raw URL`);
+  if (!String(one("Overview") ?? "").includes(meta.description.long.en)) p.push(`${at}: Overview lacks the metadata's description`);
+  if (!String(one("Overview") ?? "").includes(meta.aio.note.en)) p.push(`${at}: Overview lacks the all-in-one note (go2rtc is not included)`);
+  if (one("Category") !== meta.aio.unraid.category) p.push(`${at}: Category differs from the metadata`);
+  if (one("License") !== meta.license) p.push(`${at}: License is not the metadata's`);
+  if (!/^https:\/\//.test(one("Icon") ?? "")) p.push(`${at}: Icon is not an https URL`);
+  const webui = /^http:\/\/\[IP\]:\[PORT:(\d+)\]\/?$/.exec(one("WebUI") ?? "");
+  if (!webui || Number(webui[1]) !== meta.ports.web.container) p.push(`${at}: WebUI must be http://[IP]:[PORT:${meta.ports.web.container}] (the container port)`);
+  const stop = /--stop-timeout=(\d+)/.exec(one("ExtraParams") ?? "");
+  if (!stop || Number(stop[1]) < 45) p.push(`${at}: ExtraParams must set --stop-timeout above PostgreSQL's 30 s shutdown window`);
+  if (/[;&|`$]/.test(one("ExtraParams") ?? "")) p.push(`${at}: ExtraParams carries a shell character (CA blacklists chained commands)`);
+
+  const configs = [...root.children].filter((e) => e.tagName === "Config");
+  for (const c of configs) {
+    const name = c.getAttribute("Name") ?? "?";
+    for (const a of CA_CONFIG_ATTRS) if (!c.hasAttribute(a)) p.push(`${at}: Config ${name} lacks ${a}`);
+    for (const [a, allowed] of Object.entries(CA_ALLOWED)) {
+      if (c.hasAttribute(a) && !allowed.includes(c.getAttribute(a))) p.push(`${at}: Config ${name}: ${a}="${c.getAttribute(a)}" is not one of ${allowed.join(", ")}`);
+    }
+    const type = c.getAttribute("Type");
+    if (type === "Port" && !["tcp", "udp"].includes(c.getAttribute("Mode") ?? "")) p.push(`${at}: Config ${name}: a port's Mode is tcp or udp`);
+    if (type === "Path" && !["rw", "ro", "rw,slave", "ro,slave", "rw,shared", "ro,shared"].includes(c.getAttribute("Mode") ?? "")) p.push(`${at}: Config ${name}: a path's Mode is rw or ro`);
+    if (c.textContent !== c.getAttribute("Default")) p.push(`${at}: Config ${name}: its value differs from its Default`);
+    if (/(PASSWORD|SECRET|TOKEN|_KEY)$/.test(c.getAttribute("Target") ?? "") && c.getAttribute("Mask") !== "true") p.push(`${at}: Config ${name} is a secret and not masked`);
+  }
+  const byTarget = (t) => configs.find((c) => c.getAttribute("Target") === t);
+  const port = configs.find((c) => c.getAttribute("Type") === "Port" && c.getAttribute("Target") === String(meta.ports.web.container));
+  if (!port) p.push(`${at}: no Port config for ${meta.ports.web.container}`);
+  const paths = configs.filter((c) => c.getAttribute("Type") === "Path");
+  if (paths.length !== 1 || paths[0].getAttribute("Target") !== meta.aio.data) p.push(`${at}: exactly one Path, at ${meta.aio.data} (the all-in-one image keeps everything there)`);
+  const wantData = meta.aio.unraid.data_path.replaceAll("{slug}", meta.slug);
+  if (paths[0] && paths[0].getAttribute("Default") !== wantData) p.push(`${at}: the data path defaults to ${paths[0].getAttribute("Default")}, not ${wantData}`);
+  if (byTarget("PUID")?.getAttribute("Default") !== meta.aio.unraid.puid || byTarget("PGID")?.getAttribute("Default") !== meta.aio.unraid.pgid) {
+    p.push(`${at}: PUID/PGID must default to Unraid's ${meta.aio.unraid.puid}:${meta.aio.unraid.pgid}`);
+  }
+  for (const name of Object.keys(aioEnv(meta))) if (!byTarget(name)) p.push(`${at}: the variable ${name} is not offered`);
+  for (const name of meta.aio.env_exclude ?? []) if (byTarget(name)) p.push(`${at}: offers ${name}, which the all-in-one image does not read`);
+
+  if (profileXml === undefined) p.push(`${at}: ca_profile.xml is missing`);
+  else {
+    try {
+      const prof = parseXml(profileXml).documentElement;
+      if (prof.tagName !== "CommunityApplications") p.push(`${at}: ca_profile.xml's root is not <CommunityApplications>`);
+      const profile = [...prof.children].find((e) => e.tagName === "Profile");
+      if (!profile?.textContent?.trim()) p.push(`${at}: ca_profile.xml has no Profile (CA requires a non-empty one)`);
+    } catch (err) {
+      p.push(`${at}: ca_profile.xml is ${err.message}`);
     }
   }
   return p;

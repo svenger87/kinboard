@@ -33,6 +33,14 @@
 #                   from stdin. Default: psql with POSTGRES_HOST/PORT/USER/DB.
 #                   start.sh passes `docker exec -i <db> psql -U postgres ...`.
 #
+#   MIGRATE_FAILED_FILE  when set, the name of a file that failed is written
+#                   there (the all-in-one image's start record, RFC-024 §4.7)
+#
+#   --pending       apply nothing: print the name of every file this run would
+#                   apply, one per line, and exit 0. The all-in-one image asks
+#                   this before it takes a verified dump (RFC-024 §4.7). It
+#                   creates the bookkeeping table if missing, nothing else.
+#
 # Exit status: 0 when every pending file applied, 1 on the first failure (the
 # failed file stays pending, so the next run retries it).
 
@@ -42,7 +50,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-$SCRIPT_DIR/migrations}"
 PSQL="${PSQL:-psql -h ${POSTGRES_HOST:-db} -p ${POSTGRES_PORT:-5432} -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}}"
 
-log() { echo "[migrate] $*"; }
+PENDING_ONLY=0
+case "${1:-}" in
+  --pending) PENDING_ONLY=1 ;;
+  "") ;;
+  *) echo "[migrate] unknown argument: $1" >&2; exit 2 ;;
+esac
+
+log() { [ "$PENDING_ONLY" = 1 ] || echo "[migrate] $*"; }
 
 # shellcheck disable=SC2086
 sql() { $PSQL -X -q -v ON_ERROR_STOP=1 "$@"; }
@@ -95,8 +110,15 @@ for file in "$MIGRATIONS_DIR"/[0-9]*.sql; do
     log "applying $name"
   fi
 
+  if [ "$PENDING_ONLY" = 1 ]; then
+    printf '%s\n' "$name"
+    applied=$((applied + 1))
+    continue
+  fi
+
   if ! sql < "$file"; then
     log "FAILED: $name" >&2
+    if [ -n "${MIGRATE_FAILED_FILE:-}" ]; then printf '%s\n' "$name" >"$MIGRATE_FAILED_FILE" 2>/dev/null || true; fi
     exit 1
   fi
 
@@ -109,6 +131,8 @@ ON CONFLICT (name) DO UPDATE SET checksum = EXCLUDED.checksum, applied_at = now(
 SQL
   applied=$((applied + 1))
 done
+
+[ "$PENDING_ONLY" = 1 ] && exit 0
 
 # PostgREST caches the schema; a new column is not queryable until it reloads.
 if [ "$applied" -gt 0 ]; then

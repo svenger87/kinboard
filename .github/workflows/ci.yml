@@ -186,7 +186,8 @@ jobs:
           # POSIX sh: these run inside the Alpine webhook container.
           # kinboard-db-init and kinboard-postgres's guard run in Alpine images too.
           for f in webapp/docker/kinboard-self-update.sh webapp/docker/kinboard-entry.sh webapp/docker/migrate.sh webapp/docker/webapp-entrypoint.sh \
-                   webapp/docker/kinboard-db-init.sh webapp/docker/postgres/kinboard-postgres-guard.sh webapp/docker/postgres/00-kinboard-marker.sh; do
+                   webapp/docker/kinboard-db-init.sh webapp/docker/postgres/kinboard-postgres-guard.sh webapp/docker/postgres/00-kinboard-marker.sh \
+                   webapp/docker/kinboard-backup.sh webapp/docker/storage-api-move.sh webapp/docker/aio/rootfs/usr/local/lib/kinboard-aio/*.sh; do
             echo "checking $f"
             sh -n "$f"
           done
@@ -444,6 +445,62 @@ jobs:
   # guard; the documented move. About 25 minutes, every wait inside with its
   # own deadline. Only when something it guards changed; weekly regardless,
   # on both architectures (rigs.yml).
+  # The all-in-one image (RFC-024 phase 5, §6.5): scripts/rigs/test-aio.sh
+  # whenever the image, what it runs or the rig changes. amd64 here; arm64
+  # weekly in rigs.yml.
+  aio-decide:
+    name: All-in-one image (decide)
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: decide
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          guarded="webapp/docker/aio/ webapp/docker/kinboard-transfer.mjs webapp/docker/kinboard-backup.sh
+                   webapp/docker/webapp-entrypoint.sh webapp/docker/migrate.sh webapp/docker/kinboard-init.mjs
+                   webapp/docker/kinboard-db-init.sh webapp/docker/stock-postgres-bootstrap.sql webapp/docker/init.sql
+                   webapp/docker/migrations/ webapp/docker/Dockerfile scripts/rigs/test-aio.sh scripts/rigs/stock-postgres/
+                   webapp/e2e/rls-matrix.spec.ts .github/workflows/ci.yml"
+          if [ -z "$BASE" ] || [[ "$BASE" =~ ^0+$ ]] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; echo "no usable base: run"; exit 0
+          fi
+          run=false
+          while IFS= read -r f; do
+            for p in $guarded; do case "$f" in "$p"*) run=true; echo "guarded: $f" ;; esac; done
+          done < <(git diff --name-only "$BASE" "$GITHUB_SHA")
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+  aio:
+    name: All-in-one image
+    needs: aio-decide
+    if: needs.aio-decide.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reclaim disk
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/share/swift || true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+      # Playwright only as a test runner (the rls-matrix spec opens no browser).
+      - name: Install webapp deps
+        working-directory: webapp
+        run: |
+          corepack enable npm
+          npm ci
+      - name: Run the rig
+        env:
+          KINBOARD_RIG: "1"
+        run: scripts/rigs/test-aio.sh
+
   stock-postgres-decide:
     name: Stock PostgreSQL gates (decide)
     runs-on: ubuntu-latest

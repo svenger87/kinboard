@@ -20,12 +20,14 @@
  * in its own volume, out of the updater's reach, so the updater works in
  * container mode (RFC-023 §4.11.3).
  *
- * The all-in-one image's single-container template (type 1) comes with that
- * image (RFC-024 phase 5).
+ * Plus a type 1 (single container) template for the all-in-one image
+ * (RFC-024 §5.5, phase 5), on its stable channel tag once docker.yml
+ * publishes one, on `next` until then.
  */
 import { DIST } from "./sources.mjs";
 import { dumpYaml, generatedNotice, links, rawUrl } from "./common.mjs";
 import { variablesIn } from "./model.mjs";
+import { aioEnv } from "./unraid.mjs";
 
 export const PORTAINER_STACK = "portainer/compose.yml";
 
@@ -128,12 +130,13 @@ export function portainer(src) {
         ...base,
         env: withPort(env("next")),
       },
+      aioTemplate(src),
     ],
   };
 
   // Every field of a template must reach the stack, or it would do nothing.
   const varsInStack = new Set([...JSON.stringify(stack).matchAll(/\$\{([A-Z0-9_]+)/g)].map((m) => m[1]));
-  for (const t of templates.templates) {
+  for (const t of templates.templates.filter((x) => x.type === 3)) {
     for (const e of t.env) {
       // COMPOSE_PROFILES is read by Compose itself, and does something only
       // when the stack has a service under that profile.
@@ -144,5 +147,28 @@ export function portainer(src) {
   return {
     [PORTAINER_STACK]: `${generatedNotice(src)}\n# The stack file of the Portainer app templates in templates.json.\n${offered.map((pr) => `# ${Object.keys(stack.services).filter((n) => stack.services[n].profiles?.includes(pr)).join(", ")} starts only with COMPOSE_PROFILES=${pr} (the template's "${meta.opt_in[pr].label}"); only then does any container get the Docker socket.\n`).join("")}${dumpYaml(stack)}`,
     "portainer/templates.json": `${JSON.stringify(templates, null, 2)}\n`,
+  };
+}
+
+/** The all-in-one image as one container (type 1). */
+function aioTemplate(src) {
+  const { meta, images, channels } = src;
+  const stable = channels.aio.stable;
+  const tag = stable ?? channels.aio.next;
+  const l = links(meta);
+  return {
+    id: 3,
+    type: 1,
+    title: stable ? `${meta.name} (all-in-one)` : `${meta.name} (all-in-one, release candidates)`,
+    description: `${meta.description.short} One container with its database inside.`,
+    note: `${meta.aio.note.en} ${meta.aio.first_run.en} Under Advanced, set the stop timeout to ${meta.aio.stop_timeout} seconds if your Portainer offers it, so the database always shuts down cleanly. Documentation: ${l.docs}`,
+    categories: meta.store_categories.portainer,
+    platform: "linux",
+    logo: rawUrl(meta, meta.icon.png),
+    image: `${images.aio}:${tag}`,
+    restart_policy: "unless-stopped",
+    ports: [`${meta.ports.web.host}:${meta.ports.web.container}/tcp`],
+    volumes: [{ container: meta.aio.data }],
+    env: Object.entries(aioEnv(meta)).map(([name, v]) => ({ name, label: v.label, ...(v.default !== undefined ? { default: v.default } : {}) })),
   };
 }

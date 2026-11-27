@@ -24,6 +24,20 @@ const require = createRequire(join(REPO_ROOT, "webapp", "package.json"));
 /** @type {typeof import("js-yaml")} */
 export const yaml = require("js-yaml");
 
+/**
+ * An XML document, parsed strictly (jsdom's DOMParser, a webapp
+ * devDependency): a document that is not well-formed throws with the parser's
+ * message. For reading the Unraid template back as Unraid would.
+ * @param {string} text
+ */
+export function parseXml(text) {
+  const { JSDOM } = require("jsdom");
+  const doc = new new JSDOM("").window.DOMParser().parseFromString(text, "application/xml");
+  const err = doc.getElementsByTagName("parsererror")[0];
+  if (err) throw new Error(`not well-formed XML: ${err.textContent.replace(/\s+/g, " ").trim().slice(0, 200)}`);
+  return doc;
+}
+
 /** Where the listings are generated to, and where the metadata file lives. */
 export const DIST = "dist";
 
@@ -103,6 +117,24 @@ export function metadataProblems(m, file = "metadata") {
     need(Array.isArray(o?.stores) && o.stores.length > 0 && o.stores.every((s) => LISTING_STORES.includes(s)), `opt_in.${profile}.stores must list stores`);
     for (const k of ["label", "description", "off", "on"]) need(str(o?.[k]), `opt_in.${profile}.${k} is required`);
   }
+  const a = m.aio;
+  need(a && typeof a === "object", "aio is required (the all-in-one image's listings)");
+  if (a && typeof a === "object") {
+    need(typeof a.data === "string" && a.data.startsWith("/"), "aio.data must be an absolute path in the container");
+    need(Number.isInteger(a.stop_timeout) && a.stop_timeout >= 45, "aio.stop_timeout must be at least 45 s (PostgreSQL gets 30 s inside)");
+    for (const k of ["note", "first_run", "requires"]) need(str(a[k]?.en), `aio.${k}.en is required`);
+    for (const [name, v] of Object.entries(a.env ?? {})) {
+      need(/^[A-Z][A-Z0-9_]*$/.test(name), `aio.env ${name} is not a variable name`);
+      need(str(v?.label), `aio.env ${name} needs a label`);
+    }
+    for (const name of a.env_exclude ?? []) need(m.env && name in m.env, `aio.env_exclude names ${name}, which env does not offer`);
+    const u = a.unraid;
+    need(u && typeof u.repository === "string" && /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(u.repository), "aio.unraid.repository must be owner/name");
+    // Token by token, so the check is linear (a nested quantifier backtracks exponentially).
+    need(str(u?.category) && u.category.trim().split(" ").every((t) => /^[A-Za-z]+:[A-Za-z]*$/.test(t)), "aio.unraid.category must be CA's Category:Subcategory list");
+    need(str(u?.data_path) && u.data_path.startsWith("/mnt/user/appdata/"), "aio.unraid.data_path must be under /mnt/user/appdata/");
+    need(/^\d+$/.test(u?.puid ?? "") && /^\d+$/.test(u?.pgid ?? ""), "aio.unraid.puid and .pgid must be numbers");
+  }
   const r = m.release;
   need(r && str(r.version) && str(r.app_tag) && str(r.postgres_tag), "release.version, .app_tag and .postgres_tag are required");
   for (const [ref, d] of Object.entries(r?.digests ?? {})) need(DIGEST.test(String(d)), `release.digests: ${ref} is not a sha256 digest`);
@@ -158,7 +190,7 @@ export function imageNamesFromWorkflow(text, owner) {
   const wf = yaml.load(text);
   const env = wf?.env ?? {};
   const fill = (v) => String(v).replace(/\$\{\{\s*github\.repository_owner\s*\}\}/g, owner).toLowerCase();
-  for (const k of ["REGISTRY", "IMAGE_NAME", "POSTGRES_IMAGE_NAME", "UPDATER_IMAGE_NAME"]) {
+  for (const k of ["REGISTRY", "IMAGE_NAME", "POSTGRES_IMAGE_NAME", "UPDATER_IMAGE_NAME", "AIO_IMAGE_NAME"]) {
     if (typeof env[k] !== "string" || !env[k]) throw new Error(`docker.yml: env.${k} is missing`);
   }
   const registry = fill(env.REGISTRY);
@@ -166,6 +198,7 @@ export function imageNamesFromWorkflow(text, owner) {
     app: `${registry}/${fill(env.IMAGE_NAME)}`,
     postgres: `${registry}/${fill(env.POSTGRES_IMAGE_NAME)}`,
     updater: `${registry}/${fill(env.UPDATER_IMAGE_NAME)}`,
+    aio: `${registry}/${fill(env.AIO_IMAGE_NAME)}`,
   };
 }
 
@@ -177,14 +210,17 @@ export function imageNamesFromWorkflow(text, owner) {
  */
 export function channelsFromWorkflow(text) {
   const env = yaml.load(text)?.env ?? {};
-  const read = (key) => {
+  const read = (key, { stableOptional = false } = {}) => {
     const raws = [...String(env[key] ?? "").matchAll(/type=raw,value=([^,\s]+),enable=\$\{\{([^}]*)\}\}/g)];
     const stable = raws.find(([, , cond]) => /!contains\(/.test(cond))?.[1];
     const next = raws.find(([, , cond]) => /&&\s*contains\(/.test(cond))?.[1];
-    if (!stable || !next) throw new Error(`docker.yml: ${key} has no stable and release-candidate channel tags`);
-    return { stable, next };
+    if ((!stable && !stableOptional) || !next) throw new Error(`docker.yml: ${key} has no stable and release-candidate channel tags`);
+    return { stable: stable ?? null, next };
   };
-  return { app: read("IMAGE_TAGS"), postgres: read("POSTGRES_IMAGE_TAGS") };
+  // The all-in-one image has no stable channel until RFC-024 phase 5's gates
+  // are met (two release cycles on `next`, the Pi, a rehearsed major upgrade):
+  // its listings follow whatever AIO_IMAGE_TAGS publishes.
+  return { app: read("IMAGE_TAGS"), postgres: read("POSTGRES_IMAGE_TAGS"), aio: read("AIO_IMAGE_TAGS", { stableOptional: true }) };
 }
 
 /**
