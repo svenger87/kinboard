@@ -1,6 +1,8 @@
 # For development and CI, never production: publishes PostgREST on loopback.
+# It lives here, out of webapp/docker, because no install uses it. From
+# webapp/docker (paths in it resolve against docker-compose.yml's folder):
 #
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db db-init rest
+#   docker compose -f docker-compose.yml -f ../../scripts/dev/docker-compose.dev.yml up -d db db-init rest
 #
 # Two things need PostgREST directly rather than through the webapp's
 # /rest/v1, which refuses the service_role key from outside:

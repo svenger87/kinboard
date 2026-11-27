@@ -5,7 +5,7 @@ name: E2E smoke
 # Playwright smoke suite against http://localhost:3001 — the webapp, which
 # serves the app, its API (/rest/v1), uploaded files and live updates at one
 # address, as on every install since 1.15. The webapp is built from this
-# checkout (docker-compose.build.yml); docker-compose.dev.yml publishes
+# checkout (docker-compose.build.yml); scripts/dev/docker-compose.dev.yml publishes
 # PostgREST on loopback for the specs that use the service role.
 #
 # Phase B of the testing plan — the suite itself shipped in v1.0.9
@@ -166,7 +166,7 @@ jobs:
       - name: Boot stack with demo overlay
         working-directory: ${{ github.workspace }}/webapp/docker
         env:
-          COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.build.yml -f docker-compose.dev.yml -f docker-compose.demo.yml"
+          COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.build.yml -f ../../scripts/dev/docker-compose.dev.yml -f docker-compose.demo.yml"
         run: bash start.sh up
 
       - name: Wait for stack health
@@ -191,7 +191,7 @@ jobs:
         if: failure()
         working-directory: ${{ github.workspace }}/webapp/docker
         env:
-          COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.build.yml -f docker-compose.dev.yml -f docker-compose.demo.yml"
+          COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.build.yml -f ../../scripts/dev/docker-compose.dev.yml -f docker-compose.demo.yml"
         run: |
           echo "::group::container states"
           docker compose $COMPOSE_FILES ps -a || true
@@ -243,7 +243,7 @@ jobs:
       # runs migrations/063_pocket_money_booking.sql's guards (overdraw,
       # allowance claim, double decide) against a real database; the fast
       # suite drives them through fakes. The admin client goes to PostgREST on
-      # the loopback port docker-compose.dev.yml publishes (POSTGREST_URL);
+      # the loopback port scripts/dev/docker-compose.dev.yml publishes (POSTGREST_URL);
       # the webapp's /rest/v1 refuses the service_role key, as it should.
       # Anon and family clients use the webapp (SUPABASE_URL).
       # event-series-live also acts as a family's browser (a family token and
@@ -330,5 +330,5 @@ jobs:
         if: always()
         working-directory: ${{ github.workspace }}/webapp/docker
         env:
-          COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.build.yml -f docker-compose.dev.yml -f docker-compose.demo.yml"
+          COMPOSE_FILES: "-f docker-compose.yml -f docker-compose.build.yml -f ../../scripts/dev/docker-compose.dev.yml -f docker-compose.demo.yml"
         run: docker compose $COMPOSE_FILES down -v || true

@@ -1,6 +1,6 @@
 // Kinboard Service Worker
 //
-// CACHE_NAME changes with every build: docker/stamp-sw.sh (run by the
+// CACHE_NAME changes with every build: scripts/stamp-sw.sh (run by the
 // Dockerfile before `next build`) replaces __KINBOARD_VERSION__ with the
 // package.json version and __KINBOARD_REVISION__ with the build's short git
 // sha. Both are needed. The browser only looks at a new service worker when

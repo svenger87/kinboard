@@ -11,13 +11,13 @@
 // in init.sql or in an earlier/same migration are fine; tables never created
 // by any tracked file are left alone (they may come from extensions/Supabase).
 //
-// Run: node webapp/docker/check-migration-order.mjs   (from repo root)
+// Run: node scripts/ci/check-migration-order.mjs   (from repo root)
 
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
-const dir = dirname(fileURLToPath(import.meta.url));
+const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../../webapp/docker");
 
 const CREATE_RE = /CREATE TABLE(?:\s+IF NOT EXISTS)?\s+(?:ONLY\s+)?(?:public\.)?["']?([a-zA-Z0-9_]+)/gi;
 const ALTER_RE = /ALTER TABLE(?:\s+IF EXISTS)?\s+(?:ONLY\s+)?(?:public\.)?["']?([a-zA-Z0-9_]+)/gi;

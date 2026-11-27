@@ -39,9 +39,9 @@ function stamp(revision: string | undefined): string {
   const dir = mkdtempSync(join(tmpdir(), "sw-stamp-"));
   try {
     mkdirSync(join(dir, "public"));
-    mkdirSync(join(dir, "docker"));
+    mkdirSync(join(dir, "scripts"));
     copyFileSync(join(WEBAPP, "public", "sw.js"), join(dir, "public", "sw.js"));
-    copyFileSync(join(WEBAPP, "docker", "stamp-sw.sh"), join(dir, "docker", "stamp-sw.sh"));
+    copyFileSync(join(WEBAPP, "scripts", "stamp-sw.sh"), join(dir, "scripts", "stamp-sw.sh"));
     const env: NodeJS.ProcessEnv = { ...process.env, KINBOARD_VERSION: "1.17.0-rc.3" };
     delete env.BUILD_REVISION;
     if (revision !== undefined) env.BUILD_REVISION = revision;

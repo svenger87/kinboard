@@ -219,7 +219,7 @@ test.describe("wiring", () => {
     expect(jobs).toContain("provenance: mode=max");
     expect(jobs).toContain("sbom: true");
     const merge = dockerYml.slice(dockerYml.indexOf("\n  postgres-merge:"));
-    expect(merge).toContain("webapp/docker/check-image-metadata.sh");
+    expect(merge).toContain("scripts/ci/check-image-metadata.sh");
   });
 
   test("ci.yml runs the gates whenever what they guard changes", () => {

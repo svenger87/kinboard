@@ -1,6 +1,6 @@
 #!/bin/sh
 # Stamps the service worker with this build's identity before `next build`.
-#   sh docker/stamp-sw.sh <path/to/sw.js> <version> [revision]
+#   sh scripts/stamp-sw.sh <path/to/sw.js> <version> [revision]
 #
 # sw.js names its cache 'kinboard-__KINBOARD_VERSION__-__KINBOARD_REVISION__'.
 # Both parts matter. A browser only notices a new build when the bytes of
