@@ -1,10 +1,10 @@
 images:
   image:
     repository: ghcr.io/svenger87/kinboard
-    tag: sha-2e83c9f@sha256:a18e6874cdd961654364815562b2ba3b848bde25648d29905e0e61135189a498
+    tag: sha-2c31942@sha256:ca5f6d49777aee5ccce2f0141d3273c9b9e0e801beda4fe427b3337c22bb4053
   postgres_image:
     repository: ghcr.io/svenger87/kinboard-postgres
-    tag: 17-sha-2e83c9f@sha256:c58ef7e1e2fe121efee8bf5b6277568ff7f6068831a2a439348dacf13c7c1388
+    tag: 17-sha-2c31942@sha256:2e4d4d56e8d2c9ae17c4a95900c158d7752fd59ccfce9e2d486c8081ad8a42e6
   postgrest_image:
     repository: postgrest/postgrest
     tag: v14.16@sha256:bea1c76a856fa39d1e542d25911cf95d02fe2bf971992d033044ff209f1504b8

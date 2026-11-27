@@ -2,7 +2,7 @@
 name: kinboard
 services:
   init:
-    image: ghcr.io/svenger87/kinboard:sha-2e83c9f@sha256:a18e6874cdd961654364815562b2ba3b848bde25648d29905e0e61135189a498
+    image: ghcr.io/svenger87/kinboard:sha-2c31942@sha256:ca5f6d49777aee5ccce2f0141d3273c9b9e0e801beda4fe427b3337c22bb4053
     container_name: kinboard-init
     entrypoint:
       - /bin/sh
@@ -27,7 +27,7 @@ services:
     networks:
       - kinboard
   db:
-    image: ghcr.io/svenger87/kinboard-postgres:17-sha-2e83c9f@sha256:c58ef7e1e2fe121efee8bf5b6277568ff7f6068831a2a439348dacf13c7c1388
+    image: ghcr.io/svenger87/kinboard-postgres:17-sha-2c31942@sha256:2e4d4d56e8d2c9ae17c4a95900c158d7752fd59ccfce9e2d486c8081ad8a42e6
     container_name: kinboard-db
     restart: unless-stopped
     logging:
@@ -65,7 +65,7 @@ services:
     networks:
       - kinboard
   db-init:
-    image: ghcr.io/svenger87/kinboard:sha-2e83c9f@sha256:a18e6874cdd961654364815562b2ba3b848bde25648d29905e0e61135189a498
+    image: ghcr.io/svenger87/kinboard:sha-2c31942@sha256:ca5f6d49777aee5ccce2f0141d3273c9b9e0e801beda4fe427b3337c22bb4053
     container_name: kinboard-db-init
     command:
       - kinboard-db-init
@@ -115,7 +115,7 @@ services:
     networks:
       - kinboard
   webapp:
-    image: ghcr.io/svenger87/kinboard:sha-2e83c9f@sha256:a18e6874cdd961654364815562b2ba3b848bde25648d29905e0e61135189a498
+    image: ghcr.io/svenger87/kinboard:sha-2c31942@sha256:ca5f6d49777aee5ccce2f0141d3273c9b9e0e801beda4fe427b3337c22bb4053
     container_name: kinboard-webapp
     restart: unless-stopped
     logging:
@@ -232,7 +232,7 @@ x-casaos:
   architectures:
     - amd64
     - arm64
-  version: 1.18.0-main.2e83c9f
+  version: 1.18.0-main.2c31942
   website: https://kinboard.app
   repo: https://github.com/svenger87/kinboard
   support: https://github.com/svenger87/kinboard/discussions
