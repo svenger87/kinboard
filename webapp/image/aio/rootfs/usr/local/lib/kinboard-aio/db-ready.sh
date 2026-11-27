@@ -19,4 +19,9 @@ until pg_isready -q -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U supabase_admin -d
 done
 
 cd /app
-exec su-exec "$RUN_UID:$RUN_GID" sh /app/kinboard-db-init.sh
+# Then, an import cut off before its commit (the container killed, the power
+# gone) is undone, before PostgREST and the webapp read the secrets it may
+# have replaced (kinboard-transfer.mjs resumeAtStart). That never stops a
+# start: the next `kinboard import` tries the same again.
+exec su-exec "$RUN_UID:$RUN_GID" sh -c 'sh /app/kinboard-db-init.sh || exit 1
+  node /app/kinboard-transfer.mjs resume || echo "[kinboard-aio] could not check for an import cut off before its commit; the next kinboard import does" >&2'

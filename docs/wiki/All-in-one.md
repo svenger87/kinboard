@@ -174,6 +174,18 @@ The archive holds every family's data and the keys that sign their logins:
 keep it private, and delete it once it is imported. The database password is
 not in it; each install keeps its own.
 
+**Room it needs.** The import unpacks the archive in the container's own
+temporary folder (on Docker's disk), then needs room in `/data` for the
+uploaded files and about three times the database's data. It checks both
+first and refuses, changing nothing, with how much it needs and how much is
+free.
+
+**If an import is cut off** (the container stopped or killed, the power
+gone) before it finished, nothing of it is kept: the all-in-one image takes
+out the files and keys it had put in place at its next start, before the app
+runs, and says so in its log. Run the import again. On a compose install,
+the next `kinboard import` does the same.
+
 ## When it refuses to start
 
 | The log says | What to do |
