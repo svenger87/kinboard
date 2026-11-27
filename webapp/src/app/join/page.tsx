@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CodeInput } from "@/components/code-input";
 import {
-  Users,
   ArrowRight,
   Sparkles,
   RefreshCw,
@@ -34,6 +33,7 @@ import {
 } from "@/hooks";
 import { postLocale } from "@/lib/locale-client";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { KinboardLogo, KinboardMark } from "@/components/kinboard-logo";
 
 interface RecognizedDevice {
   device: {
@@ -251,382 +251,393 @@ export default function JoinPage() {
   };
 
   return (
-    <main className="min-h-page flex items-center justify-center px-4 py-10 sm:px-6 lg:px-8 relative overflow-hidden">
+    <main className="min-h-page flex flex-col px-4 pb-10 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background — flat page gradient, theme-following, no glass */}
       <div className="page-gradient" />
 
-      <LocaleSwitcher className="absolute top-4 right-4 z-20 safe-area-inset" />
+      {/* The language pills get a row of their own. They used to float
+          (absolute, top-right) over content that started 40px down, so on a
+          phone they sat on the welcome's first line, or on the fresh
+          install's icon: 64x26px of overlap at 375px. In the flow, nothing
+          can slide under them at any width or text size. */}
+      <header className="relative z-20 flex justify-end">
+        <LocaleSwitcher />
+      </header>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        // max-w-md is a phone measure. On a 1080x1920 portrait panel it left
-        // roughly 70% of the first screen anyone ever sees empty (audit KB-45).
-        className="relative z-10 w-full max-w-6xl"
-      >
-        {/* Header / Welcome hero */}
-        {!modeChosen && recognizedDevices.length === 0 && !isFreshInstall && !isCheckingDevice ? (
-          // Landscape: 1024px at most, centred, and the card no wider than
-          // 24rem. At 1280 wide (1920x1080 at 150%, a tablet) the two columns
-          // ran edge to edge, 64px from each side, and the card's buttons
-          // were 420px bars.
-          <div className="grid gap-10 lg:mx-auto lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:items-center lg:gap-12 xl:gap-16">
-            <div>
-              <div className="mb-7 inline-flex items-center gap-3 rounded-full border border-primary/20 bg-primary/10 px-4 py-2 text-sm font-medium text-primary">
-                <span className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <Users className="size-4" strokeWidth={2} />
-                </span>
-                {t("welcomeEyebrow")}
-              </div>
-              <h1 className="max-w-2xl text-5xl font-display font-medium leading-[0.98] tracking-tight sm:text-6xl lg:text-7xl [@media(orientation:landscape)_and_(max-height:800px)]:text-6xl">
-                {t("welcomeTitle")}
-              </h1>
-              <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
-                {t("welcomeBody")}
-              </p>
-              <div className="mt-10 grid gap-4 sm:grid-cols-3 lg:max-w-2xl">
-                {[
-                  { icon: CalendarDays, title: t("welcomeFeatureCalendarTitle"), body: t("welcomeFeatureCalendarBody") },
-                  { icon: House, title: t("welcomeFeatureHomeTitle"), body: t("welcomeFeatureHomeBody") },
-                  { icon: ShieldCheck, title: t("welcomeFeaturePrivacyTitle"), body: t("welcomeFeaturePrivacyBody") },
-                ].map(({ icon: Icon, title, body }) => (
-                  <div key={title} className="rounded-2xl border border-border/70 bg-card/60 p-4 elev-sm">
-                    <Icon className="mb-3 size-5 text-primary" strokeWidth={1.8} />
-                    <p className="text-sm font-medium">{title}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{body}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <Card className="border-primary/20 bg-card p-2 elev-lg">
-              <CardContent className="p-6 sm:p-8">
-                <div className="mb-7 flex items-center gap-3">
-                  <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                    <Sparkles className="size-6" strokeWidth={1.8} />
-                  </div>
-                  <div>
-                    <p className="text-lg font-medium">{t("welcomeActionTitle")}</p>
-                    <p className="text-sm text-muted-foreground">{t("welcomeActionBody")}</p>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <Button
-                    size="kiosk"
-                    className="w-full justify-between"
-                    onClick={() => {
-                      setMode("create");
-                      setModeChosen(true);
-                    }}
-                  >
-                    <span className="flex items-center gap-2"><Plus className="size-5" strokeWidth={1.75} />{t("welcomeCreateCta")}</span>
-                    <ArrowRight className="size-4" />
-                  </Button>
-                  <Button
-                    size="kiosk"
-                    variant="outline"
-                    className="w-full justify-between"
-                    onClick={() => {
-                      setMode("join");
-                      setModeChosen(true);
-                    }}
-                  >
-                    <span className="flex items-center gap-2"><KeyRound className="size-5" strokeWidth={1.75} />{t("welcomeJoinCta")}</span>
-                    <ArrowRight className="size-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        ) : (
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center size-16 icon-badge rounded-2xl mb-4">
-              <Users className="size-8" strokeWidth={1.75} />
-            </div>
-            <h1 className="text-2xl font-display font-medium tracking-tight">{t("title")}</h1>
-            <p className="text-muted-foreground mt-2">{t("tagline")}</p>
-          </div>
-        )}
-
-        {/* Fresh-install welcome (only when DB is empty) */}
-        <AnimatePresence>
-          {isFreshInstall && recognizedDevices.length === 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-6"
-            >
-              <Card className="p-4 border-primary/30 bg-primary/5">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="size-4 text-primary" />
-                  <span className="text-sm font-medium">
-                    {t("freshInstallTitle")}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("freshInstallDescription")}
+      <div className="flex flex-1 items-center justify-center pt-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          // max-w-md is a phone measure. On a 1080x1920 portrait panel it left
+          // roughly 70% of the first screen anyone ever sees empty (audit KB-45).
+          className="relative z-10 w-full max-w-6xl"
+        >
+          {/* Header / Welcome hero */}
+          {!modeChosen && recognizedDevices.length === 0 && !isFreshInstall && !isCheckingDevice ? (
+            // Landscape: 1024px at most, centred, and the card no wider than
+            // 24rem. At 1280 wide (1920x1080 at 150%, a tablet) the two columns
+            // ran edge to edge, 64px from each side, and the card's buttons
+            // were 420px bars.
+            <div className="grid grid-cols-1 gap-10 lg:mx-auto lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:items-center lg:gap-12 xl:gap-16">
+              {/* grid-cols-1 above (a minmax(0,1fr) track, where the implicit
+                  one is auto and grows to its content), min-w-0, and a 36px
+                  heading below 370px: "Willkommen" at 48px needs 348px, so at
+                  320px and 360px it widened this column past the screen and
+                  main's overflow-hidden cut the end off every line.
+                  break-words for 200% text. */}
+              <div className="min-w-0">
+                <KinboardLogo className="mb-7" />
+                <h1 className="max-w-2xl break-words text-4xl min-[370px]:text-5xl font-display font-medium leading-[0.98] tracking-tight sm:text-6xl lg:text-7xl [@media(orientation:landscape)_and_(max-height:800px)]:text-6xl">
+                  {t("welcomeTitle")}
+                </h1>
+                <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+                  {t("welcomeBody")}
                 </p>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Demo banner — only shown on public-demo installs */}
-        {demoCode && recognizedDevices.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6"
-          >
-            <Card className="p-4 border-primary/30 bg-primary/5">
-              <div className="flex items-start gap-3">
-                <PartyPopper className="size-5 shrink-0 text-primary mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{t("demoBannerTitle")}</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    {t("demoBannerDescription")}
-                  </p>
-                  <div className="flex items-center gap-2 mt-3">
-                    <code className="rounded bg-background px-2 py-1 font-mono text-base tracking-[0.2em]">
-                      {demoCode}
-                    </code>
+                <div className="mt-10 grid gap-4 sm:grid-cols-3 lg:max-w-2xl">
+                  {[
+                    { icon: CalendarDays, title: t("welcomeFeatureCalendarTitle"), body: t("welcomeFeatureCalendarBody") },
+                    { icon: House, title: t("welcomeFeatureHomeTitle"), body: t("welcomeFeatureHomeBody") },
+                    { icon: ShieldCheck, title: t("welcomeFeaturePrivacyTitle"), body: t("welcomeFeaturePrivacyBody") },
+                  ].map(({ icon: Icon, title, body }) => (
+                    <div key={title} className="rounded-2xl border border-border/70 bg-card/60 p-4 elev-sm">
+                      <Icon className="mb-3 size-5 text-primary" strokeWidth={1.8} />
+                      <p className="text-sm font-medium">{title}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{body}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <Card className="border-primary/20 bg-card p-2 elev-lg">
+                <CardContent className="p-6 sm:p-8">
+                  <div className="mb-7 flex items-center gap-3">
+                    <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <Sparkles className="size-6" strokeWidth={1.8} />
+                    </div>
+                    <div>
+                      <p className="text-lg font-medium">{t("welcomeActionTitle")}</p>
+                      <p className="text-sm text-muted-foreground">{t("welcomeActionBody")}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3">
                     <Button
-                      type="button"
-                      size="sm"
+                      size="kiosk"
+                      className="w-full justify-between"
                       onClick={() => {
-                        setMode("join");
-                        setJoinCode(demoCode);
+                        setMode("create");
                         setModeChosen(true);
                       }}
                     >
-                      {t("demoBannerUseCode")}
+                      <span className="flex items-center gap-2"><Plus className="size-5" strokeWidth={1.75} />{t("welcomeCreateCta")}</span>
+                      <ArrowRight className="size-4" />
+                    </Button>
+                    <Button
+                      size="kiosk"
+                      variant="outline"
+                      className="w-full justify-between"
+                      onClick={() => {
+                        setMode("join");
+                        setModeChosen(true);
+                      }}
+                    >
+                      <span className="flex items-center gap-2"><KeyRound className="size-5" strokeWidth={1.75} />{t("welcomeJoinCta")}</span>
+                      <ArrowRight className="size-4" />
                     </Button>
                   </div>
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-        )}
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="text-center mb-8">
+              {/* The mark only: the h1 below already says "Kinboard". */}
+              <span data-testid="kinboard-logo" className="inline-flex mb-4">
+                <KinboardMark className="size-16" />
+              </span>
+              <h1 className="text-2xl font-display font-medium tracking-tight">{t("title")}</h1>
+              <p className="text-muted-foreground mt-2">{t("tagline")}</p>
+            </div>
+          )}
 
-        {/* Quick Rejoin Section (shown when device is recognized) */}
-        <AnimatePresence>
-          {!isCheckingDevice && recognizedDevices.length > 0 && (
+          {/* Fresh-install welcome (only when DB is empty) */}
+          <AnimatePresence>
+            {isFreshInstall && recognizedDevices.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-6"
+              >
+                <Card className="p-4 border-primary/30 bg-primary/5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="size-4 text-primary" />
+                    <span className="text-sm font-medium">
+                      {t("freshInstallTitle")}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("freshInstallDescription")}
+                  </p>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Demo banner — only shown on public-demo installs */}
+          {demoCode && recognizedDevices.length === 0 && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
               className="mb-6"
             >
               <Card className="p-4 border-primary/30 bg-primary/5">
-                <div className="flex items-center gap-2 mb-3">
-                  <RefreshCw className="size-4 text-primary" />
-                  <span className="text-sm font-medium">
-                    {t("rejoinTitle")}
-                  </span>
+                <div className="flex items-start gap-3">
+                  <PartyPopper className="size-5 shrink-0 text-primary mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{t("demoBannerTitle")}</p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      {t("demoBannerDescription")}
+                    </p>
+                    <div className="flex items-center gap-2 mt-3">
+                      <code className="rounded bg-background px-2 py-1 font-mono text-base tracking-[0.2em]">
+                        {demoCode}
+                      </code>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          setMode("join");
+                          setJoinCode(demoCode);
+                          setModeChosen(true);
+                        }}
+                      >
+                        {t("demoBannerUseCode")}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Quick Rejoin Section (shown when device is recognized) */}
+          <AnimatePresence>
+            {!isCheckingDevice && recognizedDevices.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-6"
+              >
+                <Card className="p-4 border-primary/30 bg-primary/5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <RefreshCw className="size-4 text-primary" />
+                    <span className="text-sm font-medium">
+                      {t("rejoinTitle")}
+                    </span>
+                  </div>
+
+                  {recognizedDevices.map((item) => (
+                    <div
+                      key={item.device.id}
+                      className="flex items-center justify-between py-3 border-t border-border/50 first:border-t-0"
+                    >
+                      <div>
+                        <p className="font-medium">{item.family.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t("rejoinSubtitle", { deviceName: item.device.name })}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleQuickRejoin(item.device.id)}
+                        disabled={loading}
+                      >
+                        {quickRejoin.isPending ? t("rejoinPending") : t("rejoinAction")}
+                      </Button>
+                    </div>
+                  ))}
+
+                  <button
+                    onClick={() => setRecognizedDevices([])}
+                    className="text-xs text-muted-foreground hover:text-foreground mt-3 w-full text-center transition-colors"
+                  >
+                    {t("rejoinNotMe")}
+                  </button>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Mode Tabs — hidden on fresh install (Create is the only valid path) */}
+          {!isFreshInstall && modeChosen && recognizedDevices.length === 0 && (
+            <div className="flex gap-2 mb-6 p-1 bg-secondary/50 rounded-xl">
+              <button
+                onClick={() => setMode("join")}
+                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+                  mode === "join"
+                    ? "bg-background elev-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t("tabJoin")}
+              </button>
+              <button
+                onClick={() => setMode("create")}
+                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+                  mode === "create"
+                    ? "bg-background elev-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t("tabCreate")}
+              </button>
+            </div>
+          )}
+
+          {/* Form Card — only after a mode is chosen (or fresh install forces create) */}
+          {(modeChosen || isFreshInstall) && recognizedDevices.length === 0 && (
+          <Card>
+            <CardContent className="p-6">
+            {mode === "join" ? (
+              <form onSubmit={handleJoin} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="join-code" className="text-sm font-medium">{t("joinCodeLabel")}</label>
+                  <CodeInput value={joinCode} onChange={setJoinCode} length={6} invalid={!!error} />
+                  {error ? (
+                    <p id="join-code-error" role="alert" className="mt-1 flex items-center justify-center gap-1.5 text-sm font-medium text-destructive">
+                      <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
+                      {error}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5 mt-1">
+                      {t("joinCodeHint")}
+                    </p>
+                  )}
                 </div>
 
-                {recognizedDevices.map((item) => (
-                  <div
-                    key={item.device.id}
-                    className="flex items-center justify-between py-3 border-t border-border/50 first:border-t-0"
-                  >
-                    <div>
-                      <p className="font-medium">{item.family.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {t("rejoinSubtitle", { deviceName: item.device.name })}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => handleQuickRejoin(item.device.id)}
-                      disabled={loading}
-                    >
-                      {quickRejoin.isPending ? t("rejoinPending") : t("rejoinAction")}
-                    </Button>
-                  </div>
-                ))}
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="join-device-name" className="text-sm font-medium">{t("deviceNameLabel")}</label>
+                  <Input
+                    id="join-device-name"
+                    placeholder={t("deviceNamePlaceholder")}
+                    value={deviceName}
+                    onChange={(e) => setDeviceName(e.target.value)}
+                  />
+                </div>
 
-                <button
-                  onClick={() => setRecognizedDevices([])}
-                  className="text-xs text-muted-foreground hover:text-foreground mt-3 w-full text-center transition-colors"
+                <Button
+                  type="submit"
+                  size="kiosk"
+                  className="w-full"
+                  disabled={loading || joinCode.length < 6}
                 >
-                  {t("rejoinNotMe")}
-                </button>
-              </Card>
-            </motion.div>
+                  {loading ? (
+                    t("joinSubmitting")
+                  ) : (
+                    <>
+                      {t("joinSubmit")}
+                      <ArrowRight className="size-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleCreate} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="create-family-name" className="text-sm font-medium">{t("familyNameLabel")}</label>
+                  <Input
+                    id="create-family-name"
+                    placeholder={t("familyNamePlaceholder")}
+                    value={familyName}
+                    onChange={(e) => setFamilyName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="create-device-name" className="text-sm font-medium">{t("deviceNameLabel")}</label>
+                  <Input
+                    id="create-device-name"
+                    placeholder={t("deviceNamePlaceholder")}
+                    value={deviceName}
+                    onChange={(e) => setDeviceName(e.target.value)}
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  size="kiosk"
+                  className="w-full"
+                  disabled={loading || !familyName.trim()}
+                >
+                  {loading ? (
+                    t("createSubmitting")
+                  ) : (
+                    <>
+                      <Sparkles className="size-4 mr-2" />
+                      {t("createSubmit")}
+                    </>
+                  )}
+                </Button>
+              </form>
+            )}
+            </CardContent>
+          </Card>
           )}
-        </AnimatePresence>
 
-        {/* Mode Tabs — hidden on fresh install (Create is the only valid path) */}
-        {!isFreshInstall && modeChosen && recognizedDevices.length === 0 && (
-          <div className="flex gap-2 mb-6 p-1 bg-secondary/50 rounded-xl">
-            <button
-              onClick={() => setMode("join")}
-              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-                mode === "join"
-                  ? "bg-background elev-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t("tabJoin")}
-            </button>
-            <button
-              onClick={() => setMode("create")}
-              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-                mode === "create"
-                  ? "bg-background elev-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t("tabCreate")}
-            </button>
-          </div>
-        )}
-
-        {/* Form Card — only after a mode is chosen (or fresh install forces create) */}
-        {(modeChosen || isFreshInstall) && recognizedDevices.length === 0 && (
-        <Card>
-          <CardContent className="p-6">
-          {mode === "join" ? (
-            <form onSubmit={handleJoin} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <label htmlFor="join-code" className="text-sm font-medium">{t("joinCodeLabel")}</label>
-                <CodeInput value={joinCode} onChange={setJoinCode} length={6} invalid={!!error} />
-                {error ? (
-                  <p id="join-code-error" role="alert" className="mt-1 flex items-center justify-center gap-1.5 text-sm font-medium text-destructive">
-                    <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
-                    {error}
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5 mt-1">
-                    {t("joinCodeHint")}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label htmlFor="join-device-name" className="text-sm font-medium">{t("deviceNameLabel")}</label>
-                <Input
-                  id="join-device-name"
-                  placeholder={t("deviceNamePlaceholder")}
-                  value={deviceName}
-                  onChange={(e) => setDeviceName(e.target.value)}
-                />
-              </div>
-
+          {/* Restore from backup — quiet secondary action, create-family
+              screen only (a restore rebuilds a whole family, so it doesn't
+              belong on the join-with-code tab). */}
+          {mode === "create" && (modeChosen || isFreshInstall) && recognizedDevices.length === 0 && (
+            <div className="mt-4 text-center">
+              <input
+                ref={restoreInputRef}
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={handleRestoreFile}
+              />
               <Button
-                type="submit"
-                size="kiosk"
-                className="w-full"
-                disabled={loading || joinCode.length < 6}
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                disabled={loading || restoring}
+                onClick={() => restoreInputRef.current?.click()}
               >
-                {loading ? (
-                  t("joinSubmitting")
+                {restoring ? (
+                  <Loader2 className="size-4 mr-2 animate-spin" />
                 ) : (
-                  <>
-                    {t("joinSubmit")}
-                    <ArrowRight className="size-4 ml-2" />
-                  </>
+                  <Upload className="size-4 mr-2" />
                 )}
+                {t("restoreButton")}
               </Button>
-            </form>
-          ) : (
-            <form onSubmit={handleCreate} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <label htmlFor="create-family-name" className="text-sm font-medium">{t("familyNameLabel")}</label>
-                <Input
-                  id="create-family-name"
-                  placeholder={t("familyNamePlaceholder")}
-                  value={familyName}
-                  onChange={(e) => setFamilyName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label htmlFor="create-device-name" className="text-sm font-medium">{t("deviceNameLabel")}</label>
-                <Input
-                  id="create-device-name"
-                  placeholder={t("deviceNamePlaceholder")}
-                  value={deviceName}
-                  onChange={(e) => setDeviceName(e.target.value)}
-                />
-              </div>
-
-              <Button
-                type="submit"
-                size="kiosk"
-                className="w-full"
-                disabled={loading || !familyName.trim()}
-              >
-                {loading ? (
-                  t("createSubmitting")
-                ) : (
-                  <>
-                    <Sparkles className="size-4 mr-2" />
-                    {t("createSubmit")}
-                  </>
-                )}
-              </Button>
-            </form>
-          )}
-          </CardContent>
-        </Card>
-        )}
-
-        {/* Restore from backup — quiet secondary action, create-family
-            screen only (a restore rebuilds a whole family, so it doesn't
-            belong on the join-with-code tab). */}
-        {mode === "create" && (modeChosen || isFreshInstall) && recognizedDevices.length === 0 && (
-          <div className="mt-4 text-center">
-            <input
-              ref={restoreInputRef}
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={handleRestoreFile}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              disabled={loading || restoring}
-              onClick={() => restoreInputRef.current?.click()}
-            >
-              {restoring ? (
-                <Loader2 className="size-4 mr-2 animate-spin" />
-              ) : (
-                <Upload className="size-4 mr-2" />
-              )}
-              {t("restoreButton")}
-            </Button>
-          </div>
-        )}
-
-        {/* After site data is cleared, the saved device ID is gone. Show where
-            to find the family code needed to rejoin. */}
-        {!isFreshInstall &&
-          modeChosen &&
-          !isCheckingDevice &&
-          recognizedDevices.length === 0 &&
-          mode === "join" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="mt-6"
-            >
-              <Card className="p-4 bg-muted/20">
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {t("recoveryHint")}
-                </p>
-              </Card>
-            </motion.div>
+            </div>
           )}
 
-      </motion.div>
+          {/* After site data is cleared, the saved device ID is gone. Show where
+              to find the family code needed to rejoin. */}
+          {!isFreshInstall &&
+            modeChosen &&
+            !isCheckingDevice &&
+            recognizedDevices.length === 0 &&
+            mode === "join" && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="mt-6"
+              >
+                <Card className="p-4 bg-muted/20">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {t("recoveryHint")}
+                  </p>
+                </Card>
+              </motion.div>
+            )}
+
+        </motion.div>
+      </div>
     </main>
   );
 }

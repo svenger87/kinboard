@@ -20,7 +20,9 @@ export default function SetupLayout({ children }: { children: React.ReactNode })
         <Link href="/" className="text-sm font-display tracking-tight">
           Kinboard
         </Link>
-        <div className="ml-auto flex items-center gap-2">
+        {/* flex-wrap here too: at 320px the pills plus "Setup verlassen"
+            are wider than the row, and "exit" ran off the right edge. */}
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           <LocaleSwitcher />
           <Button variant="ghost" size="sm" asChild>
             <Link href="/">
