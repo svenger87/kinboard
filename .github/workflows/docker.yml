@@ -10,7 +10,7 @@ name: Docker image
 # automatic updater (RFC-023 §4.11.3), with the same tags.
 # And: ghcr.io/svenger87/kinboard-postgres (the `postgres-*` jobs), stock
 # PostgreSQL 17 plus pg-safeupdate, the database of new installs on stock
-# PostgreSQL (RFC-024 §4.2.1), built from webapp/docker/postgres/.
+# PostgreSQL (RFC-024 §4.2.1), built from webapp/image/postgres/.
 # And: ghcr.io/svenger87/kinboard-aio (the `aio-*` jobs), the all-in-one
 # image (RFC-024 §4.2, phase 5): built FROM each platform's webapp image by
 # digest, so both shapes are one build, plus PostgreSQL, PostgREST and s6.
@@ -258,7 +258,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: webapp
-          file: webapp/docker/Dockerfile
+          file: webapp/image/Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
@@ -511,8 +511,8 @@ jobs:
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: webapp/docker/postgres
-          file: webapp/docker/postgres/Dockerfile
+          context: webapp/image/postgres
+          file: webapp/image/postgres/Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
@@ -687,8 +687,8 @@ jobs:
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: webapp/docker/aio
-          file: webapp/docker/aio/Dockerfile
+          context: webapp/image/aio
+          file: webapp/image/aio/Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
@@ -777,7 +777,7 @@ jobs:
           docker buildx imagetools create "${args[@]}"
 
       # The arm64 SBOM lists the glibc runtime that image's PostgREST brings
-      # along (webapp/docker/aio/Dockerfile), with versions and licences; the
+      # along (webapp/image/aio/Dockerfile), with versions and licences; the
       # amd64 one, whose PostgREST is static, has no glibc.
       - name: Check annotations, SBOM and provenance
         env:

@@ -3,7 +3,7 @@
 #
 #   scripts/ci/aio-smoke.sh linux/arm64
 #
-# Builds webapp/docker/aio/Dockerfile for that platform FROM a published
+# Builds webapp/image/aio/Dockerfile for that platform FROM a published
 # webapp image (APP_IMAGE, default ghcr.io/svenger87/kinboard:main, the same
 # platform's variant), so it needs no webapp build: what it checks is the
 # all-in-one layer, the part that differs per architecture (PostgreSQL and s6
@@ -51,7 +51,7 @@ trap cleanup EXIT
 echo "== build for $PLATFORM FROM $APP_IMAGE"
 docker buildx build --platform "$PLATFORM" --progress=plain --load \
   --build-arg APP_IMAGE="$APP_IMAGE" --build-arg BUILD_REVISION=smoke \
-  -f "$REPO_ROOT/webapp/docker/aio/Dockerfile" -t "$IMAGE" "$REPO_ROOT/webapp/docker/aio" \
+  -f "$REPO_ROOT/webapp/image/aio/Dockerfile" -t "$IMAGE" "$REPO_ROOT/webapp/image/aio" \
   || fail "the image did not build for $PLATFORM"
 
 arch="$(docker image inspect -f '{{.Architecture}}' "$IMAGE")"

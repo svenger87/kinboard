@@ -245,7 +245,7 @@ The Mele auto-logs in as `Calendar`, KioskLauncher fires, Edge opens in kiosk mo
 
 ### Webapp updates
 
-The Mele just runs a browser pointing at your Kinboard host. When you update the host (`./deploy.sh` or `./start.sh restart`), the kiosk picks up the new code on the next page reload (or after a momentary 502 during the webapp container restart).
+The Mele just runs a browser pointing at your Kinboard host. When you update the host (`./start.sh up`, or the auto-update), the kiosk picks up the new code on the next page reload (or after a momentary 502 during the webapp container restart).
 
 ### Updating the presence script
 

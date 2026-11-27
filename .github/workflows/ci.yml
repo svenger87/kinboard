@@ -174,7 +174,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: bash -n on shipped scripts
         run: |
-          for f in install.sh setup.sh webapp/deploy.sh webapp/docker/start.sh webapp/docker/test-upgrade.sh; do
+          for f in install.sh setup.sh webapp/docker/start.sh webapp/docker/test-upgrade.sh; do
             echo "checking $f"
             bash -n "$f"
           done
@@ -185,9 +185,9 @@ jobs:
           done
           # POSIX sh: these run inside the Alpine webhook container.
           # kinboard-db-init and kinboard-postgres's guard run in Alpine images too.
-          for f in webapp/docker/kinboard-self-update.sh webapp/docker/kinboard-entry.sh webapp/docker/migrate.sh webapp/docker/webapp-entrypoint.sh \
-                   webapp/docker/kinboard-db-init.sh webapp/docker/postgres/kinboard-postgres-guard.sh webapp/docker/postgres/00-kinboard-marker.sh \
-                   webapp/docker/kinboard-backup.sh webapp/docker/storage-api-move.sh webapp/docker/aio/rootfs/usr/local/lib/kinboard-aio/*.sh; do
+          for f in webapp/docker/kinboard-self-update.sh webapp/docker/kinboard-entry.sh webapp/docker/migrate.sh webapp/image/webapp-entrypoint.sh \
+                   webapp/image/kinboard-db-init.sh webapp/image/postgres/kinboard-postgres-guard.sh webapp/image/postgres/00-kinboard-marker.sh \
+                   webapp/image/kinboard-backup.sh webapp/image/storage-api-move.sh webapp/image/aio/rootfs/usr/local/lib/kinboard-aio/*.sh; do
             echo "checking $f"
             sh -n "$f"
           done
@@ -465,15 +465,15 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          guarded="webapp/docker/aio/ webapp/docker/kinboard-transfer.mjs webapp/docker/kinboard-backup.sh
-                   webapp/docker/webapp-entrypoint.sh webapp/docker/migrate.sh webapp/docker/kinboard-init.mjs
-                   webapp/docker/kinboard-db-init.sh webapp/docker/stock-postgres-bootstrap.sql webapp/docker/init.sql
-                   webapp/docker/migrations/ webapp/docker/Dockerfile scripts/rigs/test-aio.sh scripts/rigs/stock-postgres/
+          guarded="webapp/image/aio/ webapp/image/kinboard-transfer.mjs webapp/image/kinboard-backup.sh
+                   webapp/image/webapp-entrypoint.sh webapp/docker/migrate.sh webapp/image/kinboard-init.mjs
+                   webapp/image/kinboard-db-init.sh webapp/image/stock-postgres-bootstrap.sql webapp/docker/init.sql
+                   webapp/docker/migrations/ webapp/image/Dockerfile scripts/rigs/test-aio.sh scripts/rigs/stock-postgres/
                    webapp/e2e/rls-matrix.spec.ts .github/workflows/ci.yml"
           # The arm64 smoke builds FROM main's published webapp image, so only
           # what the all-in-one layer itself is made of: its files, compose.yml
           # (the PostgREST pin), the smoke script and this workflow.
-          arm64_guarded="webapp/docker/aio/ compose.yml scripts/ci/aio-smoke.sh .github/workflows/ci.yml"
+          arm64_guarded="webapp/image/aio/ compose.yml scripts/ci/aio-smoke.sh .github/workflows/ci.yml"
           if [ -z "$BASE" ] || [[ "$BASE" =~ ^0+$ ]] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             { echo "run=true"; echo "arm64=true"; } >> "$GITHUB_OUTPUT"; echo "no usable base: run"; exit 0
           fi
@@ -541,7 +541,7 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          guarded="webapp/docker/ compose.yml scripts/rigs/test-stock-postgres.sh scripts/rigs/stock-postgres/
+          guarded="webapp/docker/ webapp/image/ compose.yml scripts/rigs/test-stock-postgres.sh scripts/rigs/stock-postgres/
                    webapp/e2e/rls-matrix.spec.ts webapp/e2e/fixtures/rls-matrix-seed.sql webapp/e2e/whole-database.ts
                    .github/workflows/ci.yml"
           if [ -z "$BASE" ] || [[ "$BASE" =~ ^0+$ ]] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then

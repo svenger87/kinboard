@@ -4,33 +4,26 @@
 # Output: docs/wiki/screenshots/dump/prod-dump.sql.gz (gitignored)
 # Re-runnable; overwrites the dump each run.
 #
-# Reads SSH config from the repo's deploy-config.local.sh (same one deploy.sh uses).
+# SSH details come from the environment, and nothing else:
+#   SCREENSHOT_SSH_HOST  host, or a Host alias from ~/.ssh/config (required)
+#   SCREENSHOT_SSH_PORT  port (default 22, or what ~/.ssh/config says for the alias)
+#   SCREENSHOT_SSH_USER  user (default: ~/.ssh/config's, else root)
+#   SCREENSHOT_SSH_KEY   identity file (default: ~/.ssh/config's)
+#   SCREENSHOT_PROJECT   the stack's PROJECT_NAME there (default kinboard)
 # No prompts; expects key-based SSH.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCREENSHOT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 
-# Load SSH config from deploy-config.local.sh (gitignored, same as deploy.sh uses)
-if [[ -f "$REPO_ROOT/deploy-config.local.sh" ]]; then
-  # shellcheck disable=SC1091
-  source "$REPO_ROOT/deploy-config.local.sh"
-else
-  echo "error: $REPO_ROOT/deploy-config.local.sh not found." >&2
-  echo "       this script reuses the same SSH config as webapp/deploy.sh." >&2
-  exit 1
-fi
-
-HOST="${HOST:-}"
-PORT="${PORT:-22}"
-DEPLOY_USER="${DEPLOY_USER:-root}"
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_ed25519}"
-PROJECT_NAME="${PROJECT_NAME:-kinboard}"
+HOST="${SCREENSHOT_SSH_HOST:-}"
+PROJECT_NAME="${SCREENSHOT_PROJECT:-kinboard}"
 
 if [[ -z "$HOST" ]]; then
-  echo "error: HOST not set in deploy-config.local.sh." >&2
+  echo "error: SCREENSHOT_SSH_HOST is not set." >&2
+  echo "       Set it to the host that runs the stack to copy (or a Host alias from ~/.ssh/config)," >&2
+  echo "       plus SCREENSHOT_SSH_PORT / SCREENSHOT_SSH_USER / SCREENSHOT_SSH_KEY if ~/.ssh/config doesn't say." >&2
   exit 1
 fi
 
@@ -38,11 +31,15 @@ OUT="$SCREENSHOT_ROOT/dump/prod-dump.sql.gz"
 mkdir -p "$(dirname "$OUT")"
 
 echo "Cloning prod DB"
-echo "  Source:      $DEPLOY_USER@$HOST:$PORT (container: ${PROJECT_NAME}-db)"
+echo "  Source:      $HOST (container: ${PROJECT_NAME}-db)"
 echo "  Destination: $OUT"
 echo ""
 
-SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no -p $PORT $DEPLOY_USER@$HOST"
+SSH_ARGS=(-o StrictHostKeyChecking=no)
+[[ -n "${SCREENSHOT_SSH_PORT:-}" ]] && SSH_ARGS+=(-p "$SCREENSHOT_SSH_PORT")
+[[ -n "${SCREENSHOT_SSH_KEY:-}" ]] && SSH_ARGS+=(-i "$SCREENSHOT_SSH_KEY")
+[[ -n "${SCREENSHOT_SSH_USER:-}" ]] && SSH_ARGS+=(-l "$SCREENSHOT_SSH_USER")
+SSH="ssh ${SSH_ARGS[*]} $HOST"
 
 # Dump the public schema only — supabase auth/storage internals are recreated
 # locally by init.sql when the demo stack starts. --column-inserts gives us

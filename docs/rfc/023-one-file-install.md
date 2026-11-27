@@ -140,7 +140,7 @@ nothing else), and a password the two read differently would lock the webapp
 out of its database. A byte-order mark is the one thing the webapp drops that
 the database would keep, so the init step (PR 2) writes a file that has one
 back without it, before `db` reads it. Generated values are hex and never
-carry either. Implemented in PR 1 (`docker/secrets-store.mjs`, `fileValue`).
+carry either. Implemented in PR 1 (`image/secrets-store.mjs`, `fileValue`).
 
 **Not stored: the anon and service-role keys.** Both are HS256 JWTs signed
 with `jwt_secret` (`setup.sh:263-280`). The webapp mints them from
@@ -200,7 +200,7 @@ runs in this order:
 `db` waits for it with `condition: service_completed_successfully`, so a
 failed init step stops the stack before anything starts.
 
-**Done in PR 2** (`docker/kinboard-init.mjs`, `docker/kinboard-db-init.sh`),
+**Done in PR 2** (`image/kinboard-init.mjs`, `image/kinboard-db-init.sh`),
 with these findings against the text above:
 
 - **A Windows line ending matters as much as the byte-order mark.**

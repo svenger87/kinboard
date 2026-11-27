@@ -53,7 +53,7 @@ test.describe("the fingerprint", () => {
   });
 
   test("the entrypoint computes the same value as the app", () => {
-    const entry = readFileSync("docker/webapp-entrypoint.sh", "utf8");
+    const entry = readFileSync("image/webapp-entrypoint.sh", "utf8");
     const m = entry.match(/push_fp="\$\(PUSH_PUBLIC_KEY="[^"]*" node -e '([\s\S]*?)' 2>\/dev\/null/);
     expect(m, "the entrypoint's fingerprint snippet").not.toBeNull();
     for (const key of [A, B, Buffer.from(A, "base64url").toString("base64"), ""]) {
@@ -64,7 +64,7 @@ test.describe("the fingerprint", () => {
   });
 
   test("the entrypoint fingerprints the key the server sends with, VAPID_PUBLIC_KEY before NEXT_PUBLIC_", () => {
-    const entry = readFileSync("docker/webapp-entrypoint.sh", "utf8");
+    const entry = readFileSync("image/webapp-entrypoint.sh", "utf8");
     expect(entry).toContain('PUSH_PUBLIC_KEY="${VAPID_PUBLIC_KEY:-${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-}}"');
     const sender = readFileSync("src/lib/push-sender.ts", "utf8");
     expect(sender).toContain("env.VAPID_PUBLIC_KEY || env.NEXT_PUBLIC_VAPID_PUBLIC_KEY");
@@ -201,7 +201,7 @@ test.describe("the migration and the start", () => {
   });
 
   test("the start logs a change in words, and goes on when the check fails", () => {
-    const entry = readFileSync("docker/webapp-entrypoint.sh", "utf8");
+    const entry = readFileSync("image/webapp-entrypoint.sh", "utf8");
     expect(entry).toContain("Push needs to be turned on again on each device");
     expect(entry).toContain("could not check the push key against the subscriptions");
   });

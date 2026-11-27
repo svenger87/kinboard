@@ -13,7 +13,7 @@ import { join } from "node:path";
  * table, keyed on the family in the request's token, plus the role
  * attributes and grants the database image provides. On supabase/postgres
  * those come from the image; on stock PostgreSQL from the role bootstrap
- * (webapp/docker/stock-postgres-bootstrap.sql). A mistake there is silent,
+ * (webapp/image/stock-postgres-bootstrap.sql). A mistake there is silent,
  * so this runs against a live install and checks the outcome, not the SQL:
  *
  *   - family A's token reads none of family B's rows, on every table, and

@@ -66,6 +66,7 @@ RIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 rig_require_intent "$@"; set -- "${RIG_ARGS[@]}"
 REPO_ROOT="$(cd "$RIG_DIR/../.." && pwd)"
 DOCKER_DIR="$REPO_ROOT/webapp/docker"
+IMAGE_DIR="$REPO_ROOT/webapp/image"
 SPG="$RIG_DIR/stock-postgres"
 
 RIG_PHASES="${RIG_PHASES:-fresh gates puid transfer migrate upgrade symlinks measure}"
@@ -142,7 +143,7 @@ rev="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD)"
 if [ -z "${RIG_IMAGE:-}" ]; then
   RIG_IMAGE="kbaio-rig-webapp:$rev"
   say "Building the webapp image ($RIG_IMAGE)"
-  "${SLOT[@]}" docker build -q --build-arg BUILD_REVISION="$rev" -f "$DOCKER_DIR/Dockerfile" -t "$RIG_IMAGE" "$REPO_ROOT/webapp" >/dev/null \
+  "${SLOT[@]}" docker build -q --build-arg BUILD_REVISION="$rev" -f "$IMAGE_DIR/Dockerfile" -t "$RIG_IMAGE" "$REPO_ROOT/webapp" >/dev/null \
     || { red "webapp build failed"; exit 1; }
   BUILT+=("$RIG_IMAGE")
 fi
@@ -151,7 +152,7 @@ baked="$(docker run --rm --entrypoint sh "$RIG_IMAGE" -c 'grep -rlE "localhost:(
 aio_build() {  # aio_build <tag> [build args...]
   local tag="$1"; shift
   "${SLOT[@]}" docker build -q --build-arg APP_IMAGE="$RIG_IMAGE" --build-arg BUILD_REVISION="$rev" "$@" \
-    -f "$DOCKER_DIR/aio/Dockerfile" -t "$tag" "$DOCKER_DIR/aio" >/dev/null
+    -f "$IMAGE_DIR/aio/Dockerfile" -t "$tag" "$IMAGE_DIR/aio" >/dev/null
 }
 if [ -z "${AIO_IMAGE:-}" ]; then
   AIO_IMAGE="kbaio-rig-aio:$rev"
@@ -311,9 +312,9 @@ fi
 DB_IMAGES_BUILT=0
 build_db_images() {
   [ "$DB_IMAGES_BUILT" = 1 ] && return 0
-  local base17; base17="$(sed -n 's/^ARG BASE=//p' "$DOCKER_DIR/postgres/Dockerfile")"
-  "${SLOT[@]}" docker build -q -t "kbaio-rig-pg:17-$rev" "$DOCKER_DIR/postgres" >/dev/null || return 1
-  "${SLOT[@]}" docker build -q --build-arg BASE=postgres:15-alpine -t "kbaio-rig-pg:15-$rev" "$DOCKER_DIR/postgres" >/dev/null || return 1
+  local base17; base17="$(sed -n 's/^ARG BASE=//p' "$IMAGE_DIR/postgres/Dockerfile")"
+  "${SLOT[@]}" docker build -q -t "kbaio-rig-pg:17-$rev" "$IMAGE_DIR/postgres" >/dev/null || return 1
+  "${SLOT[@]}" docker build -q --build-arg BASE=postgres:15-alpine -t "kbaio-rig-pg:15-$rev" "$IMAGE_DIR/postgres" >/dev/null || return 1
   BUILT+=("kbaio-rig-pg:17-$rev" "kbaio-rig-pg:15-$rev")
   DB_IMAGES_BUILT=1
   step "kinboard-postgres on $base17 and on postgres:15-alpine"

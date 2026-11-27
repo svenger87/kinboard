@@ -2,10 +2,10 @@
 // (RFC-024 §4.6 step 4).
 //
 // The schema a new install gets, built the way a new install builds it:
-// the role bootstrap (docker/stock-postgres-bootstrap.sql), the base schema
+// the role bootstrap (image/stock-postgres-bootstrap.sql), the base schema
 // (docker/init.sql) in one transaction, then every migration through
 // docker/migrate.sh, the one migration runner. The image is the base of
-// kinboard-postgres, pinned by digest in docker/postgres/Dockerfile and read
+// kinboard-postgres, pinned by digest in image/postgres/Dockerfile and read
 // from there, so this never needs a second copy of the pin. Its one addition,
 // safeupdate, changes no type: the bootstrap only names it in a role setting,
 // which is read when authenticator logs in, never here.
@@ -19,10 +19,10 @@ import { join } from "node:path";
 const PASSWORD = "db-types-throwaway";
 
 /** The `ARG BASE=` of kinboard-postgres's Dockerfile: image and digest. */
-export function pinnedBaseImage(dockerDir) {
-  const dockerfile = readFileSync(join(dockerDir, "postgres", "Dockerfile"), "utf8");
+export function pinnedBaseImage(imageDir) {
+  const dockerfile = readFileSync(join(imageDir, "postgres", "Dockerfile"), "utf8");
   const m = /^ARG BASE=(\S+@sha256:[0-9a-f]{64})$/m.exec(dockerfile);
-  if (!m) throw new Error("docker/postgres/Dockerfile has no digest-pinned `ARG BASE=`");
+  if (!m) throw new Error("image/postgres/Dockerfile has no digest-pinned `ARG BASE=`");
   return m[1];
 }
 
@@ -47,7 +47,9 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * and remove the container afterwards whatever happens.
  */
 export async function withMigratedDatabase(dockerDir, run, { log = () => {} } = {}) {
-  const image = pinnedBaseImage(dockerDir);
+  // webapp/docker has the schema and its runner, webapp/image what the images are built from.
+  const imageDir = join(dockerDir, "..", "image");
+  const image = pinnedBaseImage(imageDir);
   const name = `kb-db-types-${process.pid}-${Date.now().toString(36)}`;
   const cleanup = () => spawnSync("docker", ["rm", "-f", "-v", name], { stdio: "ignore" });
   const onSignal = () => { cleanup(); process.exit(130); };
@@ -72,7 +74,7 @@ export async function withMigratedDatabase(dockerDir, run, { log = () => {} } = 
     }
 
     log("role bootstrap, init.sql");
-    const bootstrap = readFileSync(join(dockerDir, "stock-postgres-bootstrap.sql"), "utf8");
+    const bootstrap = readFileSync(join(imageDir, "stock-postgres-bootstrap.sql"), "utf8");
     psql(name, "supabase_admin", `BEGIN;\n${bootstrap}\nCOMMIT;\n`, ["-v", `pw=${PASSWORD}`]);
     psql(name, "supabase_admin", readFileSync(join(dockerDir, "init.sql"), "utf8"), ["--single-transaction"]);
 

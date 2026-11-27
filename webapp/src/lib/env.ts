@@ -57,7 +57,7 @@ export const SERVICE_ROLE_KEY_NAMES = ["KINBOARD_SERVICE_ROLE_KEY", "SUPABASE_SE
 /**
  * The service-role key minted from the JWT secret: HS256 over a fixed payload,
  * no `iat`, no `exp`, so the same secret always gives the same key. Byte for
- * byte what docker/secrets-store.mjs `deriveKey("service_role", …)` makes at
+ * byte what image/secrets-store.mjs `deriveKey("service_role", …)` makes at
  * container start (RFC-023 §4.1); e2e/env-helper.spec.ts holds the two equal.
  */
 export function deriveServiceRoleKey(secret: string): string {

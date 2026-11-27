@@ -11,12 +11,15 @@ import { join, resolve } from "node:path";
  * test-upgrade.sh, he ran to update and got a throwaway copy of Kinboard
  * instead. The rigs went to scripts/rigs/ (#545, #551); the CI checks went to
  * scripts/ci/, the dev overlay to scripts/dev/, the build's sw.js stamp to
- * webapp/scripts/.
+ * webapp/scripts/. What only the published images are built from (the
+ * Dockerfile, the entrypoint and the scripts it COPYs, aio/, postgres/) went
+ * to webapp/image/ (#539 follow-up); the Diun and Watchtower examples went.
  *
  * This keeps it that way: the folder holds exactly the files below, each with
  * the reason an install needs it. A new file here is red until it is either
  * moved out or added with its reason. The second half checks the other
- * direction: everything an install runs, mounts or builds from is still here.
+ * direction: everything an install runs, mounts or builds from is still here,
+ * and every image build, here or in webapp/image, finds its files.
  */
 
 const REPO = resolve(__dirname, "../..");
@@ -26,40 +29,38 @@ const DOCKER = join(REPO, "webapp/docker");
 const ALLOWED: Record<string, string> = {
   ".env.example": "the template setup.sh copies to .env",
   "start.sh": "how a git install starts and updates",
-  "migrate.sh": "`./start.sh migrate`, and the image's migration runner",
+  "migrate.sh": "`./start.sh migrate`, and COPYed into the image as its migration runner",
   "migrations/": "the schema, applied by the image and migrate.sh",
-  "init.sql": "the base schema, mounted into db",
+  "init.sql": "the base schema, mounted into db, and COPYed into the image",
   "go2rtc.yaml": "mounted into go2rtc",
-  "kong.yml": "pre-1.15 installs hold it skip-worktree with their own keys; must not move",
+  "kong.yml":
+    "unused since 1.15, but every pre-1.15 install's copy holds its keys (setup.sh wrote them in; skip-worktree on some): " +
+    "git refuses a pull that deletes it, which would stop the self-update for good",
   "diun/": "Diun's config and the webhook's hooks, mounted by docker-compose.diun.yml",
   "docker-compose.yml": "the stack",
-  "docker-compose.image.yml": "named in older COMPOSE_FILES lines",
+  "docker-compose.image.yml":
+    "named in the COMPOSE_FILES of older installs (prod's among them); Compose aborts on a -f file that is missing",
   "docker-compose.traefik.yml": "overlay named in COMPOSE_FILES",
-  "docker-compose.build.yml": "overlay named in COMPOSE_FILES (build from source)",
-  "docker-compose.diun.yml": "overlay named in COMPOSE_FILES (auto-update)",
-  "docker-compose.diun.yml.example": "the copy the wiki tells you to make",
-  "docker-compose.override.yml.example": "the copy the wiki tells you to make",
-  "docker-compose.watchtower.yml.example": "deprecated, but documented as still working",
-  "docker-compose.demo.yml.example": "the public demo's overlay; its copy mounts ofelia.demo.ini and seed-demo.sql from here",
-  "ofelia.demo.ini": "mounted by the demo overlay",
-  "seed-demo.sql": "`./start.sh seed-demo`, and mounted by the demo overlay",
-  "Dockerfile": "the webapp image (docker-compose.build.yml)",
-  "Dockerfile.webhook": "built by docker-compose.diun.yml",
+  "docker-compose.build.yml": "overlay named in COMPOSE_FILES (build from source; builds ../image/Dockerfile)",
+  "docker-compose.diun.yml": "overlay named in COMPOSE_FILES (auto-update); used as it is, there is no example to copy",
+  "docker-compose.override.yml.example": "the copy the wiki tells you to make (docker-compose.override.yml is gitignored)",
+  "docker-compose.demo.yml.example":
+    "the public demo's overlay; the demo host's copy mounts ./ofelia.demo.ini and ./seed-demo.sql from this folder",
+  "ofelia.demo.ini": "mounted by the demo host's overlay (./ofelia.demo.ini): moving it leaves Docker an empty directory to mount",
+  "seed-demo.sql": "`./start.sh seed-demo`, and mounted by the demo host's overlay (./seed-demo.sql)",
+  "Dockerfile.webhook":
+    "built on the household's machine by docker-compose.diun.yml (context webapp/docker, COPYs kinboard-self-update.sh); " +
+    "a household's own copy of that overlay names it there",
   "kinboard-self-update.sh": "run by the webhook from this checkout",
   "kinboard-entry.sh": "called by start.sh and by older self-updates after a git pull",
-  "webapp-entrypoint.sh": "COPYed into the image",
-  "secrets-store.mjs": "COPYed into the image",
-  "cron-call.sh": "COPYed into the image",
-  "kinboard-init.mjs": "COPYed into the image",
-  "kinboard-db-init.sh": "COPYed into the image",
-  "stock-postgres-bootstrap.sql": "COPYed into the image",
-  "postgres/": "the kinboard-postgres image",
-  "aio/": "the kinboard-aio image, built by docker.yml FROM the webapp image (RFC-024 §4.2)",
-  "kinboard-transfer.mjs": "COPYed into the image: `kinboard export` / `kinboard import` (RFC-024 §4.4)",
-  "kinboard-backup.sh": "COPYed into the image: the all-in-one image's verified dumps (RFC-024 §4.7)",
-  "storage-api-move.sh": "COPYed into the image: the entrypoint's 1.15 move of uploaded files, run as the server's user",
-  "test-upgrade.sh": "a stub that tells whoever ran the old rig how to update instead",
+  "test-upgrade.sh": "a stub that tells whoever ran the old rig how to update instead; goes with the 1.18 release",
 };
+
+/**
+ * webapp/image: what the published images are built from. Not an install's
+ * business: a git install only builds from it through docker-compose.build.yml.
+ */
+const IMAGE_DIR = join(REPO, "webapp/image");
 
 /** Tracked, and untracked-but-not-ignored, files directly under webapp/docker: what a checkout would carry. */
 function entries(): string[] {
@@ -113,18 +114,69 @@ test.describe("nothing an install runs, mounts or builds from has left webapp/do
 
   test("the Dockerfiles' sources", () => {
     const missing: string[] = [];
-    // Dockerfile builds from webapp/ (docker-compose.build.yml: context ..).
-    for (const m of code(read("Dockerfile")).matchAll(/^COPY (?:--\S+ )*(.+) \S+$/gm)) {
-      for (const p of m[1].split(/\s+/)) if (p.startsWith("docker/") && !existsSync(join(REPO, "webapp", p))) missing.push(`Dockerfile: ${p}`);
+    const copies = (text: string) => [...code(text).matchAll(/^COPY (?!--from)(?:--\S+ )*(.+) \S+$/gm)].flatMap((m) => m[1].split(/\s+/));
+    // image/Dockerfile builds from webapp/ (docker-compose.build.yml: context .., docker.yml: context webapp).
+    const df = readFileSync(join(IMAGE_DIR, "Dockerfile"), "utf8");
+    for (const p of copies(df)) {
+      if (!/^(docker|image)\//.test(p)) continue; // package.json and the like: the app itself
+      if (!existsSync(join(REPO, "webapp", p))) missing.push(`image/Dockerfile: ${p}`);
     }
-    for (const m of code(read("Dockerfile")).matchAll(/\bsh ((?:docker|scripts)\/\S+)/g)) {
-      if (!existsSync(join(REPO, "webapp", m[1]))) missing.push(`Dockerfile: ${m[1]}`);
+    for (const m of code(df).matchAll(/\bsh ((?:docker|image|scripts)\/\S+)/g)) {
+      if (!existsSync(join(REPO, "webapp", m[1]))) missing.push(`image/Dockerfile: ${m[1]}`);
+    }
+    // aio/ and postgres/ build from their own folder.
+    for (const sub of ["aio", "postgres"]) {
+      for (const p of copies(readFileSync(join(IMAGE_DIR, sub, "Dockerfile"), "utf8"))) {
+        if (!existsSync(join(IMAGE_DIR, sub, p))) missing.push(`image/${sub}/Dockerfile: ${p}`);
+      }
     }
     // Dockerfile.webhook builds from webapp/docker.
-    for (const m of code(read("Dockerfile.webhook")).matchAll(/^COPY (?:--\S+ )*(.+) \S+$/gm)) {
-      for (const p of m[1].split(/\s+/)) if (!existsSync(join(DOCKER, p))) missing.push(`Dockerfile.webhook: ${p}`);
+    for (const p of copies(read("Dockerfile.webhook"))) if (!existsSync(join(DOCKER, p))) missing.push(`Dockerfile.webhook: ${p}`);
+    expect(missing).toEqual([]);
+  });
+
+  test("every build names a Dockerfile and a context that exist", () => {
+    const missing: string[] = [];
+    // The workflows: context and file are repository paths.
+    for (const wf of ["docker.yml", "ci.yml", "rigs.yml"]) {
+      const text = readFileSync(join(REPO, ".github/workflows", wf), "utf8");
+      for (const m of text.matchAll(/^\s+(context|file): (webapp\/\S+)$/gm)) {
+        if (!existsSync(join(REPO, m[2]))) missing.push(`${wf}: ${m[1]} ${m[2]}`);
+      }
+    }
+    // The build-from-source overlay: context relative to webapp/docker, dockerfile relative to the context.
+    // The Diun overlay: context from KINBOARD_PROJECT_DIR, the checkout's root.
+    for (const f of ["docker-compose.build.yml", "docker-compose.diun.yml"]) {
+      const src = code(read(f));
+      for (const b of src.matchAll(/^\s+build:\n\s+(?:#.*\n\s+)*context: (\S+)\n\s+dockerfile: (\S+)$/gm)) {
+        const ctx = b[1].startsWith("${KINBOARD_PROJECT_DIR}/") ? join(REPO, b[1].slice("${KINBOARD_PROJECT_DIR}/".length)) : resolve(DOCKER, b[1]);
+        if (!existsSync(ctx)) missing.push(`${f}: context ${b[1]}`);
+        if (!existsSync(join(ctx, b[2]))) missing.push(`${f}: dockerfile ${b[2]}`);
+      }
+      if (!/^\s+build:/m.test(src)) missing.push(`${f}: no build section found`);
+    }
+    // The scripts that build an image: every -f <path> they name.
+    for (const dir of ["scripts/ci", "scripts/rigs"]) {
+      for (const f of readdirSync(join(REPO, dir)).filter((n) => n.endsWith(".sh"))) {
+        const text = readFileSync(join(REPO, dir, f), "utf8");
+        const vars: Record<string, string> = { REPO_ROOT: REPO };
+        for (const m of text.matchAll(/^([A-Z_]+_DIR)="\$REPO_ROOT\/([^"]+)"$/gm)) vars[m[1]] = join(REPO, m[2]);
+        for (const m of text.matchAll(/-f "\$(?:\{)?([A-Z_]+)\}?\/([^"]*Dockerfile[^"]*)"/g)) {
+          if (!(m[1] in vars)) continue;
+          if (!existsSync(join(vars[m[1]], m[2]))) missing.push(`${dir}/${f}: -f $${m[1]}/${m[2]}`);
+        }
+      }
     }
     expect(missing).toEqual([]);
+  });
+
+  test("the image's own files are in webapp/image, not here", () => {
+    // What the image COPYs from webapp/docker is what an install also uses
+    // (the migrations, their runner, init.sql); everything else it takes from image/.
+    const fromDocker = [...code(readFileSync(join(IMAGE_DIR, "Dockerfile"), "utf8")).matchAll(/^COPY (?!--from)(?:--\S+ )*(.+) \S+$/gm)]
+      .flatMap((m) => m[1].split(/\s+/))
+      .filter((p) => p.startsWith("docker/"));
+    expect(fromDocker.sort()).toEqual(["docker/init.sql", "docker/migrate.sh", "docker/migrations/"]);
   });
 
   test("the files the self-update, its hook and start.sh name", () => {

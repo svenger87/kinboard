@@ -9,7 +9,7 @@ interface RenderModule {
   tsType(t: TypeRef, schema?: string): string;
 }
 const renderModule: Promise<RenderModule> = import("../scripts/db-types/render.mjs");
-const databaseModule: Promise<{ pinnedBaseImage(dockerDir: string): string }> = import("../scripts/db-types/database.mjs");
+const databaseModule: Promise<{ pinnedBaseImage(imageDir: string): string }> = import("../scripts/db-types/database.mjs");
 let checkedValues: RenderModule["checkedValues"];
 let render: RenderModule["render"];
 let tsType: RenderModule["tsType"];
@@ -197,7 +197,7 @@ test.describe("wiring", () => {
   });
 
   test("the database comes from kinboard-postgres's own pin, not a second copy", () => {
-    const image = pinnedBaseImage("docker");
+    const image = pinnedBaseImage("image");
     expect(image).toMatch(/^postgres:\d+-alpine@sha256:[0-9a-f]{64}$/);
     expect(readFileSync("scripts/db-types/database.mjs", "utf8")).not.toMatch(/sha256:[0-9a-f]{64}/);
   });

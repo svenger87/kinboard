@@ -17,7 +17,11 @@
 # Usage (alongside the normal stack):
 #
 #   cd webapp/docker
-#   cp docker-compose.diun.yml.example docker-compose.diun.yml
+#   # Use this file as it is: it is tracked, and a local edit to it stops the
+#   # self-update's `git pull`. Changes of your own go in an overlay of your
+#   # own, added to COMPOSE_FILES after this one. (There used to be a
+#   # docker-compose.diun.yml.example to copy over this file; it is gone, and
+#   # this file now has everything it had.)
 #   # Optionally edit diun/diun.yml to change the cron schedule.
 #   # `setup.sh` generates DIUN_WEBHOOK_SECRET into .env on first run.
 #   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.traefik.yml \
@@ -53,12 +57,28 @@ services:
   # that's also using `image: ghcr.io/...` is the only thing Diun needs
   # to start watching.)
   webapp:
+    # Inline rather than the anchor in docker-compose.yml: YAML anchors
+    # don't cross files, so an overlay that adds a service has to cap its
+    # own logs or that container writes without limit.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     labels:
       - diun.enable=true
 
   # Diun watches GHCR for new digests on labelled services and POSTs to
   # the webhook container when one lands.
   diun:
+    # Inline rather than the anchor in docker-compose.yml: YAML anchors
+    # don't cross files, so an overlay that adds a service has to cap its
+    # own logs or that container writes without limit.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     image: crazymax/diun:latest
     container_name: ${PROJECT_NAME:-kinboard}-diun
     restart: unless-stopped
@@ -88,6 +108,14 @@ services:
   #
   # Not exposed externally — only Diun (on the same network) reaches it.
   webhook:
+    # Inline rather than the anchor in docker-compose.yml: YAML anchors
+    # don't cross files, so an overlay that adds a service has to cap its
+    # own logs or that container writes without limit.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     # Built locally from Dockerfile.webhook — upstream almir/webhook
     # ships only the webhook binary (no git, no docker CLI), and
     # kinboard-self-update.sh needs both. The custom image weighs ~70 MB

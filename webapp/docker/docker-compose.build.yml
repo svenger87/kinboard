@@ -16,7 +16,7 @@ services:
     pull_policy: build
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: image/Dockerfile
       args:
         # Stamped into sw.js so open pages notice the new build. start.sh
         # exports the checkout's short sha; empty falls back to a timestamp.

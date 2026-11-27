@@ -239,8 +239,8 @@ test.describe("internal scheduler", () => {
 });
 
 test.describe("the cron secret, as cron-call.sh finds it", () => {
-  // The real reader (docker/secrets-store.mjs) against a real store directory.
-  const reader = join(__dirname, "../docker/secrets-store.mjs");
+  // The real reader (image/secrets-store.mjs) against a real store directory.
+  const reader = join(__dirname, "../image/secrets-store.mjs");
   const store = () => mkdtempSync(join(tmpdir(), "sched-secrets-"));
 
   test("the environment first", async () => {

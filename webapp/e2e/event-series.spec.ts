@@ -262,7 +262,7 @@ test("the routes: the family's own session, a local calendar, and the series and
 });
 
 test("the nightly job is wired like the others, and the migration keeps writes on the server", () => {
-  expect(read("docker/Dockerfile")).toContain("exec /app/cron-call.sh extend-event-series' >> /usr/local/bin/extend-event-series");
+  expect(read("image/Dockerfile")).toContain("exec /app/cron-call.sh extend-event-series' >> /usr/local/bin/extend-event-series");
   const compose = read("docker/docker-compose.yml");
   expect(compose).toContain('ofelia.job-exec.extend-event-series.command: "/usr/local/bin/extend-event-series"');
   expect(compose).toContain('ofelia.job-exec.extend-event-series.no-overlap: "true"');

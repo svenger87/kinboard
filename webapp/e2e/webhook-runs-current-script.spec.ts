@@ -36,7 +36,7 @@ import { readFileSync } from "node:fs";
  */
 
 const hooks = readFileSync("docker/diun/hooks.yaml", "utf8");
-const overlays = ["docker/docker-compose.diun.yml", "docker/docker-compose.diun.yml.example"];
+const overlays = ["docker/docker-compose.diun.yml"];
 
 test("the hook runs the script through the project directory mount", () => {
   const cmd = hooks.match(/execute-command:\s*(.+)/);

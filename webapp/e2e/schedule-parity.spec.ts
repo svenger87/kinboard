@@ -22,7 +22,7 @@ import { normaliseSchedule } from "../src/lib/schedule/cron";
 
 const ROOT = join(__dirname, "..");
 const COMPOSE = join(ROOT, "docker/docker-compose.yml");
-const DOCKERFILE = join(ROOT, "docker/Dockerfile");
+const DOCKERFILE = join(ROOT, "image/Dockerfile");
 
 type Job = Omit<ScheduledJob, "route"> & { route?: string };
 

@@ -50,7 +50,7 @@
 #   KINBOARD_RIG=1 scripts/rigs/test-stock-postgres.sh
 #   RIG_IMAGE=<image:tag>               the webapp image (default: built from this checkout)
 #   KINBOARD_POSTGRES_IMAGE=<image:tag> the stock database image (default: built from
-#                                       webapp/docker/postgres)
+#                                       webapp/image/postgres)
 #   FROM_IMAGE=<image:tag>              the legacy phase's previous image (default:
 #                                       ghcr.io/svenger87/kinboard:main)
 #   RIG_PHASES="compare filterless stack red specs legacy guard move"   a subset
@@ -72,6 +72,7 @@ RIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 rig_require_intent "$@"; set -- "${RIG_ARGS[@]}"
 REPO_ROOT="$(cd "$RIG_DIR/../.." && pwd)"
 DOCKER_DIR="$REPO_ROOT/webapp/docker"
+IMAGE_DIR="$REPO_ROOT/webapp/image"
 HERE="$RIG_DIR/stock-postgres"
 
 RIG_PHASES="${RIG_PHASES:-compare filterless stack red specs legacy guard move}"
@@ -196,7 +197,7 @@ rev="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD)"
 if [ -z "${RIG_IMAGE:-}" ]; then
   RIG_IMAGE="kinboard-stock-pg-rig:$rev"
   say "Building the webapp image ($RIG_IMAGE)"
-  deadline 2400 "the webapp image build" "${SLOT[@]}" docker build -q --build-arg BUILD_REVISION="$rev" -f "$DOCKER_DIR/Dockerfile" -t "$RIG_IMAGE" "$REPO_ROOT/webapp" >/dev/null \
+  deadline 2400 "the webapp image build" "${SLOT[@]}" docker build -q --build-arg BUILD_REVISION="$rev" -f "$IMAGE_DIR/Dockerfile" -t "$RIG_IMAGE" "$REPO_ROOT/webapp" >/dev/null \
     || { red "webapp build failed"; exit 1; }
   BUILT+=("$RIG_IMAGE")
 fi
@@ -204,18 +205,18 @@ baked="$(docker run --rm --entrypoint sh "$RIG_IMAGE" -c 'grep -rlE "localhost:(
 [ "$baked" = "0" ] || { red "$RIG_IMAGE has a localhost API address baked in; build it from a clean checkout"; exit 1; }
 
 # The Dockerfile's own pin of postgres:17-alpine, and the same file on 15.
-BASE17="$(sed -n 's/^ARG BASE=//p' "$DOCKER_DIR/postgres/Dockerfile")"
+BASE17="$(sed -n 's/^ARG BASE=//p' "$IMAGE_DIR/postgres/Dockerfile")"
 BASE15="${BASE15:-postgres:15-alpine}"
 if [ -z "${KINBOARD_POSTGRES_IMAGE:-}" ]; then
   KINBOARD_POSTGRES_IMAGE="kinboard-postgres-rig:17-$rev"
   say "Building kinboard-postgres ($KINBOARD_POSTGRES_IMAGE, on $BASE17)"
-  deadline 1200 "the kinboard-postgres build" "${SLOT[@]}" docker build -q -t "$KINBOARD_POSTGRES_IMAGE" "$DOCKER_DIR/postgres" >/dev/null || { red "kinboard-postgres build failed"; exit 1; }
+  deadline 1200 "the kinboard-postgres build" "${SLOT[@]}" docker build -q -t "$KINBOARD_POSTGRES_IMAGE" "$IMAGE_DIR/postgres" >/dev/null || { red "kinboard-postgres build failed"; exit 1; }
   BUILT+=("$KINBOARD_POSTGRES_IMAGE")
 fi
 PG15_IMAGE=""
 if want compare || want filterless; then
   PG15_IMAGE="kinboard-postgres-rig:15-$rev"
-  deadline 1200 "the kinboard-postgres (15) build" "${SLOT[@]}" docker build -q --build-arg BASE="$BASE15" -t "$PG15_IMAGE" "$DOCKER_DIR/postgres" >/dev/null || { red "kinboard-postgres (15) build failed"; exit 1; }
+  deadline 1200 "the kinboard-postgres (15) build" "${SLOT[@]}" docker build -q --build-arg BASE="$BASE15" -t "$PG15_IMAGE" "$IMAGE_DIR/postgres" >/dev/null || { red "kinboard-postgres (15) build failed"; exit 1; }
   BUILT+=("$PG15_IMAGE")
 fi
 step "webapp $RIG_IMAGE; stock db $KINBOARD_POSTGRES_IMAGE; supabase db $SUPABASE_IMAGE; rest $POSTGREST_IMAGE"
@@ -318,7 +319,7 @@ if want compare; then
 
   say "compare, red: the original mistake, uuid-ossp created in public by the bootstrap"
   sed 's/CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;/CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;/' \
-    "$DOCKER_DIR/stock-postgres-bootstrap.sql" >"$WORK/bootstrap-uuid-public.sql"
+    "$IMAGE_DIR/stock-postgres-bootstrap.sql" >"$WORK/bootstrap-uuid-public.sql"
   grep -q 'WITH SCHEMA public;' "$WORK/bootstrap-uuid-public.sql" || fail "could not make the broken bootstrap"
   start_db kbspg-pg17u "$KINBOARD_POSTGRES_IMAGE"
   if prepare_db kbspg-pg17u -v "$WORK/bootstrap-uuid-public.sql:/rig/bootstrap.sql:ro" -e KINBOARD_BOOTSTRAP_SQL=/rig/bootstrap.sql; then

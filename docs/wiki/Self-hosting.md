@@ -585,7 +585,7 @@ To check the result, read the version off the running container:
 docker inspect kinboard-webapp --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
 ```
 
-For a remote deploy, `webapp/deploy.sh` syncs the source tree over SSH and runs the migrations + rebuild on the target. Configure host details in `deploy-config.local.sh` (gitignored) — see `deploy-config.local.sh.example` for the template.
+A Kinboard on another machine updates the same way, on that machine: the published image, pulled there by the steps above or by the auto-update below. Don't build an image from a working copy and copy it across: Next.js bakes the `NEXT_PUBLIC_*` values of a `webapp/.env.local` into the page at build time, and such a page loads and then never gets past "Loading…". To build from source on purpose, use `docker-compose.build.yml` from a clean checkout.
 
 ### Auto-updates
 
@@ -627,7 +627,7 @@ For a remote deploy, `webapp/deploy.sh` syncs the source tree over SSH and runs 
 > `taking a backup before recreating anything` or `skipping the pre-upgrade
 > backup` on every run. Neither line means the old copy is still running.
 
-The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml.example`). It runs the FULL upgrade sequence end-to-end whenever a new GHCR image lands:
+The recommended path is the **Diun + webhook overlay** (`docker-compose.diun.yml`). It runs the FULL upgrade sequence end-to-end whenever a new GHCR image lands:
 
 1. `git pull --ff-only origin main` — picks up new compose files, migrations, `init.sql`, `seed-demo.sql`
 2. `./setup.sh --non-interactive` — adds any `.env` key a release needs; does nothing when none are missing
@@ -661,7 +661,7 @@ Neither container is exposed externally; both sit on the internal `kinboard` doc
 
 ```bash
 cd webapp/docker
-cp docker-compose.diun.yml.example docker-compose.diun.yml
+# docker-compose.diun.yml is used as it is: don't edit or replace it (see below).
 # Make sure these are set in .env (setup.sh auto-creates them on first run):
 #   DIUN_WEBHOOK_SECRET=<random hex>
 #   KINBOARD_PROJECT_DIR=/absolute/host/path/to/kinboard
@@ -674,6 +674,18 @@ docker compose -f docker-compose.yml -f docker-compose.traefik.yml -f docker-com
 ```
 
 The overlay adds a `diun.enable=true` label to the kinboard-webapp service so Diun knows to watch its image. Only that container is watched by default — auto-bumping the Postgres image is not safe; if you want Diun to watch additional services, add the same label to them in `docker-compose.override.yml`.
+
+**Use `docker-compose.diun.yml` as it is.** It is a tracked file, and git refuses an update that changes a file with local edits, so an edited copy stops the self-update's `git pull` (Kinboard then keeps updating the image, but not the compose files). Settings of your own go in an overlay of your own, named after it in `COMPOSE_FILES`.
+
+**If you copied `docker-compose.diun.yml.example` over it** (as this page, the overlay's header and some replies said before 1.18): 1.18 deleted the example, because `docker-compose.diun.yml` now has everything it had, the log limits included. An install on 1.17 or older still runs the old self-update when 1.18 arrives, and that one cannot get past the copy: its log says `git still behind`, and the stack keeps running the new image on the old compose files. Put the tracked file back once, then run the update by hand:
+
+```bash
+cd /path/to/kinboard
+git checkout -- webapp/docker/docker-compose.diun.yml
+docker exec kinboard-webhook sh -c 'sh "$PROJECT_DIR/webapp/docker/kinboard-self-update.sh"'
+```
+
+From 1.18 on, the self-update does this itself: a tracked file whose content is exactly a version Kinboard shipped (at that path, or the old `.example` beside it) is put back before the pull, with a copy in `.git/kinboard-local-copies/`. An edit of your own is left as it is, and the log names the file and the command.
 
 The webhook image gets built locally on first `up --build` from `webapp/docker/Dockerfile.webhook`. The upstream `almir/webhook` image ships only the webhook binary (no git, no docker CLI), so we layer those on top of an Alpine base.
 
@@ -734,7 +746,7 @@ grep -E 'ERROR|ROLLED BACK|held' /var/lib/kinboard-update/kinboard-update.log
 #### Manually trigger an update (without waiting for Diun)
 
 ```bash
-docker exec kinboard-webhook /scripts/kinboard-self-update.sh
+docker exec kinboard-webhook sh -c 'sh "$PROJECT_DIR/webapp/docker/kinboard-self-update.sh"'
 ```
 
 Same script, same code path. Useful right after pushing a hotfix when you don't want to wait for the next 30-min Diun tick.
@@ -773,7 +785,6 @@ cp /tmp/kinboard-preserve/docker-compose.override.yml webapp/docker/docker-compo
 sed -i 's|^DATA_DIR=.*|DATA_DIR=/mnt/user/appdata/kinboard|' webapp/docker/.env
 grep -q ^COMPOSE_PROJECT_NAME webapp/docker/.env || echo "COMPOSE_PROJECT_NAME=kinboard" >> webapp/docker/.env
 ./setup.sh --non-interactive   # fills any missing .env keys
-cp webapp/docker/docker-compose.diun.yml.example webapp/docker/docker-compose.diun.yml
 cd webapp/docker
 docker compose -f docker-compose.yml -f docker-compose.traefik.yml \
               -f docker-compose.override.yml -f docker-compose.diun.yml up -d --build
@@ -781,17 +792,16 @@ docker compose -f docker-compose.yml -f docker-compose.traefik.yml \
 
 The data dirs (`db/`, `backups/`, `storage/`) stay at `/mnt/user/appdata/kinboard/` because `DATA_DIR` is set absolutely. Only the config files moved.
 
-#### Watchtower migration (deprecated path)
+#### Watchtower (removed in 1.18)
 
-The previous `docker-compose.watchtower.yml.example` overlay still works for backwards compatibility but is **deprecated**: containrrr/watchtower was archived upstream in 2024, and even before that it only updated images — it did NOT git-pull new compose files or re-run `setup.sh`, so any release that shipped config alongside the image silently left Watchtower-driven installs in a broken state. To migrate:
+The Watchtower overlay was deprecated for a long time and its template, `docker-compose.watchtower.yml.example`, is gone in 1.18: containrrr/watchtower was archived upstream in 2024, and it only ever updated images, never the compose files, migrations and `.env` keys a release brings. **A copy you made of it keeps working:** `docker-compose.watchtower.yml` is your own file, which no update touches, and it names nothing that moved. It still has the same gap, though, so replace it with the Diun overlay:
 
 ```bash
 cd webapp/docker
-cp docker-compose.watchtower.yml docker-compose.watchtower.yml.disabled  # keep as a backup
-cp docker-compose.diun.yml.example docker-compose.diun.yml
-# Update your COMPOSE_FILES to swap watchtower → diun
-COMPOSE_FILES="-f docker-compose.yml -f docker-compose.diun.yml" \
-  ./start.sh up
+mv docker-compose.watchtower.yml docker-compose.watchtower.yml.disabled  # keep as a backup
+# In .env, swap the overlay in COMPOSE_FILES:
+#   COMPOSE_FILES="-f docker-compose.yml -f docker-compose.diun.yml"
+./start.sh up
 docker rm -f kinboard-watchtower
 ```
 

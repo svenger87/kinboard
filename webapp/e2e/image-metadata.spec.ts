@@ -192,7 +192,7 @@ test.describe("SBOM and provenance", () => {
 });
 
 test.describe("HEALTHCHECK", () => {
-  const dockerfile = read("webapp/docker/Dockerfile");
+  const dockerfile = read("webapp/image/Dockerfile");
   const runner = dockerfile.slice(dockerfile.lastIndexOf("\nFROM "));
 
   test("the final stage probes /api/health, with Pi-sized timings", () => {
@@ -219,7 +219,7 @@ test.describe("HEALTHCHECK", () => {
 });
 
 test.describe("PUID/PGID in the compose image (§6.3)", () => {
-  const entrypoint = read("webapp/docker/webapp-entrypoint.sh");
+  const entrypoint = read("webapp/image/webapp-entrypoint.sh");
 
   test("unset keeps nextjs:nodejs; the server and the files follow RUN_AS", () => {
     expect(entrypoint).toContain('RUN_AS="nextjs:nodejs"');
@@ -612,7 +612,7 @@ test.describe("kinboard-aio, the all-in-one image (RFC-024 §4.5, phase 5)", () 
     expect(build.needs).toEqual(["changes", "build"]);
     expect(build.if).toBe(workflow.jobs.build.if);
     const b = step(build, "docker/build-push-action@");
-    expect(b?.with?.file).toBe("webapp/docker/aio/Dockerfile");
+    expect(b?.with?.file).toBe("webapp/image/aio/Dockerfile");
     expect(b?.with?.["build-args"]).toContain("APP_IMAGE=${{ steps.app.outputs.image }}");
     const app = build.steps.find((s) => s.id === "app");
     expect(app?.run).toContain('$REGISTRY/$IMAGE_NAME@sha256:');

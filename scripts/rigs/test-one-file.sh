@@ -218,7 +218,7 @@ else
   say "Building the image under test ($BUILT_IMAGE)"
   # Through the devbox's build slot when there is one (CLAUDE.md, "Heavy checks").
   slot=(); command -v kinboard-heavy-slot >/dev/null && slot=(kinboard-heavy-slot)
-  if ! "${slot[@]}" docker build -q --build-arg BUILD_REVISION="$rev" -f "$REPO_ROOT/webapp/docker/Dockerfile" \
+  if ! "${slot[@]}" docker build -q --build-arg BUILD_REVISION="$rev" -f "$REPO_ROOT/webapp/image/Dockerfile" \
        -t "$BUILT_IMAGE" "$REPO_ROOT/webapp" >/dev/null; then
     red "build failed"; exit 1
   fi
