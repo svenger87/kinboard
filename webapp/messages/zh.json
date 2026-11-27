@@ -5267,7 +5267,7 @@
       "addressFromEnvironment": "已在服务器上设置（SITE_URL）：{value}。以该设置为准；请在那里修改。",
       "addressInvalid": "这不是类似 http://192.168.1.20:3000 的地址：只需协议、主机和端口，后面不要有其他内容。",
       "dataTitle": "你的数据存放在哪里",
-      "dataBody": "所有内容都留在这台服务器上。日历、清单、成员和设置在它的数据库中；照片和其他上传的文件就在旁边。两者都位于安装的数据文件夹中（<code>DATA_DIR</code>，除非你另选，否则是 compose 文件旁的 <code>./data</code>）。请备份该文件夹，或随时在“设置 → 数据与备份”中下载一份副本。",
+      "dataBody": "所有内容都留在这台服务器上。日历、清单、成员和设置在它的数据库中；照片和其他上传的文件就在旁边。具体位置取决于 Kinboard 的安装方式：使用 <code>compose.yml</code> 时，在它的三个 Docker 卷中，或你为它们指定的文件夹中（<code>KINBOARD_DB_DIR</code> 等）；使用 git 和 <code>setup.sh</code> 时，在数据文件夹中（<code>DATA_DIR</code>，除非你另选，否则是 <code>./data</code>）；作为单个容器运行时，在它的 <code>/data</code> 文件夹中。请备份这些数据，或随时在“设置 → 数据与备份”中下载一份副本。",
       "dataBodyAio": "所有内容都留在这台服务器上。日历、清单、成员和设置在它的数据库中；照片和其他上传的文件就在旁边。两者都位于你映射到 <code>/data</code> 的文件夹中（例如 Unraid 上的 <code>/mnt/user/appdata/kinboard-aio</code>）。请备份该文件夹，或随时在“设置 → 数据与备份”中下载一份副本。",
       "saveError": "无法保存地址。请重试。"
     },
