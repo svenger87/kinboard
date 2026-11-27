@@ -54,6 +54,30 @@ COMPOSE_FILES="-f docker-compose.yml -f docker-compose.diun.yml"
 
 From 1.18 `./start.sh` reads `.env` the way Compose does, and both lines work. Nothing in `.env` is run as a command any more.
 
+### `./start.sh up` says `.env is missing`, or `.env` keeps disappearing
+
+`webapp/docker/.env` holds the install's passwords and keys. Kinboard's own scripts never delete it. On OpenMediaVault 8 the Compose plugin does, when it manages the git folder: its **Compose Files** shared folder contains `webapp/docker` and it has a file called `docker` (what **Import** names it). It then replaces `.env` with a link to its own copy each time it applies its compose settings, and **Delete** on that file removes `.env` and stops Kinboard. [Compose UIs → A git install and the Compose plugin](Compose-UIs#a-git-install-and-the-compose-plugin) has the details. Stop the plugin managing that folder (delete its file while Kinboard is stopped, and choose a **Compose Files** folder outside the git folder) before you put `.env` back, or it goes again.
+
+**With a copy** (`.env.keep`, `.env.before-fix`, a backup): copy it back to `webapp/docker/.env` and `./start.sh up`.
+
+**Without one,** don't just run `./setup.sh` and start: it makes a new `.env` with new passwords, and the existing database refuses them (`kinboard-db-init` keeps waiting, then *password authentication failed for user "supabase_admin"*). Your data is fine. Make the new `.env`, then give the database its new password before starting the rest:
+
+```bash
+cd /path/to/kinboard && ./setup.sh
+cd webapp/docker
+docker compose -f docker-compose.yml up -d db
+until docker exec kinboard-db pg_isready -q; do sleep 2; done
+P=$(grep -E '^POSTGRES_PASSWORD=' .env | tail -n1 | cut -d= -f2- | tr -d '"')
+docker exec -i kinboard-db psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -v pw="$P" <<'SQL'
+ALTER ROLE supabase_admin WITH PASSWORD :'pw';
+ALTER ROLE postgres WITH PASSWORD :'pw';
+ALTER ROLE authenticator WITH PASSWORD :'pw';
+SQL
+./start.sh up
+```
+
+The three `ALTER ROLE` lines print `ALTER ROLE`. The database container accepts this without a password because it comes from inside it. Put back what else your old `.env` had: `COMPOSE_FILES` for the automatic update or Traefik, `WEBAPP_PORT` and `DATA_DIR` if you had changed them (before the `up -d db` line, for `DATA_DIR`). Devices stay signed in. Push notifications need turning on again on each device, because the push keys are new. Then keep a copy of `.env` somewhere outside the Kinboard folder.
+
 ### `setup.sh` errors on macOS — "command not found: bash"
 
 The script uses bash 4-isms (associative arrays, `[[ ... ]]`). macOS ships bash 3.2 by default. Install via Homebrew:

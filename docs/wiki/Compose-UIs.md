@@ -345,24 +345,113 @@ A good restore prints nothing and exits 0. Self-hosting →
 
 ## OpenMediaVault
 
-The **Compose** plugin (`openmediavault-compose`), OMV 7 or newer.
+*Tested on OpenMediaVault 8.7 with the Compose plugin
+(`openmediavault-compose`) 8.2.7, Docker 29.10 and Compose 5.8, in November
+2026. OMV 7's Compose plugin has the same Files page but wasn't tested.*
 
-- **Paste:** *Services → Compose → Files*, **+ Create**. Name it `kinboard`,
-  paste the file into **File**. Variables go into the **Environment** box
-  below it, one `NAME=value` per line. **Save**.
-- **Start:** select the file in the list, then **Up**.
-- **Data:** the volumes sit in OMV's Docker storage folder (*Services →
-  Compose → Settings*, **Docker storage**). For folders on a data disk, use
-  the disk's full path, such as
-  `KINBOARD_DB_DIR=/srv/dev-disk-by-uuid-…/appdata/kinboard/db`.
-- **Update:** select the file, **Pull**, then **Up**. For
-  [automatic updates](#automatic-updates), `COMPOSE_PROFILES=autoupdate` in
-  the **Environment** box.
-- **Check:** *Services → Compose → Containers* lists `kinboard-init` and
-  `kinboard-db-init` as exited, and the other four as running.
+**Once, before the first file.** Install the plugin under *System →
+Plugins* (`openmediavault-compose`; it comes from omv-extras, which OMV's
+install script sets up). Then *Services → Compose → Settings*:
 
-Variables in OMV's shared `global.env` reach every file, Kinboard's too. That
-is harmless: Kinboard reads only the names in the table above.
+![OMV's Compose settings: a shared folder for the compose files, and one for data](images/omv-compose-settings.png)
+
+- **Compose Files → Shared folder:** a shared folder of its own on a data
+  disk, such as one called `compose`. The plugin keeps each file in a folder
+  of the same name inside it (`…/compose/kinboard/`) and owns that folder:
+  it rewrites what it put there and replaces any `.env` in it. Never pick a
+  folder that holds a git install of Kinboard, see
+  [below](#a-git-install-and-the-compose-plugin).
+- **Data → Shared folder:** optional, such as one called `appdata`. The
+  plugin then puts that folder's path wherever the file or its variables say
+  `CHANGE_TO_COMPOSE_DATA_PATH`, which saves typing the disk's long name.
+- **Save**, and apply the yellow *Pending configuration changes* banner. If
+  the Docker info at the bottom of the page is empty, **Reinstall Docker**
+  installs it.
+
+**Paste.** *Services → Compose → Files*, **+**, **Add**. Name `kinboard`,
+paste the file into **File**, tick **Show environment file** and put the
+variables into **Environment**, one `NAME=value` per line. **Save**.
+
+![Adding Kinboard: the file, and the variables in the Environment box](images/omv-compose-add-file.png)
+
+Keeping the data in folders on the data disk is the usual choice on OMV:
+they sit with the rest of your shares and OMV's own backup tools see them.
+With a **Data** shared folder set:
+
+```
+KINBOARD_DB_DIR=CHANGE_TO_COMPOSE_DATA_PATH/kinboard/db
+KINBOARD_STORAGE_DIR=CHANGE_TO_COMPOSE_DATA_PATH/kinboard/storage
+KINBOARD_CONFIG_DIR=CHANGE_TO_COMPOSE_DATA_PATH/kinboard/config
+TZ=America/New_York
+```
+
+Without one, write the full path, as *Storage → Shared Folders* shows it
+under **Absolute Path** (`/srv/dev-disk-by-uuid-…/appdata/kinboard/db`).
+Without these three lines the data goes into Docker volumes, in OMV's Docker
+storage folder (`/var/lib/docker` on the system disk unless you changed it
+under **Docker storage**).
+
+**Start.** Select `kinboard` in the list and press **Up** (the buttons' names
+show when you hover over them). The first start pulls the images and takes a
+minute or two; the output ends with `Container kinboard-webapp Started`.
+
+![The Files list: Kinboard selected, shown as Up and Stopped](images/omv-compose-files-up.png)
+
+The **Status** column shows **Up** and **Stopped** side by side. Stopped is
+`kinboard-init` and `kinboard-db-init`, which exit once they're done; that is
+how it should look. *Services → Compose → Containers* lists them as
+`exited`, and the other four as `running`.
+
+**Update:** select `kinboard`, **Pull**, then **Up**. Only `kinboard-init`,
+`kinboard-db-init` and `kinboard-webapp` are recreated; the database keeps
+running.
+
+**Automatic updates:** select `kinboard`, edit it (the pencil), add
+`COMPOSE_PROFILES=autoupdate` to **Environment**, **Save**, then **Up**.
+`kinboard-updater` appears in the list. It reads the same files OMV starts
+the stack with, from the disk (`kinboard.yml`, `compose.override.yml`,
+`global.env` and `kinboard.env`), and puts its backups next to the storage
+folder (`…/appdata/kinboard/backups`). After it has updated, the next **Up**
+you press recreates the three Kinboard containers once more, a few seconds'
+restart: the updater's Compose and OMV's write their settings slightly
+differently. Nothing changes.
+
+**Good to know:**
+
+- *Services → Compose → Files* has a button for the shared `global.env`.
+  Its variables reach every file, Kinboard's too; a file's own
+  **Environment** wins over them. That is harmless: Kinboard reads only the names in the
+  table above, and its secrets have `KINBOARD_` names that no other app uses.
+- The plugin keeps a file's variables in OMV's own settings as well as in
+  `…/compose/kinboard/kinboard.env`, readable by root only. Moving a git
+  install puts its passwords there; take them out once it has started
+  ([below](#moving-a-git-install-to-this-file)).
+- The database folder shows an owner like `dhcpcd` in *Shared Folders* and
+  `ls -l`. That's the database's own user inside its container (uid 101),
+  which on Debian happens to have that name. Leave it, and leave
+  `kinboard/db` out of OMV's permission resets.
+
+### A git install and the Compose plugin
+
+Run a git install (`git clone`, `setup.sh`, `./start.sh`) *or* the Compose
+plugin, never both on one Kinboard. To switch, [move the git install to this
+file](#moving-a-git-install-to-this-file).
+
+What goes wrong otherwise, both seen on OMV 8 with plugin 8.2.7:
+
+- **`webapp/docker/.env` disappears.** When the plugin's **Compose Files**
+  folder is one that contains `webapp/docker` (`/kinboard/webapp`, say) and it
+  has a file named `docker` (the name **Import** gives the git folder), the
+  plugin owns `webapp/docker`. Each time OMV applies its compose settings it
+  deletes `.env` there and links it to its own `docker.env`; **Delete** on
+  that file removes `.env` for good. `.env` holds the install's passwords.
+  [Troubleshooting](Troubleshooting#startsh-up-says-env-is-missing-or-env-keeps-disappearing)
+  says how to get going again.
+- **OMV's Up and Down act on the git install.** A git install runs as the
+  Compose project `docker`, after its folder, and a file imported from it is
+  called `docker` too. That is one project, so **Down** on OMV's copy stops
+  your Kinboard, and **Up** recreates its containers from OMV's copy of the
+  folder, where `./data` is new and empty.
 
 ## Portainer
 
@@ -500,9 +589,9 @@ and `setup.sh` keeps working exactly as before, 1.18 included. Move only if
 you want to manage Kinboard from a Compose UI. It needs Kinboard 1.18 or
 newer.
 
-**Not yet for installs with the automatic update** (the Diun overlay): it
-needs the git folder. Stay on it until the automatic update can run this
-file.
+**With the automatic update** (the Diun overlay): step 3 stops Diun and
+its webhook along with the rest. After the move, turn on this file's own
+[automatic updates](#automatic-updates) instead.
 
 What changes for a moved install:
 
@@ -515,6 +604,8 @@ What changes for a moved install:
   ([Cameras](Cameras)).
 - Other overlays from `COMPOSE_FILES` don't come along. Traefik's labels go
   into the file, as above.
+- The Compose project is now your tool's name for the file (`kinboard`), not
+  `docker`, the git folder's name.
 
 The steps, in a terminal on the server:
 
@@ -522,14 +613,26 @@ The steps, in a terminal on the server:
 2. **Note your values.** In `webapp/docker` of the git folder:
 
    ```bash
-   grep -E '^(DATA_DIR|WEBAPP_PORT|TZ|KINBOARD_TAG|SITE_URL|PUID|PGID|INSTANCE_ADMIN_FAMILY_ID|POSTGRES_PASSWORD|JWT_SECRET|CRON_SECRET|PRESENCE_SENSOR_TOKEN|VAPID_PUBLIC_KEY|VAPID_PRIVATE_KEY|ANON_KEY|SERVICE_ROLE_KEY)=' .env
+   grep -E '^(DATA_DIR|WEBAPP_PORT|TZ|KINBOARD_TAG|SITE_URL|PUID|PGID|INSTANCE_ADMIN_FAMILY_ID)=' .env
+   for k in POSTGRES_PASSWORD JWT_SECRET CRON_SECRET PRESENCE_SENSOR_TOKEN VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY ANON_KEY SERVICE_ROLE_KEY; do
+     v=$(grep -E "^$k=" .env | tail -n1 | cut -d= -f2- | tr -d '"'); [ -n "$v" ] && echo "KINBOARD_$k=$v"
+   done
    ```
 
-   `DATA_DIR` may be relative; the default `./data` means
-   `<git folder>/webapp/docker/data`.
+   The second command prints the secrets already under their new names, ready
+   to paste in step 4. They are the install's passwords: don't post them
+   anywhere. `DATA_DIR` may be relative; the default `./data` means
+   `<git folder>/webapp/docker/data`. `SITE_URL=http://localhost:3001` is
+   `setup.sh`'s placeholder and not worth carrying over.
 3. **Stop the old stack:** `./start.sh down`. The containers go; the data
    stays. Both stacks use the same container names, so the new one can't
-   start while the old one runs.
+   start while the old one runs. If your Compose UI already has a file for
+   this Kinboard (OpenMediaVault's **Import** makes one called `docker`),
+   delete it now, while the stack is stopped, and on OpenMediaVault point
+   **Compose Files** at a folder outside the git folder
+   ([why](#a-git-install-and-the-compose-plugin)). When that folder contains
+   the git folder, deleting the file removes `webapp/docker/.env`; you have
+   the values from step 2 and the backup.
 4. **Set the new stack's variables** (in your tool, or in `.env` next to
    `compose.yml`), with the folders as absolute paths and each secret under
    its `KINBOARD_` name:
@@ -552,7 +655,8 @@ The steps, in a terminal on the server:
    plus `TZ`, `KINBOARD_TAG`, `SITE_URL`, `PUID`, `PGID` and
    `INSTANCE_ADMIN_FAMILY_ID` where you had them. `config` is a new folder;
    `kinboard-init` creates it. Leave out a secret your `.env` didn't have
-   (an older install may have no presence token); it is then generated.
+   (an older install may have no presence token, or no VAPID keys when
+   `setup.sh` found no Node.js); it is then generated.
 5. **Up.** `kinboard-init`'s log has one line per secret, `taken from .env`.
    The database opens with its old password, devices stay signed in, and push
    keeps working, because the keys are the same.
@@ -560,9 +664,15 @@ The steps, in a terminal on the server:
    join from a new device, a test notification.
 
 Afterwards the `KINBOARD_` secret lines can stay (they win over the stored
-files) or go (the files in `config/secrets/` hold the same values now). Leave
-the git folder alone: `./start.sh up` there would fail on the container
-names, and `data/` is now the new stack's.
+files) or go (the files in `config/secrets/` hold the same values now). In a
+UI that keeps variables in its own settings, OpenMediaVault for one, take
+them out, **Save** and **Up**: nothing changes, and the passwords are no
+longer in its settings.
+
+Leave the git folder alone, and don't delete it while the folders above
+point into it: `data/` is now the new stack's. `./start.sh up` there would
+fail on the container names. To make sure it isn't run from habit, move
+`webapp/docker/.env` somewhere private, next to your backup.
 
 If `kinboard-init` refuses with *"POSTGRES_PASSWORD in the environment … differs
 from the stored secrets/postgres_password"*, the config folder already held a
