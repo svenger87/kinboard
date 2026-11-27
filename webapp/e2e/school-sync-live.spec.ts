@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { hasServiceKey } from "./helpers/service-key";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createAdminClient } from "../src/lib/supabase/server";
@@ -15,14 +16,14 @@ import type { SyncFetch } from "../src/lib/school-sync/openholidays";
  * the same name and dates as a fetched one survives every sync path, and
  * every failure leaves the family's rows byte-identical.
  *
- * Needs a stack: SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL (or
+ * Needs a stack: KINBOARD_SERVICE_ROLE_KEY and SUPABASE_URL (or
  * NEXT_PUBLIC_SUPABASE_URL), e.g. Kong on :8130 here. Skipped without them,
  * unless FAMILY_CODE says a stack is there. The family it makes is deleted
  * again; settings and school_holidays cascade.
  */
 
-const HAS_STACK = !!process.env.SUPABASE_SERVICE_ROLE_KEY && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
-test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
+const HAS_STACK = hasServiceKey() && !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
+test.skip(!HAS_STACK && !process.env.FAMILY_CODE, "needs KINBOARD_SERVICE_ROLE_KEY and SUPABASE_URL for a running stack");
 test.describe.configure({ mode: "serial" });
 
 const NOW = new Date("2026-10-02T10:00:00Z");

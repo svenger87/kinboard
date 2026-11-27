@@ -198,7 +198,7 @@ services:
       # Empty: derived from the stored JWT secret. Only an install that moved
       # here from the git setup sets them, to keep its old keys.
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${KINBOARD_ANON_KEY:-}
-      SUPABASE_SERVICE_ROLE_KEY: ${KINBOARD_SERVICE_ROLE_KEY:-}
+      KINBOARD_SERVICE_ROLE_KEY: ${KINBOARD_SERVICE_ROLE_KEY:-}
       PUID: ${PUID:-}
       PGID: ${PGID:-}
       INSTANCE_ADMIN_FAMILY_ID: ${INSTANCE_ADMIN_FAMILY_ID:-}

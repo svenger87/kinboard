@@ -365,7 +365,11 @@ export function buildShapes(f: Factories): Array<{ name: (typeof SHAPES)[number]
       process.env.POSTGREST_URL = WIRE_ENV.POSTGREST_URL;
       delete process.env.SUPABASE_URL;
     }
+    // The older name, which the tree the golden file was recorded on reads
+    // too; the current name is cleared so a runner's real key can't win
+    // over it (RFC-024 §4.6: KINBOARD_SERVICE_ROLE_KEY comes first).
     process.env.SUPABASE_SERVICE_ROLE_KEY = WIRE_ENV.SERVICE_ROLE_KEY;
+    delete process.env.KINBOARD_SERVICE_ROLE_KEY;
   };
   return [
     {
