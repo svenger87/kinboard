@@ -31,12 +31,26 @@ const crypto = require("node:crypto");
 const stubDir = () => process.env.STUB;
 const statePath = () => path.join(stubDir(), "state.json");
 
+// The script runs stub calls side by side: log_excerpt pipes `docker logs`
+// into redact, which runs `docker exec` and `docker inspect` meanwhile. So a
+// call that changed nothing writes nothing (it would put back a state another
+// call had just changed), and a write goes through a temporary file of this
+// process's own: with one shared name, the second of two renames found its
+// file gone, the call died before printing, and a log line or a secret to
+// redact was missing from the excerpt.
+let loaded = null;
 function load() {
-  return JSON.parse(fs.readFileSync(statePath(), "utf8"));
+  const s = JSON.parse(fs.readFileSync(statePath(), "utf8"));
+  loaded = JSON.stringify(s, null, 1);
+  return s;
 }
 function save(s) {
-  fs.writeFileSync(statePath() + ".tmp", JSON.stringify(s, null, 1));
-  fs.renameSync(statePath() + ".tmp", statePath());
+  const text = JSON.stringify(s, null, 1);
+  if (text === loaded) return;
+  const tmp = `${statePath()}.${process.pid}.${hex(4)}.tmp`;
+  fs.writeFileSync(tmp, text);
+  fs.renameSync(tmp, statePath());
+  loaded = text;
 }
 function record(line) {
   fs.appendFileSync(path.join(stubDir(), "calls"), line.replace(/\n/g, " ") + "\n");
