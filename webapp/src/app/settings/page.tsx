@@ -48,6 +48,8 @@ import { UpdateStatusNotice } from "@/components/settings/update-status-notice";
 import { usePushReset } from "@/hooks/use-push-reset";
 import { PushResetNotice } from "@/components/settings/push-reset-notice";
 import { useComposeRevision } from "@/hooks/use-compose-revision";
+import { useOldDatabase } from "@/hooks/use-old-database";
+import { OldDatabaseNotice } from "@/components/settings/old-database-notice";
 import { ComposeHoldNotice, ComposeRevisionNotice } from "@/components/settings/compose-revision-notice";
 import { InstanceCard } from "@/components/settings/instance-card";
 import { PinDigits, saveSettingsPin, type PinDigitsHandle } from "@/components/settings/pin-digits";
@@ -119,6 +121,7 @@ export default function SettingsPage() {
   const { data: updateHold } = useUpdateHold();
   const { data: pushReset } = usePushReset(!!family);
   const { data: composeRevision } = useComposeRevision();
+  const { data: oldDatabase } = useOldDatabase();
   const realtimeStatus = useRealtimeStatusStore((s) => s.status);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
@@ -1094,6 +1097,8 @@ export default function SettingsPage() {
           <ComposeRevisionNotice status={composeRevision} />
           {/* kinboard-updater held a release that needs a newer compose.yml (RFC-023 §4.11.3). */}
           <ComposeHoldNotice status={updateHold} />
+          {/* The all-in-one image kept the database from before a PostgreSQL upgrade (RFC-024 §4.3). */}
+          <OldDatabaseNotice status={oldDatabase} />
           {updateStatus && showsUpdatedLine(updateStatus, new Date()) && (
             <p data-testid="settings-updated-line">
               {t("updateStatus.updatedLine", {
