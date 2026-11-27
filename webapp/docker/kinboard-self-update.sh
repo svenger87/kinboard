@@ -3039,7 +3039,7 @@ webhook_refresh() {
     # is never pulled, and never built by this script either.
     # shellcheck disable=SC2086
     if ! docker compose $COMPOSE_FILES pull --ignore-buildable webhook >>"$LOG_FILE" 2>&1; then
-      log "WARN: could not pull the webhook's image $wh_want; the webhook stays on $wh_ref. (A KINBOARD_TAG pinned to a version older than the published kinboard-webhook has none: set KINBOARD_WEBHOOK_TAG=latest in .env.)"
+      log "could not pull the webhook's image $wh_want (offline, or not published: versions before 1.18 have none); the webhook stays on $wh_ref, and moves once it can be pulled"
       return 0
     fi
   fi

@@ -134,6 +134,11 @@ services:
     # (KINBOARD_TAG=next, =sha-…). KINBOARD_WEBHOOK_TAG overrides it, for a
     # pin older than this image (a version before it was published has no
     # kinboard-webhook of its own); KINBOARD_WEBHOOK_IMAGE names a mirror.
+    # When the image named here can't be fetched (until the first stable
+    # release that publishes it, a git install on main runs `latest`, which
+    # does not exist yet), ./start.sh up runs another published one for that
+    # run (prepare_webhook in start.sh), and the self-update moves the webhook
+    # onto this one once it can pull it. A plain `docker compose up` doesn't.
     #
     # Which version of the image runs matters little: the hook and the tick
     # run the checkout's kinboard-self-update.sh (see entrypoint and
