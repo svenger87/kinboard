@@ -19,7 +19,7 @@
  * happens to be keyed (see `migrations/059_meal_plan_week_start.sql`).
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 
 /** date-fns' `weekStartsOn` convention: 0 is Sunday, 1 is Monday. */

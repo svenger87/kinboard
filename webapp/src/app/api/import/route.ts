@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { SECRET_FIELDS, splitSecrets } from "@/lib/integration-secrets";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { restoredSyncSetting } from "@/lib/school-sync/reconcile";

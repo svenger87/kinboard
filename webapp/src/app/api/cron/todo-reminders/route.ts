@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { sendPushToMultiple, isVapidConfigured, DatabaseSubscription } from "@/lib/push-sender";
 import type { PushSubscription, NotificationPreferences } from "@/types/database";
 import { dayKeyIn, isWeekdayTaskDue, recurrenceWeekdays } from "@/lib/todo-recurrence";

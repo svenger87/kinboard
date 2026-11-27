@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { logApiError } from "@/lib/api-error";
 import { destructiveLimitResponse } from "@/lib/integration-limits";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import {
   findStoredResult, fingerprintRequest, storeResult, validateIdempotencyKey,
 } from "@/lib/integration-idempotency";

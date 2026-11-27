@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { syncIcsCalendar, IcsSyncResult } from "@/lib/ics-sync";
 import type { PersonMappingRule } from "@/lib/calendar-person-matcher";
 import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";

@@ -2,7 +2,7 @@
 
 import { toLocalDateKey } from "@/lib/local-date";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/db/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { queryKeys, requireFamilyId } from "./use-supabase-queries";
 import { addOrMergeShoppingItems, shoppingStore } from "@/lib/shopping-add";

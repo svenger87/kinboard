@@ -1,5 +1,5 @@
 import { calendarWriteMode, type StoredCalendarEvent, type WritableCalendar } from "@/lib/calendar-write-through";
-import type { createAdminClient } from "@/lib/supabase/server";
+import type { createAdminClient } from "@/lib/db/server";
 import { isVisibleCalendar } from "@/lib/google-calendar-reconcile";
 
 /**

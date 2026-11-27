@@ -10,7 +10,7 @@
  * checks that the person exists somewhere.
  */
 
-import type { createAdminClient } from "@/lib/supabase/server";
+import type { createAdminClient } from "@/lib/db/server";
 import { parseRecurrence } from "@/lib/todo-recurrence";
 import { todoIcon } from "@/lib/todo-icons";
 import { itemDue, itemSummary } from "@/lib/integration-lists";

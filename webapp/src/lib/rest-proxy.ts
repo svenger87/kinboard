@@ -92,7 +92,7 @@ export function downstreamResponseHeaders(upstream: Headers): Headers {
 /**
  * A fetch for the server's PostgREST client that goes straight to PostgREST.
  *
- * The client builds `${url}/rest/v1/<table>` (lib/supabase/postgrest.ts); PostgREST serves `/<table>`.
+ * The client builds `${url}/rest/v1/<table>` (lib/db/postgrest.ts); PostgREST serves `/<table>`.
  * Kong used to strip the prefix. With POSTGREST_URL set the clients are built
  * on that address and this strips it instead — one hop, no gateway. Without
  * it (a compose file from before 1.15, still running Kong), requests go to

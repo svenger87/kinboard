@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FilesNotConfiguredError, putObject } from "@/lib/files/store";
-import { publicStorageUrl } from "@/lib/supabase/public-url";
+import { publicStorageUrl } from "@/lib/db/public-url";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 
 export const dynamic = "force-dynamic";
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Relative, like every stored URL: see lib/supabase/public-url.ts.
+    // Relative, like every stored URL: see lib/db/public-url.ts.
     return NextResponse.json({
       url: publicStorageUrl("goal-images", filename),
       path: filename,

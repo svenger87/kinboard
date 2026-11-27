@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { collectSignals, resetSignalCaches } from "@/lib/attention/signals";
 import { evaluate } from "@/lib/attention/engine";
 import { RULES } from "@/lib/attention/rules";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import type { FamilyRuleState } from "@/lib/attention/engine";
 
 export const dynamic = "force-dynamic";

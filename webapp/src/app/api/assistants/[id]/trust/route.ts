@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/require-session";
 import { familyHasPin, verifySettingsPin } from "@/lib/settings-pin";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { logApiError } from "@/lib/api-error";
 import { setAssistantTrust, type TrustDeps } from "@/lib/assistant-trust";
 

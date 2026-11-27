@@ -29,7 +29,7 @@ import { toLocalDateKey } from "@/lib/local-date";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import { useTranslations, useLocale } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/db/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { useTodoPoints } from "@/hooks/use-todo-points";
 import { usePointTotals } from "@/hooks/use-point-rewards";

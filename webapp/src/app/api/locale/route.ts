@@ -4,7 +4,7 @@ import {
   SUPPORTED_LOCALES,
   type Locale,
 } from "@/i18n/request";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { liveSchoolSyncDeps } from "@/lib/school-sync/live";

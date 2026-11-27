@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { VISIBLE_CALENDARS } from "@/lib/google-calendar-reconcile";
 import { toLocalDateKey } from "@/lib/local-date";
 import { resolveDayContext } from "@/lib/attention/engine";

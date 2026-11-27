@@ -23,7 +23,7 @@
  * live ones are below.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { familyHasPin } from "@/lib/settings-pin";
 import { retryAfterSeconds, type Budget } from "@/lib/integration-limits";
 import {

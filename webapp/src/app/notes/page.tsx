@@ -40,7 +40,7 @@ import { PageHeader } from "@/components/page-header";
 import { ErrorState } from "@/components/error-state";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/db/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { showUndoToast } from "@/lib/undo-toast";
 import {

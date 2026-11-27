@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { isRealDate } from "@/lib/integration-meal-input";
 import { loadTimetables, schoolOn, type SchoolDb } from "@/lib/school-days";
 

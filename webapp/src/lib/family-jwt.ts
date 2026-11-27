@@ -4,7 +4,7 @@ import { FAMILY_TOKEN_TTL_SECONDS } from "@/lib/family-token-timing";
 /**
  * Family-scoped tokens for the browser's direct connection to PostgREST.
  *
- * The browser talks to Supabase directly (src/lib/supabase/client.ts), so the
+ * The browser talks to Supabase directly (src/lib/db/client.ts), so the
  * Next.js API is not in that request path and cannot police it. Row-level
  * security is what polices it, and every policy resolves the caller's family
  * from a `family_id` claim on the request's JWT — see

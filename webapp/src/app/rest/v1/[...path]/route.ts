@@ -5,7 +5,7 @@ import {
   postgrestUrl,
   upstreamRequestHeaders,
 } from "@/lib/rest-proxy";
-import { legacyKongAnonKey, legacyKongUrl } from "@/lib/supabase/legacy-kong";
+import { legacyKongAnonKey, legacyKongUrl } from "@/lib/db/legacy-kong";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +66,7 @@ async function forward(
  * A compose file from before 1.15 sets SUPABASE_URL (Kong) and no
  * POSTGREST_URL. Kong's PostgREST routes sit under /rest/v1 and want the anon
  * key, so that is where this goes, with the key, until the compose file is
- * updated (lib/supabase/legacy-kong.ts).
+ * updated (lib/db/legacy-kong.ts).
  */
 function legacyBase(): string | null {
   const kong = legacyKongUrl();

@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { normalizeCalendarSyncRangeDays, type CalendarSyncRangeDays } from "@/lib/calendar-sync-range";
 

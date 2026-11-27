@@ -3,9 +3,9 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { codeOnly } from "./source-helpers";
-import { createClient } from "../src/lib/supabase/client";
-import { clearFamilyToken, primeFamilyToken } from "../src/lib/supabase/family-token";
-import { legacyKongAnonKey, legacyKongPageEnv, legacyKongPageScript, legacyKongUrl } from "../src/lib/supabase/legacy-kong";
+import { createClient } from "../src/lib/db/client";
+import { clearFamilyToken, primeFamilyToken } from "../src/lib/db/family-token";
+import { legacyKongAnonKey, legacyKongPageEnv, legacyKongPageScript, legacyKongUrl } from "../src/lib/db/legacy-kong";
 
 /**
  * RFC-024 §4.6, phase 7 step 3: the browser sends no key, and the anon key's
@@ -20,7 +20,7 @@ import { legacyKongAnonKey, legacyKongPageEnv, legacyKongPageScript, legacyKongU
  *
  * What stays, for one release (§4.6 step 7 removes it): the legacy Kong path
  * of a compose file from before 1.15, which reads SUPABASE_URL and the anon
- * key in one place, lib/supabase/legacy-kong.ts. With Kong as that install's
+ * key in one place, lib/db/legacy-kong.ts. With Kong as that install's
  * front door, Kong answers the browser's /rest/v1 and wants `apikey`, so
  * there, and only there, the page still carries the key and the browser
  * sends it as `apikey`. And the compose files keep passing the key, for an
@@ -36,7 +36,7 @@ const DOCKER = join(__dirname, "..", "docker");
 const ROOT = join(__dirname, "..", "..");
 
 /** The one module allowed to read the legacy names. */
-const SHIM = "lib/supabase/legacy-kong.ts";
+const SHIM = "lib/db/legacy-kong.ts";
 
 /** Every .ts/.tsx file under a directory. */
 function sourceFiles(dir: string): string[] {
@@ -67,7 +67,7 @@ function retiredReads(root: string, allow: string[] = []): string[] {
 }
 
 test.describe("nothing reads the retired names but the legacy Kong shim", () => {
-  test("webapp/src: only lib/supabase/legacy-kong.ts names them", () => {
+  test("webapp/src: only lib/db/legacy-kong.ts names them", () => {
     expect(retiredReads(SRC, [SHIM])).toEqual([]);
     // Non-vacuity: the shim itself is seen, and reads both.
     const shim = retiredReads(SRC).filter((h) => h.startsWith(SHIM));

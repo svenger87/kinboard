@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/db/client";
 import { useFamilyStore } from "@/stores/family-store";
 import type { PointAward } from "@/lib/todo-points";
 

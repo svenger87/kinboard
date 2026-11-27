@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 
 /**
  * Liveness marks for things `/api/health` cannot reach directly.

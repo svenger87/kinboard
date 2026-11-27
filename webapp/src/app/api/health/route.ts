@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { deepHealth } from "@/lib/deep-health";
 import { promises as fs } from "fs";
 import path from "path";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { readHeartbeat } from "@/lib/heartbeat";
 import { realtimeHealth } from "@/lib/realtime/hub";
 

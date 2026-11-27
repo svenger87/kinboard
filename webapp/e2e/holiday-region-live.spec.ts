@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { hasServiceKey } from "./helpers/service-key";
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
-import { createAdminClient } from "../src/lib/supabase/server";
+import { createAdminClient } from "../src/lib/db/server";
 import { familyHolidayRegion } from "../src/lib/family-time";
 import { POST as createFamily } from "../src/app/api/session/create/route";
 import { POST as importBackup } from "../src/app/api/import/route";

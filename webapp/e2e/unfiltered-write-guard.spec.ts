@@ -2,17 +2,17 @@ import { test, expect } from "@playwright/test";
 import { setServiceKey } from "./helpers/service-key";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { createPostgrestClient } from "../src/lib/supabase/postgrest";
-import { createClient as createBrowserSupabaseClient } from "../src/lib/supabase/client";
-import { createAdminClient } from "../src/lib/supabase/server";
-import { serverSupabaseFetch } from "../src/lib/supabase/api-base";
-import { clearFamilyToken, primeFamilyToken } from "../src/lib/supabase/family-token";
+import { createPostgrestClient } from "../src/lib/db/postgrest";
+import { createClient as createBrowserSupabaseClient } from "../src/lib/db/client";
+import { createAdminClient } from "../src/lib/db/server";
+import { serverSupabaseFetch } from "../src/lib/db/api-base";
+import { clearFamilyToken, primeFamilyToken } from "../src/lib/db/family-token";
 import {
   ALLOW_UNFILTERED_HEADER,
   UnfilteredWriteError,
   allowUnfiltered,
   unfilteredWriteTarget,
-} from "../src/lib/supabase/unfiltered-write-guard";
+} from "../src/lib/db/unfiltered-write-guard";
 
 /**
  * RFC-024 §4.2.1: every PostgREST client the app builds refuses an UPDATE or
@@ -253,7 +253,7 @@ test.describe("which requests count as unfiltered writes", () => {
 /* ------------------------------------------------------------------------ */
 
 const SITES_FILE = "e2e/allow-unfiltered-sites.txt";
-const GUARD_MODULE = "src/lib/supabase/unfiltered-write-guard.ts";
+const GUARD_MODULE = "src/lib/db/unfiltered-write-guard.ts";
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = [];

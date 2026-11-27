@@ -1,5 +1,5 @@
 import { google, type calendar_v3 } from "googleapis";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { getGoogleOAuth2Client } from "@/lib/google-calendar-auth";
 import { getCaldavCredentials } from "@/lib/caldav-credentials";
 import {

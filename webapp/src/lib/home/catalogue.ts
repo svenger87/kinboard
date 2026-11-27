@@ -12,7 +12,7 @@
  * room the household cleared (see `migrations/034_rooms.sql`).
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { ENTITY_ID } from "@/lib/home/policy";
 import { CatalogueUnavailable } from "@/lib/home/errors";
 

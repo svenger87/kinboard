@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { filesRoot, isPublicBucket } from "@/lib/files/store";
 import { serveObject } from "@/lib/files/serve";
-import { legacyKongUrl } from "@/lib/supabase/legacy-kong";
+import { legacyKongUrl } from "@/lib/db/legacy-kong";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
  * GET /storage/v1/object/public/<bucket>/<path>
  *
  * Every stored image URL is this relative path (RFC-018 §4,
- * lib/supabase/public-url.ts), and since 1.15 the webapp answers it from the
+ * lib/db/public-url.ts), and since 1.15 the webapp answers it from the
  * files on disk (lib/files/store.ts). Public buckets only; family photos go
  * through the signed route next door.
  *

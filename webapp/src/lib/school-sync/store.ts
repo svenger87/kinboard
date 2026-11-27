@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { familyHolidayRegion, familyTimeZone } from "@/lib/family-time";
 import { familyContentLanguage, familyContentLanguages } from "@/lib/family-language";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";

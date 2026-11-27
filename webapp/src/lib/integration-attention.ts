@@ -30,7 +30,7 @@
  * by family_id itself; e2e/integration-attention.spec.ts hands it a fake.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { type Locale } from "@/i18n/locales";
 import { familyContentLanguage } from "@/lib/family-language";
 import { getTranslator } from "@/lib/notifications/messages";

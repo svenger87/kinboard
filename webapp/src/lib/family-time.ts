@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { isValidTimeZone, zonedWallTimeToUtc } from "@/lib/integration-event-input";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { parseRegionSetting, type HolidayRegionSetting } from "@/lib/holidays/region";

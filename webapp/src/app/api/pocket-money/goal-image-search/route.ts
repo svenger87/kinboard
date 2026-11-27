@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { searchWebImages } from "@/lib/pocket-money/web-image-search";
 import { requireSession } from "@/lib/require-session";
 

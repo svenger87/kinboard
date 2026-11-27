@@ -5,7 +5,7 @@ import { chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, wr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { codeOnly } from "./source-helpers";
-import { legacyKongAnonKey } from "../src/lib/supabase/legacy-kong";
+import { legacyKongAnonKey } from "../src/lib/db/legacy-kong";
 
 /**
  * RFC-023 §4.1: the webapp's entrypoint reads the secrets store.

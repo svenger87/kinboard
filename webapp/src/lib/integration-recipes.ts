@@ -24,7 +24,7 @@
  * defaults, so all of this is tested without a stack.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { parseInstructions } from "@/lib/recipe-instructions";
 import { matchCatalogItems, type CatalogMatch } from "@/lib/catalog-match";
 import {

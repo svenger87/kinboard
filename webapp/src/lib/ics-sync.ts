@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { fetchIcsCalendar, ICS_WINDOW_FUTURE_DAYS } from "@/lib/ics-fetcher";
 import { matchPersonForEvent, PersonMappingRule } from "@/lib/calendar-person-matcher";
 import { familyCalendarSyncFutureDays } from "@/lib/calendar-sync-range-server";

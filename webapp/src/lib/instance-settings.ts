@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 
 /**
  * Settings of the install rather than of a family (instance_settings), read

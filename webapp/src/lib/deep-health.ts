@@ -1,5 +1,5 @@
-import { createAdminClient } from "@/lib/supabase/server";
-import { serverSupabaseFetch, serverSupabaseUrl } from "@/lib/supabase/api-base";
+import { createAdminClient } from "@/lib/db/server";
+import { serverSupabaseFetch, serverSupabaseUrl } from "@/lib/db/api-base";
 import expectations from "@/lib/schema-expectations.json";
 import { missingFromSchema, type Definitions } from "@/lib/schema-check";
 import { serviceRoleKey } from "@/lib/env";

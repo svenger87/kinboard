@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { hasServiceKey } from "./helpers/service-key";
 import { randomBytes } from "node:crypto";
-import { createAdminClient } from "../src/lib/supabase/server";
+import { createAdminClient } from "../src/lib/db/server";
 import { VISIBLE_CALENDARS, reconcileGoogleCalendars } from "../src/lib/google-calendar-reconcile";
 import { fetchSchoolBreaks } from "../src/lib/school-days";
 

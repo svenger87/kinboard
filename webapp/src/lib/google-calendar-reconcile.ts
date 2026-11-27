@@ -1,4 +1,4 @@
-import type { createAdminClient } from "@/lib/supabase/server";
+import type { createAdminClient } from "@/lib/db/server";
 
 /**
  * What happens to a Google calendar the family unticked.

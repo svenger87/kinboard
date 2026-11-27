@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { requireSession } from "@/lib/require-session";
 import { UUID } from "@/lib/home/action-requests";
 import type { RpcClient } from "@/lib/pocket-money/booking";

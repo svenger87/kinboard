@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { hasServiceKey } from "./helpers/service-key";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createAdminClient } from "../src/lib/supabase/server";
+import { createAdminClient } from "../src/lib/db/server";
 import { liveSchoolSyncStore } from "../src/lib/school-sync/store";
 import { runSchoolSyncCron } from "../src/lib/school-sync/cron";
 import { syncFamily, type SchoolSyncDeps, type SchoolSyncSetting, type SchoolSyncStore } from "../src/lib/school-sync/sync";

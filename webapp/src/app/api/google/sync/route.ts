@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { resolveGoogleClient } from "@/lib/api-keys";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import type { PersonMappingRule } from "@/lib/calendar-person-matcher";
 import { familyPersonIds, syncedEventPersonId } from "@/lib/google-sync-person";

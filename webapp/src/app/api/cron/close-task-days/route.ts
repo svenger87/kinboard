@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { logApiError } from "@/lib/api-error";
 import { isValidTimeZone } from "@/lib/integration-event-input";
 

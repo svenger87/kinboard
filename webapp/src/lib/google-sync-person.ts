@@ -1,4 +1,4 @@
-import type { createAdminClient } from "@/lib/supabase/server";
+import type { createAdminClient } from "@/lib/db/server";
 import { matchPersonForEvent, type PersonMappingRule } from "@/lib/calendar-person-matcher";
 
 /**

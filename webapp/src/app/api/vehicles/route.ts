@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import type { VehicleInsert } from "@/types/database";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 

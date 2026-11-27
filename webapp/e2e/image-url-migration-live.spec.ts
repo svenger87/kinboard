@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { hasServiceKey } from "./helpers/service-key";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { createAdminClient } from "../src/lib/supabase/server";
+import { createAdminClient } from "../src/lib/db/server";
 import { dbContainer } from "./whole-database";
 
 /**

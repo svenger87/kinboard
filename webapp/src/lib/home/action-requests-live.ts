@@ -8,7 +8,7 @@
  * and the second one matches nothing.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { familyHasPin, verifySettingsPin } from "@/lib/settings-pin";
 import { callHaService } from "@/lib/home/ha-client";
 import { catalogueEntity } from "@/lib/home/catalogue";

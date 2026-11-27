@@ -19,7 +19,7 @@
  * (`e2e/integration-pocket-money.spec.ts`); the live ones are below it.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { familyHasPin } from "@/lib/settings-pin";
 import { retryAfterSeconds, type Budget } from "@/lib/integration-limits";
 import { amountToCents } from "@/lib/pocket-money/booking";

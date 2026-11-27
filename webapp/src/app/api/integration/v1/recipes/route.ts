@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
 import { logApiError } from "@/lib/api-error";
 import { publicOrigin } from "@/lib/oauth/origin";
-import { absoluteStorageUrl } from "@/lib/supabase/public-url";
+import { absoluteStorageUrl } from "@/lib/db/public-url";
 import { createRecipe, parseRecipeCreate, parseRecipeSearch, searchRecipes } from "@/lib/integration-recipes";
 import { familyContentLanguage } from "@/lib/family-language";
 import {

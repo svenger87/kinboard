@@ -18,7 +18,7 @@
  * production default, so the rules are tested without either.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { parseShoppingInput } from "@/lib/shopping-input";
 import { detectCategory } from "@/lib/shopping-categories";
 import { searchCatalog, type CatalogSearchParams, type CatalogSearchResult } from "@/lib/catalog-search";

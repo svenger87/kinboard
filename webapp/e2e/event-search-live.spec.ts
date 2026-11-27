@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { hasServiceKey } from "./helpers/service-key";
-import { createAdminClient } from "../src/lib/supabase/server";
+import { createAdminClient } from "../src/lib/db/server";
 import { searchEvents, type SearchDb } from "../src/lib/integration-event-search";
 
 /**

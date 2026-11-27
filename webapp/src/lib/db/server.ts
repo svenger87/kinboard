@@ -1,11 +1,11 @@
-import { serverSupabaseFetch, serverSupabaseUrl } from "@/lib/supabase/api-base";
-import { createPostgrestClient, type DbClient } from "@/lib/supabase/postgrest";
+import { serverSupabaseFetch, serverSupabaseUrl } from "@/lib/db/api-base";
+import { createPostgrestClient, type DbClient } from "@/lib/db/postgrest";
 import { serviceRoleKey } from "@/lib/env";
 
 // The cookie-bound anon client (`createClient`, from `@supabase/ssr`) is gone:
 // it had no importers since Kinboard stopped using Supabase Auth, and the
 // cookies it bound were Supabase sessions that never existed. Server code
-// reads with the service role below; the browser has lib/supabase/client.ts.
+// reads with the service role below; the browser has lib/db/client.ts.
 
 // Admin client with service role key - bypasses RLS
 // Use for API routes that need direct database access.

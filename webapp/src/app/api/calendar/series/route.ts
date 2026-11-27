@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { familyIdFrom } from "@/lib/family-scope";
 import { takesRepeatingEvents } from "@/lib/local-calendars";

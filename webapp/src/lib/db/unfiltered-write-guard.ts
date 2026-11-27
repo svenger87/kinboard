@@ -10,7 +10,7 @@
  * sent, so a shape without `safeupdate` is never weaker than today's.
  *
  * It sits in the custom `fetch` every PostgREST client the app builds goes
- * through (lib/supabase/client.ts for the browser, api-base.ts
+ * through (lib/db/client.ts for the browser, api-base.ts
  * `serverSupabaseFetch` for the server's), so it covers every call path: the
  * browser's family client, the service-role client and the
  * `x-kinboard-actor: integration` one. What it

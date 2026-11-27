@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { createClient } from "../src/lib/supabase/client";
-import { createAdminClient } from "../src/lib/supabase/server";
-import { clearFamilyToken, primeFamilyToken } from "../src/lib/supabase/family-token";
+import { createClient } from "../src/lib/db/client";
+import { createAdminClient } from "../src/lib/db/server";
+import { clearFamilyToken, primeFamilyToken } from "../src/lib/db/family-token";
 import { SCENARIOS, SHAPES, WIRE_ENV, buildShapes, recordWire, type WireRecord } from "./helpers/postgrest-wire";
 
 /**

@@ -20,7 +20,7 @@ import {
   cjkNotoSerif,
   cjkZcoolKuaile,
 } from "./fonts";
-import { legacyKongPageScript } from "@/lib/supabase/legacy-kong";
+import { legacyKongPageScript } from "@/lib/db/legacy-kong";
 import { MOTION_INIT_SCRIPT } from "@/lib/motion";
 import { FESTIVAL_INIT_SCRIPT } from "@/lib/festival-settings";
 import { FESTIVAL_CSS } from "@/lib/festivals/kits";
@@ -71,7 +71,7 @@ export default async function RootLayout({
   const messages = await getMessages();
   const t = await getTranslations("common");
   // Null on every install but one still behind a pre-1.15 Kong, whose
-  // browser needs the anon key as `apikey` (lib/supabase/legacy-kong.ts).
+  // browser needs the anon key as `apikey` (lib/db/legacy-kong.ts).
   const kongPageScript = legacyKongPageScript();
 
   return (

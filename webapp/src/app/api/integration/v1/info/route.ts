@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withIntegrationAuth } from "@/lib/integration-route";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { readCurrentVersion } from "@/lib/app-version";
 import { currentEventCursor } from "@/lib/integration-store";
 import { logApiError } from "@/lib/api-error";

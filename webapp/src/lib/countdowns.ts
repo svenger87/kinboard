@@ -29,7 +29,7 @@
  * filters, so a missing family filter does reach the other family's row.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import { SETTINGS_KEYS } from "@/lib/settings-keys";
 import { invalidRequest, isUuid, type TaskDb } from "@/lib/integration-tasks";
 import { COUNTDOWN_ICONS, DEFAULT_COUNTDOWN_ICON } from "@/lib/countdown-icons";

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/db/server";
 import type { MediaPlayerInsert, MediaPlayerUpdate } from "@/types/database";
 import { familyMatchesSession, requireSession } from "@/lib/require-session";
 import { familyIdFrom, rowInFamily } from "@/lib/family-scope";

@@ -38,7 +38,7 @@ import Link from "next/link";
 import { OfflineBanner, OfflineIndicator } from "@/components/offline-banner";
 import { CATEGORIES, detectCategory } from "@/lib/shopping-categories";
 import { showUndoToast } from "@/lib/undo-toast";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/db/client";
 import { useFamilyStore } from "@/stores/family-store";
 import { readEinkaufenEntry } from "@/lib/einkaufen-entry";
 
