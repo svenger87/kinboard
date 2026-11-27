@@ -2782,7 +2782,16 @@
       "dismiss": "Masquer",
       "actionFailed": "Cela n'a pas fonctionné. Veuillez réessayer.",
       "retryTooSoon": "Kinboard a déjà été invité à réessayer il y a quelques minutes. Veuillez patienter avant de redemander.",
-      "updatedLine": "Mis à jour automatiquement vers {version} le {date}"
+      "updatedLine": "Mis à jour automatiquement vers {version} le {date}",
+      "pullTitle": "Kinboard n'a pas pu télécharger sa dernière mise à jour.",
+      "pullLocalTitle": "La dernière mise à jour n'a pas pu mettre à jour le dossier de Kinboard sur le serveur.",
+      "pullOwnership": "Git a refusé le dossier où Kinboard est installé, car il appartient à un autre utilisateur que celui du programme de mise à jour. Rien n'a été installé.",
+      "pullPermission": "Git n'a pas pu écrire dans le dossier où Kinboard est installé. Rien n'a été installé.",
+      "pullFetch": "Git n'a pas pu joindre la source des mises à jour de Kinboard. Rien n'a été modifié ; la prochaine mise à jour réessaiera.",
+      "pullLocal": "Certains fichiers que vous avez modifiés dans ce dossier sont aussi modifiés par cette version, le dossier est donc resté à l'ancienne version. L'application elle-même a été mise à jour.",
+      "pullAt": "Dernière tentative : {time}.",
+      "pullFix": "Pour corriger cela, exécutez une fois ceci sur le serveur, en tant qu'utilisateur propriétaire du dossier :",
+      "pullFixLocal": "Conservez vos propres modifications ailleurs (dans votre propre fichier overlay), puis exécutez ceci sur le serveur, en tant qu'utilisateur propriétaire du dossier :"
     },
     "pushReset": {
       "title": "Les notifications push doivent être réactivées",

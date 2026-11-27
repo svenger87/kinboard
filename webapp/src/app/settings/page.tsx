@@ -43,8 +43,9 @@ import { useKeyboardShortcuts, useSwipeNavigation, useIsOnline, useDeleteDevice,
 } from "@/hooks";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVersionCheck } from "@/hooks/use-version-check";
-import { useUpdateHold, useUpdateStatus } from "@/hooks/use-update-status";
+import { useUpdateHold, useUpdatePull, useUpdateStatus } from "@/hooks/use-update-status";
 import { UpdateStatusNotice } from "@/components/settings/update-status-notice";
+import { UpdatePullNotice } from "@/components/settings/update-pull-notice";
 import { usePushReset } from "@/hooks/use-push-reset";
 import { PushResetNotice } from "@/components/settings/push-reset-notice";
 import { useComposeRevision } from "@/hooks/use-compose-revision";
@@ -118,6 +119,7 @@ export default function SettingsPage() {
   const isOnline = useIsOnline();
   const { data: version } = useVersionCheck();
   const { data: updateStatus } = useUpdateStatus();
+  const { data: updatePull } = useUpdatePull();
   const { data: updateHold } = useUpdateHold();
   const { data: pushReset } = usePushReset(!!family);
   const { data: composeRevision } = useComposeRevision();
@@ -491,6 +493,7 @@ export default function SettingsPage() {
 
         {/* An automatic update that did not start and was rolled back (RFC-023 §4.11.4). */}
         <UpdateStatusNotice status={updateStatus} />
+        <UpdatePullNotice failure={updatePull} />
 
         {/* The server's push key changed: devices that need push turned on again (RFC-023 §6.4). */}
         <PushResetNotice devices={pushReset} currentDeviceId={device?.id} />

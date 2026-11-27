@@ -52,6 +52,34 @@ docker exec kinboard-webhook sh -c 'sh "$PROJECT_DIR/webapp/docker/kinboard-self
 The second line runs the update now instead of at the next release. From 1.18
 on the auto-update puts such a copy back by itself.
 
+### If your Kinboard folder belongs to your own user, not root
+
+**Only with the Diun auto-update, and only if you cloned Kinboard as a normal
+user** (`git clone` without `sudo`, the usual way). The auto-update runs as
+root inside the `webhook` container, and git refuses to work in a folder that
+belongs to another user. Up to 1.17 the auto-update therefore stopped at its
+first step, every time, without saying so anywhere but its log: your install
+may not have updated itself at all. To check:
+
+```bash
+grep -c "dubious ownership" /var/lib/kinboard-update/kinboard-update.log
+```
+
+Anything above 0 means you're affected. 1.18's auto-update handles such a
+folder by itself, but the 1.17 one that runs now can't get there on its own,
+so once, in your Kinboard folder, as your own user:
+
+```bash
+git pull --ff-only origin main
+docker exec kinboard-webhook sh -c 'sh "$PROJECT_DIR/webapp/docker/kinboard-self-update.sh"'
+```
+
+The first line brings the new update script; the second runs the update now
+instead of at the next release (or run `cd webapp/docker && ./start.sh up`).
+From then on the auto-update keeps the files it changes, and a `.env` an
+earlier update gave to root, owned by you. If it ever can't fetch or pull
+again, Settings says so at the top, with the command that fixes it.
+
 ### The auto-update's webhook is downloaded, not built
 
 With the Diun auto-update (`docker-compose.diun.yml`), the `webhook`

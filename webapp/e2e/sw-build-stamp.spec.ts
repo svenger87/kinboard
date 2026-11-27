@@ -143,6 +143,6 @@ test.describe("every build path passes the revision", () => {
     expect(build).toMatch(/BUILD_REVISION: \$\{BUILD_REVISION:-\}/);
     const start = readFileSync(join(WEBAPP, "docker", "start.sh"), "utf8");
     expect(start).toMatch(/export BUILD_REVISION/);
-    expect(start).toMatch(/BUILD_REVISION="\$\{BUILD_REVISION:-\$\(git -C .* rev-parse --short=7 HEAD/);
+    expect(start).toMatch(/BUILD_REVISION="\$\{BUILD_REVISION:-\$\(git (-c safe\.directory="\$CHECKOUT_DIR" )?-C .* rev-parse --short=7 HEAD/);
   });
 });

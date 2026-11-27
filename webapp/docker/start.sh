@@ -202,7 +202,10 @@ esac
 # A source build (docker-compose.build.yml) stamps this into sw.js, so every
 # rebuild serves a different service worker and pages left open pick it up.
 # Without git it stays empty and the Dockerfile falls back to a timestamp.
-BUILD_REVISION="${BUILD_REVISION:-$(git -C "$SCRIPT_DIR" rev-parse --short=7 HEAD 2>/dev/null || true)}"
+# safe.directory names this checkout only, for a `sudo ./start.sh` in a
+# checkout a normal user owns, which git otherwise refuses.
+CHECKOUT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
+BUILD_REVISION="${BUILD_REVISION:-$(git -c safe.directory="$CHECKOUT_DIR" -C "$SCRIPT_DIR" rev-parse --short=7 HEAD 2>/dev/null || true)}"
 export BUILD_REVISION
 
 # NOTE: PostgREST's login-role password is aligned INSIDE the stack by the

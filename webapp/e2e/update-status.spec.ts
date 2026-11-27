@@ -5,7 +5,10 @@ import {
   RETRY_INTERVAL_MS,
   dismissUpdateStatus,
   decideOperator,
+  parsePullFailure,
   parseUpdateStatus,
+  pullFailureWithoutDetails,
+  pullFixCommand,
   retryAllowed,
   showsComposeHold,
   showsRollbackNotice,
@@ -121,13 +124,14 @@ test.describe("the route", () => {
 
   test("reading needs a session, and anyone but the operator gets nothing, before anything is read", () => {
     expect(get).toContain("requireSession(request)");
-    const gate = get.indexOf("if (!(await operator(auth.session.familyId))) return NextResponse.json({ status: null, hold: null })");
+    const gate = get.indexOf("if (!(await operator(auth.session.familyId))) return NextResponse.json({ status: null, hold: null, pull: null })");
     expect(gate, "the operator gate").toBeGreaterThan(-1);
     expect(gate).toBeLessThan(get.indexOf("readKey("));
   });
 
   test("the log and the paths only with the settings unlocked", () => {
-    expect(get).toMatch(/const locked = await requireSettingsUnlock\(auth\.session\);\s*return NextResponse\.json\(\{ status: locked \? withoutDetails\(status\) : status/);
+    expect(get).toMatch(/const locked = await requireSettingsUnlock\(auth\.session\);\s*return NextResponse\.json\(\{\s*status: status && locked \? withoutDetails\(status\) : status,/);
+    expect(get).toContain("pull: pull && locked ? pullFailureWithoutDetails(pull) : pull,");
   });
 
   test("the operator is recorded once and then compared, not recounted", () => {
@@ -175,6 +179,70 @@ test.describe("the route", () => {
     expect(script).toContain("STATUS_KEY=update_hold write_status");
     expect(script).toContain("WHERE key = 'update_hold'");
     expect(script).toContain("WHERE key = 'update_retry'");
+    // The git step's failure, and its removal once a run pulls again.
+    expect(lib).toContain('UPDATE_PULL_KEY = "update_pull"');
+    expect(script).toContain("STATUS_KEY=update_pull write_status");
+    expect(script).toContain("WHERE key = 'update_pull'");
+  });
+});
+
+test.describe("a git step that failed (update_pull)", () => {
+  // Exactly what record_pull_failure writes.
+  const OWNERSHIP =
+    '{"status":"pull_failed","kind":"ownership","at":"2026-11-27T03:00:00Z",' +
+    '"detail":"fatal: detected dubious ownership in repository at \'/home/anna/kinboard\'","dir":"/home/anna/kinboard",' +
+    '"log_file":"/var/lib/kinboard-update/kinboard-update.log"}';
+
+  test("is read field by field, and anything else is no record", () => {
+    expect(parsePullFailure(OWNERSHIP)).toEqual({
+      kind: "ownership",
+      at: "2026-11-27T03:00:00Z",
+      detail: "fatal: detected dubious ownership in repository at '/home/anna/kinboard'",
+      dir: "/home/anna/kinboard",
+      stack: "",
+      logFile: "/var/lib/kinboard-update/kinboard-update.log",
+    });
+    for (const raw of ["", "x", "[]", '{"status":"rolled_back"}']) expect(parsePullFailure(raw), raw).toBeNull();
+    expect(parsePullFailure('{"status":"pull_failed","kind":"exploded"}')!.kind, "an unknown kind reads as fetch").toBe("fetch");
+  });
+
+  test("gives the one command that gets the folder going again", () => {
+    const p = parsePullFailure(OWNERSHIP)!;
+    expect(pullFixCommand(p)).toBe("cd /home/anna/kinboard && git pull --ff-only origin main && cd webapp/docker && ./start.sh up");
+    expect(pullFixCommand({ ...p, kind: "permission" })).toBe(pullFixCommand(p));
+    expect(pullFixCommand({ ...p, dir: "/srv/my kinboard" })).toContain("cd '/srv/my kinboard' && ");
+    expect(pullFixCommand({ ...p, kind: "fetch" }), "the network is not fixed by a command").toBeNull();
+    expect(pullFixCommand({ ...p, stack: "compose" }), "a stack on compose.yml has no start.sh").toBe(
+      "cd /home/anna/kinboard && git pull --ff-only origin main",
+    );
+    expect(
+      pullFixCommand({ ...p, kind: "pull", detail: "webapp/docker/docker-compose.yml\nwebapp/docker/init.sql" }),
+    ).toBe("cd /home/anna/kinboard && git checkout -- webapp/docker/docker-compose.yml webapp/docker/init.sql && git pull --ff-only origin main");
+    // a name that is not a plain path is left out of the command, never pasted into it
+    expect(pullFixCommand({ ...p, kind: "pull", detail: "a;rm -rf ~\n-rf\nmy notes.txt\nwebapp/x.yml" })).toBe(
+      "cd /home/anna/kinboard && git checkout -- webapp/x.yml && git pull --ff-only origin main",
+    );
+    // local commits, not edits: no checkout, the pull says what is wrong
+    expect(pullFixCommand({ ...p, kind: "pull", detail: "" })).toBe("cd /home/anna/kinboard && git pull --ff-only origin main");
+    expect(pullFixCommand(pullFailureWithoutDetails(p)), "no folder, no command").toBeNull();
+  });
+
+  const PULL_KEYS = ["pullTitle", "pullLocalTitle", "pullOwnership", "pullPermission", "pullFetch", "pullLocal", "pullAt", "pullFix", "pullFixLocal"];
+  for (const locale of ["en", "de", "fr", "zh"]) {
+    test(`is written in ${locale}, with the same placeholders as English`, () => {
+      const m = JSON.parse(readFileSync(`messages/${locale}.json`, "utf8")).settings.updateStatus;
+      const en = JSON.parse(readFileSync("messages/en.json", "utf8")).settings.updateStatus;
+      for (const k of PULL_KEYS) {
+        expect(typeof m?.[k], `${locale} settings.updateStatus.${k}`).toBe("string");
+        const holes = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort();
+        expect(holes(m[k]), `${locale} ${k}`).toEqual(holes(en[k]));
+      }
+    });
+  }
+
+  test("Settings shows it at the top", () => {
+    const page = readFileSync("src/app/settings/page.tsx", "utf8");
+    expect(page).toContain("<UpdatePullNotice failure={updatePull} />");
   });
 });
 
