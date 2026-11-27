@@ -175,7 +175,7 @@ cd webapp/docker
 ./start.sh up
 ```
 
-A broken Docker build no longer matters for this. If `./start.sh up` then says it can't fetch the webhook image and your `KINBOARD_TAG` pins an older version (`1.17.0`, say), that version has no webhook image of its own: add `KINBOARD_WEBHOOK_TAG=latest` to `.env` and run it again. If you had added `docker-compose.webhook-build.yml` to `COMPOSE_FILES`, take it out: that file is the way to build the webhook on purpose.
+A broken Docker build no longer matters for this. If `./start.sh up` says it can't fetch the webhook image and runs another one instead ("so the webhook runs …"), that is fine: the version you run (or pin, `KINBOARD_TAG=1.17.0`, say) has no webhook image of its own yet, and the webhook moves to its own once there is one. Only "the auto-update (webhook and Diun) is left as it is" means there is no webhook: no image could be fetched at all, so check that this machine reaches ghcr.io and run it again. If you had added `docker-compose.webhook-build.yml` to `COMPOSE_FILES`, take it out: that file is the way to build the webhook on purpose.
 
 ### After an update, all routes 404
 

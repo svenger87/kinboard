@@ -63,12 +63,13 @@ it and, once that update has finished, switches the webhook over by itself
 (so does your next `./start.sh up`). Afterwards `docker rmi
 kinboard-webhook:local` frees the old local image.
 
-Two cases need one line in `.env`:
+Two special cases:
 
 - `KINBOARD_TAG` pinned to a version **before 1.18** (`KINBOARD_TAG=1.17.0`):
-  that version has no webhook image. Add `KINBOARD_WEBHOOK_TAG=latest`.
-  Until you do, the auto-update keeps the webhook it has and logs a warning,
-  and `./start.sh up` says what to add.
+  that version has no webhook image. `./start.sh up` then runs another one
+  (the published `latest`, the `kinboard-webhook:local` built here before, or
+  a published build of main) and says which; the auto-update keeps the
+  webhook it has. `KINBOARD_WEBHOOK_TAG=latest` in `.env` names one for good.
 - You **want** to build the webhook yourself: add
   `-f docker-compose.webhook-build.yml` after `docker-compose.diun.yml` in
   `COMPOSE_FILES`.

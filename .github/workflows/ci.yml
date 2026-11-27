@@ -309,6 +309,11 @@ jobs:
     # critical path of every PR for tests that never open a page.
     steps:
       - uses: actions/checkout@v4
+        with:
+          # History and tags: git-install-images-published.spec.ts reads the
+          # latest stable tag's docker.yml (what a git install's images are)
+          # and the commit start.sh's pinned webhook was built from.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

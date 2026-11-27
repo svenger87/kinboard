@@ -381,6 +381,84 @@ recreate_scheduler_if_webapp_changed() {
   $COMPOSE $COMPOSE_FILES up -d --no-deps --force-recreate cron
 }
 
+# The webhook images ./start.sh up runs when the one the compose files name
+# ($1) can't be fetched and is not on this machine, best first, one per line;
+# see the webhook in `up` below. WEBHOOK_PINNED_REF is a build of main that
+# docker.yml published (kinboard-webhook:sha-…, amd64 and arm64), there for
+# as long as no stable release has a kinboard-webhook:latest; a spec checks
+# that it names the published image under a sha- tag. Built from the same
+# Dockerfile.webhook as `latest` will be, and any of them runs the checkout's
+# own update script.
+WEBHOOK_PUBLISHED=ghcr.io/svenger87/kinboard-webhook
+WEBHOOK_PINNED_REF="$WEBHOOK_PUBLISHED:sha-c5e7bbc"
+webhook_fallback_refs() {
+  local ref
+  for ref in "$WEBHOOK_PUBLISHED:latest" kinboard-webhook:local "$WEBHOOK_PINNED_REF"; do
+    [[ "$ref" == "$1" ]] || printf '%s\n' "$ref"
+  done
+}
+
+# `up` fetches the Diun overlay's webhook like the webapp: it is published
+# (ghcr.io/svenger87/kinboard-webhook) and pulled, never built here
+# (#539). --ignore-buildable leaves a webhook built on purpose
+# (docker-compose.webhook-build.yml) to the up below.
+#
+# When the image the files name can't be fetched and is not on this
+# machine, the webhook runs another one rather than none: the image barely
+# matters, because the webhook runs the checkout's kinboard-self-update.sh
+# through the project mount, never its own copy. That is the normal case
+# until a stable release has published the image: a git install follows
+# main's compose files but runs the stable images, and before the first
+# stable release with kinboard-webhook there is no kinboard-webhook:latest
+# (#539, after #582: "manifest unknown", no webhook, no Diun). A
+# KINBOARD_TAG pinned to a version older than the image is the same case.
+# Tried in order (webhook_fallback_refs): the published `latest`, the
+# kinboard-webhook:local an install before 1.18 built for itself, and
+# WEBHOOK_PINNED_REF, a build of main that is published. The choice is
+# passed to Compose for this run only (the environment beats .env) and
+# nothing is written: every later `./start.sh up` tries the files' own
+# image first, and the self-update pulls it with every update and moves
+# the webhook onto it once it exists, so the fallback ends by itself.
+# Only when none of them is there does the rest of the stack start without
+# the webhook and Diun (containers from before keep running as they are).
+# Sets up_services (empty: all of them) for the `up` that follows, and may
+# export KINBOARD_WEBHOOK_IMAGE and KINBOARD_WEBHOOK_TAG for it.
+prepare_webhook() {
+  up_services=""
+  if $COMPOSE $COMPOSE_FILES config --services 2>/dev/null | grep -qx webhook; then
+    webhook_ref="$($COMPOSE $COMPOSE_FILES config --images webhook 2>/dev/null | head -n1)"
+    echo "→ fetching ${webhook_ref:-the webhook image}"
+    if ! $COMPOSE $COMPOSE_FILES pull --ignore-buildable webhook; then
+      if [[ -n "$webhook_ref" ]] && ! docker image inspect "$webhook_ref" >/dev/null 2>&1; then
+        webhook_use=""
+        for ref in $(webhook_fallback_refs "$webhook_ref"); do
+          # kinboard-webhook:local was only ever built, never published.
+          if docker image inspect "$ref" >/dev/null 2>&1 \
+            || { [[ "$ref" == */* ]] && docker pull -q "$ref" >/dev/null 2>&1; }; then
+            webhook_use="$ref"
+            break
+          fi
+        done
+        if [[ -n "$webhook_use" ]]; then
+          echo "note: $webhook_ref can't be fetched (versions before 1.18 have no" >&2
+          echo "      webhook image of their own), so the webhook runs $webhook_use." >&2
+          echo "      Nothing to do: it moves to $webhook_ref by itself once that can be fetched." >&2
+          export KINBOARD_WEBHOOK_IMAGE="${webhook_use%:*}" KINBOARD_WEBHOOK_TAG="${webhook_use##*:}"
+        else
+          echo "warning: could not fetch $webhook_ref, and it is not on this machine," >&2
+          echo "         so the auto-update (webhook and Diun) is left as it is; everything else starts." >&2
+          echo "         Offline? Then run ./start.sh up again later." >&2
+          # Diun too: it depends on the webhook, and Compose would start it.
+          up_services="$($COMPOSE $COMPOSE_FILES config --services 2>/dev/null | grep -vxE 'webhook|diun' | tr '\n' ' ')"
+        fi
+      else
+        echo "warning: could not fetch the webhook image (offline?);" >&2
+        echo "         starting with the one already on this machine." >&2
+      fi
+    fi
+  fi
+}
+
 case "$cmd" in
   up)
     check_data_dir_filesystem || exit 1
@@ -420,32 +498,7 @@ case "$cmd" in
       fi
     fi
 
-    # The Diun overlay's webhook, the same way: it is published
-    # (ghcr.io/svenger87/kinboard-webhook) and pulled, never built here
-    # (#539). --ignore-buildable leaves a webhook built on purpose
-    # (docker-compose.webhook-build.yml) to the up below. A failed pull with
-    # no image on the machine would stop that whole up, so the rest of the
-    # stack starts without it and Diun (webhook and Diun containers from
-    # before keep running as they are), and this says why.
-    up_services=""
-    if $COMPOSE $COMPOSE_FILES config --services 2>/dev/null | grep -qx webhook; then
-      webhook_ref="$($COMPOSE $COMPOSE_FILES config --images webhook 2>/dev/null | head -n1)"
-      echo "→ fetching ${webhook_ref:-the webhook image}"
-      if ! $COMPOSE $COMPOSE_FILES pull --ignore-buildable webhook; then
-        if [[ -n "$webhook_ref" ]] && ! docker image inspect "$webhook_ref" >/dev/null 2>&1; then
-          echo "warning: could not fetch $webhook_ref, and it is not on this machine," >&2
-          echo "         so the auto-update (webhook and Diun) is left as it is; everything else starts." >&2
-          echo "         Offline? Then run ./start.sh up again later." >&2
-          echo "         A KINBOARD_TAG pinned to a version older than the published webhook" >&2
-          echo "         image has none: add KINBOARD_WEBHOOK_TAG=latest to .env." >&2
-          # Diun too: it depends on the webhook, and Compose would start it.
-          up_services="$($COMPOSE $COMPOSE_FILES config --services 2>/dev/null | grep -vxE 'webhook|diun' | tr '\n' ' ')"
-        else
-          echo "warning: could not fetch the webhook image (offline?);" >&2
-          echo "         starting with the one already on this machine." >&2
-        fi
-      fi
-    fi
+    prepare_webhook
 
     # Containers of services 1.15 retired (kong, auth, realtime, storage,
     # imgproxy) go first: Kong may hold WEBAPP_PORT, which the webapp

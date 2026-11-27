@@ -111,7 +111,7 @@ test.describe("the self-update moves the webhook onto its published image", () =
     }
   });
 
-  test("the webhook's image can't be pulled (a pin older than it): the release goes on, the webhook stays", () => {
+  test("the webhook's image can't be pulled (not published yet, or a pin older than it): the release goes on, the webhook stays", () => {
     const r = rig({ registry: { [`${WEBAPP}:latest`]: "sha256:web2" } });
     r.setUnpullable([`${HOOK}:latest`]);
     try {
@@ -120,8 +120,10 @@ test.describe("the self-update moves the webhook onto its published image", () =
       expect(res.log).toContain("=== self-update done ===");
       expect(res.recreated).toEqual(["webapp"]);
       expect(r.container("webapp")?.id).toBe("sha256:web2");
-      expect(res.log).toContain(`WARN: could not pull the webhook's image ${HOOK}:latest; the webhook stays on ${LOCAL}`);
-      expect(res.log).toContain("KINBOARD_WEBHOOK_TAG=latest");
+      expect(res.log).toContain(`could not pull the webhook's image ${HOOK}:latest (offline, or not published`);
+      expect(res.log).toContain(`the webhook stays on ${LOCAL}, and moves once it can be pulled`);
+      // Not the old advice: before 1.18 there is no kinboard-webhook:latest to set (#539).
+      expect(res.log).not.toContain("KINBOARD_WEBHOOK_TAG=latest");
       expect(refreshRuns(res.runs)).toEqual([]);
     } finally {
       r.cleanup();
