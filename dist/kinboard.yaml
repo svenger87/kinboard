@@ -256,6 +256,15 @@ aio:
     puid: "99"
     pgid: "100"
     min_version: "6.12"
+    # The second, optional template: the updater beside the all-in-one
+    # container (RFC-024 §4.7). Its name, entrypoint, own variables and state
+    # folder come from compose.yml's `updater` service; these are the two
+    # variables only the all-in-one case needs, as kinboard-self-update.sh
+    # reads them: the container it looks after, and the switch that pauses it.
+    updater:
+      category: "Tools:"
+      container_env: KINBOARD_AIO_CONTAINER
+      switch_env: KINBOARD_UPDATE_TICK
 
 # The release the pinned listings (TrueNAS, CasaOS, Umbrel) point at. Written by
 #   node scripts/stores/pin-release.mjs <tag>

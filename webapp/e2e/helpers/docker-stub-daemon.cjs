@@ -511,7 +511,15 @@ function docker(argv) {
     fs.appendFileSync(path.join(stubDir(), "pulls"), ref + "\n");
     // A container changed under the updater's feet after it decided (another image now).
     if (s.onPull) {
-      for (const c of Object.values(s.containers)) if (c.Name === `/${s.onPull.name}`) c.Config.Image = s.onPull.image;
+      for (const c of Object.values(s.containers)) {
+        if (c.Name !== `/${s.onPull.name}`) continue;
+        if (s.onPull.image) c.Config.Image = s.onPull.image;
+        // Replaced by something that is not the all-in-one image any more.
+        if (s.onPull.notAio) {
+          delete c.Config.Labels["app.kinboard.aio"];
+          c.Config.Env = c.Config.Env.filter((e) => e !== "KINBOARD_AIO=1");
+        }
+      }
       delete s.onPull;
     }
     return done(0, `${ref}\n`);
@@ -575,6 +583,12 @@ function docker(argv) {
       return done(0, `${r.slice(1).join("|")}\n${r[0]}\n`);
     }
     if (/\/kinboard\/secrets\//.test(line)) return done(0, "");
+    if (/ test -s \/data\/backups\//.test(line)) return s.dumpMissing ? done(1) : done(0);
+    // The all-in-one image's own verified dump (kinboard-backup.sh).
+    if (/kinboard-backup\.sh/.test(line)) {
+      if (s.backupFails) return done(1, "", "[backup] NOT VERIFIED: the dump has only 3 tables (at least 50 expected)\n");
+      return done(0, "/data/backups/pre-update-20261127T101500Z.sql.gz\n", "[backup] verified: /data/backups/pre-update-20261127T101500Z.sql.gz (61 tables, 52345 bytes)\n");
+    }
     if (/pg_dumpall/.test(line)) {
       const custom = path.join(stubDir(), "dump");
       if (fs.existsSync(custom)) return done(0, fs.readFileSync(custom, "utf8"));
@@ -611,6 +625,19 @@ function docker(argv) {
       }
       const r = require("node:child_process").spawnSync("sh", [process.env.STUB_SCRIPT, "--tick"], { env, stdio: "inherit" });
       process.exit(r.status === null ? 137 : r.status);
+    }
+    // The all-in-one image's record of a PostgreSQL major upgrade.
+    if (line.includes("/data/config/updater/pg-upgrade")) {
+      if (s.pgReadFails) return done(125, "", "docker: Error response from daemon: No such image\n");
+      return done(0, s.pgUpgrade ?? "phase=none\n");
+    }
+    // Unraid's update status, written in place.
+    if (line.includes("unraid-update-status")) {
+      if (s.unraidStatusMissing) return done(125, "", "docker: Error response from daemon: invalid mount config for type \"bind\": bind source path does not exist\n");
+      const env = {};
+      for (let i = 0; i < argv.length; i++) if (argv[i] === "-e") { const [k, ...v] = argv[++i].split("="); env[k] = v.join("="); }
+      s.unraidStatus = { ...(s.unraidStatus || {}), [env.K]: { local: env.D, remote: env.D, status: "true" } };
+      return done(0);
     }
     if (argv.includes("-i")) fs.readFileSync(0);
     if (/grep -vc|wc -l/.test(line)) return done(0, "0\n");

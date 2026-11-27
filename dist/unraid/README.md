@@ -15,4 +15,12 @@ Set the container's data folder (default `/mnt/user/appdata/kinboard`) to a fold
 owner of that folder (99:100, Unraid's nobody:users, by default). Moving an existing Kinboard install here:
 `kinboard export` on the old one, `kinboard import` on this one (the wiki's All-in-one page).
 
+## Automatic updates
+
+`templates/kinboard-updater.xml` is a second, optional container, `kinboard-updater`, that keeps Kinboard up to date: it checks the
+registry every 30 minutes, takes Kinboard's own checked database dump, replaces the container with the same settings and
+the new image, and puts the previous one back when the new one does not come up healthy. It is the only container
+that gets the Docker socket. Install it after Kinboard, leave its "Kinboard container" at the Name you gave Kinboard,
+and leave Kinboard out of the Auto Update Applications plugin (no backup, no way back). Details: the wiki's All-in-one page.
+
 Support: https://github.com/svenger87/kinboard/discussions. Documentation: https://github.com/svenger87/kinboard/wiki. Licence: PolyForm-Noncommercial-1.0.0.

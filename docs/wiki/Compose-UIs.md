@@ -273,6 +273,9 @@ since been deleted. **CasaOS** is not supported.
 Diun isn't needed. If you already run it, it can keep sending you a
 notification; the updater doesn't depend on it.
 
+The same updater keeps the [all-in-one image](All-in-one#automatic-updates)
+up to date, started next to that one container.
+
 ## Backups
 
 A complete backup is three things, and the third is easy to forget:

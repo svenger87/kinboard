@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!-- Generated from dist/kinboard.yaml, compose.yml and docker.yml by scripts/stores/build-store-listings.mjs. Do not edit by hand. -->
+<Container version="2">
+  <Name>kinboard-updater</Name>
+  <Repository>ghcr.io/svenger87/kinboard-updater:next</Repository>
+  <Registry>https://github.com/svenger87/kinboard/pkgs/container/kinboard-updater</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/svenger87/kinboard/discussions</Support>
+  <Project>https://kinboard.app</Project>
+  <Overview>Automatic updates for Kinboard&apos;s all-in-one container (the Kinboard template), the way the compose file&apos;s updater does them. Two minutes after it starts, and then every 30 minutes, it asks the registry whether the tag Kinboard runs has a newer image. When it has, it takes Kinboard&apos;s own checked database dump (into the data folder&apos;s backups), replaces the container with one that has exactly the same settings and only the new image, waits for it to come up healthy and pass a check of its database, and otherwise puts the previous container back and skips that release. A version tag (1.18.0) never moves. Kinboard&apos;s Settings shows what it did.
+
+It needs the Docker socket to pull and replace containers, and whoever holds that controls the server: this is the only container that gets it. It opens no port. It only ever replaces the one container named under &quot;Kinboard container&quot; (KINBOARD_AIO_CONTAINER), and only while that runs the all-in-one image.
+
+Leave Kinboard out of the Auto Update Applications plugin while this runs: that plugin takes no backup and does not go back when an update fails. To pause, set KINBOARD_UPDATE_TICK to off.</Overview>
+  <Category>Tools:</Category>
+  <TemplateURL>https://raw.githubusercontent.com/svenger87/kinboard-unraid/main/templates/kinboard-updater.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/svenger87/kinboard/main/assets/logos/kinboard-logo-icon-512.png</Icon>
+  <ExtraParams>--entrypoint=kinboard-updater</ExtraParams>
+  <Requires>The Kinboard template (the all-in-one container) on this server.</Requires>
+  <ExtraSearchTerms>kinboard update updater</ExtraSearchTerms>
+  <License>PolyForm-Noncommercial-1.0.0</License>
+  <Beta>true</Beta>
+  <Config Name="Docker socket" Target="/var/run/docker.sock" Default="/var/run/docker.sock" Mode="rw" Description="Docker&apos;s socket, to pull images and replace the Kinboard container. Only this container gets it." Type="Path" Display="always" Required="true" Mask="false">/var/run/docker.sock</Config>
+  <Config Name="Updater folder" Target="/kinboard" Default="/mnt/user/appdata/kinboard-updater" Mode="rw" Description="The updater&apos;s log and its record of an update in progress, so that one cut short (a reboot mid-update) is put back." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/kinboard-updater</Config>
+  <Config Name="Kinboard container" Target="KINBOARD_AIO_CONTAINER" Default="Kinboard" Description="The name of the Kinboard container this updater looks after (the Name in its template)." Type="Variable" Display="always" Required="true" Mask="false">Kinboard</Config>
+  <Config Name="Automatic updates" Target="KINBOARD_UPDATE_TICK" Default="on" Description="on, or off to pause them (read when the container starts)." Type="Variable" Display="advanced" Required="false" Mask="false">on</Config>
+  <Config Name="Time zone" Target="TZ" Default="Europe/Berlin" Description="Time zone" Type="Variable" Display="advanced" Required="false" Mask="false">Europe/Berlin</Config>
+  <Config Name="KINBOARD_UPDATER" Target="KINBOARD_UPDATER" Default="1" Description="Set as compose.yml&apos;s updater sets it." Type="Variable" Display="advanced-hide" Required="true" Mask="false">1</Config>
+</Container>

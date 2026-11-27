@@ -23,6 +23,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { links, rawUrl } from "./common.mjs";
+import { DOCKER_SOCKET } from "./model.mjs";
 
 export const UNRAID_DIR = "unraid";
 
@@ -60,14 +61,89 @@ export function aioEnv(meta) {
 export function unraidRepo(meta) {
   const repo = meta.aio.unraid.repository;
   const file = `templates/${meta.slug}.xml`;
-  return { repo, file, templateUrl: `https://raw.githubusercontent.com/${repo}/main/${file}`, web: `https://github.com/${repo}` };
+  const updaterFile = `templates/${meta.slug}-updater.xml`;
+  return {
+    repo, file, templateUrl: `https://raw.githubusercontent.com/${repo}/main/${file}`, web: `https://github.com/${repo}`,
+    updaterFile, updaterTemplateUrl: `https://raw.githubusercontent.com/${repo}/main/${updaterFile}`,
+  };
+}
+
+/**
+ * compose.yml's updater service, as the Unraid template needs it: its
+ * container name, its entrypoint, the variables it sets to fixed values, and
+ * the folder it keeps its state in (the mount that is not the socket).
+ * @param {any} compose
+ */
+export function composeUpdater(compose) {
+  const svc = compose?.services?.updater;
+  if (!svc) throw new Error("compose.yml has no updater service");
+  const entrypoint = [].concat(svc.entrypoint ?? [])[0];
+  const env = Object.entries(svc.environment ?? {}).filter(([, v]) => !String(v).includes("${"));
+  const state = (svc.volumes ?? []).map(String).find((v) => !v.includes(DOCKER_SOCKET))?.split(":").pop();
+  if (!svc.container_name || !entrypoint || !state) throw new Error("compose.yml's updater lacks a container_name, an entrypoint or a state volume");
+  return { name: String(svc.container_name), entrypoint: String(entrypoint), env, state };
+}
+
+/**
+ * The second template: the updater beside the all-in-one container
+ * (RFC-024 §4.7's Unraid row), on the same channel tag. The one container on
+ * the server that gets the Docker socket; the all-in-one template never does
+ * (lib/checks.mjs holds both). It names the container it updates (the first
+ * template's Name, which Unraid makes the container's name), keeps its
+ * journal in a folder of its own, and runs compose.yml's updater entrypoint
+ * instead of the image's own (the git install's webhook).
+ */
+export function unraidUpdater(src, tag) {
+  const { meta, images } = src;
+  const l = links(meta);
+  const { updaterTemplateUrl } = unraidRepo(meta);
+  const up = meta.aio.unraid.updater;
+  const c = composeUpdater(src.compose);
+  const overview = [
+    `Automatic updates for ${meta.name}'s all-in-one container (the ${meta.name} template), the way the compose file's updater does them. Two minutes after it starts, and then every 30 minutes, it asks the registry whether the tag ${meta.name} runs has a newer image. When it has, it takes ${meta.name}'s own checked database dump (into the data folder's backups), replaces the container with one that has exactly the same settings and only the new image, waits for it to come up healthy and pass a check of its database, and otherwise puts the previous container back and skips that release. A version tag (1.18.0) never moves. ${meta.name}'s Settings shows what it did.`,
+    `It needs the Docker socket to pull and replace containers, and whoever holds that controls the server: this is the only container that gets it. It opens no port. It only ever replaces the one container named under "${meta.name} container" (${up.container_env}), and only while that runs the all-in-one image.`,
+    `Leave ${meta.name} out of the Auto Update Applications plugin while this runs: that plugin takes no backup and does not go back when an update fails. To pause, set ${up.switch_env} to off.`,
+  ].join("\n\n");
+  const config = [
+    { Name: "Docker socket", Target: DOCKER_SOCKET, Default: DOCKER_SOCKET, Mode: "rw", Description: `Docker's socket, to pull images and replace the ${meta.name} container. Only this container gets it.`, Type: "Path", Display: "always", Required: "true", Mask: "false" },
+    { Name: "Updater folder", Target: c.state, Default: `/mnt/user/appdata/${c.name}`, Mode: "rw", Description: "The updater's log and its record of an update in progress, so that one cut short (a reboot mid-update) is put back.", Type: "Path", Display: "always", Required: "true", Mask: "false" },
+    { Name: `${meta.name} container`, Target: up.container_env, Default: meta.name, Description: `The name of the ${meta.name} container this updater looks after (the Name in its template).`, Type: "Variable", Display: "always", Required: "true", Mask: "false" },
+    { Name: "Automatic updates", Target: up.switch_env, Default: "on", Description: "on, or off to pause them (read when the container starts).", Type: "Variable", Display: "advanced", Required: "false", Mask: "false" },
+    { Name: "Time zone", Target: "TZ", Default: meta.env?.TZ?.default ?? "Europe/Berlin", Description: "Time zone", Type: "Variable", Display: "advanced", Required: "false", Mask: "false" },
+    ...c.env.map(([k, v]) => ({ Name: k, Target: k, Default: String(v), Description: "Set as compose.yml's updater sets it.", Type: "Variable", Display: "advanced-hide", Required: "true", Mask: "false" })),
+  ];
+  return [
+    '<?xml version="1.0"?>',
+    `<!-- Generated from ${src.metaFile}, compose.yml and docker.yml by scripts/stores/build-store-listings.mjs. Do not edit by hand. -->`,
+    '<Container version="2">',
+    el("Name", c.name),
+    el("Repository", `${images.updater}:${tag}`),
+    el("Registry", `https://github.com/${meta.repository}/pkgs/container/${images.updater.split("/").pop()}`),
+    el("Network", "bridge"),
+    el("Shell", "sh"),
+    el("Privileged", "false"),
+    el("Support", l.support),
+    el("Project", l.website),
+    el("Overview", overview),
+    el("Category", up.category),
+    el("TemplateURL", updaterTemplateUrl),
+    el("Icon", rawUrl(meta, meta.icon.png)),
+    el("ExtraParams", `--entrypoint=${c.entrypoint}`),
+    el("Requires", `The ${meta.name} template (the all-in-one container) on this server.`),
+    el("ExtraSearchTerms", `${meta.slug} update updater`),
+    el("License", meta.license),
+    ...(src.channels.aio.stable ? [] : [el("Beta", "true")]),
+    ...config.map((x) => `  <Config ${attrs(x)}>${xmlEscape(x.Default)}</Config>`),
+    "</Container>",
+    "",
+  ].join("\n");
 }
 
 export function unraid(src) {
   const { meta, images, channels, root } = src;
   const l = links(meta);
   const u = meta.aio.unraid;
-  const { templateUrl, web, file } = unraidRepo(meta);
+  const { templateUrl, web, file, updaterFile } = unraidRepo(meta);
   const stable = channels.aio.stable;
   const tag = stable ?? channels.aio.next;
   const dataPath = u.data_path.replaceAll("{slug}", meta.slug);
@@ -164,12 +240,21 @@ export function unraid(src) {
     `owner of that folder (${u.puid}:${u.pgid}, Unraid's nobody:users, by default). Moving an existing ${meta.name} install here:`,
     `\`${meta.slug} export\` on the old one, \`${meta.slug} import\` on this one (the wiki's All-in-one page).`,
     "",
+    "## Automatic updates",
+    "",
+    `\`${updaterFile}\` is a second, optional container, \`${meta.slug}-updater\`, that keeps ${meta.name} up to date: it checks the`,
+    `registry every 30 minutes, takes ${meta.name}'s own checked database dump, replaces the container with the same settings and`,
+    "the new image, and puts the previous one back when the new one does not come up healthy. It is the only container",
+    `that gets the Docker socket. Install it after ${meta.name}, leave its "${meta.name} container" at the Name you gave ${meta.name},`,
+    `and leave ${meta.name} out of the Auto Update Applications plugin (no backup, no way back). Details: the wiki's All-in-one page.`,
+    "",
     `Support: ${l.support}. Documentation: ${l.docs}. Licence: ${meta.license}.`,
     "",
   ].join("\n");
 
   return {
     [`${UNRAID_DIR}/${file}`]: xml,
+    [`${UNRAID_DIR}/${updaterFile}`]: unraidUpdater(src, tag),
     [`${UNRAID_DIR}/ca_profile.xml`]: profile,
     [`${UNRAID_DIR}/README.md`]: readme,
   };
