@@ -509,8 +509,11 @@ and a restore into a new install, never the same folder:
 
 If the database container instead logs `REFUSED: the database folder was
 created by PostgreSQL 15`, the new install is pointing at the old folder:
-nothing in it was changed, and step 2 wants an empty one. A one-step
-`kinboard export` and `kinboard import` for this move is planned (RFC-024 §4.4).
+nothing in it was changed, and step 2 wants an empty one. To move to the
+all-in-one image instead (PostgreSQL 17 in the same container), there is one
+step: `kinboard export` on this install and `kinboard import` on the new one,
+see [All-in-one: Moving between the compose file and the all-in-one
+image](All-in-one#moving-between-the-compose-file-and-the-all-in-one-image).
 
 ## Updates
 

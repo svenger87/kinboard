@@ -136,14 +136,37 @@ refuses to start on the older database instead.
 Only by export and import, never by pointing one at the other's folders: the
 compose file's database is PostgreSQL 15 built for another C library, and a
 database folder from one is not safe under the other. Both images have the same
-two commands. **Use the same Kinboard version on both sides**; the import
-refuses an archive from another version.
+two commands.
+
+**Use the same Kinboard version on both sides**; the import refuses an archive
+from another version. `kinboard export` exists from 1.18 on (and in the `next`
+and `main` images before that): on 1.17 and older, `docker exec … kinboard`
+answers *executable file not found*. So first put the old install on the tag
+the all-in-one image runs, `next` here:
+
+- **git install** (`webapp/docker/docker-compose.yml`): in
+  `webapp/docker/.env`, set `KINBOARD_TAG=next`, then
+
+  ```bash
+  git pull
+  cd webapp/docker && ./start.sh up
+  ```
+
+  `git pull` and `./start.sh up` alone keep the tag `.env` names (`latest`
+  when it names none), so without the line above the webapp stays on the
+  version it had.
+- **one-file install** (`compose.yml`): set the variable `KINBOARD_TAG` to
+  `next` in your Compose UI (or `.env` beside the file), then Pull and Up.
+
+The webapp container is `kinboard-webapp` (a git install with another
+`PROJECT_NAME` in `.env` calls it `<PROJECT_NAME>-webapp`; `docker ps` lists it).
 
 From a compose install to the all-in-one image:
 
 ```bash
 # on the compose install: one archive with the database, the files and the keys
-docker exec kinboard-webapp kinboard export - > kinboard-export.tar.gz
+# (umask 077: the archive holds the keys that sign every login; only you may read it)
+(umask 077; docker exec kinboard-webapp kinboard export - > kinboard-export.tar.gz)
 # start the all-in-one image on an empty folder, wait until it is healthy, then
 docker exec -i kinboard kinboard import - < kinboard-export.tar.gz
 ```
@@ -153,22 +176,41 @@ created. It checks every table's row count and checksum before it keeps
 anything, and on any difference keeps nothing. It brings the uploaded files
 and the keys that must travel (the login key, so screens stay signed in; the
 push keys, so notifications keep working), then restarts the app inside the
-container.
+container. Screens that were signed in stay signed in when they reach the new
+install under the same host name or IP address as before (the port may
+differ: a sign-in does not depend on it). A screen sent to another machine's
+address starts at the join screen: join it again with the family's code,
+which is the same as before.
+
+**Cameras** that stream through go2rtc (RTSP) need it after the move too:
+the all-in-one image has no go2rtc inside, so the camera page reports a
+WebRTC error until `GO2RTC_URL` points at a go2rtc container of its own (see
+[Cameras](#cameras) above). Snapshot and MJPEG cameras work as they did.
+
+The export changes nothing on the old install: it keeps running, and is your
+way back until the new one works. Then **stop it** (`docker compose stop` in
+its folder, or Stop in your Compose UI): two installs with the same data both
+send every reminder and notification, and both sync the calendars.
 
 Back, from the all-in-one image to a fresh compose install:
 
 ```bash
-docker exec kinboard kinboard export - > kinboard-export.tar.gz
+(umask 077; docker exec kinboard kinboard export - > kinboard-export.tar.gz)
 # compose.yml's webapp has the config volume read-only, so the import runs in
 # a one-off container with the stack's network and volumes:
-docker run --rm -i --network kinboard_kinboard \
+NET=$(docker inspect -f '{{range $net, $_ := .NetworkSettings.Networks}}{{$net}}{{end}}' kinboard-db)
+docker run --rm -i --network "$NET" \
   -e POSTGRES_HOST=db -e FILES_DIR=/var/lib/storage/files \
   -v kinboard-config:/kinboard -v kinboard-storage:/var/lib/storage \
-  ghcr.io/svenger87/kinboard:<the same version> kinboard import - < kinboard-export.tar.gz
+  ghcr.io/svenger87/kinboard:next kinboard import - < kinboard-export.tar.gz
 docker compose restart rest webapp
 ```
 
-(`kinboard_kinboard` is the stack's network: `<project>_kinboard`.)
+(`NET` is the stack's network, `<the compose project>_kinboard`; the line
+above reads it off the database container. Use the image tag the all-in-one
+image had. With `KINBOARD_CONFIG_DIR` and `KINBOARD_STORAGE_DIR` set to
+folders, mount those instead of the two volumes. Run the last line in the
+folder with `compose.yml`.)
 
 The archive holds every family's data and the keys that sign their logins:
 keep it private, and delete it once it is imported. The database password is
