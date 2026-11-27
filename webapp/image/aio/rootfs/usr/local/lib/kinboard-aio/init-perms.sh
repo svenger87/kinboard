@@ -51,14 +51,6 @@ if [ -e "$DATA" ] && [ ! -d "$DATA" ]; then
 fi
 mkdir -p "$DATA"
 
-# A folder (or volume) mounted read-only, or on a filesystem that refuses
-# writes, is found here rather than half-way through initdb.
-if ! probe="$(mktemp "$DATA/.kinboard-write-test.XXXXXX" 2>/dev/null)"; then
-  warn "$DATA is not writable. Mount it read-write."
-  exit 1
-fi
-rm -f "$probe"
-
 # Root follows nothing the data folder's user could have planted: its top
 # folders must be folders, not symlinks.
 for d in db db.old db.new db.init storage storage/files config config/secrets config/updater backups; do
@@ -68,8 +60,49 @@ for d in db db.old db.new db.init storage storage/files config config/secrets co
   fi
 done
 
+# A database folder another image created (a compose install's data folder
+# mounted here: it has db/ and storage/ in the same places) is refused before
+# anything under /data is handed to PUID:PGID. init-db refuses it too, but
+# only after the loop below had given the whole cluster and the uploaded
+# files of the household's old install to PUID, and init-secrets had stopped
+# first with a message about a missing password. The marker is written into
+# every cluster this image creates (pg-lib.sh).
+# Only tests as root; the one read (the major, for the message) is made as
+# the data's owner, at most 16 bytes, digits and dots only: root never reads
+# a file in a folder that user can change (a PG_VERSION swapped for a link to
+# a root-only file would otherwise land in the log). A folder PUID cannot
+# read (the compose install's own database user) gives no number, only the path.
+# The marker is tested as init-db tests it (a plain file), so nothing passes
+# here that init-db would refuse after the chown. Before the write probe too:
+# a refusal leaves the folder exactly as it was, its times included.
+if { [ -e "$DB/PG_VERSION" ] || [ -L "$DB/PG_VERSION" ]; } && { [ ! -f "$DB/$MARKER_NAME" ] || [ -L "$DB/$MARKER_NAME" ]; }; then
+  major="$(as_user head -c 16 "$DB/PG_VERSION" 2>/dev/null | tr -cd '0-9.')"
+  warn "REFUSED: $DB holds a PostgreSQL${major:+ $major} cluster that this image did not create (no $MARKER_NAME marker): most likely a compose install's database folder. A data folder from another image is never opened here, because text indexes built under another C library can be silently out of order. Move an install with 'kinboard export' on the old one and 'kinboard import' on this one, into an empty folder."
+  warn "Nothing in $DATA was changed: no owner, no mode, no file. See https://github.com/svenger87/kinboard/wiki/All-in-one"
+  exit 1
+fi
+
+# A folder (or volume) mounted read-only, or on a filesystem that refuses
+# writes, is found here rather than half-way through initdb.
+if ! probe="$(mktemp "$DATA/.kinboard-write-test.XXXXXX" 2>/dev/null)"; then
+  warn "$DATA is not writable. Mount it read-write."
+  exit 1
+fi
+rm -f "$probe"
+
 owner="$RUN_UID:$RUN_GID"
-if [ "$(stat -c %u:%g "$DATA")" != "$owner" ]; then
+was="$(stat -c %u:%g "$DATA")"
+if [ "$was" != "$owner" ]; then
+  # Said once, when it happens: a NAS share owned by the household's user
+  # becomes PUID's, and only a log line tells them why and how to keep it.
+  # Not for root, which is who Docker creates a missing bind folder as.
+  # Nor for an owner whose ids PUID/PGID may not take (0, 65534): the hint
+  # would name values the start then refuses.
+  case "$was" in
+    0:* | *:0 | 65534:* | *:65534) ;;
+    *)
+      log "$DATA belongs to $was, but PUID:PGID is $owner: Kinboard's folders in it are handed to $owner, nothing else in it is touched. To keep the folder's owner (a NAS share, Unraid's 99:100), set PUID=${was%%:*} and PGID=${was##*:}." ;;
+  esac
   chown -h "$owner" "$DATA"
 fi
 
