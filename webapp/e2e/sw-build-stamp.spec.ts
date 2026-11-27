@@ -127,7 +127,10 @@ test.describe("every build path passes the revision", () => {
       .filter((b) => !b.split(/\n\s*- (name|uses):/)[0].includes("file: webapp/docker/Dockerfile.webhook"))
       .filter((b) => /\n\s*context: webapp\n/.test(b));
     expect(builds.length).toBeGreaterThan(0);
-    expect(wf.split("uses: docker/build-push-action@").length - 1, "the webapp's, the updater's and kinboard-postgres's").toBe(builds.length + 2);
+    expect(wf.split("uses: docker/build-push-action@").length - 1, "the webapp's, the updater's, kinboard-postgres's and kinboard-aio's").toBe(builds.length + 3);
+    // kinboard-aio is FROM the webapp image (its sw.js is the webapp's), and records the same revision.
+    const aio = wf.split("uses: docker/build-push-action@").slice(1).find((b) => b.includes("file: webapp/docker/aio/Dockerfile"));
+    expect(aio).toMatch(/BUILD_REVISION=\$\{\{ steps\.app\.outputs\.short \}\}/);
     for (const b of builds) {
       const step = b.split(/\n\s*- (name|uses):/)[0];
       expect(step).toMatch(/build-args:[\s|]*\n\s*BUILD_REVISION=\$\{\{ steps\.rev\.outputs\.short \}\}/);

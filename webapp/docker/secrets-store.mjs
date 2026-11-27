@@ -29,7 +29,7 @@
  * PR 2), and nothing here writes to the store.
  */
 import { createHmac } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { closeSync, constants, fstatSync, openSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -101,12 +101,27 @@ export function fileValue(content) {
 }
 
 /** Reads a file, or returns null when it is not there. Any other failure is thrown. */
+/**
+ * Reads a file, or returns null when it is not there. Any other failure is
+ * thrown, a symlink included: the entrypoint and `kinboard export` read the
+ * secrets as root, in a folder that in the all-in-one image belongs to the
+ * server's user, who must not be able to point a secret's name at a file
+ * only root may read (opened with O_NOFOLLOW, checked on the descriptor).
+ */
 function readIfPresent(path) {
+  let fd;
   try {
-    return readFileSync(path, "utf8");
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   } catch (err) {
     if (err && (err.code === "ENOENT" || err.code === "ENOTDIR")) return null;
+    if (err && err.code === "ELOOP") throw new Error(`${path} is a symlink; a secret must be a plain file`);
     throw err;
+  }
+  try {
+    if (!fstatSync(fd).isFile()) throw new Error(`${path} is not a plain file`);
+    return readFileSync(fd, "utf8");
+  } finally {
+    closeSync(fd);
   }
 }
 

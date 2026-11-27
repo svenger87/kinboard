@@ -200,6 +200,63 @@ opt_in:
     off: "Off"
     on: On, with the Docker socket in the updater container
 
+# The all-in-one image (RFC-024 §4.2, phase 5): one container, one data folder.
+# Its listings (the Unraid template, Portainer's single-container template)
+# take the image's name and channel tags from docker.yml (AIO_IMAGE_NAME,
+# AIO_IMAGE_TAGS) and everything they say from here and from the keys above.
+aio:
+  # The one volume, inside the container.
+  data: /data
+  # Docker's stop timeout. PostgreSQL has 30 s to shut down cleanly inside
+  # (s6's timeout-down); Docker's default of 10 s would kill it mid-checkpoint.
+  stop_timeout: 60
+  # Variables of `env` above that mean nothing in the all-in-one image.
+  env_exclude: [WEBRTC_LAN_IP]
+  # Variables only the all-in-one image reads.
+  env:
+    PUID:
+      label: User that runs Kinboard and owns its data folder
+      default: "1000"
+    PGID:
+      label: Group that owns the data folder
+      default: "1000"
+    GO2RTC_URL:
+      label: Address of a separate go2rtc container, for RTSP cameras (snapshot and MJPEG cameras work without it)
+      advanced: true
+  # Shown before or right after the install, in place of first_run (which
+  # speaks of compose's three folders).
+  first_run:
+    en: >-
+      Open the app and create your family; every other device joins with the
+      family's code. The passwords and keys create themselves on the first
+      start and are kept in the data folder.
+  # What the all-in-one image needs besides itself (CA's Requires).
+  requires:
+    en: >-
+      amd64 or arm64. Nothing else: PostgreSQL and PostgREST run inside the
+      container. RTSP cameras need a separate go2rtc container.
+  # Said in every all-in-one listing.
+  note:
+    en: >-
+      Everything runs in this one container: the app, its PostgreSQL database
+      and the scheduled jobs. Give it one folder for its data; back up that
+      folder, and keep the backups private. go2rtc is not included: snapshot
+      and MJPEG cameras work without it, and RTSP cameras need a separate
+      go2rtc container (set GO2RTC_URL).
+  # The Unraid Community Applications template (RFC-024 §5.1, §11.9). It
+  # lives in its own repository, which holds only the generated files under
+  # dist/unraid/ (ca_profile.xml at its root, the template in templates/).
+  unraid:
+    repository: svenger87/kinboard-unraid
+    # CA's "Category:Subcategory" list, space-separated (the starter template
+    # names the Application Categorizer plugin as the source of valid values;
+    # to confirm there before any submission).
+    category: "HomeAutomation: Productivity:"
+    data_path: /mnt/user/appdata/{slug}
+    puid: "99"
+    pgid: "100"
+    min_version: "6.12"
+
 # The release the pinned listings (TrueNAS, CasaOS, Umbrel) point at. Written by
 #   node scripts/stores/pin-release.mjs <tag>
 # never by hand: it resolves every image's multi-arch index digest from the

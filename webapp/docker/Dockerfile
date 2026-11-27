@@ -247,11 +247,18 @@ COPY docker/kinboard-init.mjs docker/kinboard-db-init.sh ./
 COPY docker/init.sql ./initdb/init.sql
 # The role bootstrap kinboard-db-init runs on stock PostgreSQL only (RFC-024 §4.2.1).
 COPY docker/stock-postgres-bootstrap.sql ./initdb/stock-postgres-bootstrap.sql
+# Moving between the compose shape and the all-in-one image (RFC-024 §4.4):
+# `kinboard export` and `kinboard import`, the same command in both images.
+# kinboard-backup.sh is the verified dump the all-in-one image takes before a
+# pending migration or a PostgreSQL major upgrade (§4.7); nothing in the
+# compose shape calls it.
+COPY docker/kinboard-transfer.mjs docker/kinboard-backup.sh docker/storage-api-move.sh ./
 USER root
-RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh ./cron-call.sh ./kinboard-db-init.sh \
+RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh ./cron-call.sh ./kinboard-db-init.sh ./kinboard-backup.sh \
  && printf '#!/bin/sh\nexec node /app/kinboard-init.mjs "$@"\n' > /usr/local/bin/kinboard-init \
  && printf '#!/bin/sh\nexec sh /app/kinboard-db-init.sh "$@"\n' > /usr/local/bin/kinboard-db-init \
- && chmod +x /usr/local/bin/kinboard-init /usr/local/bin/kinboard-db-init
+ && printf '#!/bin/sh\nexec node /app/kinboard-transfer.mjs "$@"\n' > /usr/local/bin/kinboard \
+ && chmod +x /usr/local/bin/kinboard-init /usr/local/bin/kinboard-db-init /usr/local/bin/kinboard
 # No `USER nextjs` here: webapp-entrypoint.sh drops to it before starting the
 # server, after the steps that need root (the uploaded-files directory). With
 # PUID/PGID set it drops to those ids instead (RFC-024 §6.3).

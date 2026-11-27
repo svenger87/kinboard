@@ -104,8 +104,8 @@ test.describe("OCI labels and annotations, from one place", () => {
     expect(text.match(/^\s*UPDATER_IMAGE_NAME:/gm)).toHaveLength(1);
     // Every other mention goes through the variable: no step spells it out.
     const code = text.split("\n").filter((l) => !l.trim().startsWith("#"));
-    // (UPDATER_ and POSTGRES_IMAGE_NAME are the other images' one places, beside it.)
-    expect(code.filter((l) => /\/kinboard\b(?![./])/.test(l) && !/^\s*(UPDATER_|POSTGRES_)?IMAGE_NAME:/.test(l))).toEqual([]);
+    // (UPDATER_, POSTGRES_ and AIO_IMAGE_NAME are the other images' one places, beside it.)
+    expect(code.filter((l) => /\/kinboard\b(?![./])/.test(l) && !/^\s*(UPDATER_|POSTGRES_|AIO_)?IMAGE_NAME:/.test(l))).toEqual([]);
   });
 
   test("the platform images get labels and annotations, the list gets annotations", () => {
@@ -224,7 +224,8 @@ test.describe("PUID/PGID in the compose image (§6.3)", () => {
   test("unset keeps nextjs:nodejs; the server and the files follow RUN_AS", () => {
     expect(entrypoint).toContain('RUN_AS="nextjs:nodejs"');
     expect(entrypoint).toContain('exec su-exec "$RUN_AS" node server.js');
-    expect(entrypoint).toContain('chown -R "$RUN_AS" "$FILES_DIR"');
+    // -h: a link the server's user planted is changed itself, never what it points at (RFC-024 review).
+    expect(entrypoint).toContain('chown -R -h "$RUN_AS" "$FILES_DIR"');
     expect(entrypoint).not.toMatch(/chown (-R )?nextjs:nodejs/);
     expect(entrypoint).not.toMatch(/su-exec nextjs/);
   });
@@ -262,6 +263,10 @@ test.describe("PUID/PGID in the compose image (§6.3)", () => {
       expect(run({ PGID: "100" })).toBe("RUN_AS=1001:100 RUN_IDS=1001:100");
       expect(run({ PUID: "nobody" })).toBe("exit 1");
       expect(run({ PUID: "99", PGID: "-1" })).toBe("exit 1");
+      // "000" passes a digits-only test, and su-exec reads it as root.
+      expect(run({ PUID: "000" })).toBe("exit 1");
+      expect(run({ PUID: "99", PGID: "0100" })).toBe("exit 1");
+      expect(run({ PUID: "0", PGID: "0" })).toBe("RUN_AS=0:0 RUN_IDS=0:0");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -542,5 +547,220 @@ esac
   test("a missing SBOM or HEALTHCHECK fails", () => {
     expect(check("PolyForm-Noncommercial-1.0.0", { sbom: false })).toContain("FAIL  no SBOM");
     expect(check("PolyForm-Noncommercial-1.0.0", { healthcheck: false })).toContain("FAIL  no HEALTHCHECK");
+  });
+});
+
+test.describe("kinboard-aio, the all-in-one image (RFC-024 §4.5, phase 5)", () => {
+  const text = read(".github/workflows/docker.yml");
+  const build = workflow.jobs["aio-build"];
+  const merge = workflow.jobs["aio-merge"];
+  const step = (job: Job, uses: string) => job.steps.find((s) => s.uses?.startsWith(uses));
+
+  test("its name is set once, beside the others", () => {
+    expect(workflow.env.AIO_IMAGE_NAME).toBe("${{ github.repository_owner }}/kinboard-aio");
+    expect(text.match(/^\s*AIO_IMAGE_NAME:/gm)).toHaveLength(1);
+    const code = text.split("\n").filter((l) => !/^\s*#/.test(l) && !/^\s*name:/.test(l)).join("\n");
+    expect(code.match(/kinboard-aio/g)).toHaveLength(1);
+  });
+
+  test("built per platform FROM that platform's webapp image by digest, after the webapp's build", () => {
+    expect(build.needs).toEqual(["changes", "build"]);
+    expect(build.if).toBe(workflow.jobs.build.if);
+    const b = step(build, "docker/build-push-action@");
+    expect(b?.with?.file).toBe("webapp/docker/aio/Dockerfile");
+    expect(b?.with?.["build-args"]).toContain("APP_IMAGE=${{ steps.app.outputs.image }}");
+    const app = build.steps.find((s) => s.id === "app");
+    expect(app?.run).toContain('$REGISTRY/$IMAGE_NAME@sha256:');
+    expect(b?.with?.provenance).toBe("mode=max");
+    expect(b?.with?.sbom).toBe(true);
+    expect(b?.with?.labels).toBe("${{ steps.meta.outputs.labels }}");
+    expect(step(build, "docker/metadata-action@")?.with?.images).toBe("${{ env.REGISTRY }}/${{ env.AIO_IMAGE_NAME }}");
+  });
+
+  test("merged, annotated and checked like the others", () => {
+    expect(merge.needs).toEqual(["changes", "aio-build"]);
+    const create = merge.steps.find((s) => s.run?.includes("imagetools create"));
+    expect(create?.run).toContain("$REGISTRY/$AIO_IMAGE_NAME@sha256:$digest");
+    expect(create?.run).toContain(".annotations[]");
+    const check = merge.steps.find((s) => s.run?.includes("check-image-metadata.sh"));
+    expect(check?.run).toContain("${{ env.AIO_IMAGE_NAME }}");
+    expect(check?.env?.EXPECTED_LICENSE).toBe("${{ steps.oci.outputs.license }}");
+  });
+
+  test("`next`, `main`, sha and version tags, but no `latest`, `X` or `X.Y` until phase 5's gates are met", () => {
+    const tags = workflow.env.AIO_IMAGE_TAGS;
+    expect(tags).toContain("type=raw,value=next,");
+    expect(tags).toContain("type=ref,event=branch");
+    expect(tags).toContain("type=semver,pattern={{version}}");
+    expect(tags).not.toContain("latest");
+    expect(tags).not.toContain("{{major}}");
+    for (const job of [build, merge]) {
+      const meta = step(job, "docker/metadata-action@");
+      expect(meta?.with?.tags).toBe("${{ env.AIO_IMAGE_TAGS }}");
+      // metadata-action adds `latest` to a stable semver tag by itself (latest=auto) unless told not to.
+      expect(meta?.with?.flavor, "flavor: latest=false").toBe("latest=false");
+    }
+  });
+});
+
+/**
+ * Every image's tags, worked out as docker/metadata-action@v5 does for the
+ * types our lists use (ref/branch, semver with pattern and prefix, sha with
+ * prefix, raw with enable=, and the `latest` flavor, whose default `auto`
+ * adds `latest` to any stable semver tag), for a stable release tag, a
+ * release candidate and a push to main. An unintended `latest`, or an
+ * intended tag gone, fails here before it reaches a registry.
+ */
+type Ref = { ref: string; refName: string; sha: string };
+const REFS: Record<string, Ref> = {
+  stable: { ref: "refs/tags/v1.18.0", refName: "v1.18.0", sha: "abcdef1234567" },
+  rc: { ref: "refs/tags/v1.18.0-rc.1", refName: "v1.18.0-rc.1", sha: "abcdef1234567" },
+  main: { ref: "refs/heads/main", refName: "main", sha: "abcdef1234567" },
+};
+
+function evalEnable(expr: string, r: Ref): boolean {
+  // Only the expression forms docker.yml uses; anything else throws, so a new form is noticed.
+  const js = expr
+    .replace(/startsWith\(github\.ref, '([^']*)'\)/g, (_m, p) => JSON.stringify(r.ref.startsWith(p)))
+    .replace(/contains\(github\.ref_name, '([^']*)'\)/g, (_m, p) => JSON.stringify(r.refName.includes(p)))
+    .replace(/contains\(github\.ref, '([^']*)'\)/g, (_m, p) => JSON.stringify(r.ref.includes(p)))
+    .replace(/github\.ref == '([^']*)'/g, (_m, p) => JSON.stringify(r.ref === p))
+    .trim();
+  if (!/^[!()&|\s\w]*$/.test(js.replace(/true|false/g, ""))) throw new Error(`unsupported enable expression: ${expr}`);
+  return Function(`return (${js});`)() as boolean;
+}
+
+function metadataTags(list: string, flavor: string | undefined, r: Ref): string[] {
+  const tags = new Set<string>();
+  const semver = /^refs\/tags\/v(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?$/.exec(r.ref);
+  let hasSemverType = false;
+  for (const raw of list.split("\n").map((l) => l.trim()).filter(Boolean)) {
+    const enableAt = raw.indexOf(",enable=${{");
+    const enable = enableAt === -1 ? true : evalEnable(raw.slice(enableAt + ",enable=${{".length).replace(/\}\}\s*$/, ""), r);
+    const attrs = Object.fromEntries((enableAt === -1 ? raw : raw.slice(0, enableAt)).split(",").map((kv) => kv.split(/=(.*)/).slice(0, 2)));
+    if (!enable) continue;
+    const prefix = attrs.prefix ?? "";
+    switch (attrs.type) {
+      case "ref":
+        if (attrs.event === "branch" && r.ref.startsWith("refs/heads/")) tags.add(prefix + r.refName);
+        break;
+      case "sha":
+        tags.add(prefix + r.sha.slice(0, 7));
+        break;
+      case "raw":
+        tags.add(prefix + attrs.value);
+        break;
+      case "semver": {
+        hasSemverType = true;
+        if (!semver) break;
+        const [, maj, min, pat, pre] = semver;
+        // metadata-action leaves {{major}} and {{major}}.{{minor}} out for a prerelease.
+        if (attrs.pattern === "{{version}}") tags.add(`${prefix}${maj}.${min}.${pat}${pre ?? ""}`);
+        else if (!pre && attrs.pattern === "{{major}}.{{minor}}") tags.add(`${prefix}${maj}.${min}`);
+        else if (!pre && attrs.pattern === "{{major}}") tags.add(`${prefix}${maj}`);
+        break;
+      }
+      default:
+        throw new Error(`unsupported tag type in ${raw}`);
+    }
+  }
+  const latest = /latest=(true|false|auto)/.exec(flavor ?? "")?.[1] ?? "auto";
+  if (latest === "true" || (latest === "auto" && hasSemverType && semver && !semver[4])) tags.add("latest");
+  return [...tags].sort();
+}
+
+/** What each image must publish, per ref (RFC-024 §4.5, §6, §9; #560 for the database image). */
+const WANT: Record<string, Record<string, string[]>> = {
+  kinboard: {
+    stable: ["1", "1.18", "1.18.0", "latest", "sha-abcdef1"],
+    rc: ["1.18.0-rc.1", "next", "sha-abcdef1"],
+    main: ["main", "sha-abcdef1"],
+  },
+  "kinboard-updater": {
+    stable: ["1", "1.18", "1.18.0", "latest", "sha-abcdef1"],
+    rc: ["1.18.0-rc.1", "next", "sha-abcdef1"],
+    main: ["main", "sha-abcdef1"],
+  },
+  // The PostgreSQL major first: the bare `17` is the stable channel, never `latest`.
+  "kinboard-postgres": {
+    stable: ["17", "17-1.18.0", "17-sha-abcdef1"],
+    rc: ["17-1.18.0-rc.1", "17-next", "17-sha-abcdef1"],
+    main: ["17-main", "17-sha-abcdef1"],
+  },
+  // No stable channel until phase 5's gates are met: no `latest`, no `1`, no `1.18`.
+  "kinboard-aio": {
+    stable: ["1.18.0", "sha-abcdef1"],
+    rc: ["1.18.0-rc.1", "next", "sha-abcdef1"],
+    main: ["main", "sha-abcdef1"],
+  },
+};
+const IMAGE_OF: Record<string, string> = {
+  IMAGE_NAME: "kinboard", UPDATER_IMAGE_NAME: "kinboard-updater", POSTGRES_IMAGE_NAME: "kinboard-postgres", AIO_IMAGE_NAME: "kinboard-aio",
+};
+
+/** Every problem with the tags docker.yml's metadata steps publish, as sentences. */
+function tagProblems(wf: Workflow): string[] {
+  const p: string[] = [];
+  const seen = new Set<string>();
+  for (const [jobName, job] of Object.entries(wf.jobs)) {
+    for (const step of job.steps.filter((s) => s.uses?.startsWith("docker/metadata-action@"))) {
+      const nameVar = /\$\{\{ env\.([A-Z_]+) \}\}$/.exec(step.with?.images ?? "")?.[1] ?? "";
+      const image = IMAGE_OF[nameVar];
+      if (!image) { p.push(`${jobName}: metadata step for an unknown image ${step.with?.images}`); continue; }
+      seen.add(image);
+      const listVar = /^\$\{\{ env\.([A-Z_]+) \}\}$/.exec(step.with?.tags ?? "")?.[1] ?? "";
+      const list = wf.env[listVar];
+      if (!list) { p.push(`${jobName}: ${image}'s tags are not one of docker.yml's lists`); continue; }
+      if (step.with?.flavor !== "latest=false") p.push(`${jobName}: ${image}'s metadata step does not set flavor: latest=false`);
+      for (const [refKind, r] of Object.entries(REFS)) {
+        const got = metadataTags(list, step.with?.flavor, r);
+        const want = WANT[image][refKind];
+        for (const t of got) if (!want.includes(t)) p.push(`${jobName}: ${image} would publish the unintended tag ${t} on ${r.refName}`);
+        for (const t of want) if (!got.includes(t)) p.push(`${jobName}: ${image} would not publish ${t} on ${r.refName}`);
+      }
+    }
+  }
+  for (const image of Object.keys(WANT)) if (!seen.has(image)) p.push(`no metadata step publishes ${image}`);
+  return p;
+}
+
+test.describe("every image's tags, per channel (RFC-024 §4.5, §9)", () => {
+  test("each image publishes exactly its channel's tags: latest only for kinboard and kinboard-updater", () => {
+    expect(tagProblems(workflow)).toEqual([]);
+  });
+
+  test("the evaluator reproduces metadata-action's own default: without the flavor, a stable tag adds latest", () => {
+    expect(metadataTags("type=semver,pattern={{version}},prefix=17-", undefined, REFS.stable)).toEqual(["17-1.18.0", "latest"]);
+    expect(metadataTags("type=semver,pattern={{version}},prefix=17-", undefined, REFS.rc)).toEqual(["17-1.18.0-rc.1"]);
+    expect(metadataTags("type=semver,pattern={{version}},prefix=17-", "latest=false", REFS.stable)).toEqual(["17-1.18.0"]);
+  });
+
+  test("red: the flavor taken off kinboard-postgres's or kinboard-aio's steps publishes latest, and fails", () => {
+    for (const [jobs, image] of [[["postgres-build", "postgres-merge"], "kinboard-postgres"], [["aio-build", "aio-merge"], "kinboard-aio"]] as const) {
+      const wf = structuredClone(workflow);
+      for (const j of jobs) for (const s of wf.jobs[j].steps) if (s.uses?.startsWith("docker/metadata-action@") && s.with) delete s.with.flavor;
+      const problems = tagProblems(wf);
+      for (const j of jobs) {
+        expect(problems, image).toContain(`${j}: ${image} would publish the unintended tag latest on v1.18.0`);
+        expect(problems, image).toContain(`${j}: ${image}'s metadata step does not set flavor: latest=false`);
+      }
+    }
+  });
+
+  test("red: an intended tag gone (the database's stable 17, the webapp's latest) fails", () => {
+    const wf = structuredClone(workflow);
+    wf.env.POSTGRES_IMAGE_TAGS = wf.env.POSTGRES_IMAGE_TAGS.split("\n").filter((l) => !l.includes("value=17,")).join("\n");
+    wf.env.IMAGE_TAGS = wf.env.IMAGE_TAGS.split("\n").filter((l) => !l.includes("value=latest")).join("\n");
+    const problems = tagProblems(wf);
+    expect(problems).toContain("postgres-merge: kinboard-postgres would not publish 17 on v1.18.0");
+    expect(problems).toContain("merge: kinboard would not publish latest on v1.18.0");
+    // and the updater, which shares the webapp's list
+    expect(problems).toContain("updater: kinboard-updater would not publish latest on v1.18.0");
+  });
+
+  test("red: a stable alias added to kinboard-aio before its gates fails", () => {
+    const wf = structuredClone(workflow);
+    wf.env.AIO_IMAGE_TAGS += "type=semver,pattern={{major}}\n";
+    expect(tagProblems(wf)).toContain("aio-merge: kinboard-aio would publish the unintended tag 1 on v1.18.0");
   });
 });

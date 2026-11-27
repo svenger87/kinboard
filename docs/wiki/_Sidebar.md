@@ -4,6 +4,7 @@
 - [[Home]]
 - [[Quick-start]]
 - [[Compose UIs|Compose-UIs]]
+- [[All-in-one image|All-in-one]]
 - [[Architecture]]
 
 **Operations**

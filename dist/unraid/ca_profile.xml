@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<!-- Generated from dist/kinboard.yaml by scripts/stores/build-store-listings.mjs. Do not edit by hand. -->
+<CommunityApplications>
+  <Profile>Kinboard: Your family&apos;s day, on one screen. Self-hosted family dashboard for kitchen wall displays: calendars, shopping, weather, photos, smart home, energy and daily life in one screen. Support: https://github.com/svenger87/kinboard/discussions. Source and documentation: https://github.com/svenger87/kinboard.</Profile>
+  <Icon>https://raw.githubusercontent.com/svenger87/kinboard/main/assets/logos/kinboard-logo-icon-512.png</Icon>
+  <WebPage>https://kinboard.app</WebPage>
+</CommunityApplications>

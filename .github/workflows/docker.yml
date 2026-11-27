@@ -11,6 +11,10 @@ name: Docker image
 # And: ghcr.io/svenger87/kinboard-postgres (the `postgres-*` jobs), stock
 # PostgreSQL 17 plus pg-safeupdate, the database of new installs on stock
 # PostgreSQL (RFC-024 §4.2.1), built from webapp/docker/postgres/.
+# And: ghcr.io/svenger87/kinboard-aio (the `aio-*` jobs), the all-in-one
+# image (RFC-024 §4.2, phase 5): built FROM each platform's webapp image by
+# digest, so both shapes are one build, plus PostgreSQL, PostgREST and s6.
+# Not on `latest` yet (AIO_IMAGE_TAGS).
 #
 # Every name the image is published under and every label and annotation it
 # carries come from the `env` block below, read by both jobs (RFC-024 §4.5,
@@ -53,6 +57,9 @@ env:
   # The database image of new installs on stock PostgreSQL (RFC-024 §4.2.1).
   # Named here and nowhere else; the store listings take it from here (§4.5).
   POSTGRES_IMAGE_NAME: ${{ github.repository_owner }}/kinboard-postgres
+  # The all-in-one image (RFC-024 §4.2, §11.3). Named here and nowhere else;
+  # the Unraid template takes it from here (§4.5, §7).
+  AIO_IMAGE_NAME: ${{ github.repository_owner }}/kinboard-aio
   # OCI labels on each platform image and annotations on the image and on the
   # manifest list. metadata-action adds description (the repository's),
   # source, version, revision and created itself; these override or add.
@@ -110,6 +117,25 @@ env:
     type=semver,pattern={{version}},prefix=17-
     type=raw,value=17,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
     type=raw,value=17-next,enable=${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-') }}
+
+  # kinboard-aio: its own title and description; the rest as above.
+  AIO_IMAGE_METADATA: |
+    org.opencontainers.image.title=Kinboard (all-in-one)
+    org.opencontainers.image.description=Kinboard in one container with one /data volume: the webapp, PostgreSQL 17 with pg-safeupdate, PostgREST and the scheduler, supervised by s6-overlay
+    org.opencontainers.image.url=https://kinboard.app
+    org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/wiki/All-in-one
+    org.opencontainers.image.vendor=${{ github.repository_owner }}
+  # The same version and channel tags as the webapp (RFC-024 §4.5), except
+  # the stable channel: `next` (release candidates), `main`, `sha-<short>` and
+  # each version tag, but no `latest`, `X` or `X.Y` until two release cycles
+  # on `next`, the Raspberry Pi measurements and a rehearsed PostgreSQL major
+  # upgrade on a copy of real data (RFC-024 §9, phase 5). Adding them is the
+  # change that makes the image stable; the Unraid template follows it.
+  AIO_IMAGE_TAGS: |
+    type=ref,event=branch
+    type=semver,pattern={{version}}
+    type=sha,prefix=sha-,format=short
+    type=raw,value=next,enable=${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-') }}
 
 jobs:
   # Decide whether this push actually needs an image build. Docs-/changelog-
@@ -220,6 +246,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: ${{ env.IMAGE_TAGS }}
+          # Tags come from the list above and nowhere else: metadata-action's
+          # default (latest=auto) would add `latest` to every stable semver tag by
+          # itself, for an image whose list has its own stable tag (or none).
+          flavor: latest=false
           labels: ${{ steps.oci.outputs.metadata }}
           annotations: ${{ steps.oci.outputs.metadata }}
 
@@ -305,6 +335,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: ${{ env.IMAGE_TAGS }}
+          # Tags come from the list above and nowhere else: metadata-action's
+          # default (latest=auto) would add `latest` to every stable semver tag by
+          # itself, for an image whose list has its own stable tag (or none).
+          flavor: latest=false
           labels: ${{ steps.oci.outputs.metadata }}
           annotations: ${{ steps.oci.outputs.metadata }}
 
@@ -381,6 +415,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.UPDATER_IMAGE_NAME }}
           tags: ${{ env.IMAGE_TAGS }}
+          # Tags come from the list above and nowhere else: metadata-action's
+          # default (latest=auto) would add `latest` to every stable semver tag by
+          # itself, for an image whose list has its own stable tag (or none).
+          flavor: latest=false
           labels: ${{ steps.oci.outputs.metadata }}
           annotations: ${{ steps.oci.outputs.metadata }}
 
@@ -462,6 +500,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.POSTGRES_IMAGE_NAME }}
           tags: ${{ env.POSTGRES_IMAGE_TAGS }}
+          # Tags come from the list above and nowhere else: metadata-action's
+          # default (latest=auto) would add `latest` to every stable semver tag by
+          # itself, for an image whose list has its own stable tag (or none).
+          flavor: latest=false
           labels: ${{ steps.oci.outputs.metadata }}
           annotations: ${{ steps.oci.outputs.metadata }}
 
@@ -537,6 +579,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.POSTGRES_IMAGE_NAME }}
           tags: ${{ env.POSTGRES_IMAGE_TAGS }}
+          # Tags come from the list above and nowhere else: metadata-action's
+          # default (latest=auto) would add `latest` to every stable semver tag by
+          # itself, for an image whose list has its own stable tag (or none).
+          flavor: latest=false
           labels: ${{ steps.oci.outputs.metadata }}
           annotations: ${{ steps.oci.outputs.metadata }}
 
@@ -558,6 +604,185 @@ jobs:
           scripts/ci/check-image-metadata.sh \
             "${{ env.REGISTRY }}/${{ env.POSTGRES_IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
             <<< "$POSTGRES_IMAGE_METADATA"
+
+  # kinboard-aio, per platform: FROM that platform's webapp image, by the
+  # digest the build job pushed, so the all-in-one image carries exactly the
+  # webapp just built (RFC-024 §2, §4.5). Then one manifest list, annotated,
+  # with provenance (max) and an SBOM, checked by the same script.
+  aio-build:
+    name: kinboard-aio (${{ matrix.platform }})
+    needs: [changes, build]
+    if: needs.changes.outputs.build == 'true'
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runs-on: ubuntu-latest
+          - platform: linux/arm64
+            runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute platform-pair safe name
+        id: platform
+        run: |
+          platform=${{ matrix.platform }}
+          echo "pair=${platform//\//-}" >> "$GITHUB_OUTPUT"
+
+      # The webapp image this platform's build job pushed, by digest.
+      - uses: actions/download-artifact@v4
+        with:
+          name: digest-${{ steps.platform.outputs.pair }}
+          path: /tmp/webapp-digest
+
+      - name: Webapp image and build revision
+        id: app
+        run: |
+          digests=(/tmp/webapp-digest/*)
+          [ "${#digests[@]}" = 1 ] || { echo "expected one webapp digest, got ${#digests[@]}"; exit 1; }
+          echo "image=$REGISTRY/$IMAGE_NAME@sha256:$(basename "${digests[0]}")" >> "$GITHUB_OUTPUT"
+          echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      # The webapp's licence and the others the image carries: PostgreSQL,
+      # pg-safeupdate (ISC), PostgREST (MIT), s6-overlay and skarnet's s6 (ISC).
+      - name: Image metadata
+        id: oci
+        run: |
+          spdx="$(jq -er '.license | select(type == "string" and . != "")' webapp/package.json)"
+          {
+            echo "metadata<<OCI_METADATA_EOF"
+            printf '%s\n' "$AIO_IMAGE_METADATA" | sed '/^[[:space:]]*$/d'
+            echo "org.opencontainers.image.licenses=$spdx AND PostgreSQL AND MIT AND ISC"
+            echo "OCI_METADATA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Extract Docker metadata (labels + annotations)
+        id: meta
+        uses: docker/metadata-action@v5
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.AIO_IMAGE_NAME }}
+          tags: ${{ env.AIO_IMAGE_TAGS }}
+          # metadata-action's default (latest=auto) adds `latest` to every
+          # stable semver tag by itself, whatever AIO_IMAGE_TAGS says: off
+          # until phase 5's gates are met (see AIO_IMAGE_TAGS).
+          flavor: latest=false
+          labels: ${{ steps.oci.outputs.metadata }}
+          annotations: ${{ steps.oci.outputs.metadata }}
+
+      - name: Build per-platform image (push as digest)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: webapp/docker/aio
+          file: webapp/docker/aio/Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: mode=max
+          sbom: true
+          build-args: |
+            APP_IMAGE=${{ steps.app.outputs.image }}
+            BUILD_REVISION=${{ steps.app.outputs.short }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.AIO_IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=aio-${{ matrix.platform }}
+          cache-to: type=gha,scope=aio-${{ matrix.platform }},mode=max
+
+      - name: Export digest for merge job
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aio-digest-${{ steps.platform.outputs.pair }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  aio-merge:
+    name: Merge kinboard-aio manifest
+    runs-on: ubuntu-latest
+    needs: [changes, aio-build]
+    if: needs.changes.outputs.build == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: aio-digest-*
+          merge-multiple: true
+
+      - name: Image metadata
+        id: oci
+        run: |
+          spdx="$(jq -er '.license | select(type == "string" and . != "")' webapp/package.json)"
+          {
+            echo "license=$spdx AND PostgreSQL AND MIT AND ISC"
+            echo "metadata<<OCI_METADATA_EOF"
+            printf '%s\n' "$AIO_IMAGE_METADATA" | sed '/^[[:space:]]*$/d'
+            echo "org.opencontainers.image.licenses=$spdx AND PostgreSQL AND MIT AND ISC"
+            echo "OCI_METADATA_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Re-extract metadata (same tags as build job)
+        id: meta
+        uses: docker/metadata-action@v5
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.AIO_IMAGE_NAME }}
+          tags: ${{ env.AIO_IMAGE_TAGS }}
+          # metadata-action's default (latest=auto) adds `latest` to every
+          # stable semver tag by itself, whatever AIO_IMAGE_TAGS says: off
+          # until phase 5's gates are met (see AIO_IMAGE_TAGS).
+          flavor: latest=false
+          labels: ${{ steps.oci.outputs.metadata }}
+          annotations: ${{ steps.oci.outputs.metadata }}
+
+      - name: Create + push manifest list
+        working-directory: /tmp/digests
+        run: |
+          args=()
+          while IFS= read -r tag; do args+=(-t "$tag"); done \
+            < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          while IFS= read -r annotation; do args+=(--annotation "$annotation"); done \
+            < <(jq -r '.annotations[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          for digest in *; do args+=("$REGISTRY/$AIO_IMAGE_NAME@sha256:$digest"); done
+          docker buildx imagetools create "${args[@]}"
+
+      - name: Check annotations, SBOM and provenance
+        env:
+          EXPECTED_LICENSE: ${{ steps.oci.outputs.license }}
+        run: |
+          scripts/ci/check-image-metadata.sh \
+            "${{ env.REGISTRY }}/${{ env.AIO_IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
+            <<< "$AIO_IMAGE_METADATA"
 
   # The GitHub release for every version tag (RFC-024 §6), by
   # scripts/publish-release.sh: a release candidate is published as a

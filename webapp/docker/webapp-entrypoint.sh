@@ -29,8 +29,11 @@ set -e
 # image as `command: ["kinboard-init"]` and `command: ["kinboard-db-init"]`.
 # They run before any secret exists and start no server, so they go first.
 # Without a command (every existing install), nothing here applies.
+#
+# `kinboard export` / `kinboard import` (RFC-024 §4.4) the same way, for a
+# one-off container (`docker compose run … webapp kinboard import -`).
 case "${1:-}" in
-  kinboard-init | kinboard-db-init)
+  kinboard-init | kinboard-db-init | kinboard)
     cmd="$1"
     shift
     exec "${KINBOARD_BIN_DIR:-/usr/local/bin}/$cmd" "$@"
@@ -52,8 +55,9 @@ if [ -n "${PUID:-}" ] || [ -n "${PGID:-}" ]; then
   for pair in "PUID=${PUID:-}" "PGID=${PGID:-}"; do
     case "${pair#*=}" in
       "" ) ;;
-      *[!0-9]* )
-        echo "[entrypoint] ${pair%%=*} must be a number (a user or group id), got '${pair#*=}'; refusing to start." >&2
+      *[!0-9]* | 0?* )
+        # A leading zero too: "000" is not "0" to a string test, but su-exec reads it as root.
+        echo "[entrypoint] ${pair%%=*} must be a number (a user or group id) without leading zeros, got '${pair#*=}'; refusing to start." >&2
         exit 1 ;;
     esac
   done
@@ -123,17 +127,154 @@ MIGRATIONS_DIR="/app/migrations"
 # crash-loop, which reads exactly like a broken schema.
 MIGRATION_ATTEMPTS="${MIGRATION_ATTEMPTS:-6}"
 
+# ---------------------------------------------------------------------------
+# The all-in-one image's start guarantees (RFC-024 §4.7). Both are off unless
+# the image sets them (webapp/docker/aio/Dockerfile); a compose install never
+# does, and for it nothing in this block runs.
+#
+#   KINBOARD_MIGRATE_BACKUP_DIR  a verified dump (kinboard-backup.sh) before
+#       any migration that will run on a database that already has some: no
+#       verified dump, no migration, no start, and the log says why. A start
+#       that tries the same version on the same pending files again (a
+#       restart after a failure) reuses that dump rather than rotating it out
+#       with dumps of a half-migrated database.
+#   KINBOARD_START_STATE_DIR  `attempt` (the version starting now), `failed`
+#       (a version whose migrations failed, and which file), `last-good`
+#       (written by the image after its first healthy minute). A failure
+#       names the version to go back to; the version that then starts again
+#       records the rollback for Settings (instance_settings.update_status,
+#       RFC-023 §4.11.4), so the household sees the notice there.
+#
+# Exit status 100 means "stop the container": the all-in-one image's s6
+# service halts on it instead of restarting into the same refusal.
+# ---------------------------------------------------------------------------
+SELF_VERSION="$(node -p 'require("/app/package.json").version' 2>/dev/null || echo unknown)"
+START_STATE="${KINBOARD_START_STATE_DIR:-}"
+# The records and the dumps live in the data folder, which belongs to the
+# user the server runs as. Root never reads, writes, moves or removes a file
+# there itself: a symlink that user (or a compromised server) planted under
+# one of these names would otherwise make root write or read wherever it
+# points. Every access goes through that user instead, who can reach nothing
+# through a link that they could not reach anyway.
+as_run_user() {
+  if [ "$(id -u)" = "0" ]; then su-exec "$RUN_AS" "$@"; else "$@"; fi
+}
+# state_get <name> <key>; state_write <name> (stdin); state_rm <name>...
+state_get() { as_run_user sed -n "s/^$2=//p" "$START_STATE/$1" 2>/dev/null | head -n 1; }
+state_write() {
+  as_run_user sh -c 'umask 077; t="$1/.$2.tmp.$$"; rm -f "$t" && cat >"$t" && mv -f "$t" "$1/$2"' sh "$START_STATE" "$1"
+}
+state_rm() { for n in "$@"; do as_run_user rm -f "$START_STATE/$n"; done; }
+if [ -n "$START_STATE" ]; then
+  as_run_user mkdir -p "$START_STATE" 2>/dev/null || true
+fi
+
+if [ -n "${KINBOARD_MIGRATE_BACKUP_DIR:-}" ] && [ -d "$MIGRATIONS_DIR" ]; then
+  attempt=1
+  until pending="$(MIGRATIONS_DIR="$MIGRATIONS_DIR" sh /app/migrate.sh --pending)"; do
+    if [ "$attempt" -ge "$MIGRATION_ATTEMPTS" ]; then
+      echo "[entrypoint] REFUSING to start: could not ask the database which migrations are pending, so no backup could be taken first." >&2
+      exit 100
+    fi
+    attempt=$((attempt + 1))
+    sleep 5
+  done
+  if [ -n "$pending" ]; then
+    # "Nothing to back up" only when no migration is recorded AND no family
+    # exists: a database restored by hand without its bookkeeping still gets a dump.
+    recorded="$(psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAq -v ON_ERROR_STOP=1 \
+                  -c "SELECT (SELECT count(*) FROM kinboard.schema_migrations) + (SELECT count(*) FROM public.families)" 2>/dev/null || echo error)"
+    count="$(printf '%s\n' "$pending" | wc -l | tr -d ' ')"
+    case "$recorded" in
+      0)
+        echo "[entrypoint] a new database: $count migration(s) to apply, nothing to back up yet" ;;
+      "" | *[!0-9]*)
+        echo "[entrypoint] REFUSING to migrate: could not read which migrations this database has, so no backup could be verified first." >&2
+        exit 100 ;;
+      *)
+        key="$SELF_VERSION $(printf '%s' "$pending" | sha256sum | cut -c1-16)"
+        reuse=""
+        if [ -n "$START_STATE" ] && [ "$(state_get pre-migrate key)" = "$key" ]; then
+          reuse="$(state_get pre-migrate file)"
+          case "$reuse" in "$KINBOARD_MIGRATE_BACKUP_DIR"/pre-migrate-*.sql.gz) ;; *) reuse="" ;; esac
+          [ -n "$reuse" ] && as_run_user gzip -t "$reuse" 2>/dev/null || reuse=""
+        fi
+        if [ -n "$reuse" ]; then
+          echo "[entrypoint] $count migration(s) pending; the verified backup taken before the last try is still the one to go back to: $reuse"
+        else
+          echo "[entrypoint] $count migration(s) pending ($(printf '%s' "$pending" | head -n 3 | tr '\n' ' ')...): taking a verified backup first"
+          if ! backup="$(PGHOST="$POSTGRES_HOST" PGPORT="$POSTGRES_PORT" PGUSER=supabase_admin PGDATABASE="$POSTGRES_DB" \
+                         as_run_user sh /app/kinboard-backup.sh "$KINBOARD_MIGRATE_BACKUP_DIR" pre-migrate)"; then
+            echo "[entrypoint] REFUSING to migrate without a verified backup: no migration ran and the server is not started. Free space in $KINBOARD_MIGRATE_BACKUP_DIR, or fix what the line above says, then start again." >&2
+            exit 100
+          fi
+          if [ -n "$START_STATE" ]; then
+            printf 'key=%s\nfile=%s\nat=%s\n' "$key" "$backup" "$(date -u +%FT%TZ)" | state_write pre-migrate
+          fi
+        fi
+        ;;
+    esac
+  fi
+fi
+# migrate.sh runs as root (it is the same runner compose uses) and names a
+# failed file in a fresh root-only temporary file, never in the data folder.
+failed_note=""
+if [ -n "$START_STATE" ]; then
+  printf 'version=%s\nat=%s\n' "$SELF_VERSION" "$(date -u +%FT%TZ)" | state_write attempt || true
+  failed_note="$(mktemp)"
+fi
+
 if [ -d "$MIGRATIONS_DIR" ]; then
   attempt=1
-  until MIGRATIONS_DIR="$MIGRATIONS_DIR" sh /app/migrate.sh; do
+  until MIGRATIONS_DIR="$MIGRATIONS_DIR" MIGRATE_FAILED_FILE="$failed_note" sh /app/migrate.sh; do
     if [ "$attempt" -ge "$MIGRATION_ATTEMPTS" ]; then
       echo "[entrypoint] GIVING UP after $attempt attempts — refusing to start webapp with stale schema." >&2
+      if [ -n "$START_STATE" ]; then
+        failed_file="$(head -n 1 "$failed_note" 2>/dev/null | tr -cd 'a-z0-9_.')"
+        rm -f "$failed_note"
+        printf 'version=%s\nmigration=%s\nbackup=%s\nat=%s\n' "$SELF_VERSION" "$failed_file" \
+          "$(state_get pre-migrate file)" "$(date -u +%FT%TZ)" | state_write failed
+        good="$(state_get last-good version)"
+        if [ -n "$good" ] && [ "$good" != "$SELF_VERSION" ]; then
+          echo "[entrypoint] $SELF_VERSION did not start here${failed_file:+ (migration $failed_file failed)}. The last version that ran healthy on this data is $good: set the image tag back to $good to run it again. The migrations are additive, so it runs on this schema. The verified backup from before this try: $(state_get pre-migrate file)" >&2
+        fi
+        exit 100
+      fi
       exit 1
     fi
     echo "[entrypoint] migration attempt $attempt failed; retrying in 5s (the database may still be initialising)" >&2
     attempt=$((attempt + 1))
     sleep 5
   done
+
+  # The migrations went through: the dump taken for them is no longer "the one
+  # to retry with", so the next pending migration always gets a dump of its own.
+  [ -z "$failed_note" ] || rm -f "$failed_note"
+  if [ -n "$START_STATE" ]; then state_rm pre-migrate; fi
+
+  # A version that failed here before this one started (RFC-024 §4.7): this
+  # one ran its migrations, so the household went back. Settings shows the
+  # rollback notice from this record, as after kinboard-updater's rollback.
+  failed_version=""
+  if [ -n "$START_STATE" ]; then failed_version="$(state_get failed version)"; fi
+  if [ -n "$failed_version" ]; then
+    if [ -n "$failed_version" ] && [ "$failed_version" != "$SELF_VERSION" ]; then
+      record="$(FROM="$SELF_VERSION" TO="$failed_version" MIG="$(state_get failed migration)" \
+        BK="$(state_get failed backup)" AT="$(state_get failed at)" node -e '
+        const e = process.env, b = e.BK || "";
+        process.stdout.write(JSON.stringify({ status: "rolled_back", at: e.AT || new Date().toISOString(), from: e.FROM, to: e.TO,
+          services: "kinboard-aio", backup: b.split("/").pop(), backup_dir: b ? b.slice(0, b.lastIndexOf("/")) : "", backup_at: "",
+          migration: e.MIG || "", severe: Boolean(e.MIG), log_file: "", log: "" }));')"
+      if printf '%s\n' "INSERT INTO public.instance_settings (key, value) VALUES ('update_status', :'v')
+          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();" \
+         | psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -q -v ON_ERROR_STOP=1 -v "v=$record" >/dev/null; then
+        echo "[entrypoint] $failed_version did not start here before; $SELF_VERSION runs again, and Settings says so"
+      else
+        echo "[entrypoint] could not record for Settings that $failed_version did not start" >&2
+      fi
+    fi
+    state_rm failed
+  fi
 
   # The server's own time zone, for the database's "today" when a family has
   # not picked one (#341) -- the zone the rest of the server already falls
@@ -231,13 +372,21 @@ migrate_files() {
     [ -d "$FILES_DIR" ] || echo "[entrypoint] FILES_DIR $FILES_DIR does not exist and this container is not root; uploads will fail" >&2
     return 0
   fi
+  # The folder and everything under it belongs to the server's user, who may
+  # have put a symlink anywhere in it: root follows none. A symlinked folder is
+  # left alone, chown -h changes links themselves, and a file is placed only
+  # where no part of its path is a link.
+  if [ -L "$FILES_DIR" ]; then
+    echo "[entrypoint] FILES_DIR $FILES_DIR is a symlink; not touched (uploads may fail)" >&2
+    return 0
+  fi
   mkdir -p "$FILES_DIR"
   # Owned by whoever the server runs as. When that changed (PUID/PGID set,
   # changed or removed, or a restore copied the directory in as root), the
   # whole tree is handed over once; on every later start the owner matches
   # and nothing is touched.
   if [ "$(stat -c %u:%g "$FILES_DIR")" != "$RUN_IDS" ]; then
-    chown -R "$RUN_AS" "$FILES_DIR"
+    chown -R -h "$RUN_AS" "$FILES_DIR"
     echo "[entrypoint] uploaded files now belong to $RUN_AS ($RUN_IDS)"
   fi
 
@@ -266,38 +415,26 @@ SQL
     return 0
   fi
 
-  moved=0; present=0; missing=0
-  tab="$(printf '\t')"
-  while IFS="$tab" read -r bucket name version; do
-    [ -n "$bucket" ] && [ -n "$name" ] || continue
-    case "/$bucket/$name/" in
-      */../* | */./* | *//*) echo "[entrypoint] skipping object with an unsafe name: $bucket/$name" >&2; continue ;;
-    esac
-    dst="$FILES_DIR/$bucket/$name"
-    if [ -e "$dst" ]; then present=$((present + 1)); continue; fi
-    src=""
-    for candidate in "$legacy/stub/stub/$bucket/$name/$version" "$legacy/stub/$bucket/$name/$version" \
-                     "$legacy/stub/stub/$bucket/$name" "$legacy/stub/$bucket/$name"; do
-      if [ -f "$candidate" ]; then src="$candidate"; break; fi
-    done
-    if [ -z "$src" ]; then
-      echo "[entrypoint] storage object has no file on disk, skipped: $bucket/$name" >&2
-      missing=$((missing + 1))
-      continue
-    fi
-    mkdir -p "$(dirname "$dst")"
-    ln "$src" "$dst" 2>/dev/null || cp -p "$src" "$dst"
-    moved=$((moved + 1))
-  done <"$list"
+  # The move itself runs as the server's user (storage-api-move.sh): root
+  # would follow a link anywhere in either tree. Root's part is only to hand
+  # the old tree to that user first, without following links (-h; -R never
+  # descends into a linked folder).
+  if [ -d "$legacy/stub" ] && [ ! -L "$legacy/stub" ]; then
+    chown -R -h "$RUN_AS" "$legacy/stub"
+  fi
+  counts="$(su-exec "$RUN_AS" sh /app/storage-api-move.sh "$FILES_DIR" "$legacy" <"$list" | tail -n 1)"
   rm -f "$list"
+  moved="$(echo "$counts" | cut -d' ' -f1)"; present="$(echo "$counts" | cut -d' ' -f2)"; missing="$(echo "$counts" | cut -d' ' -f3)"
+  case "$moved$present$missing" in "" | *[!0-9]*) moved=0; present=0; missing=0 ;; esac
 
-  chown -R "$RUN_AS" "$FILES_DIR"
+  chown -R -h "$RUN_AS" "$FILES_DIR"
   # The marker only once there was something to move. An install without
   # uploads keeps checking an empty table (one query per start), so a pre-1.15
   # backup restored into it later is still moved. Once written, objects
   # deleted after the move are never brought back from the old tree.
   if [ $((moved + present + missing)) -gt 0 ]; then
-    printf '%s moved=%s present=%s missing=%s\n' "$(date -u +%FT%TZ)" "$moved" "$present" "$missing" >"$marker"
+    printf '%s moved=%s present=%s missing=%s\n' "$(date -u +%FT%TZ)" "$moved" "$present" "$missing" \
+      | su-exec "$RUN_AS" sh -c 'cat >"$1"' sh "$marker"
   fi
   echo "[entrypoint] uploaded files moved out of storage-api: $moved moved, $present already there, $missing missing"
 }

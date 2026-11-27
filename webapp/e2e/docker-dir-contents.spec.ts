@@ -54,6 +54,10 @@ const ALLOWED: Record<string, string> = {
   "kinboard-db-init.sh": "COPYed into the image",
   "stock-postgres-bootstrap.sql": "COPYed into the image",
   "postgres/": "the kinboard-postgres image",
+  "aio/": "the kinboard-aio image, built by docker.yml FROM the webapp image (RFC-024 §4.2)",
+  "kinboard-transfer.mjs": "COPYed into the image: `kinboard export` / `kinboard import` (RFC-024 §4.4)",
+  "kinboard-backup.sh": "COPYed into the image: the all-in-one image's verified dumps (RFC-024 §4.7)",
+  "storage-api-move.sh": "COPYed into the image: the entrypoint's 1.15 move of uploaded files, run as the server's user",
   "test-upgrade.sh": "a stub that tells whoever ran the old rig how to update instead",
 };
 

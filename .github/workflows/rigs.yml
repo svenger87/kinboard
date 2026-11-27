@@ -22,7 +22,7 @@ on:
         description: Which rig to run
         type: choice
         default: all
-        options: [all, fresh-install, upgrade, rollback, backup-restore, integration-api, one-file, stock-postgres, stock-postgres-arm64, store-listings]
+        options: [all, fresh-install, upgrade, rollback, backup-restore, integration-api, one-file, stock-postgres, stock-postgres-arm64, store-listings, aio, aio-arm64]
       iterations:
         description: Iterations for the repeating rigs (fresh install, backup/restore)
         type: string
@@ -53,7 +53,7 @@ jobs:
         run: |
           want="${{ github.event.inputs.rig || 'all' }}"
           if [ "$want" = "all" ]; then
-            echo 'rigs=["fresh-install","upgrade","rollback","backup-restore","integration-api","one-file","stock-postgres","stock-postgres-arm64","store-listings"]' >> "$GITHUB_OUTPUT"
+            echo 'rigs=["fresh-install","upgrade","rollback","backup-restore","integration-api","one-file","stock-postgres","stock-postgres-arm64","store-listings","aio","aio-arm64"]' >> "$GITHUB_OUTPUT"
           else
             echo "rigs=[\"$want\"]" >> "$GITHUB_OUTPUT"
           fi
@@ -63,7 +63,8 @@ jobs:
     needs: select
     # The stock PostgreSQL gates also run on arm64 (RFC-024 §6.5): the
     # database image is built for both, and a Raspberry Pi is arm64.
-    runs-on: ${{ matrix.rig == 'stock-postgres-arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    # So does the all-in-one image's rig (RFC-024 §6.5, phase 5).
+    runs-on: ${{ (matrix.rig == 'stock-postgres-arm64' || matrix.rig == 'aio-arm64') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     # The fresh-install rig at 20 iterations is a little over an hour on this
     # hardware; the default of 3 is far under. Generous rather than tight,
     # because a rig killed by a timeout looks exactly like a rig that hung.
@@ -96,13 +97,13 @@ jobs:
 
       # The stock PostgreSQL gates run Playwright specs against their stack.
       - uses: actions/setup-node@v4
-        if: startsWith(matrix.rig, 'stock-postgres') || matrix.rig == 'store-listings'
+        if: startsWith(matrix.rig, 'stock-postgres') || matrix.rig == 'store-listings' || startsWith(matrix.rig, 'aio')
         with:
           node-version: "22"
           cache: "npm"
           cache-dependency-path: webapp/package-lock.json
       - name: Install webapp deps
-        if: startsWith(matrix.rig, 'stock-postgres') || matrix.rig == 'store-listings'
+        if: startsWith(matrix.rig, 'stock-postgres') || matrix.rig == 'store-listings' || startsWith(matrix.rig, 'aio')
         working-directory: webapp
         run: |
           corepack enable npm
@@ -143,6 +144,12 @@ jobs:
             # would run (CasaOS, Umbrel, Portainer as listed; TrueNAS as its
             # renderer renders it), started, with the rls-matrix spec.
             store-listings)  RIG_BUILD=1 scripts/rigs/test-store-listings.sh ;;
+            # The all-in-one image (RFC-024 phase 5): a fresh start, the
+            # §6.5 gates, PUID 99:100, export/import with compose.yml (amd64
+            # only, as §6.5 lists it), the start guarantees and a rehearsed
+            # PostgreSQL 17 -> 18 upgrade with its forced failures.
+            aio)             scripts/rigs/test-aio.sh ;;
+            aio-arm64)       RIG_PHASES="fresh gates puid migrate upgrade measure" scripts/rigs/test-aio.sh ;;
           esac
 
       # A rig that fails has already printed why, but the stack's own logs are

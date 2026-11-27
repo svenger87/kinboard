@@ -1,0 +1,3 @@
+#!/bin/sh
+# Each line of webapp, prefixed, to the container's log (RFC-024 §6).
+exec awk '{ print "[webapp] " $0; fflush() }'

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Each line of postgrest, prefixed, to the container's log (RFC-024 §6).
+exec awk '{ print "[rest] " $0; fflush() }'

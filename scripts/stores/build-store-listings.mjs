@@ -16,6 +16,8 @@
  *   dist/casaos/Apps/<Name>/docker-compose.yml   CasaOS / ZimaOS
  *   dist/umbrel/<app>/…                     Umbrel app store
  *   dist/portainer/templates.json, compose.yml   Portainer app templates
+ *   dist/unraid/{ca_profile.xml,templates/<app>.xml,README.md}   the Unraid
+ *                                           template repository's content
  *
  * Then our own checks over what was generated (lib/checks.mjs): the image
  * names are docker.yml's, the database is the stock image with safeupdate,
@@ -32,9 +34,10 @@ import { portainer } from "./lib/portainer.mjs";
 import { DIST, loadSources, REPO_ROOT } from "./lib/sources.mjs";
 import { truenas } from "./lib/truenas.mjs";
 import { umbrel } from "./lib/umbrel.mjs";
+import { unraid } from "./lib/unraid.mjs";
 
 /** The store folders under dist/ this generator owns entirely. */
-export const STORES = ["truenas", "casaos", "umbrel", "portainer"];
+export const STORES = ["truenas", "casaos", "umbrel", "portainer", "unraid"];
 
 /**
  * Every generated file, by its path under dist/.
@@ -42,7 +45,7 @@ export const STORES = ["truenas", "casaos", "umbrel", "portainer"];
  * @returns {Record<string, string>}
  */
 export function buildListings(src) {
-  return { ...truenas(src), ...casaos(src), ...umbrel(src), ...portainer(src) };
+  return { ...truenas(src), ...casaos(src), ...umbrel(src), ...portainer(src), ...unraid(src) };
 }
 
 /** The files under dist/<store>/ on disk, by their path under dist/. */

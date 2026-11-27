@@ -9,11 +9,25 @@ and §10 (`docs/rfc/024-all-in-one-and-stores.md`).
 | TrueNAS (24.10+) | `truenas/ix-dev/community/<app>/` | the apps catalog: `app.yaml`, `item.yaml`, `ix_values.yaml`, `questions.yaml`, `README.md`, a Jinja2 `templates/docker-compose.yaml` over TrueNAS's library, `templates/test_values/basic-values.yaml` |
 | CasaOS / ZimaOS | `casaos/Apps/<Name>/docker-compose.yml` | compose with a top-level `x-casaos` block |
 | Umbrel | `umbrel/<app>/` | `umbrel-app.yml`, `docker-compose.yml` with `app_proxy`, and the empty `data/<volume>/` folders |
-| Portainer | `portainer/templates.json`, `portainer/compose.yml` | app templates, format 3; two type-3 templates (stable and release candidates) pointing at the stack file, with an *Automatic updates* switch |
+| Portainer | `portainer/templates.json`, `portainer/compose.yml` | app templates, format 3; two type-3 templates (stable and release candidates) pointing at the stack file, with an *Automatic updates* switch, and a type-1 template for the all-in-one image |
+| Unraid (Community Applications) | `unraid/` | the whole content of the template repository: `ca_profile.xml`, `templates/<app>.xml` (`<Container version="2">`), `README.md`; for the all-in-one image |
 
-Unraid's template comes with the all-in-one image, in its own repository
-(RFC-024 §11.9, phase 5). Nothing here is submitted anywhere: when and where
-is the owner's decision (§11.1).
+Nothing here is submitted anywhere: when and where is the owner's decision
+(§11.1).
+
+**Unraid's template repository** (RFC-024 §5.1, §11.9). CA wants a repository
+with `ca_profile.xml` at its root and the templates under `templates/`, so the
+template lives in its own repository holding only `dist/unraid/` (the
+metadata's `aio.unraid.repository`, `svenger87/kinboard-unraid`). The
+maintainer creates it once, public, with two-factor authentication on the
+account (CA's policy), and from then on copies `dist/unraid/` into it after
+each regeneration; nothing pushes there automatically. The template's
+`TemplateURL` points at that repository's raw file, so it answers only once
+the repository exists. The image's tag follows docker.yml's `AIO_IMAGE_TAGS`:
+`next` with `<Beta>true</Beta>` while there is no stable channel, `latest`
+with `next` as a `<Branch>` once there is. CA itself is blocked by its
+licence rule (an OSI-approved licence, §5.1, §11.2); installing by template
+works without it.
 
 ## How a listing is produced
 
@@ -32,7 +46,7 @@ Three inputs, each the only place its facts live:
   off, on Portainer (§4.7, below), and the variables resolved for a new
   install.
 - **`.github/workflows/docker.yml`**: the image names (`IMAGE_NAME`,
-  `POSTGRES_IMAGE_NAME`) and channel tags.
+  `POSTGRES_IMAGE_NAME`, `AIO_IMAGE_NAME`) and channel tags.
 
 ```bash
 node scripts/stores/build-store-listings.mjs          # write dist/<store>/
@@ -110,6 +124,13 @@ KINBOARD_RIG=1 scripts/rigs/test-store-listings.sh   # start them (below)
   metadata it owns (capabilities, users, item.yaml, the README's warnings);
   any difference to what is committed fails. Then `ci.py --render-only`
   (rendered, then `docker compose config`).
+- **Unraid**: CA publishes no validator to run locally (its Validate and Scan
+  run on ca.unraid.net at submission). `build-store-listings.mjs --check`
+  reads the template back against CA's documented format instead: the field
+  reference (https://ca.unraid.net/submit/help/xml-field-reference) and the
+  starter template (unraid/unraid-community-apps-starter, `templates/example-app.xml`
+  and `ca_profile.xml` at commit `01398ff8bd728ce92dd9595e33d8577299e0e971`),
+  with every `Config` attribute in its allowed values.
 - **Portainer**: `templates.json` against portainer/templates' `schema.json`
   (branch v3), and `docker compose config` on the stack file.
 
@@ -169,6 +190,18 @@ explanation: that goes into the metadata's texts or the wiki.
 - A wall display stays signed in to Umbrel after a reboot.
 - `submission:` in `umbrel-app.yml` becomes the pull request's address.
 
+**Unraid** (the all-in-one image; the template from `dist/unraid/`, by hand
+until CA can list it)
+
+- The template installs from `/boot/config/plugins/dockerMan/templates-user/`
+  and from the template repository added on the Docker page; the form shows
+  the port, the data path (`/mnt/user/appdata/kinboard`), PUID 99 and PGID
+  100, the advanced variables, and `--stop-timeout=60` survives in Extra
+  Parameters.
+- *Apply Update* recreates the container from the template; the start
+  guarantees hold (a verified dump before a pending migration).
+- The rls-matrix spec against the installed instance.
+
 **Portainer** (Settings → App Templates → this repository's raw
 `dist/portainer/templates.json`)
 
@@ -179,3 +212,5 @@ explanation: that goes into the metadata's texts or the wiki.
   "container mode", a newer image under the tag is applied with a backup,
   and the stack page still lists every container.
 - The release-candidate template deploys `next` and `17-next`.
+- The all-in-one template (type 1) deploys `kinboard-aio` with a `/data`
+  volume; set the stop timeout to 60 s by hand where Portainer offers it.

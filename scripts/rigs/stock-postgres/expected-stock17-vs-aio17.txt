@@ -1,0 +1,11 @@
+# Reviewed differences between kinboard-postgres:17 (left, "<") and the
+# all-in-one image (right, ">"), each prepared the way it runs: the same role
+# bootstrap (kinboard-db-init), init.sql and every migration, on stock
+# PostgreSQL 17 with safeupdate (RFC-024 §4.2.1, §6.5). Same format as
+# expected-supabase15-vs-stock15.txt.
+#
+# None. The two differ in where PostgreSQL comes from (the official
+# postgres:17-alpine against Alpine's postgresql17 package) and in the
+# cluster's locale provider (the all-in-one image's builtin C.UTF-8), and
+# neither may show in the security surface: any line here would be a
+# difference in what a family or the anonymous role can reach.
