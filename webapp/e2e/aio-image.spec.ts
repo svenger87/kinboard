@@ -210,6 +210,63 @@ test.describe("init-db: what /data/db holds decides (RFC-024 §4.3, §4.4, §4.7
     } finally { f.done(); }
   });
 
+  test("init-perms refuses a compose install's data folder before creating or handing over anything in it", () => {
+    // A compose install's DATA_DIR has db/ (supabase/postgres 15) and storage/
+    // where the all-in-one image looks. Before this, init-perms gave both to
+    // PUID and only init-db refused, two steps later (and init-secrets first,
+    // with a message about a missing password): the old install's
+    // PostgreSQL then no longer started on its own folder.
+    const f = fakeData();
+    try {
+      rmSync(join(f.data, "config"), { recursive: true });
+      f.cluster("db", "15", false);
+      mkdirSync(join(f.data, "storage", "files"), { recursive: true });
+      chmodSync(join(f.data, "db"), 0o750);
+      const env = { KINBOARD_DATA: f.data, KINBOARD_AIO_BUILD: join(f.dir, "build"), PUID: String(process.getuid?.() ?? 1000), PGID: String(process.getgid?.() ?? 1000) };
+      const r = run("sh", [join(LIB, "init-perms.sh")], env);
+      expect(r.status, r.stdout + r.stderr).toBe(1);
+      expect(r.stderr).toContain("that this image did not create");
+      expect(r.stderr).toContain("kinboard export");
+      expect(r.stderr).toContain("Nothing in");
+      expect(f.ls(), "nothing created beside the compose install's folders").toEqual(["db", "storage"]);
+      expect(statSync(join(f.data, "db")).mode & 0o777, "the cluster's mode untouched").toBe(0o750);
+      // The image's own cluster (with its marker) is not refused here; it goes
+      // on to the folders (unprivileged, this run then stops at the socket
+      // folder in /run, which only root may create).
+      writeFileSync(join(f.data, "db", "KINBOARD_AIO"), "kinboard-aio\nmajor=15\n");
+      const ok = run("sh", [join(LIB, "init-perms.sh")], env);
+      expect(ok.stderr).not.toContain("did not create");
+      expect(f.ls()).toEqual(["backups", "config", "db", "storage"]);
+    } finally { f.done(); }
+  });
+
+  test("init-perms: the refusal never puts a file's content in the log (a PG_VERSION swapped for a link)", () => {
+    // root tests the folder; the major is read as the data's owner, 16 bytes,
+    // digits and dots. Unprivileged here, so what is checked is the content
+    // filter: a PG_VERSION with more than a number in it, and a link to
+    // another file, give no more than the number in the message.
+    for (const plant of ["file", "link"]) {
+      const f = fakeData();
+      try {
+        rmSync(join(f.data, "config"), { recursive: true });
+        f.cluster("db", "15", false);
+        const canary = join(f.dir, "canary");
+        writeFileSync(canary, "15\nCANARY-SECRET-VALUE\n");
+        rmSync(join(f.data, "db", "PG_VERSION"));
+        if (plant === "file") writeFileSync(join(f.data, "db", "PG_VERSION"), read(canary));
+        else spawnSync("ln", ["-s", canary, join(f.data, "db", "PG_VERSION")]);
+        const env = { KINBOARD_DATA: f.data, KINBOARD_AIO_BUILD: join(f.dir, "build"), PUID: String(process.getuid?.() ?? 1000), PGID: String(process.getgid?.() ?? 1000) };
+        const r = run("sh", [join(LIB, "init-perms.sh")], env);
+        expect(r.status, plant).toBe(1);
+        expect(r.stderr, plant).toContain("that this image did not create");
+        expect(r.stderr + r.stdout, plant).not.toContain("CANARY");
+      } finally { f.done(); }
+    }
+    const perms = read(join(LIB, "init-perms.sh"));
+    expect(perms).toContain(`as_user head -c 16 "$DB/PG_VERSION"`);
+    expect(perms).not.toMatch(/<\s*"\$DB\/PG_VERSION"/);
+  });
+
   test("files without a cluster are refused; an empty folder would be initialised", () => {
     const f = fakeData();
     try {
