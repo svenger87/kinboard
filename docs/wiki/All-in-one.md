@@ -123,10 +123,31 @@ within a day, that one puts the old database back by itself (the new one is
 kept aside as `db.failed-pg…`, with anything written to it). Later than a day
 it doesn't, because the new version may have been in use all that time: set
 `KINBOARD_PG_ROLLBACK=1` on the previous tag to put the old database back
-anyway. After the first healthy minute the upgrade is final: the log
-says `/data/db.old` can be deleted, and going back is refused, because data has
-been written to the new one since; the checked dump from before the upgrade
-stays in `/data/backups/`.
+anyway. After the first healthy minute the upgrade is final: going back is
+refused, because data has been written to the new one since; the checked dump
+from before the upgrade stays in `/data/backups/`.
+
+**The old database folder.** `/data/db.old` is a whole second copy of the
+database, so it doubles the space the database takes until it is deleted.
+Settings says so, under the version, to the install's own family (the one that
+also sees the automatic updates' status):
+
+- while the previous version could still go back to it (the first minute, or
+  up to a day while the new version has not yet run healthy for a minute), it
+  says the old database is kept, until when, and which version it is for;
+  there is no Delete button then;
+- after that, it says it can be deleted, with its size, both PostgreSQL
+  versions and the date of the upgrade, and a **Delete** button. Deleting asks
+  for the settings PIN (a family without one sets one first), removes
+  `/data/db.old`, writes a line to the log and the notice goes away.
+
+Delete refuses while an upgrade is running, and refuses anything at
+`/data/db.old` that isn't the folder the upgrade left there (a link, another
+database), without touching it. Deleting the folder by hand when the
+container is stopped works too. Once it is gone, going back to the previous
+version, even with `KINBOARD_PG_ROLLBACK=1`, is refused with a message saying
+the old database was deleted, and nothing is changed; run the newer image
+again.
 
 `KINBOARD_PG_UPGRADE=off` stops the image from upgrading on its own; it then
 refuses to start on the older database instead.

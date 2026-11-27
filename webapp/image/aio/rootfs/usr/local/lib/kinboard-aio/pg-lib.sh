@@ -7,7 +7,7 @@
 # /data/db.new   a major upgrade's new cluster, until it has answered
 # /data/db.old   the cluster before a major upgrade, kept until the new one
 #                has run healthy for a minute (and after that, until the
-#                household deletes it)
+#                household deletes it, in Settings or by hand)
 # /data/config/updater/pg-upgrade   the upgrade's record (key=value):
 #                phase=started|switching|switched|rolled_back|failed,
 #                from, to, dump, at, switched_at, confirmed_at
@@ -194,13 +194,21 @@ upgrade_cluster() {
 # The previous image's half of the upgrade (§4.3 step 4, §4.7): the folder is
 # a newer major this image wrote no data into, and the upgrade's record says it
 # never ran healthy for a minute. The newer cluster is set aside, not deleted.
+# A refusal with a reason of its own sets ROLLBACK_REFUSAL for init-db.
 rollback_unconfirmed() {
   found="$1"
+  ROLLBACK_REFUSAL=""
   [ -f "$UPGRADE_STATE" ] || return 1
   [ "$(kv_get "$UPGRADE_STATE" phase)" = switched ] || return 1
   [ "$(kv_get "$UPGRADE_STATE" from)" = "$CUR_MAJOR" ] || return 1
   [ "$(kv_get "$UPGRADE_STATE" to)" = "$found" ] || return 1
   [ -z "$(kv_get "$UPGRADE_STATE" confirmed_at)" ] || return 1
+  # The folder to go back to was deleted (Settings deletes it only after the
+  # window below, or by hand): nothing to put back, and nothing is moved.
+  if [ ! -e "$DB_OLD" ] && [ ! -L "$DB_OLD" ]; then
+    ROLLBACK_REFUSAL="$DB is PostgreSQL $found, newer than this image's $CUR_MAJOR, and the database from before that upgrade ($DB_OLD) is no longer there: it was deleted, so there is nothing to go back to. Run the newer Kinboard image again."
+    return 1
+  fi
   [ "$(pg_version_of "$DB_OLD")" = "$CUR_MAJOR" ] || return 1
   [ -f "$DB_OLD/$MARKER_NAME" ] || return 1
   # Only soon after the switch. "Never healthy for a minute" is the RFC's

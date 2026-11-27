@@ -210,6 +210,11 @@ test("a route that still takes family_id checks it against the session", () => {
     // auth.session.familyId, passed to the same operator check; the request
     // carries nothing.
     "compose-revision/route.ts",
+    // The database folder a PostgreSQL upgrade kept (RFC-024 §4.3): the regex
+    // matches auth.session.familyId, passed to the operator check and the PIN
+    // check; the request carries the PIN only (e2e/aio-old-database.spec.ts
+    // shows a family_id in the body is ignored).
+    "old-database/route.ts",
     "devices/[id]/layout/route.ts",
     // The family's shop prices: the regex matches the `family_id` column the
     // setting is written under, from auth.session.familyId; the request carries

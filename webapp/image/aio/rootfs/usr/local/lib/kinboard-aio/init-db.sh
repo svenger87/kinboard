@@ -82,7 +82,7 @@ fi
 if [ "$found" = "$CUR_MAJOR" ]; then
   phase="$(kv_get "$UPGRADE_STATE" phase)"
   if [ -d "$DB_OLD" ] && [ "$phase" = switched ] && [ -n "$(kv_get "$UPGRADE_STATE" confirmed_at)" ]; then
-    log "$DB_OLD (PostgreSQL $(pg_version_of "$DB_OLD"), $(du -sm "$DB_OLD" | cut -f1) MB) is the cluster from before the upgrade to $CUR_MAJOR, which has run healthy since $(kv_get "$UPGRADE_STATE" confirmed_at). It is no longer needed: delete the folder to free the space."
+    log "$DB_OLD (PostgreSQL $(pg_version_of "$DB_OLD"), $(du -sm "$DB_OLD" | cut -f1) MB) is the cluster from before the upgrade to $CUR_MAJOR, which has run healthy since $(kv_get "$UPGRADE_STATE" confirmed_at). It is no longer needed: delete it in Settings (the install's family, with the settings PIN) or delete the folder, to free the space."
   fi
   exit 0
 fi
@@ -106,4 +106,5 @@ detail=""
 if [ "$(kv_get "$UPGRADE_STATE" to)" = "$found" ] && [ -n "$(kv_get "$UPGRADE_STATE" dump)" ]; then
   detail=" The verified dump taken before that upgrade is $(kv_get "$UPGRADE_STATE" dump)."
 fi
+[ -z "${ROLLBACK_REFUSAL:-}" ] || refuse "$ROLLBACK_REFUSAL$detail"
 refuse "$DB is PostgreSQL $found, newer than this image's $CUR_MAJOR, and has been in use since its upgrade, so going back would lose what was written there. Run the newer Kinboard image again.$detail"

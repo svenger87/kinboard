@@ -36,7 +36,7 @@ if [ "$(kv_get "$UPGRADE_STATE" phase)" = switched ] && [ -z "$(kv_get "$UPGRADE
   if kv_write "$UPGRADE_STATE" "phase=switched" "from=$(kv_get "$UPGRADE_STATE" from)" "to=$(kv_get "$UPGRADE_STATE" to)" \
     "dump=$(kv_get "$UPGRADE_STATE" dump)" "at=$(kv_get "$UPGRADE_STATE" at)" "switched_at=$(kv_get "$UPGRADE_STATE" switched_at)" \
     "switched_epoch=$(kv_get "$UPGRADE_STATE" switched_epoch)" "confirmed_at=$at"; then
-    log "the PostgreSQL $CUR_MAJOR upgrade is confirmed. $DB_OLD is no longer needed and can be deleted to free the space."
+    log "the PostgreSQL $CUR_MAJOR upgrade is confirmed. $DB_OLD is no longer needed and can be deleted in Settings to free the space."
   else
     warn "could not record that the PostgreSQL $CUR_MAJOR upgrade is confirmed (disk full?); fix that, or going back to the previous image could set this database aside"
   fi
