@@ -448,7 +448,7 @@ test("the script still parses as POSIX sh", () => {
 });
 
 test.describe("the Diun overlay on compose.yml (RFC-023 §4.11.2)", () => {
-  const overlays = ["docker/docker-compose.diun.yml", "docker/docker-compose.diun.yml.example"];
+  const overlays = ["docker/docker-compose.diun.yml"];
   /** Each path as the overlay names it now, and as it did before (relative to webapp/docker). */
   const MOVED: [string, string][] = [
     ["- ${KINBOARD_PROJECT_DIR}/webapp/docker/diun/diun.yml:/diun.yml:ro", "- ./diun/diun.yml:/diun.yml:ro"],

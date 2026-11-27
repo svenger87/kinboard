@@ -34,10 +34,11 @@ interface StoreModule {
   deriveKey(role: string, secret: string): string;
   signHs256(payloadJson: string, secret: string): string;
 }
-const store: Promise<StoreModule> = import("../docker/secrets-store.mjs");
+const store: Promise<StoreModule> = import("../image/secrets-store.mjs");
 
 const DOCKER = join(__dirname, "..", "docker");
-const SCRIPT = join(DOCKER, "secrets-store.mjs");
+const IMAGE = join(__dirname, "..", "image");
+const SCRIPT = join(IMAGE, "secrets-store.mjs");
 const DIR = "/kinboard/secrets";
 
 type Read = (path: string) => string | null;
@@ -358,7 +359,7 @@ test.describe("as the entrypoint runs it", () => {
 });
 
 test.describe("wiring", () => {
-  const entry = readFileSync(join(DOCKER, "webapp-entrypoint.sh"), "utf8");
+  const entry = readFileSync(join(IMAGE, "webapp-entrypoint.sh"), "utf8");
 
   test("the entrypoint reads the store first, and stops when it refuses", () => {
     const call = entry.indexOf('secrets_env="$(node /app/secrets-store.mjs)"');
@@ -373,8 +374,8 @@ test.describe("wiring", () => {
   });
 
   test("the image carries the reader where the entrypoint looks for it", () => {
-    const dockerfile = readFileSync(join(DOCKER, "Dockerfile"), "utf8");
-    expect(dockerfile).toMatch(/COPY [^\n]*docker\/secrets-store\.mjs [^\n]*\.\/\n/);
+    const dockerfile = readFileSync(join(IMAGE, "Dockerfile"), "utf8");
+    expect(dockerfile).toMatch(/COPY [^\n]*image\/secrets-store\.mjs [^\n]*\.\/\n/);
     expect(dockerfile).toMatch(/WORKDIR \/app/);
   });
 
@@ -484,7 +485,7 @@ test.describe("the cron jobs, which docker exec runs outside the entrypoint", ()
   });
   test.afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  const CALL = join(DOCKER, "cron-call.sh");
+  const CALL = join(IMAGE, "cron-call.sh");
   function call(vars: Record<string, string>) {
     return spawnSync("sh", [CALL, "purge-domain-events"], {
       env: envOf({ PATH: `${bin}:${process.env.PATH ?? ""}`, KINBOARD_SECRETS_READER: SCRIPT, KINBOARD_SECRETS_DIR: join(dir, "secrets"), ...vars }),
@@ -516,14 +517,14 @@ test.describe("the cron jobs, which docker exec runs outside the entrypoint", ()
   });
 
   test("every job script in the image goes through cron-call.sh", () => {
-    const dockerfile = readFileSync(join(DOCKER, "Dockerfile"), "utf8");
+    const dockerfile = readFileSync(join(IMAGE, "Dockerfile"), "utf8");
     expect(dockerfile).not.toContain("$CRON_SECRET");
     const scripts = [...dockerfile.matchAll(/echo '#!\/bin\/sh' > \/usr\/local\/bin\/([a-z-]+)/g)].map((m) => m[1]);
     expect(scripts.length).toBeGreaterThanOrEqual(18);
     for (const name of scripts) {
       expect(dockerfile, name).toMatch(new RegExp(`echo 'exec /app/cron-call\\.sh [a-z-]+' >> /usr/local/bin/${name}\\b`));
     }
-    expect(dockerfile).toMatch(/COPY [^\n]*docker\/cron-call\.sh \.\/\n/);
+    expect(dockerfile).toMatch(/COPY [^\n]*image\/cron-call\.sh \.\/\n/);
     // Every job ofelia runs is one of those scripts.
     const compose = readFileSync(join(DOCKER, "docker-compose.yml"), "utf8");
     const jobs = [...compose.matchAll(/\.command: "\/usr\/local\/bin\/([a-z-]+)"/g)].map((m) => m[1]);
@@ -607,7 +608,7 @@ test.describe("the real webapp-entrypoint.sh", () => {
       stub("pg_isready", "exit 0");
       stub("psql", "exit 0");
       stub("id", 'echo 1000');
-      const r = spawnSync("sh", [join(DOCKER, "webapp-entrypoint.sh")], {
+      const r = spawnSync("sh", [join(IMAGE, "webapp-entrypoint.sh")], {
         env: envOf({ PATH: `${bin}:${process.env.PATH ?? ""}`, KINBOARD_SECRETS_DIR: join(dir, "secrets"), JWT_SECRET: "" }),
         encoding: "utf8",
       });

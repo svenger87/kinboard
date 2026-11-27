@@ -20,7 +20,7 @@ import { createAdminClient } from "../src/lib/db/server";
  * SERVICE_ROLE_KEY still read, then a key derived from JWT_SECRET.
  *
  * The entrypoint settles the same question at container start
- * (docker/secrets-store.mjs, DERIVED); both sides must give the same answer,
+ * (image/secrets-store.mjs, DERIVED); both sides must give the same answer,
  * so the names and the derivation are compared here, not only described.
  */
 
@@ -29,7 +29,7 @@ interface StoreModule {
   deriveKey(role: string, secret: string): string;
 }
 // Dynamically: Playwright's require hook mangles a statically imported .mjs.
-const store: Promise<StoreModule> = import("../docker/secrets-store.mjs");
+const store: Promise<StoreModule> = import("../image/secrets-store.mjs");
 
 /** RFC-024 §4.6's order, written out here rather than taken from the module under test. */
 const RFC_NAMES = ["KINBOARD_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SERVICE_ROLE_KEY"];

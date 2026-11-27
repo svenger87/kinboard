@@ -158,15 +158,13 @@ Test notification doesn't arrive, iOS push not working, subscription issues: [No
 
 ## Deployment
 
-### `./deploy.sh` step 3 fails on Docker build
+### A build from source fails in `next build`
 
-The Docker build step does `next build` which runs `tsc --noEmit`. If you have type errors locally that lint didn't catch (the project uses lint-only as default policy), they surface here.
+With `docker-compose.build.yml` in `COMPOSE_FILES`, `./start.sh up` builds the image, and the build runs `next build`, which type-checks. A type error in a change of your own surfaces there. Run `npx tsc --noEmit` from `webapp/` first.
 
-To preempt this: run `npx tsc --noEmit` from `webapp/` before deploying.
+### After an update, all routes 404
 
-### After deploy, all routes 404
-
-If `deploy.sh` recreated the webapp container with only the base compose file (no Traefik override), Traefik dropped the route. Restart with all overlays:
+If the webapp container was recreated with only the base compose file (a `docker compose up` typed without your overlays), Traefik dropped the route. Restart with all overlays, or with `./start.sh up`, which reads `COMPOSE_FILES` from `.env`:
 
 ```bash
 cd webapp/docker

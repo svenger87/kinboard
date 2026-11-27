@@ -129,7 +129,7 @@ MIGRATION_ATTEMPTS="${MIGRATION_ATTEMPTS:-6}"
 
 # ---------------------------------------------------------------------------
 # The all-in-one image's start guarantees (RFC-024 §4.7). Both are off unless
-# the image sets them (webapp/docker/aio/Dockerfile); a compose install never
+# the image sets them (webapp/image/aio/Dockerfile); a compose install never
 # does, and for it nothing in this block runs.
 #
 #   KINBOARD_MIGRATE_BACKUP_DIR  a verified dump (kinboard-backup.sh) before

@@ -1,14 +1,14 @@
 # kinboard-aio: the whole app in one container (RFC-024 §4.2, phase 5).
 #
 # Built FROM the webapp image itself (APP_IMAGE: the runner stage of
-# webapp/docker/Dockerfile, by digest in CI), so the all-in-one image and the
+# webapp/image/Dockerfile, by digest in CI), so the all-in-one image and the
 # compose shape are the same build: the same webapp, migrations, secrets init
 # step, base schema, role bootstrap, scheduler and /api/health (§2). This file
 # adds only what one container needs on top:
 #
 #   - PostgreSQL ${PG_MAJOR} from Alpine's packages, plus uuid-ossp (contrib);
 #   - pg-safeupdate, built here from the same pinned release and checksum as
-#     webapp/docker/postgres/Dockerfile (e2e/aio-image.spec.ts holds the two
+#     webapp/image/postgres/Dockerfile (e2e/aio-image.spec.ts holds the two
 #     equal), for PostgREST's `authenticator` (§4.2.1, §11.12);
 #   - PostgREST, the binary of the pinned postgrest/postgrest image compose.yml
 #     runs (see the postgrest-* stages: static on amd64, glibc on arm64);
@@ -22,7 +22,7 @@
 #
 # Build (the webapp image first; never from a checkout with .env.local, see
 # CLAUDE.md):
-#   docker build -f webapp/docker/aio/Dockerfile --build-arg APP_IMAGE=<webapp image> webapp/docker/aio
+#   docker build -f webapp/image/aio/Dockerfile --build-arg APP_IMAGE=<webapp image> webapp/image/aio
 
 ARG APP_IMAGE=ghcr.io/svenger87/kinboard:main
 # The same PostgREST compose.yml pins, by its multi-arch index digest (the one

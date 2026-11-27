@@ -175,7 +175,7 @@ cd webapp
 npm run db:generate
 ```
 
-This starts a throwaway PostgreSQL in Docker (the base image of `kinboard-postgres`, pinned by digest in `webapp/docker/postgres/Dockerfile`), applies the role bootstrap, `init.sql` and every migration as a new install does, reads the `public` schema from `pg_catalog` and writes `webapp/src/types/database.generated.ts`. It needs Docker and nothing else: no Supabase CLI, no network once the image is pulled. Commit the file with the migration; the CI job "Database types" regenerates it and fails on any difference. `--db-url postgres://…` reads an already-migrated database instead.
+This starts a throwaway PostgreSQL in Docker (the base image of `kinboard-postgres`, pinned by digest in `webapp/image/postgres/Dockerfile`), applies the role bootstrap, `init.sql` and every migration as a new install does, reads the `public` schema from `pg_catalog` and writes `webapp/src/types/database.generated.ts`. It needs Docker and nothing else: no Supabase CLI, no network once the image is pulled. Commit the file with the migration; the CI job "Database types" regenerates it and fails on any difference. `--db-url postgres://…` reads an already-migrated database instead.
 
 Text columns whose `CHECK` constraint lists their values come out as those literals (`"pending" | "approved" | "denied"`). What a schema cannot say, the shape of a few `jsonb` columns and the tables the app only reads, is added in `webapp/src/types/database.ts`, which is what the app imports.
 

@@ -391,10 +391,10 @@ test.describe("KINBOARD_COMPOSE_REVISION", () => {
   });
 
   test("the image says which revision it ships, for kinboard-updater (§4.11.3): the newest, the file's", () => {
-    const labels = [...read("webapp/docker/Dockerfile").matchAll(/^LABEL app\.kinboard\.compose-revision="([^"]*)"$/gm)];
+    const labels = [...read("webapp/image/Dockerfile").matchAll(/^LABEL app\.kinboard\.compose-revision="([^"]*)"$/gm)];
     expect(labels, "one label, in the final stage").toHaveLength(1);
     expect(labels[0][1]).toBe(String(LATEST_COMPOSE_REVISION));
-    const dockerfile = read("webapp/docker/Dockerfile");
+    const dockerfile = read("webapp/image/Dockerfile");
     expect(dockerfile.indexOf("app.kinboard.compose-revision")).toBeGreaterThan(dockerfile.lastIndexOf("\nFROM "));
     // The script reads that label, under that name.
     expect(read("webapp/docker/kinboard-self-update.sh")).toContain('{{index .Config.Labels "app.kinboard.compose-revision"}}');

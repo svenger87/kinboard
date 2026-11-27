@@ -33,6 +33,7 @@ import { legacyKongAnonKey, legacyKongPageEnv, legacyKongPageScript, legacyKongU
 
 const SRC = join(__dirname, "..", "src");
 const DOCKER = join(__dirname, "..", "docker");
+const IMAGE = join(__dirname, "..", "image");
 const ROOT = join(__dirname, "..", "..");
 
 /** The one module allowed to read the legacy names. */
@@ -91,7 +92,7 @@ test.describe("nothing reads the retired names but the legacy Kong shim", () => 
   });
 
   test("the image is built without the key or an address", () => {
-    const dockerfile = codeOnly(readFileSync(join(DOCKER, "Dockerfile"), "utf8").replace(/^\s*#.*$/gm, ""));
+    const dockerfile = codeOnly(readFileSync(join(IMAGE, "Dockerfile"), "utf8").replace(/^\s*#.*$/gm, ""));
     expect(dockerfile).not.toMatch(/NEXT_PUBLIC_SUPABASE/);
     const buildOverlay = readFileSync(join(DOCKER, "docker-compose.build.yml"), "utf8").replace(/^\s*#.*$/gm, "");
     expect(buildOverlay).not.toMatch(/NEXT_PUBLIC_SUPABASE/);
@@ -106,7 +107,7 @@ test.describe("nothing reads the retired names but the legacy Kong shim", () => 
     expect(readFileSync(join(DOCKER, "docker-compose.yml"), "utf8")).toMatch(/^\s+NEXT_PUBLIC_SUPABASE_ANON_KEY: \$\{ANON_KEY\}$/m);
     expect(readFileSync(join(ROOT, "compose.yml"), "utf8")).toMatch(/^\s+NEXT_PUBLIC_SUPABASE_ANON_KEY: \$\{KINBOARD_ANON_KEY:-\}$/m);
     // And the entrypoint still mints it when a one-file install sets none.
-    expect(readFileSync(join(DOCKER, "secrets-store.mjs"), "utf8")).toContain('{ env: "NEXT_PUBLIC_SUPABASE_ANON_KEY", older: ["ANON_KEY"], role: "anon" }');
+    expect(readFileSync(join(IMAGE, "secrets-store.mjs"), "utf8")).toContain('{ env: "NEXT_PUBLIC_SUPABASE_ANON_KEY", older: ["ANON_KEY"], role: "anon" }');
   });
 });
 

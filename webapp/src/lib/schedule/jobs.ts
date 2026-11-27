@@ -3,7 +3,7 @@
  *
  * A git install runs these with ofelia, from the labels on the webapp
  * container in docker/docker-compose.yml; each label's command is a script
- * the image installs (docker/Dockerfile), which calls its route through
+ * the image installs (image/Dockerfile), which calls its route through
  * /app/cron-call.sh. With KINBOARD_SCHEDULER=internal the webapp runs them
  * itself, from this table (./runner.ts).
  *

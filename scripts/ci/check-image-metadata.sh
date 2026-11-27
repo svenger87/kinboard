@@ -17,7 +17,7 @@
 #     and a declared licence, each `<os>/<arch>=!<package>` must not be. A
 #     platform the image does not have fails, so a renamed platform cannot
 #     turn the check into a no-op. kinboard-aio uses it for the glibc runtime
-#     its arm64 PostgREST brings along (webapp/docker/aio/Dockerfile).
+#     its arm64 PostgREST brings along (webapp/image/aio/Dockerfile).
 #
 # Used by the merge job after it pushes the list, and by hand against a local
 # registry:

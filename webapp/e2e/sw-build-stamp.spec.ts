@@ -22,7 +22,7 @@ import vm from "node:vm";
 
 const WEBAPP = join(__dirname, "..");
 const REPO = join(WEBAPP, "..");
-const dockerfile = readFileSync(join(WEBAPP, "docker", "Dockerfile"), "utf8");
+const dockerfile = readFileSync(join(WEBAPP, "image", "Dockerfile"), "utf8");
 
 /** The shell command(s) in the builder RUN that write public/sw.js. */
 function stampingCommands(): string {
@@ -122,14 +122,14 @@ test.describe("every build path passes the revision", () => {
   test("CI passes BUILD_REVISION to every image build", () => {
     const wf = readFileSync(join(REPO, ".github", "workflows", "docker.yml"), "utf8");
     // The webapp's builds; kinboard-updater (Dockerfile.webhook) and
-    // kinboard-postgres (context webapp/docker/postgres) serve no sw.js.
+    // kinboard-postgres (context webapp/image/postgres) serve no sw.js.
     const builds = wf.split("uses: docker/build-push-action@").slice(1)
       .filter((b) => !b.split(/\n\s*- (name|uses):/)[0].includes("file: webapp/docker/Dockerfile.webhook"))
       .filter((b) => /\n\s*context: webapp\n/.test(b));
     expect(builds.length).toBeGreaterThan(0);
     expect(wf.split("uses: docker/build-push-action@").length - 1, "the webapp's, the updater's, kinboard-postgres's and kinboard-aio's").toBe(builds.length + 3);
     // kinboard-aio is FROM the webapp image (its sw.js is the webapp's), and records the same revision.
-    const aio = wf.split("uses: docker/build-push-action@").slice(1).find((b) => b.includes("file: webapp/docker/aio/Dockerfile"));
+    const aio = wf.split("uses: docker/build-push-action@").slice(1).find((b) => b.includes("file: webapp/image/aio/Dockerfile"));
     expect(aio).toMatch(/BUILD_REVISION=\$\{\{ steps\.app\.outputs\.short \}\}/);
     for (const b of builds) {
       const step = b.split(/\n\s*- (name|uses):/)[0];

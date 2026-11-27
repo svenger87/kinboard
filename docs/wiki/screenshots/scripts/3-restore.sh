@@ -34,7 +34,8 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
 fi
 
 echo "Applying schema migrations to bring demo up to prod's level…"
-# Prod has these applied via webapp/deploy.sh step 1. Without them, columns
+# Prod has these applied by the webapp's entrypoint, which runs
+# webapp/docker/migrate.sh on every start. Without them, columns
 # like events.person_id don't exist in our fresh init.sql schema and the
 # data restore fails with "column does not exist" on every event row.
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"

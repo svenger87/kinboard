@@ -17,7 +17,8 @@ import { codeOnly } from "./source-helpers";
  */
 
 const DOCKER = join(__dirname, "..", "docker");
-const read = (file: string) => readFileSync(join(DOCKER, file), "utf8");
+const IMAGE = join(__dirname, "..", "image");
+const read = (file: string) => readFileSync(join(file.startsWith("migrations/") ? DOCKER : IMAGE, file), "utf8");
 
 test("the entrypoint records the server's zone after the migrations, as a psql variable", () => {
   const sh = read("webapp-entrypoint.sh");

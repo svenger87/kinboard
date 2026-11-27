@@ -71,10 +71,14 @@ A beautiful, real-time family calendar dashboard built with Next.js 14 and Supab
 
 ```
 webapp/
-├── docker/                 # Docker deployment files
-│   ├── docker-compose.yml  # Full stack (Supabase + App)
+├── docker/                 # What a git install runs: start.sh, compose files, migrations
+│   ├── docker-compose.yml  # The stack
 │   ├── init.sql           # Database schema
-│   └── Dockerfile         # Next.js production build
+│   └── migrations/        # Schema changes, applied in order
+├── image/                  # What the published images are built from
+│   ├── Dockerfile         # Next.js production build (the webapp image)
+│   ├── aio/               # kinboard-aio, the all-in-one image
+│   └── postgres/          # kinboard-postgres
 ├── src/
 │   ├── app/               # Next.js App Router pages
 │   ├── components/

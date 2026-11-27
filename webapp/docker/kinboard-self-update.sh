@@ -62,7 +62,7 @@
 # Idempotent: re-running when nothing changed is a fast no-op, backup
 # included — nothing is dumped unless the pull actually changed an image.
 #
-# Required env / mounts (configured by docker-compose.diun.yml.example):
+# Required env / mounts (configured by docker-compose.diun.yml):
 #   PROJECT_DIR    project root (bind-mounted from host), a git checkout
 #   COMPOSE_FILES  space-separated -f flags for the host's stack overlay
 #                  set, e.g. "-f docker-compose.yml -f docker-compose.traefik.yml -f ..."
@@ -2677,12 +2677,41 @@ if [ "$MODE" = update ]; then
           rm -f "$f"
         fi
       done
+      # A tracked file with a local edit stops a fast-forward as well, even
+      # when the edit was a copy we asked for: until 1.18 the wiki said
+      # `cp docker-compose.diun.yml.example docker-compose.diun.yml`, over the
+      # tracked file. Git refuses even when the copy equals what it would
+      # write. A file whose content is exactly a version this repository has
+      # had at that path, or at that path plus .example, is nobody's own
+      # work, so it is put back to the checkout's version, which the pull then
+      # moves on (a copy stays in .git/kinboard-local-copies). Anything else is
+      # left alone. Skip-worktree files (kong.yml and diun/diun.yml on some
+      # installs, holding keys) are not listed by `git diff`, so never touched.
+      git diff --name-only HEAD 2>/dev/null | while IFS= read -r f; do
+        [ -f "$f" ] && [ -n "$(git diff --name-only HEAD origin/main -- "$f" 2>/dev/null)" ] || continue
+        blob="$(git hash-object -- "$f" 2>/dev/null || true)"
+        [ -n "$blob" ] || continue
+        if git log --format= --raw --no-abbrev origin/main -- "$f" "$f.example" 2>/dev/null \
+            | awk '{ print $3; print $4 }' | grep -qx "$blob"; then
+          mkdir -p "$GIT_DIR_ABS/kinboard-local-copies" 2>/dev/null || true
+          cp -p "$f" "$GIT_DIR_ABS/kinboard-local-copies/$(printf '%s' "$f" | tr '/' '_').$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || true
+          if git checkout -- "$f" 2>/dev/null; then
+            log "  put back $f: its local content is a version this repository shipped (copied from an example), not an edit of your own"
+          fi
+        fi
+      done
       if git pull --ff-only origin main >>"$LOG_FILE" 2>&1; then
         log "pulled $REMOTE_SHA after clearing collisions"
       else
         # Still stuck (local commits, real conflicts). Do not abort — the image
         # pull is the point, and new migrations ride in the image regardless.
         log "WARN: git still behind at $LOCAL_SHA; continuing to image pull anyway"
+        stuck="$(git diff --name-only HEAD 2>/dev/null | while IFS= read -r f; do
+          [ -z "$(git diff --name-only HEAD origin/main -- "$f" 2>/dev/null)" ] || printf '%s ' "$f"; done)"
+        if [ -n "$stuck" ]; then
+          log "WARN: these files have local edits that this release changes too: $stuck"
+          log "WARN: keep your edits elsewhere (an overlay of your own), then: git -C $PROJECT_DIR checkout -- $stuck"
+        fi
       fi
     else
       log "pulled $REMOTE_SHA"

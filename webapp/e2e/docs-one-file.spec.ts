@@ -136,17 +136,17 @@ test.describe("the secret files Self-hosting lists", () => {
 
   test("are the files kinboard-init writes", async () => {
     // The webapp's store (secrets-store.mjs STORED) plus db_uri, which only the init step writes.
-    const store = read("webapp/docker/secrets-store.mjs");
+    const store = read("webapp/image/secrets-store.mjs");
     const stored = [...store.matchAll(/\{ env: "[A-Z_]+", file: "([a-z_]+)"/g)].map((m) => m[1]);
     expect(stored).toHaveLength(6);
-    expect(read("webapp/docker/kinboard-init.mjs")).toContain('export const DB_URI_FILE = "db_uri";');
+    expect(read("webapp/image/kinboard-init.mjs")).toContain('export const DB_URI_FILE = "db_uri";');
     expect(listedFiles(SELF)).toEqual([...stored, "db_uri"].sort());
     // A file dropped from the table is caught.
     expect(listedFiles(SELF.replace("| `cron_secret` |", "| (gone) |"))).not.toContain("cron_secret");
   });
 
   test("the modes and the log words are the init step's", () => {
-    const init = read("webapp/docker/kinboard-init.mjs");
+    const init = read("webapp/image/kinboard-init.mjs");
     expect(init).toContain("export const DIR_MODE = 0o750;");
     expect(init).toContain("export const FILE_MODE = 0o640;");
     expect(SELF).toContain("The folder is mode `0750` and the files `0640`");
@@ -160,7 +160,7 @@ test.describe("the secret files Self-hosting lists", () => {
 /* -------------------------------------------------------------- messages */
 
 test("the messages the docs quote are the ones the code prints", () => {
-  const init = read("webapp/docker/kinboard-init.mjs");
+  const init = read("webapp/image/kinboard-init.mjs");
   expect(init).toContain("PostgreSQL can't keep its data on a FAT filesystem");
   expect(flat(UI_PAGE)).toContain("PostgreSQL can't keep its data on a FAT filesystem");
   expect(init).toContain("POSTGRES_PASSWORD in the environment (.env, or the Compose UI's variables) differs from the ");

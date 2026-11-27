@@ -9,7 +9,7 @@ The releases below are the exceptions.
 
 ## 1.18 — a one-file install, and nothing changes for yours
 
-**Nothing to do.** An install made with `git clone`, `setup.sh` or the
+**Nothing to do**, unless you once copied `docker-compose.diun.yml.example` (below). An install made with `git clone`, `setup.sh` or the
 one-line installer updates exactly as before: `git pull` and `./start.sh up`,
 or the Diun auto-update. Its `webapp/docker/docker-compose.yml`, `.env`,
 overlays and data folder are not touched, no new folder appears in `DATA_DIR`,
@@ -35,6 +35,22 @@ Manager, Dockge) or want no git checkout:
 install with the one-line installer gets this file. The wiki's
 [Compose UIs](https://github.com/svenger87/kinboard/wiki/Compose-UIs) page
 has the steps for each tool.
+
+### If you copied `docker-compose.diun.yml.example`
+
+Earlier wiki pages said to copy `docker-compose.diun.yml.example` over
+`docker-compose.diun.yml`. 1.18 deletes the example and changes the tracked
+file, and git refuses to update a tracked file you changed, even to the same
+content. The 1.17 auto-update then logs `git still behind` and goes on with
+the new image on your old compose files. Once, in your Kinboard folder:
+
+```bash
+git checkout -- webapp/docker/docker-compose.diun.yml
+docker exec kinboard-webhook sh -c 'sh "$PROJECT_DIR/webapp/docker/kinboard-self-update.sh"'
+```
+
+The second line runs the update now instead of at the next release. From 1.18
+on the auto-update puts such a copy back by itself.
 
 ### Moving an existing install to it
 

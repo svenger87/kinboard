@@ -132,7 +132,7 @@ BUILT=""
 if [ "${RIG_BUILD:-0}" = 1 ] && [ -z "${RIG_IMAGE:-}" ]; then
   RIG_IMAGE="kbstore-rig:$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD)"
   say "Building this checkout's webapp image ($RIG_IMAGE)"
-  timeout 2400 "${SLOT[@]}" docker build -q -f "$REPO_ROOT/webapp/docker/Dockerfile" -t "$RIG_IMAGE" "$REPO_ROOT/webapp" >/dev/null \
+  timeout 2400 "${SLOT[@]}" docker build -q -f "$REPO_ROOT/webapp/image/Dockerfile" -t "$RIG_IMAGE" "$REPO_ROOT/webapp" >/dev/null \
     || { red "webapp build failed"; exit 1; }
   BUILT="$RIG_IMAGE"
 fi

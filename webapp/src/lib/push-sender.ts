@@ -64,7 +64,7 @@ export type DeactivateVerdict = "gone" | "suspect" | false;
  * expression at build time with whatever the build machine had, in server
  * code too, so a baked public key could pair with another install's private
  * one. The entrypoint may also take these from the secrets store at start
- * (docker/secrets-store.mjs), which no build can know.
+ * (image/secrets-store.mjs), which no build can know.
  */
 function getVapidConfig(env: Record<string, string | undefined> = process.env) {
   // Try VAPID_PUBLIC_KEY first (server-only), fall back to NEXT_PUBLIC_ variant

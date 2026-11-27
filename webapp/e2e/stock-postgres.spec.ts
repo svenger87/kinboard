@@ -18,7 +18,8 @@ import { codeOnly } from "./source-helpers";
 
 const ROOT = join(__dirname, "..", "..");
 const DOCKER = join(__dirname, "..", "docker");
-const PG = join(DOCKER, "postgres");
+const IMAGE = join(__dirname, "..", "image");
+const PG = join(IMAGE, "postgres");
 const read = (p: string) => readFileSync(p, "utf8");
 
 test.describe("kinboard-postgres-guard.sh", () => {
@@ -133,7 +134,7 @@ test.describe("the kinboard-postgres image", () => {
 });
 
 test.describe("the role bootstrap (stock-postgres-bootstrap.sql)", () => {
-  const sql = codeOnly(read(join(DOCKER, "stock-postgres-bootstrap.sql")), { sql: true });
+  const sql = codeOnly(read(join(IMAGE, "stock-postgres-bootstrap.sql")), { sql: true });
   const role = (name: string) => {
     const m = new RegExp(`CREATE ROLE ${name}\\s+([^;]+);`).exec(sql);
     expect(m, `CREATE ROLE ${name}`).not.toBeNull();
@@ -184,8 +185,8 @@ test.describe("the role bootstrap (stock-postgres-bootstrap.sql)", () => {
   });
 
   test("it reaches the image next to init.sql, and kinboard-db-init runs it from there", () => {
-    expect(read(join(DOCKER, "Dockerfile"))).toContain("COPY docker/stock-postgres-bootstrap.sql ./initdb/stock-postgres-bootstrap.sql");
-    expect(read(join(DOCKER, "kinboard-db-init.sh"))).toContain('BOOTSTRAP_SQL="${KINBOARD_BOOTSTRAP_SQL:-/app/initdb/stock-postgres-bootstrap.sql}"');
+    expect(read(join(IMAGE, "Dockerfile"))).toContain("COPY image/stock-postgres-bootstrap.sql ./initdb/stock-postgres-bootstrap.sql");
+    expect(read(join(IMAGE, "kinboard-db-init.sh"))).toContain('BOOTSTRAP_SQL="${KINBOARD_BOOTSTRAP_SQL:-/app/initdb/stock-postgres-bootstrap.sql}"');
   });
 });
 
@@ -215,7 +216,7 @@ test.describe("wiring", () => {
     expect(code.match(/kinboard-postgres/g)).toHaveLength(1);
     expect(code).toContain("images: ${{ env.REGISTRY }}/${{ env.POSTGRES_IMAGE_NAME }}");
     const jobs = dockerYml.slice(dockerYml.indexOf("\n  postgres-build:"), dockerYml.indexOf("\n  postgres-merge:"));
-    expect(jobs).toContain("file: webapp/docker/postgres/Dockerfile");
+    expect(jobs).toContain("file: webapp/image/postgres/Dockerfile");
     expect(jobs).toContain("provenance: mode=max");
     expect(jobs).toContain("sbom: true");
     const merge = dockerYml.slice(dockerYml.indexOf("\n  postgres-merge:"));

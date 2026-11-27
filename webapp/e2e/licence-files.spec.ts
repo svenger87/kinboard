@@ -34,7 +34,7 @@ test("the data LICENSE ships beside the data", () => {
 });
 
 test("the image copies both licences and fails its build without them", () => {
-  const dockerfile = read("docker/Dockerfile");
+  const dockerfile = read("image/Dockerfile");
   expect(dockerfile).toContain("COPY --from=builder /app/NOTICE ./licenses/NOTICE");
   expect(dockerfile).toContain("COPY --from=builder /app/src/lib/holidays/data/LICENSE ./licenses/date-holidays-LICENSE");
   expect(dockerfile).toContain("RUN test -f ./licenses/NOTICE && test -f ./licenses/date-holidays-LICENSE");
@@ -70,7 +70,7 @@ test("the fonts ship with their OFL, NOTICE names them, and the image carries th
     "zcool-kuaile",
   ]);
   const notice = flat(read("NOTICE"));
-  const dockerfile = read("docker/Dockerfile");
+  const dockerfile = read("image/Dockerfile");
   for (const dir of dirs) {
     const files = readdirSync(join(process.cwd(), "src/assets/fonts", dir));
     expect(files.filter((f) => f.endsWith(".woff2")).length, dir).toBeGreaterThan(0);

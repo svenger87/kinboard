@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 /**
- * RFC-024 phase 5: the all-in-one image, kinboard-aio (webapp/docker/aio/).
+ * RFC-024 phase 5: the all-in-one image, kinboard-aio (webapp/image/aio/).
  *
  * What can be checked without Docker: the image is the webapp's own build
  * plus PostgreSQL, PostgREST and s6 (same pins as the compose shape); the s6
@@ -20,7 +20,8 @@ import { join } from "node:path";
 
 const ROOT = join(__dirname, "..", "..");
 const DOCKER = join(__dirname, "..", "docker");
-const AIO = join(DOCKER, "aio");
+const IMAGE = join(__dirname, "..", "image");
+const AIO = join(IMAGE, "aio");
 const LIB = join(AIO, "rootfs", "usr", "local", "lib", "kinboard-aio");
 const S6 = join(AIO, "rootfs", "etc", "s6-overlay", "s6-rc.d");
 const read = (p: string) => readFileSync(p, "utf8");
@@ -37,7 +38,7 @@ test.describe("one build, two shapes (RFC-024 §2, §4.5)", () => {
   });
 
   test("safeupdate is the same pinned release and checksum as kinboard-postgres's", () => {
-    const pg = read(join(DOCKER, "postgres", "Dockerfile"));
+    const pg = read(join(IMAGE, "postgres", "Dockerfile"));
     for (const arg of ["SAFEUPDATE_VERSION", "SAFEUPDATE_SHA256"]) {
       const want = new RegExp(`^ARG ${arg}=(\\S+)$`, "m");
       expect(dockerfile.match(want)?.[1], arg).toBe(pg.match(want)?.[1]);
@@ -334,7 +335,7 @@ test.describe("kinboard-backup.sh: a verified dump or nothing (RFC-024 §4.7)", 
   test("a good dump: verified, 0600, under its final name, its path printed", () => {
     const dir = mkdtempSync(join(tmpdir(), "kb-bk-"));
     try {
-      const r = run("sh", [join(DOCKER, "kinboard-backup.sh"), join(dir, "out"), "pre-migrate"], { PG_DUMPALL: stub(dir, good) });
+      const r = run("sh", [join(IMAGE, "kinboard-backup.sh"), join(dir, "out"), "pre-migrate"], { PG_DUMPALL: stub(dir, good) });
       expect(r.status, r.stderr).toBe(0);
       const file = r.stdout.trim();
       expect(file).toMatch(/\/pre-migrate-\d{8}T\d{6}Z\.sql\.gz$/);
@@ -353,7 +354,7 @@ test.describe("kinboard-backup.sh: a verified dump or nothing (RFC-024 §4.7)", 
     test(`red: ${label} -> no file, non-zero`, () => {
       const dir = mkdtempSync(join(tmpdir(), "kb-bk-"));
       try {
-        const r = run("sh", [join(DOCKER, "kinboard-backup.sh"), join(dir, "out"), "pre-migrate"], { PG_DUMPALL: stub(dir, body) });
+        const r = run("sh", [join(IMAGE, "kinboard-backup.sh"), join(dir, "out"), "pre-migrate"], { PG_DUMPALL: stub(dir, body) });
         expect(r.status).toBe(1);
         expect(r.stderr).toContain(why);
         expect(r.stdout).toBe("");
@@ -366,12 +367,12 @@ test.describe("kinboard-backup.sh: a verified dump or nothing (RFC-024 §4.7)", 
     const dir = mkdtempSync(join(tmpdir(), "kb-bk-"));
     try {
       writeFileSync(join(dir, "file"), "x");
-      expect(run("sh", [join(DOCKER, "kinboard-backup.sh"), join(dir, "file"), "pre-migrate"], { PG_DUMPALL: stub(dir, good) }).status).toBe(1);
+      expect(run("sh", [join(IMAGE, "kinboard-backup.sh"), join(dir, "file"), "pre-migrate"], { PG_DUMPALL: stub(dir, good) }).status).toBe(1);
       const out = join(dir, "out");
       mkdirSync(out);
       for (let i = 0; i < 6; i++) writeFileSync(join(out, `pre-migrate-2020010${i}T000000Z.sql.gz`), "old");
       writeFileSync(join(out, "pre-pg18-upgrade-20200101T000000Z.sql.gz"), "another prefix");
-      expect(run("sh", [join(DOCKER, "kinboard-backup.sh"), out, "pre-migrate"], { PG_DUMPALL: stub(dir, good) }).status).toBe(0);
+      expect(run("sh", [join(IMAGE, "kinboard-backup.sh"), out, "pre-migrate"], { PG_DUMPALL: stub(dir, good) }).status).toBe(0);
       const left = readdirSync(out).sort();
       expect(left.filter((n) => n.startsWith("pre-migrate-"))).toHaveLength(5);
       expect(left).toContain("pre-pg18-upgrade-20200101T000000Z.sql.gz");
@@ -432,7 +433,7 @@ test.describe("migrate.sh --pending: what would apply, applying nothing (RFC-024
 /* ----------------------------------------------- the entrypoint's guarantees */
 
 test.describe("the entrypoint's start guarantees (RFC-024 §4.7), off for compose", () => {
-  const entry = read(join(DOCKER, "webapp-entrypoint.sh"));
+  const entry = read(join(IMAGE, "webapp-entrypoint.sh"));
 
   test("a verified dump before the migrations run, or exit 100", () => {
     const gate = entry.indexOf('if [ -n "${KINBOARD_MIGRATE_BACKUP_DIR:-}" ]');
@@ -466,9 +467,9 @@ test.describe("the entrypoint's start guarantees (RFC-024 §4.7), off for compos
 
   test("`kinboard` passes through the entrypoint like the one-shot steps", () => {
     expect(entry).toMatch(/kinboard-init \| kinboard-db-init \| kinboard\)/);
-    const df = read(join(DOCKER, "Dockerfile"));
+    const df = read(join(IMAGE, "Dockerfile"));
     expect(df).toContain("exec node /app/kinboard-transfer.mjs");
-    expect(df).toContain("COPY docker/kinboard-transfer.mjs docker/kinboard-backup.sh docker/storage-api-move.sh ./");
+    expect(df).toContain("COPY image/kinboard-transfer.mjs image/kinboard-backup.sh image/storage-api-move.sh ./");
   });
 });
 
@@ -485,7 +486,7 @@ interface TransferModule {
   TRANSFERRED_SECRETS: string[];
   FORMAT: string;
 }
-const transferMod = import("../docker/kinboard-transfer.mjs") as unknown as Promise<TransferModule>;
+const transferMod = import("../image/kinboard-transfer.mjs") as unknown as Promise<TransferModule>;
 
 const manifest = () => ({
   format: "kinboard-export",
@@ -563,14 +564,14 @@ test.describe("kinboard export / import (RFC-024 §4.4)", () => {
   });
 
   test("export: every tar invocation has one -C (busybox tar honours only the last one)", () => {
-    const src = read(join(DOCKER, "kinboard-transfer.mjs"));
+    const src = read(join(IMAGE, "kinboard-transfer.mjs"));
     const calls = [...src.matchAll(/\[("-czf"[^\]]*)\]/g)].map((m) => m[1]);
     expect(calls.length).toBeGreaterThanOrEqual(2);
     for (const c of calls) expect(c.split('"-C"').length - 1, c).toBe(1);
   });
 
   test("the import runs nothing from the archive as SQL: rows only through COPY into the target's own catalog", () => {
-    const src = read(join(DOCKER, "kinboard-transfer.mjs"));
+    const src = read(join(IMAGE, "kinboard-transfer.mjs"));
     const imp = src.slice(src.indexOf("export function importArchive"));
     expect(imp).toContain("SET LOCAL session_replication_role = replica;");
     expect(imp).toMatch(/\\\\copy \$\{qualified\(h\)\} \(\$\{h\.columns\.map\(ident\)/);
@@ -587,7 +588,7 @@ interface InitModule {
   PRIVATE_MODES: { dir: number; file: number; postgrest: boolean };
   SHARED_MODES: { dir: number; file: number; postgrest: boolean };
 }
-const initMod = import("../docker/kinboard-init.mjs") as unknown as Promise<InitModule>;
+const initMod = import("../image/kinboard-init.mjs") as unknown as Promise<InitModule>;
 
 test.describe("kinboard-init in the all-in-one image: 0600 secrets in a 0700 folder (RFC-024 §6.3)", () => {
   for (const kind of ["PRIVATE_MODES", "SHARED_MODES"] as const) {
@@ -629,7 +630,7 @@ test("PUID/PGID: a leading zero is refused (\"000\" is root to su-exec, not to a
       expect(r.stderr, `${puid}:${pgid}`).toMatch(/without leading zeros|must not be 0/);
       expect(existsSync(join(dir, "data")), "nothing created").toBe(false);
     }
-    expect(read(join(DOCKER, "webapp-entrypoint.sh"))).toContain("*[!0-9]* | 0?* )");
+    expect(read(join(IMAGE, "webapp-entrypoint.sh"))).toContain("*[!0-9]* | 0?* )");
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -663,7 +664,7 @@ test.describe("no write through a planted symlink", () => {
   });
 
   test("the entrypoint's records: written by the run user through a new name and a rename, never `>` as root", () => {
-    const entry = read(join(DOCKER, "webapp-entrypoint.sh"));
+    const entry = read(join(IMAGE, "webapp-entrypoint.sh"));
     const block = entry.slice(entry.indexOf("as_run_user() {"), entry.indexOf("if [ -n \"${KINBOARD_MIGRATE_BACKUP_DIR:-}\" ]"));
     // Nothing redirects into, moves within or removes from START_STATE except these helpers.
     const rest = entry.replace(block, "");
@@ -711,7 +712,7 @@ test.describe("no write through a planted symlink", () => {
       link(files, join(sb.dir, "linked-files"));
       expect(() => t.asOwnerOf(join(sb.dir, "linked-files"), () => writeFileSync(join(sb.dir, "linked-files", "x"), "x"))).toThrow(/not a plain folder/);
       expect(existsSync(join(files, "x"))).toBe(false);
-      const src = read(join(DOCKER, "kinboard-transfer.mjs"));
+      const src = read(join(IMAGE, "kinboard-transfer.mjs"));
       const imp = src.slice(src.indexOf("export function importArchive"));
       expect(imp).toContain("...oddEntries(filesDir), ...oddEntries(secretsDir)");
       expect(imp).toContain('writeFileSync(dst, bytes, { flag: "wx", mode: 0o644 })');
@@ -732,7 +733,7 @@ test.describe("storage-api-move.sh: as the server's user, sources only inside th
     mkdirSync(join(secret, "a.jpg"), { recursive: true });
     writeFileSync(join(secret, "a.jpg", "v1"), "SECRET");
     const put = (rel: string, body = "photo") => { mkdirSync(dirname(join(legacy, rel)), { recursive: true }); writeFileSync(join(legacy, rel), body); };
-    const move = (rows: string) => run("sh", [join(DOCKER, "storage-api-move.sh"), files, legacy], {}, rows);
+    const move = (rows: string) => run("sh", [join(IMAGE, "storage-api-move.sh"), files, legacy], {}, rows);
     return { dir, legacy, files, secret, put, move, done: () => rmSync(dir, { recursive: true, force: true }) };
   }
   const dirname = (p: string) => p.slice(0, p.lastIndexOf("/"));
@@ -781,7 +782,7 @@ test.describe("storage-api-move.sh: as the server's user, sources only inside th
   });
 
   test("the entrypoint runs it as the server's user, and hands the old tree over without following links", () => {
-    const entry = read(join(DOCKER, "webapp-entrypoint.sh"));
+    const entry = read(join(IMAGE, "webapp-entrypoint.sh"));
     expect(entry).toContain('su-exec "$RUN_AS" sh /app/storage-api-move.sh "$FILES_DIR" "$legacy" <"$list"');
     expect(entry).toMatch(/if \[ -d "\$legacy\/stub" \] && \[ ! -L "\$legacy\/stub" \]; then\n\s+chown -R -h "\$RUN_AS" "\$legacy\/stub"/);
     expect(entry).not.toMatch(/\bln "\$src"|cp -p "\$src"/);
@@ -818,7 +819,7 @@ test.describe("kinboard import: nothing read through a link, and resumable", () 
       expect(() => t.readPlain(join(dir, "swapped"), "utf8")).toThrow();
       expect(() => t.readPlain(join(dir, "hard"), "utf8")).toThrow(/hard link/);
     // The hashing of uploaded files (root, in a folder its owner can change) opens the same way.
-    expect(read(join(DOCKER, "kinboard-transfer.mjs"))).toMatch(/function sha256File\(path\) \{\n[^}]*openSync\(path, constants\.O_RDONLY \| constants\.O_NOFOLLOW\)/);
+    expect(read(join(IMAGE, "kinboard-transfer.mjs"))).toMatch(/function sha256File\(path\) \{\n[^}]*openSync\(path, constants\.O_RDONLY \| constants\.O_NOFOLLOW\)/);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -839,7 +840,7 @@ test.describe("kinboard import: nothing read through a link, and resumable", () 
         expect(statSync(x).mode & 0o777).toBe(0o700);
       } finally { rmSync(dir, { recursive: true, force: true }); }
     }
-    const src = read(join(DOCKER, "kinboard-transfer.mjs"));
+    const src = read(join(IMAGE, "kinboard-transfer.mjs"));
     const imp = src.slice(src.indexOf("export function importArchive"));
     // root's every read of the archive goes through readPlain, after takeOver.
     expect(imp.indexOf("takeOver(x);")).toBeLessThan(imp.indexOf('readPlain(join(x, "manifest.json")'));
@@ -867,7 +868,7 @@ test.describe("kinboard import: nothing read through a link, and resumable", () 
       expect(read(join(secrets, "jwt_secret"))).toBe("original");
       expect(existsSync(join(secrets, "vapid_public_key"))).toBe(false);
     } finally { rmSync(dir, { recursive: true, force: true }); }
-    const src = read(join(DOCKER, "kinboard-transfer.mjs"));
+    const src = read(join(IMAGE, "kinboard-transfer.mjs"));
     const imp = src.slice(src.indexOf("export function importArchive"));
     const at = (needle: string) => { const i = imp.indexOf(needle); expect(i, needle).toBeGreaterThan(0); return i; };
     // The record first, then the files and secrets, then the commit, then the record goes.
@@ -881,7 +882,7 @@ test.describe("kinboard import: nothing read through a link, and resumable", () 
   });
 
   test("export: no child is spawned while the effective user is dropped (it could not take a gid)", () => {
-    const src = read(join(DOCKER, "kinboard-transfer.mjs"));
+    const src = read(join(IMAGE, "kinboard-transfer.mjs"));
     const exp = src.slice(src.indexOf("export function exportArchive"), src.indexOf("export function archiveEntryProblems"));
     expect(exp).not.toMatch(/asOwnerOf\([^;]*\(ids\) =>/);
     expect(exp).toContain("const as = ownerIds(parent);");
@@ -983,7 +984,7 @@ test.describe("third review: the import's record, the secrets reader", () => {
   });
 
   test("the secrets reader refuses a symlink where readFileSync would follow it (red)", async () => {
-    const m = (await import("../docker/secrets-store.mjs" as string)) as { resolveSecrets(env: Record<string, string>, o: { dir: string }): { values: Record<string, string>; errors: string[] } };
+    const m = (await import("../image/secrets-store.mjs" as string)) as { resolveSecrets(env: Record<string, string>, o: { dir: string }): { values: Record<string, string>; errors: string[] } };
     const d = dirs();
     try {
       writeFileSync(join(d.dir, "root-only"), "ROOT ONLY");
@@ -1002,7 +1003,7 @@ test.describe("third review: the import's record, the secrets reader", () => {
     const perms = read(join(LIB, "init-perms.sh"));
     expect(perms).toContain('as_user chmod 0700 "$DATA/db" "$DATA/config"');
     expect(perms).not.toMatch(/^chmod 0700 "\$DATA/m);
-    const src = read(join(DOCKER, "kinboard-transfer.mjs"));
+    const src = read(join(IMAGE, "kinboard-transfer.mjs"));
     const to = src.slice(src.indexOf("export function takeOver"));
     expect(to.indexOf("checkExtracted(x);")).toBeLessThan(to.indexOf('"chown"'));
   });

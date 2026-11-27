@@ -160,7 +160,7 @@ build_head_image() {
       [ -n "$n" ] && needles+=("$n")
     done < <(sed -n 's/^NEXT_PUBLIC_[A-Z_]*=["'\'']\{0,1\}https\{0,1\}:\/\/\([^"'\''/ ]*\).*/\1/p' "$env_local" | sort -u)
   fi
-  docker build -q -f "$REPO_ROOT/webapp/docker/Dockerfile" \
+  docker build -q -f "$REPO_ROOT/webapp/image/Dockerfile" \
     --build-arg BUILD_REVISION="$(git -C "$REPO_ROOT" rev-parse --short=7 HEAD)" \
     -t "$HEAD_IMAGE" "$REPO_ROOT/webapp" | tail -1
   # The same check the runbook demands before any local image is deployed.

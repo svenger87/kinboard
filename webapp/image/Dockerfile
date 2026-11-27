@@ -233,26 +233,26 @@ RUN test -f ./licenses/NOTICE && test -f ./licenses/date-holidays-LICENSE && tes
 # Bake migrations, their runner and the entrypoint (with the secrets-store
 # reader it runs first, RFC-023 §4.1) into the image. The
 # entrypoint applies migrations against the db before exec'ing the Next.js
-# server — see webapp/docker/webapp-entrypoint.sh. This is the path every
+# server — see webapp/image/webapp-entrypoint.sh. This is the path every
 # self-hoster update relies on; `./start.sh migrate` runs the same migrate.sh
 # from the host.
 COPY --chown=nextjs:nodejs docker/migrations/ ./migrations/
-COPY --chown=nextjs:nodejs docker/migrate.sh docker/webapp-entrypoint.sh docker/secrets-store.mjs docker/cron-call.sh ./
+COPY --chown=nextjs:nodejs docker/migrate.sh image/webapp-entrypoint.sh image/secrets-store.mjs image/cron-call.sh ./
 # The one-shot steps of a one-file install (RFC-023 PR 2): kinboard-init fills
 # in the secrets store, kinboard-db-init aligns authenticator's password and
 # applies the base schema to an empty database. init.sql is the same file the
 # legacy compose file bind-mounts into the db container, copied byte for byte
 # (e2e/kinboard-init.spec.ts and test-fresh-install.sh check that).
-COPY docker/kinboard-init.mjs docker/kinboard-db-init.sh ./
+COPY image/kinboard-init.mjs image/kinboard-db-init.sh ./
 COPY docker/init.sql ./initdb/init.sql
 # The role bootstrap kinboard-db-init runs on stock PostgreSQL only (RFC-024 §4.2.1).
-COPY docker/stock-postgres-bootstrap.sql ./initdb/stock-postgres-bootstrap.sql
+COPY image/stock-postgres-bootstrap.sql ./initdb/stock-postgres-bootstrap.sql
 # Moving between the compose shape and the all-in-one image (RFC-024 §4.4):
 # `kinboard export` and `kinboard import`, the same command in both images.
 # kinboard-backup.sh is the verified dump the all-in-one image takes before a
 # pending migration or a PostgreSQL major upgrade (§4.7); nothing in the
 # compose shape calls it.
-COPY docker/kinboard-transfer.mjs docker/kinboard-backup.sh docker/storage-api-move.sh ./
+COPY image/kinboard-transfer.mjs image/kinboard-backup.sh image/storage-api-move.sh ./
 USER root
 RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh ./cron-call.sh ./kinboard-db-init.sh ./kinboard-backup.sh \
  && printf '#!/bin/sh\nexec node /app/kinboard-init.mjs "$@"\n' > /usr/local/bin/kinboard-init \

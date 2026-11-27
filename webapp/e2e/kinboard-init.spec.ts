@@ -47,10 +47,11 @@ interface StoreModule {
   resolveSecrets(env: Record<string, string>, opts?: { dir?: string }): { values: Record<string, string>; errors: string[] };
   fileValue(content: string): string;
 }
-const init: Promise<InitModule> = import("../docker/kinboard-init.mjs");
-const store: Promise<StoreModule> = import("../docker/secrets-store.mjs");
+const init: Promise<InitModule> = import("../image/kinboard-init.mjs");
+const store: Promise<StoreModule> = import("../image/secrets-store.mjs");
 
 const DOCKER = join(__dirname, "..", "docker");
+const IMAGE = join(__dirname, "..", "image");
 const SECRET_FILES = ["postgres_password", "jwt_secret", "cron_secret", "presence_sensor_token", "vapid_public_key", "vapid_private_key"];
 const ENV_OF: Record<string, string> = {
   postgres_password: "POSTGRES_PASSWORD", jwt_secret: "JWT_SECRET", cron_secret: "CRON_SECRET",
@@ -551,7 +552,7 @@ test.describe("idempotence", () => {
 });
 
 test.describe("as a process", () => {
-  const SCRIPT = join(DOCKER, "kinboard-init.mjs");
+  const SCRIPT = join(IMAGE, "kinboard-init.mjs");
   const exec = (env: Record<string, string>) =>
     spawnSync(process.execPath, [SCRIPT], {
       env: { ...process.env, KINBOARD_CONFIG_ROOT: r.configDir, KINBOARD_DB_MOUNT: r.dbDir, ...env },
@@ -579,8 +580,8 @@ test.describe("as a process", () => {
 });
 
 test.describe("wiring", () => {
-  const entry = readFileSync(join(DOCKER, "webapp-entrypoint.sh"), "utf8");
-  const dockerfile = readFileSync(join(DOCKER, "Dockerfile"), "utf8");
+  const entry = readFileSync(join(IMAGE, "webapp-entrypoint.sh"), "utf8");
+  const dockerfile = readFileSync(join(IMAGE, "Dockerfile"), "utf8");
 
   test("the entrypoint hands kinboard-init and kinboard-db-init off before it reads a secret", () => {
     // (and `kinboard`, export/import, RFC-024 §4.4: e2e/aio-image.spec.ts)
@@ -591,13 +592,13 @@ test.describe("wiring", () => {
   });
 
   test("the image carries both commands and init.sql, at the paths the scripts use", () => {
-    expect(dockerfile).toMatch(/\nCOPY docker\/kinboard-init\.mjs docker\/kinboard-db-init\.sh \.\/\n/);
+    expect(dockerfile).toMatch(/\nCOPY image\/kinboard-init\.mjs image\/kinboard-db-init\.sh \.\/\n/);
     expect(dockerfile).toMatch(/\nCOPY docker\/init\.sql \.\/initdb\/init\.sql\n/);
     expect(dockerfile).toContain(`exec node /app/kinboard-init.mjs "$@"\\n' > /usr/local/bin/kinboard-init`);
     expect(dockerfile).toContain(`exec sh /app/kinboard-db-init.sh "$@"\\n' > /usr/local/bin/kinboard-db-init`);
     // kinboard-init imports the reader from its own directory.
-    expect(readFileSync(join(DOCKER, "kinboard-init.mjs"), "utf8")).toContain('from "./secrets-store.mjs"');
-    expect(dockerfile).toMatch(/COPY [^\n]*docker\/secrets-store\.mjs [^\n]*\.\/\n/);
+    expect(readFileSync(join(IMAGE, "kinboard-init.mjs"), "utf8")).toContain('from "./secrets-store.mjs"');
+    expect(dockerfile).toMatch(/COPY [^\n]*image\/secrets-store\.mjs [^\n]*\.\/\n/);
   });
 
   test("init.sql reaches the build context: .dockerignore does not exclude it", () => {
@@ -633,7 +634,7 @@ test.describe("wiring", () => {
 });
 
 test.describe("kinboard-db-init", () => {
-  const SCRIPT = join(DOCKER, "kinboard-db-init.sh");
+  const SCRIPT = join(IMAGE, "kinboard-db-init.sh");
   const source = readFileSync(SCRIPT, "utf8");
 
   /** Runs the real script with psql stubbed: it records every call and answers from a scenario. */
@@ -686,7 +687,7 @@ test.describe("kinboard-db-init", () => {
       stub("sleep", "exit 0");
       const p = spawnSync("sh", [SCRIPT], {
         env: { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}`, KINBOARD_SECRETS_DIR: join(dir, "secrets"),
-          KINBOARD_SECRETS_READER: join(DOCKER, "secrets-store.mjs"), POSTGRES_PASSWORD: "", KINBOARD_INIT_SQL: "/x/init.sql",
+          KINBOARD_SECRETS_READER: join(IMAGE, "secrets-store.mjs"), POSTGRES_PASSWORD: "", KINBOARD_INIT_SQL: "/x/init.sql",
           KINBOARD_BOOTSTRAP_SQL: "/x/bootstrap.sql" },
         encoding: "utf8",
       });
@@ -828,7 +829,7 @@ test.describe("kinboard-db-init", () => {
       writeFileSync(join(bin, "sleep"), "#!/bin/sh\nexit 0\n");
       chmodSync(join(bin, "sleep"), 0o755);
       const p = spawnSync("sh", [SCRIPT], {
-        env: { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}`, POSTGRES_PASSWORD: "pw", KINBOARD_SECRETS_READER: join(DOCKER, "secrets-store.mjs") },
+        env: { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}`, POSTGRES_PASSWORD: "pw", KINBOARD_SECRETS_READER: join(IMAGE, "secrets-store.mjs") },
         encoding: "utf8",
       });
       expect(p.status).toBe(1);
@@ -843,7 +844,7 @@ test.describe("kinboard-db-init", () => {
     const dir = mkdtempSync(join(tmpdir(), "kb-dbinit-"));
     try {
       const p = spawnSync("sh", [SCRIPT], {
-        env: { ...process.env, KINBOARD_SECRETS_DIR: join(dir, "none"), KINBOARD_SECRETS_READER: join(DOCKER, "secrets-store.mjs"), POSTGRES_PASSWORD: "" },
+        env: { ...process.env, KINBOARD_SECRETS_DIR: join(dir, "none"), KINBOARD_SECRETS_READER: join(IMAGE, "secrets-store.mjs"), POSTGRES_PASSWORD: "" },
         encoding: "utf8",
       });
       expect(p.status).toBe(1);
@@ -934,7 +935,7 @@ test.describe("after review: crashes, odd filesystems and odd files", () => {
     // empty table stands for one with nothing in it, which is not a warning.
     const res = runInit({ env: {}, configDir: r.configDir, dbDir: r.dbDir, mountinfo: "", asRoot: false });
     expect(res.ok).toBe(true);
-    const src = readFileSync(join(DOCKER, "kinboard-init.mjs"), "utf8");
+    const src = readFileSync(join(IMAGE, "kinboard-init.mjs"), "utf8");
     expect(src).toContain("/proc/self/mountinfo is missing; the filesystem checks were skipped.");
   });
 
@@ -950,7 +951,7 @@ test.describe("after review: crashes, odd filesystems and odd files", () => {
   });
 
   test("the run warns when it cannot, naming the folder", () => {
-    const src = readFileSync(join(DOCKER, "kinboard-init.mjs"), "utf8");
+    const src = readFileSync(join(IMAGE, "kinboard-init.mjs"), "utf8");
     // Not in the all-in-one image, where PostgREST runs as the folder's owner (PRIVATE_MODES).
     expect(src).toMatch(/if \(modes\.postgrest && !postgrestCanEnter\(top\)\) \{\n\s+warnings\.push\(`\$\{configDir\} is/);
   });
@@ -963,7 +964,7 @@ test.describe("the real entrypoint dispatch", () => {
       try {
         writeFileSync(join(dir, cmd), `#!/bin/sh\necho "RAN ${cmd} $*"\n`);
         chmodSync(join(dir, cmd), 0o755);
-        const p = spawnSync("sh", [join(DOCKER, "webapp-entrypoint.sh"), cmd, "a", "b"], {
+        const p = spawnSync("sh", [join(IMAGE, "webapp-entrypoint.sh"), cmd, "a", "b"], {
           // No secrets at all: reaching the reader would refuse with exit 1.
           env: { ...process.env, KINBOARD_BIN_DIR: dir, POSTGRES_PASSWORD: "", JWT_SECRET: "", KINBOARD_SECRETS_DIR: join(dir, "none") },
           encoding: "utf8",
@@ -983,7 +984,7 @@ test.describe("the real entrypoint dispatch", () => {
       writeFileSync(join(dir, "kinboard-init"), "#!/bin/sh\necho DISPATCHED\n");
       chmodSync(join(dir, "kinboard-init"), 0o755);
       for (const args of [[], ["kinboard-initX"], ["node"]]) {
-        const p = spawnSync("sh", [join(DOCKER, "webapp-entrypoint.sh"), ...args], {
+        const p = spawnSync("sh", [join(IMAGE, "webapp-entrypoint.sh"), ...args], {
           env: { ...process.env, KINBOARD_BIN_DIR: dir, POSTGRES_PASSWORD: "", JWT_SECRET: "", KINBOARD_SECRETS_DIR: join(dir, "none"), PATH: process.env.PATH ?? "" },
           encoding: "utf8",
         });
