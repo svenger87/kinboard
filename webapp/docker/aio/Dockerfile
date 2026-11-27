@@ -10,8 +10,8 @@
 #   - pg-safeupdate, built here from the same pinned release and checksum as
 #     webapp/docker/postgres/Dockerfile (e2e/aio-image.spec.ts holds the two
 #     equal), for PostgREST's `authenticator` (§4.2.1, §11.12);
-#   - PostgREST, the statically linked binary from the pinned
-#     postgrest/postgrest image compose.yml runs;
+#   - PostgREST, the binary of the pinned postgrest/postgrest image compose.yml
+#     runs (see the postgrest-* stages: static on amd64, glibc on arm64);
 #   - s6-overlay v3 as the supervisor, and the s6-rc services in rootfs/;
 #   - the binaries of the previous PostgreSQL majors in PG_PREVIOUS_MAJORS,
 #     for an in-place major upgrade at start (§4.3, §4.7). Empty while the
@@ -25,10 +25,45 @@
 #   docker build -f webapp/docker/aio/Dockerfile --build-arg APP_IMAGE=<webapp image> webapp/docker/aio
 
 ARG APP_IMAGE=ghcr.io/svenger87/kinboard:main
-# The same PostgREST compose.yml pins; e2e/aio-image.spec.ts holds them equal.
-ARG POSTGREST_IMAGE=postgrest/postgrest:v14.16
+# The same PostgREST compose.yml pins, by its multi-arch index digest (the one
+# dist/kinboard.yaml records for the store listings); e2e/aio-image.spec.ts
+# holds the tag and the digest equal.
+ARG POSTGREST_IMAGE=postgrest/postgrest:v14.16@sha256:bea1c76a856fa39d1e542d25911cf95d02fe2bf971992d033044ff209f1504b8
 
-FROM ${POSTGREST_IMAGE} AS postgrest
+# PostgREST, per architecture, from the one pinned image. The image is not the
+# same build on both: on amd64 it is FROM scratch with a statically linked
+# binary, which runs on this Alpine (musl) image as it is; on arm64 it is an
+# Ubuntu image whose binary is linked against glibc, and upstream publishes no
+# static aarch64 build of the 14.x line (from 16.x it does). Copied alone, that
+# binary finds no /lib/ld-linux-aarch64.so.1 here and exits 127 before it
+# prints anything. So on arm64 it comes with what it links against, taken from
+# the same image: glibc's loader at the path the binary names, and the
+# libraries `ldd` resolves, in glibc's multiarch folder, which musl never
+# searches. The binary itself is unmodified, byte for byte the one compose.yml
+# runs on arm64. Their copyright files go to /usr/share/licenses/postgrest-runtime.
+FROM ${POSTGREST_IMAGE} AS postgrest-image
+FROM scratch AS postgrest-amd64
+COPY --from=postgrest-image /bin/postgrest /out/usr/local/bin/postgrest
+
+FROM ${POSTGREST_IMAGE} AS postgrest-arm64
+USER root
+RUN set -eux; \
+    bin=/usr/bin/postgrest; dir=/usr/lib/aarch64-linux-gnu; lic=/out/usr/share/licenses/postgrest-runtime; \
+    mkdir -p /out/usr/local/bin "/out$dir" /out/lib "$lic"; \
+    cp "$bin" /out/usr/local/bin/postgrest; \
+    cp -L /usr/lib/ld-linux-aarch64.so.1 /out/lib/ld-linux-aarch64.so.1; \
+    libs="$(ldd "$bin" | awk '$2 == "=>" && $3 ~ /^\// { print $3 }')"; \
+    test -n "$libs"; \
+    for l in $libs; do \
+      case "$(readlink -f "$l")" in "$dir"/*) ;; *) echo "unexpected library path: $l" >&2; exit 1 ;; esac; \
+      cp -L "$l" "/out$dir/$(basename "$l")"; \
+      pkg="$(dpkg -S "$(readlink -f "$l")" | cut -d: -f1)"; \
+      cp "/usr/share/doc/$pkg/copyright" "$lic/$pkg"; \
+    done; \
+    cp "/usr/share/doc/libc6/copyright" "$lic/libc6"; \
+    ls -l "/out$dir" "$lic"
+# TARGETARCH is set by the builder; a platform other than these two has no stage.
+FROM postgrest-${TARGETARCH} AS postgrest
 
 # safeupdate for every PostgreSQL major the image carries, against Alpine's
 # own -dev headers (the same Alpine as the webapp image: it is the base).
@@ -82,8 +117,14 @@ RUN set -eux; \
     install -D -m 0644 /tmp/safeupdate/LICENSE /usr/share/licenses/pg-safeupdate/LICENSE; \
     rm -rf /tmp/safeupdate
 
-COPY --from=postgrest /bin/postgrest /usr/local/bin/postgrest
-RUN /usr/local/bin/postgrest --version
+# It runs, and it is the pinned version: on arm64 this is the step that fails
+# with 127 when the binary cannot load.
+ARG POSTGREST_IMAGE
+COPY --from=postgrest /out/ /
+RUN set -eux; \
+    v="${POSTGREST_IMAGE%%@*}"; v="${v##*:v}"; \
+    /usr/local/bin/postgrest --version; \
+    test "$(/usr/local/bin/postgrest --version)" = "PostgREST $v"
 
 COPY rootfs/ /
 RUN set -eux; \

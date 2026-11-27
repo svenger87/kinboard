@@ -447,12 +447,16 @@ jobs:
   # on both architectures (rigs.yml).
   # The all-in-one image (RFC-024 phase 5, §6.5): scripts/rigs/test-aio.sh
   # whenever the image, what it runs or the rig changes. amd64 here; arm64
-  # weekly in rigs.yml.
+  # weekly in rigs.yml. Plus, when the image's own files change, the arm64
+  # build and a start (aio-arm64 below): the full rig on amd64 cannot see what
+  # differs per architecture, which is how #569 merged an image that did not
+  # build on arm64.
   aio-decide:
     name: All-in-one image (decide)
     runs-on: ubuntu-latest
     outputs:
       run: ${{ steps.decide.outputs.run }}
+      arm64: ${{ steps.decide.outputs.arm64 }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -466,14 +470,37 @@ jobs:
                    webapp/docker/kinboard-db-init.sh webapp/docker/stock-postgres-bootstrap.sql webapp/docker/init.sql
                    webapp/docker/migrations/ webapp/docker/Dockerfile scripts/rigs/test-aio.sh scripts/rigs/stock-postgres/
                    webapp/e2e/rls-matrix.spec.ts .github/workflows/ci.yml"
+          # The arm64 smoke builds FROM main's published webapp image, so only
+          # what the all-in-one layer itself is made of: its files, compose.yml
+          # (the PostgREST pin), the smoke script and this workflow.
+          arm64_guarded="webapp/docker/aio/ compose.yml scripts/ci/aio-smoke.sh .github/workflows/ci.yml"
           if [ -z "$BASE" ] || [[ "$BASE" =~ ^0+$ ]] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            echo "run=true" >> "$GITHUB_OUTPUT"; echo "no usable base: run"; exit 0
+            { echo "run=true"; echo "arm64=true"; } >> "$GITHUB_OUTPUT"; echo "no usable base: run"; exit 0
           fi
-          run=false
+          run=false arm64=false
           while IFS= read -r f; do
             for p in $guarded; do case "$f" in "$p"*) run=true; echo "guarded: $f" ;; esac; done
+            for p in $arm64_guarded; do case "$f" in "$p"*) arm64=true; echo "guarded (arm64): $f" ;; esac; done
           done < <(git diff --name-only "$BASE" "$GITHUB_SHA")
-          echo "run=$run" >> "$GITHUB_OUTPUT"
+          { echo "run=$run"; echo "arm64=$arm64"; } >> "$GITHUB_OUTPUT"
+
+  # The arm64 image on a PR: built natively (an arm64 kernel, so a binary that
+  # cannot load fails as it would on a Raspberry Pi, with 127), FROM main's
+  # published arm64 webapp image, then started on an empty /data until
+  # /api/health has db:true. scripts/ci/aio-smoke.sh runs the same locally
+  # (under QEMU there: `scripts/ci/aio-smoke.sh linux/arm64`).
+  aio-arm64:
+    name: All-in-one image (arm64 build and start)
+    needs: aio-decide
+    if: needs.aio-decide.outputs.arm64 == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start the arm64 image
+        env:
+          SMOKE_TIMEOUT: "600"
+        run: scripts/ci/aio-smoke.sh linux/arm64
 
   aio:
     name: All-in-one image

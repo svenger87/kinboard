@@ -49,8 +49,22 @@ test.describe("one build, two shapes (RFC-024 §2, §4.5)", () => {
     const compose = read(join(ROOT, "compose.yml"));
     const pinned = compose.match(/image: (postgrest\/postgrest:\S+)/)?.[1];
     expect(pinned).toBeTruthy();
-    expect(dockerfile).toContain(`ARG POSTGREST_IMAGE=${pinned}`);
-    expect(dockerfile).toContain("COPY --from=postgrest /bin/postgrest /usr/local/bin/postgrest");
+    // The tag compose.yml runs, by the multi-arch index digest the store listings record for it.
+    const arg = dockerfile.match(/^ARG POSTGREST_IMAGE=(\S+)$/m)?.[1] ?? "";
+    const [tag, digest] = arg.split("@");
+    expect(tag).toBe(pinned);
+    expect(digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+    const listed = read(join(ROOT, "dist", "kinboard.yaml")).match(new RegExp(`^\\s+${pinned!.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}: (sha256:\\S+)$`, "m"))?.[1];
+    if (listed) expect(digest, "the digest dist/kinboard.yaml records for this tag").toBe(listed);
+    // The image is not the same build on both architectures: a static binary on amd64, a glibc one on arm64,
+    // which needs its loader and libraries from the same image (on musl it exits 127 without them).
+    expect(dockerfile).toMatch(/^FROM postgrest-\$\{TARGETARCH\} AS postgrest$/m);
+    expect(dockerfile).toContain("COPY --from=postgrest-image /bin/postgrest /out/usr/local/bin/postgrest");
+    expect(dockerfile).toMatch(/^FROM \$\{POSTGREST_IMAGE\} AS postgrest-arm64$/m);
+    expect(dockerfile).toContain("cp -L /usr/lib/ld-linux-aarch64.so.1 /out/lib/ld-linux-aarch64.so.1");
+    expect(dockerfile).toContain("COPY --from=postgrest /out/ /");
+    // ...and the build itself runs it, and refuses another version than the pin.
+    expect(dockerfile).toContain('test "$(/usr/local/bin/postgrest --version)" = "PostgREST $v"');
   });
 
   test("PostgreSQL 17, a health check, one /data, s6 as PID 1, a stop that stops the container on a failed start", () => {
