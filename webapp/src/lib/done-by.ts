@@ -13,7 +13,7 @@
 export interface DoneByPerson {
   id: string;
   name: string;
-  is_child: boolean;
+  is_child: boolean | null;
 }
 
 /** Ask "who did it?" for this tick? Only for a tick worth points, with someone to choose between. */

@@ -338,7 +338,7 @@ export function NotesWidget({
                         {note.content}
                       </p>
                       <p className="text-2xs text-muted-foreground/60 mt-0.5">
-                        {formatDistanceToNow(new Date(note.created_at), {
+                        {note.created_at && formatDistanceToNow(new Date(note.created_at), {
                           addSuffix: true,
                           locale: dateLocale,
                         })}

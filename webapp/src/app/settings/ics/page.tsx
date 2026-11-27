@@ -140,8 +140,8 @@ export default function IcsSettingsPage() {
       url: cal.ics_url ?? "",
       color: cal.color,
       person_id: cal.person_id,
-      is_holidays: cal.is_holidays,
-      is_waste_collection: cal.is_waste_collection,
+      is_holidays: cal.is_holidays ?? false,
+      is_waste_collection: cal.is_waste_collection ?? false,
     });
     setTestResult(null);
     setDialogOpen(true);

@@ -1201,7 +1201,7 @@ export default function ShoppingPage() {
                                     >
                                       <div className="min-w-0 max-sm:basis-full sm:flex-1">
                                         <ChecklistItem
-                                          checked={item.checked}
+                                          checked={item.checked ?? false}
                                           onCheckedChange={() => handleToggleItem(item.id)}
                                           color={category.color}
                                           className={cn(

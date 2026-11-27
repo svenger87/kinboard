@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     // A calendar row without credentials can never sync, so don't leave
     // one behind — roll back rather than strand a broken entry in the UI.
-    await (supabase as any).from("calendars").delete().eq("id", calendar.id);
+    await supabase.from("calendars").delete().eq("id", calendar.id);
     console.error("[caldav-calendars] Credential store failed:", err);
     return NextResponse.json({ error: "Failed to store credentials" }, { status: 500 });
   }
@@ -296,9 +296,9 @@ export async function DELETE(request: NextRequest) {
 
   // events.calendar_id is ON DELETE CASCADE, but deleting explicitly
   // keeps the ordering obvious and matches useDeleteCalendar.
-  await (supabase as any).from("events").delete().eq("calendar_id", calendarId);
+  await supabase.from("events").delete().eq("calendar_id", calendarId);
 
-  const { error } = await (supabase as any).from("calendars").delete().eq("id", calendarId);
+  const { error } = await supabase.from("calendars").delete().eq("id", calendarId);
   if (error) {
     console.error("[caldav-calendars] Delete failed:", error.message);
     return NextResponse.json({ error: "Failed to delete calendar" }, { status: 500 });

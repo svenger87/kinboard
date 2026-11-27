@@ -485,7 +485,7 @@ export function useScreensaverData({ photos }: { photos?: string[] } = {}) {
           id: event.id,
           title: event.title,
           start: new Date(event.start_at),
-          allDay: event.all_day,
+          allDay: event.all_day ?? false,
           location: event.location,
           color: person?.color || event.calendar?.color || "#3b82f6",
           personName: person?.name ?? null,
@@ -510,7 +510,7 @@ export function useScreensaverData({ photos }: { photos?: string[] } = {}) {
       (events ?? []).map((e) => ({
         title: e.title,
         start: new Date(e.start_at),
-        allDay: e.all_day,
+        allDay: e.all_day ?? false,
         personId: e.person_id || e.calendar?.person_id || null,
       })),
       date,

@@ -11,7 +11,7 @@ import { LAYOUT_GRID, gridFor, orientationOf } from "./grid";
 import type { Layout, LayoutDefaults } from "./types";
 
 export function resolveLayout(args: {
-  device: { id: string; is_kiosk: boolean; layout_id: string | null } | null;
+  device: { id: string; is_kiosk: boolean | null; layout_id: string | null } | null;
   layouts: Layout[];
   defaults: LayoutDefaults;
   viewport: { width: number; height: number };

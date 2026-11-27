@@ -489,7 +489,10 @@ const read = (rel: string) => readFileSync(join(SRC, rel), "utf8");
 
 test.describe("an assistant cannot trust itself", () => {
   test("only the session route writes trusted_at; nothing an Integration API token or MCP tool reaches does", () => {
-    const writers = files(SRC).filter((f) => /trusted_at\s*:/.test(readFileSync(f, "utf8")));
+    // The generated database types declare the column; they write nothing.
+    const writers = files(SRC)
+      .filter((f) => !f.endsWith("types/database.generated.ts"))
+      .filter((f) => /trusted_at\s*:/.test(readFileSync(f, "utf8")));
     expect(writers.map((f) => f.slice(SRC.length + 1)).sort()).toEqual([
       "app/api/assistants/[id]/trust/route.ts",
       "app/api/integration-tokens/route.ts",

@@ -260,7 +260,7 @@ export default function NotificationSettingsPage() {
                 </div>
                 <Switch
                   aria-label={t("shoppingNewItemsDescription")}
-                  checked={isSubscribed && prefs.shopping_collaborative}
+                  checked={isSubscribed && (prefs.shopping_collaborative ?? false)}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("shopping_collaborative", checked)
                   }
@@ -280,7 +280,7 @@ export default function NotificationSettingsPage() {
                 </div>
                 <Switch
                   aria-label={t("shoppingRemindersDescription")}
-                  checked={isSubscribed && prefs.shopping_reminders}
+                  checked={isSubscribed && (prefs.shopping_reminders ?? false)}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("shopping_reminders", checked)
                   }
@@ -315,7 +315,7 @@ export default function NotificationSettingsPage() {
                 </div>
                 <Switch
                   aria-label={t("todoNewDescription")}
-                  checked={isSubscribed && prefs.todo_collaborative}
+                  checked={isSubscribed && (prefs.todo_collaborative ?? false)}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("todo_collaborative", checked)
                   }
@@ -335,7 +335,7 @@ export default function NotificationSettingsPage() {
                 </div>
                 <Switch
                   aria-label={t("todoReminderDescription")}
-                  checked={isSubscribed && prefs.todo_reminders}
+                  checked={isSubscribed && (prefs.todo_reminders ?? false)}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("todo_reminders", checked)
                   }
@@ -370,7 +370,7 @@ export default function NotificationSettingsPage() {
                 </div>
                 <Switch
                   aria-label={t("calendarDescription")}
-                  checked={isSubscribed && prefs.calendar_reminders}
+                  checked={isSubscribed && (prefs.calendar_reminders ?? false)}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("calendar_reminders", checked)
                   }
@@ -432,7 +432,7 @@ export default function NotificationSettingsPage() {
               </div>
               <Switch
                 aria-label={t("birthdayRemindersDescription")}
-                checked={isSubscribed && prefs.birthday_reminders}
+                checked={isSubscribed && (prefs.birthday_reminders ?? false)}
                 onCheckedChange={(checked) =>
                   handlePreferenceChange("birthday_reminders", checked)
                 }
@@ -462,7 +462,7 @@ export default function NotificationSettingsPage() {
               </div>
               <Switch
                 aria-label={t("mealPrepDescription")}
-                checked={isSubscribed && prefs.meal_prep_reminders}
+                checked={isSubscribed && (prefs.meal_prep_reminders ?? false)}
                 onCheckedChange={(checked) =>
                   handlePreferenceChange("meal_prep_reminders", checked)
                 }
@@ -532,7 +532,7 @@ export default function NotificationSettingsPage() {
                 </div>
                 <Switch
                   aria-label={t("quietHoursDescription")}
-                  checked={isSubscribed && prefs.quiet_hours_enabled}
+                  checked={isSubscribed && (prefs.quiet_hours_enabled ?? false)}
                   onCheckedChange={(checked) =>
                     handlePreferenceChange("quiet_hours_enabled", checked)
                   }
@@ -546,7 +546,7 @@ export default function NotificationSettingsPage() {
                     <Label className="text-xs text-muted-foreground">{t("quietHoursFromLabel")}</Label>
                     <Input
                       type="time"
-                      value={prefs.quiet_hours_start}
+                      value={prefs.quiet_hours_start ?? ""}
                       onChange={(e) =>
                         handlePreferenceChange("quiet_hours_start", e.target.value)
                       }
@@ -558,7 +558,7 @@ export default function NotificationSettingsPage() {
                     <Label className="text-xs text-muted-foreground">{t("quietHoursUntilLabel")}</Label>
                     <Input
                       type="time"
-                      value={prefs.quiet_hours_end}
+                      value={prefs.quiet_hours_end ?? ""}
                       onChange={(e) =>
                         handlePreferenceChange("quiet_hours_end", e.target.value)
                       }

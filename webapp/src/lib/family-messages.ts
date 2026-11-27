@@ -236,7 +236,7 @@ export async function postTrustedNotice(
   db: ReturnType<typeof createAdminClient> = createAdminClient(),
 ): Promise<void> {
   const body = params.body.length > MAX_MESSAGE_BODY ? `${params.body.slice(0, MAX_MESSAGE_BODY - 1)}…` : params.body;
-  const { error } = await (db as any).from("messages").insert({
+  const { error } = await db.from("messages").insert({
     family_id: params.familyId,
     body,
     sender_device_id: null,

@@ -223,7 +223,7 @@ export async function GET(request: NextRequest) {
         await Promise.all([
 
         // Not an unticked Google calendar (lib/google-calendar-reconcile.ts).
-        (supabase as any).from("calendars").select("id").eq("family_id", familyId).or(VISIBLE_CALENDARS),
+        supabase.from("calendars").select("id").eq("family_id", familyId).or(VISIBLE_CALENDARS),
 
         (supabase as any)
           .from("shopping_items")

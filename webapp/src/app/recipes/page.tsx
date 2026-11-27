@@ -130,7 +130,7 @@ export default function RecipesPage() {
       case "time":
         return (a.total_time_minutes || 999) - (b.total_time_minutes || 999);
       default:
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+        return new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime();
     }
   });
 
@@ -161,9 +161,9 @@ export default function RecipesPage() {
     let tagAssignmentSnapshot: { recipe_id: string; tag_id: string }[] = [];
     try {
       const [{ data: recipeData }, { data: ingredientData }, { data: tagData }] = await Promise.all([
-        (supabase as any).from("recipes").select("*").eq("id", id).single(),
-        (supabase as any).from("recipe_ingredients").select("*").eq("recipe_id", id),
-        (supabase as any).from("recipe_tag_assignments").select("*").eq("recipe_id", id),
+        supabase.from("recipes").select("*").eq("id", id).single(),
+        supabase.from("recipe_ingredients").select("*").eq("recipe_id", id),
+        supabase.from("recipe_tag_assignments").select("*").eq("recipe_id", id),
       ]);
       recipeSnapshot = recipeData ?? null;
       ingredientSnapshot = (ingredientData as RecipeIngredient[] | null) ?? [];

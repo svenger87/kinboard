@@ -442,7 +442,7 @@ export function useDeleteDevice() {
   return useMutation({
     mutationFn: async (id: string) => {
        
-      const { error } = await (supabase as any).from("devices").delete().eq("id", id);
+      const { error } = await supabase.from("devices").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -707,7 +707,7 @@ export function useDeletePerson() {
   return useMutation({
     mutationFn: async (id: string) => {
        
-      const { error } = await (supabase as any).from("people").delete().eq("id", id);
+      const { error } = await supabase.from("people").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1567,7 +1567,7 @@ export function useDeleteEvent() {
 
       // Delete locally
 
-      const { error } = await (supabase as any).from("events").delete().eq("id", id);
+      const { error } = await supabase.from("events").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1681,7 +1681,7 @@ export function useDeleteTodo() {
   return useMutation({
     mutationFn: async (id: string) => {
        
-      const { error } = await (supabase as any).from("todos").delete().eq("id", id);
+      const { error } = await supabase.from("todos").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1997,7 +1997,7 @@ export function useDeleteSchoolHoliday() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase as any).from("school_holidays").delete().eq("id", id);
+      const { error } = await supabase.from("school_holidays").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -2016,7 +2016,7 @@ export function useDeleteSubject() {
   return useMutation({
     mutationFn: async (id: string) => {
        
-      const { error } = await (supabase as any).from("subjects").delete().eq("id", id);
+      const { error } = await supabase.from("subjects").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -2205,7 +2205,7 @@ export function useDeleteBirthday() {
   return useMutation({
     mutationFn: async (id: string) => {
        
-      const { error } = await (supabase as any).from("birthdays").delete().eq("id", id);
+      const { error } = await supabase.from("birthdays").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -2396,7 +2396,7 @@ export function useDeleteNote() {
   return useMutation({
     mutationFn: async (id: string) => {
        
-      const { error } = await (supabase as any).from("notes").delete().eq("id", id);
+      const { error } = await supabase.from("notes").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

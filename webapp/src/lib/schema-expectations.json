@@ -1,8 +1,51 @@
 {
+  "assistant_action_requests": [
+    "client_name",
+    "created_at",
+    "data",
+    "decided_at",
+    "decided_by_device_id",
+    "decided_by_trust",
+    "domain",
+    "entity_id",
+    "entity_name",
+    "expires_at",
+    "family_id",
+    "id",
+    "kind",
+    "result",
+    "service",
+    "status",
+    "token_id"
+  ],
+  "attention_items": [
+    "acted_at",
+    "acted_by",
+    "context",
+    "created_at",
+    "detail",
+    "evidence",
+    "family_id",
+    "first_seen_at",
+    "id",
+    "item_key",
+    "last_seen_at",
+    "message_key",
+    "params",
+    "priority",
+    "resolved_at",
+    "rule_id",
+    "snoozed_until",
+    "state",
+    "subject_id",
+    "subject_type",
+    "title"
+  ],
   "birthday_gift_ideas": [
     "birthday_id",
     "bought",
     "created_at",
+    "deleted_at",
     "family_id",
     "id",
     "text"
@@ -10,12 +53,20 @@
   "birthdays": [
     "created_at",
     "date",
+    "deleted_at",
     "family_id",
     "id",
     "image_url",
     "name",
     "notify_days_before",
     "person_id"
+  ],
+  "bring_removals": [
+    "bring_item_id",
+    "bring_list_id",
+    "deleted_at",
+    "family_id",
+    "id"
   ],
   "calendars": [
     "caldav_ctag",
@@ -35,7 +86,15 @@
     "last_synced_at",
     "name",
     "person_id",
-    "sync_enabled"
+    "sync_enabled",
+    "updated_at"
+  ],
+  "camera_takeovers": [
+    "camera_id",
+    "device_ids",
+    "ends_at",
+    "family_id",
+    "started_at"
   ],
   "catalogue_items": [
     "builtin_key",
@@ -49,6 +108,13 @@
     "position",
     "room",
     "room_id",
+    "updated_at"
+  ],
+  "context_rules": [
+    "config",
+    "enabled",
+    "family_id",
+    "rule_id",
     "updated_at"
   ],
   "creatures": [
@@ -93,6 +159,36 @@
     "screen",
     "user_agent"
   ],
+  "domain_events": [
+    "actor_id",
+    "event_type",
+    "family_id",
+    "id",
+    "occurred_at",
+    "payload",
+    "payload_version",
+    "source"
+  ],
+  "event_series": [
+    "all_day",
+    "calendar_id",
+    "created_at",
+    "description",
+    "extend_on",
+    "family_id",
+    "first_end_at",
+    "first_start_at",
+    "generated_through",
+    "id",
+    "location",
+    "person_id",
+    "revision",
+    "rule",
+    "skipped_days",
+    "time_zone",
+    "title",
+    "updated_at"
+  ],
   "events": [
     "all_day",
     "caldav_etag",
@@ -123,11 +219,66 @@
     "setup_completed",
     "updated_at"
   ],
+  "family_photos": [
+    "byte_size",
+    "created_at",
+    "family_id",
+    "height",
+    "id",
+    "mime_type",
+    "storage_path",
+    "taken_at",
+    "thumbnail_path",
+    "updated_at",
+    "uploaded_at",
+    "width"
+  ],
+  "instance_settings": [
+    "key",
+    "updated_at",
+    "value"
+  ],
+  "integration_clients": [
+    "capabilities",
+    "client_type",
+    "client_version",
+    "family_id",
+    "id",
+    "last_seen_at",
+    "token_id"
+  ],
+  "integration_idempotency": [
+    "created_at",
+    "family_id",
+    "idempotency_key",
+    "request_hash",
+    "response",
+    "service",
+    "status"
+  ],
   "integration_secrets": [
     "family_id",
     "key",
     "updated_at",
     "value"
+  ],
+  "integration_tokens": [
+    "created_at",
+    "expires_at",
+    "family_id",
+    "id",
+    "last_used_at",
+    "name",
+    "oauth_client_id",
+    "oauth_request_id",
+    "refresh_expires_at",
+    "refresh_token_hash",
+    "resource",
+    "revoked_at",
+    "scopes",
+    "token_hash",
+    "trusted_at",
+    "trusted_by_device_id"
   ],
   "item_catalog": [
     "barcode",
@@ -145,6 +296,13 @@
     "source",
     "thumbnail_url"
   ],
+  "kept_images": [
+    "created_at",
+    "family_id",
+    "id",
+    "local_url",
+    "source_url"
+  ],
   "layouts": [
     "created_at",
     "family_id",
@@ -161,6 +319,7 @@
     "attendees",
     "created_at",
     "date",
+    "deleted_at",
     "id",
     "meal_plan_id",
     "meal_type",
@@ -190,6 +349,7 @@
   "messages": [
     "acknowledged_at",
     "acknowledged_by_device_id",
+    "action_request_id",
     "body",
     "created_at",
     "family_id",
@@ -200,9 +360,11 @@
   "notes": [
     "content",
     "created_at",
+    "deleted_at",
     "family_id",
     "id",
     "person_id",
+    "pinned",
     "updated_at"
   ],
   "notification_logs": [
@@ -239,12 +401,39 @@
     "todo_reminders",
     "updated_at"
   ],
+  "oauth_authorization_requests": [
+    "client_id",
+    "client_name",
+    "code_challenge",
+    "code_expires_at",
+    "code_hash",
+    "created_at",
+    "expires_at",
+    "family_id",
+    "grant_id",
+    "granted_scopes",
+    "id",
+    "redirect_uri",
+    "replayed_at",
+    "resource",
+    "scopes",
+    "state",
+    "used_at"
+  ],
+  "oauth_clients": [
+    "client_id",
+    "client_name",
+    "created_at",
+    "redirect_uris"
+  ],
   "oauth_credentials": [
     "created_at",
+    "encrypted_access_token",
     "encrypted_refresh_token",
     "family_id",
     "id",
     "provider",
+    "token_expires_at",
     "updated_at"
   ],
   "people": [
@@ -252,6 +441,7 @@
     "birth_date",
     "color",
     "created_at",
+    "deleted_at",
     "family_id",
     "id",
     "is_child",
@@ -278,6 +468,7 @@
     "lifetime_saved_cents",
     "max_balance_eligible_cents",
     "pending_interest_cents",
+    "pending_interest_micros",
     "person_id",
     "reward_mode",
     "updated_at",
@@ -286,6 +477,7 @@
   "pocket_money_goals": [
     "account_id",
     "created_at",
+    "deleted_at",
     "id",
     "image_source",
     "image_url",
@@ -378,6 +570,10 @@
     "sort_order",
     "unit"
   ],
+  "recipe_tag_assignments": [
+    "recipe_id",
+    "tag_id"
+  ],
   "recipe_tags": [
     "color",
     "created_at",
@@ -388,6 +584,7 @@
   "recipes": [
     "cook_time_minutes",
     "created_at",
+    "deleted_at",
     "description",
     "difficulty",
     "family_id",
@@ -471,16 +668,22 @@
     "notes",
     "quantity",
     "recipe_id",
+    "source_device_id",
     "unit"
   ],
   "subjects": [
     "color",
     "created_at",
+    "deleted_at",
     "family_id",
     "icon",
     "id",
     "name",
     "updated_at"
+  ],
+  "system_heartbeats": [
+    "job",
+    "last_run_at"
   ],
   "tickers": [
     "asset_type",
@@ -561,6 +764,7 @@
     "schedule_anchor_day",
     "schedule_start_day",
     "show_in_events",
+    "source_device_id",
     "title",
     "track_completion",
     "tracking_started_day",

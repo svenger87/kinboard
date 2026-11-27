@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 // Writes src/lib/schema-expectations.json: every table and column this build's
-// code declares in src/types/database.ts (the `Row` of each table), for the
+// database types declare (the `Row` of each table in
+// src/types/database.generated.ts, which `npm run db:generate` writes from the
+// migrated schema, RFC-024 §4.6), for the
 // deep health check (`/api/health?deep=1`, lib/deep-health.ts) that the
 // self-update runs after it recreates the webapp (RFC-023 §4.11.4).
 //
 //   node scripts/generate-schema-expectations.mjs           write it
 //   node scripts/generate-schema-expectations.mjs --check   exit 1 if it is stale
 //
-// e2e/deep-health.spec.ts fails when the JSON and database.ts disagree.
+// e2e/update-status.spec.ts fails when the JSON and the types disagree.
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -15,6 +17,9 @@ import { dirname, join } from "node:path";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 export function parseTables(source) {
+  // Tables only: views and functions follow, at the same indentation.
+  const end = source.search(/^ {4}Views: /m);
+  if (end >= 0) source = source.slice(0, end);
   const tables = {};
   let table = null;
   let inRow = false;
@@ -30,7 +35,7 @@ export function parseTables(source) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const tables = parseTables(readFileSync(join(root, "src/types/database.ts"), "utf8"));
+  const tables = parseTables(readFileSync(join(root, "src/types/database.generated.ts"), "utf8"));
   const out = join(root, "src/lib/schema-expectations.json");
   const text = JSON.stringify(tables, null, 2) + "\n";
   if (process.argv.includes("--check")) {

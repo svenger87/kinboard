@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
 
             if (existingToDelete) {
                
-              await (supabase as any).from("events").delete().eq("id", existingToDelete.id);
+              await supabase.from("events").delete().eq("id", existingToDelete.id);
               deleted++;
             }
             continue;
@@ -360,7 +360,7 @@ export async function POST(request: NextRequest) {
           } else {
             // Create new event
              
-            await (supabase as any).from("events").insert(eventData);
+            await supabase.from("events").insert(eventData);
             created++;
           }
         }

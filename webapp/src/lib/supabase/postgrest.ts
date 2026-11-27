@@ -42,21 +42,15 @@ type ClientOptions = { PostgrestVersion: "12" };
 export type DbClient = PostgrestClient<Database, ClientOptions, "public">;
 
 /**
- * The browser's client, typed as loosely as `@supabase/ssr` 0.5.2 typed it.
+ * The browser's client: the same strict type as the server's.
  *
- * `createBrowserClient<Database>` returned `SupabaseClient<Database,
- * SchemaName, Schema>`, written for an older supabase-js whose third generic
- * was the schema; supabase-js 2.105's third is the schema *name*, so the
- * browser client's tables resolved to nothing in particular: any table name,
- * any column, rows assignable to anything. The server client was typed
- * strictly all along. Typing the browser one strictly here turns up 12
- * errors in two hooks where `src/types/database.ts` has drifted from the
- * database (`attention_items` and `context_rules` are missing, and
- * `events → calendars` has no relationship) — real, and the business of the
- * generated types (RFC-024 §4.6 step 4), not of a swap that must not change
- * behaviour. Until then the browser keeps the typing it had.
+ * Until RFC-024 §4.6 step 4 it was typed as loosely as `@supabase/ssr` 0.5.2
+ * typed it (any table, any column, rows assignable to anything), because
+ * typing it strictly against the hand-written `src/types/database.ts`
+ * turned up 12 errors where that file had drifted from the database. With
+ * the types generated from the schema, the browser is held to them too.
  */
-export type BrowserDbClient = PostgrestClient<Database, ClientOptions, "public", any>;
+export type BrowserDbClient = DbClient;
 
 export interface PostgrestClientOptions {
   /** The fetch every request goes through, after `apikey`/`Authorization` are set. */

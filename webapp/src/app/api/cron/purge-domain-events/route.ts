@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   const keepDays = Number(process.env.DOMAIN_EVENT_RETENTION_DAYS ?? 30);
 
 
-  const { data, error } = await (supabase as any).rpc("purge_domain_events", {
+  const { data, error } = await supabase.rpc("purge_domain_events", {
     p_keep_days: Number.isFinite(keepDays) && keepDays > 0 ? Math.floor(keepDays) : 30,
   });
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
   // reused a week later returning a week-old response would be far more
   // surprising than doing the work again.
 
-  const { data: keysData, error: keysError } = await (supabase as any).rpc(
+  const { data: keysData, error: keysError } = await supabase.rpc(
     "purge_integration_idempotency",
     { p_keep_hours: 24 },
   );

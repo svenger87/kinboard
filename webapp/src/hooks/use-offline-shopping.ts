@@ -142,6 +142,7 @@ export function useOfflineCreateShoppingItem() {
         bring_item_id: null,
         bring_checked: null,
         bring_list_id: null,
+        source_device_id: null,
         created_at: new Date().toISOString(),
         _localId: localId,
         _syncStatus: "pending",

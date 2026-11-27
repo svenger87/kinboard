@@ -8,7 +8,7 @@ export function ageFromBirthDate(birthDate?: string | null, now: Date = new Date
 
 /** "Elternteil" / "Kind · 7 Jahre" — role from is_child, age appended when known. */
 export function personRoleLabel(
-  isChild: boolean | undefined,
+  isChild: boolean | null | undefined,
   birthDate: string | null | undefined,
   labels: { parent: string; child: string; years: (n: number) => string },
 ): string {
