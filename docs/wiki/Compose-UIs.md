@@ -261,11 +261,14 @@ your variables and remove the container: `docker rm -f kinboard-updater`.
 replaces its own container while it runs.
 
 **Which tools:** OpenMediaVault, Unraid's Compose Manager, Dockge and a
-terminal keep `compose.yml` on the server's disk, and the updater works
+terminal keep `compose.yml` on the server's disk, and the updater reads it
 there. **Portainer's web editor** keeps the file inside Portainer, where the
-updater can't read it: there it starts, says so in its log at every check,
-and changes nothing. Updating Portainer stacks comes later; until then, use
-Portainer's **Update the stack**. **CasaOS** is not supported.
+updater can't read it. There it works from the containers instead: it
+replaces each Kinboard container with one that has exactly the same settings
+(variables, volumes and folders, networks, ports, labels) and only the new
+image, so Portainer still shows them in your stack and **Update the stack**
+keeps working as before. The same goes for a stack whose compose file has
+since been deleted. **CasaOS** is not supported.
 
 Diun isn't needed. If you already run it, it can keep sending you a
 notification; the updater doesn't depend on it.
@@ -369,8 +372,23 @@ Portainer CE, a stack from the **Web editor**.
   folders: in Portainer CE's web editor, a relative path ends up inside
   Portainer's own data, not next to anything you can find.
 - **Update:** open the stack, **Editor**, **Update the stack**, with **Re-pull
-  image and redeploy** switched on. [Automatic updates](#automatic-updates)
-  can't read a web-editor stack yet.
+  image and redeploy** switched on. Or turn on
+  [automatic updates](#automatic-updates): add the variable
+  `COMPOSE_PROFILES` = `autoupdate` and **Update the stack** once.
+- **With automatic updates:** the updater can't read the web editor's file, so
+  it replaces each Kinboard container (`kinboard-init`, `kinboard-db-init`,
+  `kinboard-webapp`) with one that has the same settings and the new image.
+  The stack page keeps listing all of them, and the stack's own file still
+  says what you pasted: with `KINBOARD_TAG` left at `latest` (or `next`) that
+  is exactly what runs, and a later **Update the stack** finds nothing to
+  change. A pinned version (`KINBOARD_TAG=1.18.0`) is never updated
+  automatically; you change the pin in the editor yourself. While a
+  container is being replaced, the old one shows for a moment as
+  `kinboard-webapp-before-update`; it goes once the new version is healthy,
+  and comes back under its own name if it isn't. Best not to press **Update
+  the stack** in those few minutes: Portainer then removes the set-aside
+  containers, and the updater keeps whatever Portainer started rather than
+  going back (its log says so).
 - **Version:** *Containers → kinboard-webapp* shows the image and its tag;
   the version itself is at the bottom of Kinboard's Settings.
 

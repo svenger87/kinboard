@@ -1,0 +1,264 @@
+{
+  "Id": "cc2b78be477b475771123a72a4efcd95307448f6e95b43ffc535bf43626acdc0",
+  "Created": "2026-11-26T23:39:01.62897475Z",
+  "Path": "./webapp-entrypoint.sh",
+  "Args": [
+    "kinboard-db-init"
+  ],
+  "State": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-11-26T23:39:08.824062353Z",
+    "FinishedAt": "2026-11-26T23:39:09.908117684Z"
+  },
+  "Image": "sha256:87e4b429a2404351f72fcacbebdf1c290b69e08478d459600edee2cbfeb0df07",
+  "ResolvConfPath": "/var/lib/docker/containers/cc2b78be477b475771123a72a4efcd95307448f6e95b43ffc535bf43626acdc0/resolv.conf",
+  "HostnamePath": "/var/lib/docker/containers/cc2b78be477b475771123a72a4efcd95307448f6e95b43ffc535bf43626acdc0/hostname",
+  "HostsPath": "/var/lib/docker/containers/cc2b78be477b475771123a72a4efcd95307448f6e95b43ffc535bf43626acdc0/hosts",
+  "LogPath": "",
+  "Name": "/kbpt-db-init",
+  "RestartCount": 0,
+  "Driver": "overlayfs",
+  "Platform": "linux",
+  "MountLabel": "",
+  "ProcessLabel": "",
+  "AppArmorProfile": "docker-default",
+  "ExecIDs": null,
+  "HostConfig": {
+    "Binds": null,
+    "ContainerIDFile": "",
+    "LogConfig": {
+      "Type": "json-file",
+      "Config": {
+        "max-file": "3",
+        "max-size": "10m"
+      }
+    },
+    "NetworkMode": "kbpt_kinboard",
+    "PortBindings": {},
+    "RestartPolicy": {
+      "Name": "no",
+      "MaximumRetryCount": 0
+    },
+    "AutoRemove": false,
+    "VolumeDriver": "",
+    "VolumesFrom": null,
+    "ConsoleSize": [
+      0,
+      0
+    ],
+    "CapAdd": null,
+    "CapDrop": null,
+    "CgroupnsMode": "private",
+    "Dns": null,
+    "DnsOptions": null,
+    "DnsSearch": null,
+    "ExtraHosts": [],
+    "GroupAdd": null,
+    "IpcMode": "private",
+    "Cgroup": "",
+    "Links": null,
+    "OomScoreAdj": 0,
+    "PidMode": "",
+    "Privileged": false,
+    "PublishAllPorts": false,
+    "ReadonlyRootfs": false,
+    "SecurityOpt": null,
+    "UTSMode": "",
+    "UsernsMode": "",
+    "ShmSize": 67108864,
+    "Runtime": "runc",
+    "Isolation": "",
+    "CpuShares": 0,
+    "Memory": 0,
+    "NanoCpus": 0,
+    "CgroupParent": "",
+    "BlkioWeight": 0,
+    "BlkioWeightDevice": null,
+    "BlkioDeviceReadBps": null,
+    "BlkioDeviceWriteBps": null,
+    "BlkioDeviceReadIOps": null,
+    "BlkioDeviceWriteIOps": null,
+    "CpuPeriod": 0,
+    "CpuQuota": 0,
+    "CpuRealtimePeriod": 0,
+    "CpuRealtimeRuntime": 0,
+    "CpusetCpus": "",
+    "CpusetMems": "",
+    "Devices": null,
+    "DeviceCgroupRules": null,
+    "DeviceRequests": null,
+    "MemoryReservation": 0,
+    "MemorySwap": 0,
+    "MemorySwappiness": null,
+    "OomKillDisable": null,
+    "PidsLimit": null,
+    "Ulimits": null,
+    "CpuCount": 0,
+    "CpuPercent": 0,
+    "IOMaximumIOps": 0,
+    "IOMaximumBandwidth": 0,
+    "Mounts": [
+      {
+        "Type": "volume",
+        "Source": "kbpt-config",
+        "Target": "/kinboard",
+        "ReadOnly": true,
+        "VolumeOptions": {}
+      }
+    ],
+    "MaskedPaths": [
+      "/proc/acpi",
+      "/proc/asound",
+      "/proc/interrupts",
+      "/proc/kcore",
+      "/proc/keys",
+      "/proc/latency_stats",
+      "/proc/sched_debug",
+      "/proc/scsi",
+      "/proc/timer_list",
+      "/proc/timer_stats",
+      "/sys/devices/virtual/powercap",
+      "/sys/firmware"
+    ],
+    "ReadonlyPaths": [
+      "/proc/bus",
+      "/proc/fs",
+      "/proc/irq",
+      "/proc/sys",
+      "/proc/sysrq-trigger"
+    ]
+  },
+  "Storage": {
+    "RootFS": {
+      "Snapshot": {
+        "Name": "overlayfs"
+      }
+    }
+  },
+  "Mounts": [
+    {
+      "Type": "volume",
+      "Name": "kbpt-config",
+      "Source": "/var/lib/docker/volumes/kbpt-config/_data",
+      "Destination": "/kinboard",
+      "Driver": "local",
+      "Mode": "z",
+      "RW": false,
+      "Propagation": ""
+    }
+  ],
+  "Config": {
+    "Hostname": "cc2b78be477b",
+    "Domainname": "",
+    "User": "root",
+    "AttachStdin": false,
+    "AttachStdout": true,
+    "AttachStderr": true,
+    "ExposedPorts": {
+      "3000/tcp": {}
+    },
+    "Tty": false,
+    "OpenStdin": false,
+    "StdinOnce": false,
+    "Env": [
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "NODE_VERSION=22.23.5",
+      "YARN_VERSION=1.22.22",
+      "NODE_ENV=production",
+      "NEXT_TELEMETRY_DISABLED=1",
+      "PORT=3000",
+      "HOSTNAME=0.0.0.0",
+      "KINBOARD_RIG_BUILD=1.18.0-u3"
+    ],
+    "Cmd": [
+      "kinboard-db-init"
+    ],
+    "Healthcheck": {
+      "Test": [
+        "NONE"
+      ],
+      "Interval": 30000000000,
+      "Timeout": 10000000000,
+      "StartPeriod": 120000000000,
+      "Retries": 3
+    },
+    "Image": "127.0.0.1:5098/kinboard:next",
+    "Volumes": null,
+    "WorkingDir": "/app",
+    "Entrypoint": [
+      "./webapp-entrypoint.sh"
+    ],
+    "Labels": {
+      "app.kinboard.compose-revision": "1",
+      "com.docker.compose.config-hash": "48773764dc636620a1d1683c3aa1bf93d4109453816852cfe82bc8b43e82395a",
+      "com.docker.compose.container-number": "1",
+      "com.docker.compose.depends_on": "db:service_healthy:false",
+      "com.docker.compose.image": "sha256:87e4b429a2404351f72fcacbebdf1c290b69e08478d459600edee2cbfeb0df07",
+      "com.docker.compose.oneoff": "False",
+      "com.docker.compose.project": "kbpt",
+      "com.docker.compose.project.config_files": "/data/compose/1/docker-compose.yml",
+      "com.docker.compose.project.environment_file": "/data/compose/1/stack.env",
+      "com.docker.compose.project.working_dir": "/data/compose/1",
+      "com.docker.compose.service": "db-init",
+      "com.docker.compose.version": "2.32.1",
+      "org.opencontainers.image.created": "2026-11-26T23:05:10.231Z",
+      "org.opencontainers.image.description": "Self-hosted family dashboard for kitchen wall displays — calendars, shopping, weather, photos, smart home, energy and daily life in one beautiful screen.",
+      "org.opencontainers.image.documentation": "https://github.com/svenger87/kinboard/wiki",
+      "org.opencontainers.image.licenses": "PolyForm-Noncommercial-1.0.0",
+      "org.opencontainers.image.revision": "2e83c9fa91968354673b89b1a98591072d6d2cd9",
+      "org.opencontainers.image.source": "https://github.com/svenger87/kinboard",
+      "org.opencontainers.image.title": "Kinboard",
+      "org.opencontainers.image.url": "https://kinboard.app",
+      "org.opencontainers.image.vendor": "svenger87",
+      "org.opencontainers.image.version": "1.18.0-u3"
+    }
+  },
+  "NetworkSettings": {
+    "SandboxID": "",
+    "SandboxKey": "",
+    "Ports": {},
+    "Networks": {
+      "kbpt_kinboard": {
+        "IPAMConfig": null,
+        "Links": null,
+        "Aliases": [
+          "kbpt-db-init",
+          "db-init"
+        ],
+        "DriverOpts": null,
+        "GwPriority": 0,
+        "NetworkID": "fc56a95ef69b81e6cd59ecefe802855aee4de7f070bb98a5c5ad1cf4fd2be7a7",
+        "EndpointID": "",
+        "Gateway": "",
+        "IPAddress": "",
+        "MacAddress": "",
+        "IPPrefixLen": 0,
+        "IPv6Gateway": "",
+        "GlobalIPv6Address": "",
+        "GlobalIPv6PrefixLen": 0,
+        "DNSNames": [
+          "kbpt-db-init",
+          "db-init",
+          "cc2b78be477b"
+        ]
+      }
+    }
+  },
+  "ImageManifestDescriptor": {
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "digest": "sha256:26e6855d03dacebe0925bd6ddd1bc7268168357721d5c8678b52e1c977d4a792",
+    "size": 10118,
+    "platform": {
+      "architecture": "amd64",
+      "os": "linux"
+    }
+  }
+}

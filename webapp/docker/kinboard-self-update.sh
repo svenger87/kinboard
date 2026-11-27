@@ -152,14 +152,46 @@ BACKUP_KEEP="${BACKUP_KEEP:-5}"
 # Which compose file the stack runs: "legacy" (webapp/docker/docker-compose.yml
 # and COMPOSE_FILES, as every git install before RFC-023) or "compose" (the
 # root compose.yml). Decided by resolve_stack below; until then, legacy.
+# "container": kinboard-updater on a stack whose compose file it cannot read
+# (Portainer's web editor), which it updates from the containers themselves
+# (see "Container mode").
 STACK_MODE=legacy
 # The .env the stack's compose files are interpolated from.
 STACK_ENV_FILE="$PROJECT_DIR/webapp/docker/.env"
+# Container mode only: the Compose project the containers carry in their labels.
+STACK_PROJECT=""
 
 # The value of $1 in the stack's .env, as written there (quotes removed), or
 # nothing.
 env_value() {
   grep -E "^$1=" "$STACK_ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '"' || true
+}
+
+# The container of service $1, in any state; with $2 = running, only a running
+# one. Nothing when there is none. Through `docker compose ps` (the files), or
+# in container mode from the containers' Compose labels.
+svc_container() {
+  if [ "$STACK_MODE" = container ]; then
+    cm_containers "$1" "${2:-}" | head -n1
+    return 0
+  fi
+  if [ -n "${2:-}" ]; then
+    # shellcheck disable=SC2086
+    docker compose $COMPOSE_FILES ps -q "$1" 2>/dev/null | head -n1 || true
+  else
+    # shellcheck disable=SC2086
+    docker compose $COMPOSE_FILES ps -aq "$1" 2>/dev/null | head -n1 || true
+  fi
+}
+
+# The stack's services, one per line.
+stack_services() {
+  if [ "$STACK_MODE" = container ]; then
+    cm_list | awk '{ print $2 }' | awk '!seen[$0]++'
+    return 0
+  fi
+  # shellcheck disable=SC2086
+  docker compose $COMPOSE_FILES config --services 2>/dev/null || true
 }
 
 # ---------------------------------------------------------------------------
@@ -266,8 +298,7 @@ rm -f .pre-upgrade-*.partial
 # mount: a named volume's name or a host path. Nothing when the service has no
 # container or no such mount.
 mount_source() {
-  # shellcheck disable=SC2086
-  cid="$(docker compose $COMPOSE_FILES ps -aq "$1" 2>/dev/null | head -n1 || true)"
+  cid="$(svc_container "$1")"
   [ -n "$cid" ] || return 0
   docker inspect -f '{{range .Mounts}}{{if eq .Destination "'"$2"'"}}{{if eq .Type "volume"}}{{.Name}}{{else}}{{.Source}}{{end}}{{end}}{{end}}' "$cid" 2>/dev/null || true
 }
@@ -303,7 +334,7 @@ config_source() {
 take_backup() {
   stamp="$(date -u +%Y%m%d-%H%M%S)"
 
-  if [ "$STACK_MODE" = compose ]; then
+  if [ "$STACK_MODE" = compose ] || [ "$STACK_MODE" = container ]; then
     # compose.yml has no DATA_DIR. The uploaded files are wherever the webapp
     # mounts /var/lib/storage (KINBOARD_STORAGE_DIR, or the kinboard-storage
     # volume), read from the container, not from a file (RFC-023 §4.11.3
@@ -343,7 +374,7 @@ take_backup() {
     storage_mount="$data_dir:/data:ro"
   fi
 
-  db_cid="$(docker compose $COMPOSE_FILES ps -q db 2>/dev/null | head -n1)"
+  db_cid="$(svc_container db running)"
   if [ -z "$db_cid" ]; then
     log "ERROR: the database container is not running — refusing to upgrade without a backup"
     return 1
@@ -480,8 +511,7 @@ BACKUP_AT=""
 # ---------------------------------------------------------------------------
 
 webapp_container() {
-  # shellcheck disable=SC2086
-  docker compose $COMPOSE_FILES ps -aq webapp 2>/dev/null | head -n1
+  svc_container webapp
 }
 
 # $1: the webapp container id from before `up -d` (empty if none ran).
@@ -492,8 +522,12 @@ recreate_scheduler_if_webapp_changed() {
     log "webapp not recreated; scheduler left as it is"
     return 0
   fi
-  # shellcheck disable=SC2086
-  if ! docker compose $COMPOSE_FILES config --services 2>/dev/null | grep -x cron >/dev/null; then
+  # compose.yml has no cron service: its jobs run inside the webapp.
+  if [ "$STACK_MODE" = container ]; then
+    log "webapp recreated; the scheduler runs inside it"
+    return 0
+  fi
+  if ! stack_services | grep -x cron >/dev/null; then
     log "webapp recreated; this stack has no cron service to refresh"
     return 0
   fi
@@ -549,6 +583,15 @@ config_hashes() {
 # "service image" lines: the image reference each service names now, read
 # from the normalised config (services at two spaces, their keys at four).
 config_images() {
+  # Container mode: the reference each container was created from (RFC-023
+  # §4.11.3 step 2, "the containers' configured references").
+  if [ "$STACK_MODE" = container ]; then
+    for svc in $(stack_services); do
+      ref="$(docker inspect -f '{{.Config.Image}}' "$(svc_container "$svc")" 2>/dev/null || true)"
+      [ -z "$ref" ] || printf '%s %s\n' "$svc" "$ref"
+    done
+    return 0
+  fi
   # shellcheck disable=SC2086
   docker compose $COMPOSE_FILES config 2>/dev/null | awk '
     /^services:/ { in_services = 1; next }
@@ -575,8 +618,7 @@ field_for() {
 # the loop and silently drop every service after it.
 services_to_recreate() {
   for svc in $1; do
-    # shellcheck disable=SC2086
-    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+    cid="$(svc_container "$svc")"
     if [ -z "$cid" ]; then
       echo "skip $svc no-container"
       continue
@@ -689,8 +731,7 @@ release_held() {
 # ---------------------------------------------------------------------------
 
 db_container() {
-  # shellcheck disable=SC2086
-  docker compose $COMPOSE_FILES ps -q db 2>/dev/null | head -n1 || true
+  svc_container db running
 }
 
 # A JSON string, quotes included. Control characters (a log's colour codes)
@@ -801,8 +842,7 @@ wait_healthy() {
   while :; do
     still=""
     for svc in $pending; do
-      # shellcheck disable=SC2086
-      cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+      cid="$(svc_container "$svc")"
       st="$(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}' "$cid" 2>/dev/null || true)"
       IFS='|' read -r status health restarts code policy <<EOF
 $st
@@ -859,8 +899,7 @@ EOF
 SMOKE_TIMEOUT="${KINBOARD_SMOKE_TIMEOUT:-180}"
 
 smoke_check() {
-  # shellcheck disable=SC2086
-  cid="$(docker compose $COMPOSE_FILES ps -aq webapp 2>/dev/null | head -n1 || true)"
+  cid="$(svc_container webapp)"
   smoke_deadline=$(( $(date +%s) + SMOKE_TIMEOUT ))
   while :; do
     # CRON_SECRET is the webapp container's own: single quotes, expanded there.
@@ -904,8 +943,7 @@ wait_ready() {
 # The migration the webapp's entrypoint gave up on, from its log
 # (migrate.sh: "[migrate] FAILED: <file>"), or nothing.
 failed_migration() {
-  # shellcheck disable=SC2086
-  cid="$(docker compose $COMPOSE_FILES ps -aq webapp 2>/dev/null | head -n1 || true)"
+  cid="$(svc_container webapp)"
   [ -n "$cid" ] || return 0
   docker logs "$cid" 2>&1 | sed -n 's/.*\[migrate\] FAILED: *\([^ ]*\).*/\1/p' | tail -n1 || true
 }
@@ -922,9 +960,16 @@ redact() {
   # `export` dropped, quotes and a trailing comment taken off, CR removed.
   # On compose.yml the secrets are files in the config folder, not .env lines:
   # read through the database container, which mounts that folder. A VAPID
-  # private key is base64url, a shape nothing below would catch.
+  # private key is base64url, a shape nothing below would catch. In container
+  # mode, the variables the Kinboard containers were given (a UI's own).
   secrets="$( { tr -d '\r' < "${STACK_ENV_FILE:-$PROJECT_DIR/webapp/docker/.env}" 2>/dev/null || true
-    [ "${STACK_MODE:-}" != compose ] || stored_secrets; } \
+    case "${STACK_MODE:-}" in compose | container) stored_secrets ;; esac
+    # Container mode has no .env: the variables a UI gave the containers.
+    if [ "${STACK_MODE:-}" = container ]; then
+      for s_svc in init db-init webapp; do
+        docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$(svc_container "$s_svc")" 2>/dev/null || true
+      done
+    fi; } \
     | sed -nE 's/^[[:space:]]*(export[[:space:]]+)?[A-Z0-9_]*(SECRET|PASSWORD|PASS|TOKEN|KEY|URL|URI|DSN|CODE|PAT)[A-Z0-9_]*=(.*)$/\3/p' \
     | sed 's/[[:space:]]#.*$//; s/^"\(.*\)"$/\1/; s/^'"'"'\(.*\)'"'"'$/\1/' \
     | awk 'length($0) >= 6' || true)"
@@ -996,8 +1041,7 @@ stored_secrets() {
 # with secrets taken out (redact).
 log_excerpt() {
   for svc in $1; do
-    # shellcheck disable=SC2086
-    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+    cid="$(svc_container "$svc")"
     [ -n "$cid" ] || continue
     echo "--- $svc"
     docker logs --tail 30 "$cid" 2>&1 || true
@@ -1086,6 +1130,13 @@ run_tick_loop() {
 # The waits are in the background so that `docker stop` ends it at once.
 run_updater_loop() {
   trap 'exit 0' TERM INT
+  # Container mode: an update cut short (this container was stopped or the
+  # host rebooted mid-swap) may have left the webapp stopped. Its check puts
+  # the originals back now, not two minutes from now.
+  if [ -f "$CM_JOURNAL" ] && [ "${KINBOARD_UPDATE_TICK:-on}" != off ]; then
+    log "kinboard-updater: an update was cut short; checking at once"
+    sh "$0" --tick </dev/null || true
+  fi
   log "kinboard-updater: the first check is in ${KINBOARD_TICK_FIRST:-120} s, then every $((TICK_INTERVAL / 60)) minutes (log: $LOG_FILE)"
   sleep "${KINBOARD_TICK_FIRST:-120}" & wait $! || true
   while :; do
@@ -1342,6 +1393,38 @@ EOF
   fi
   first="${files# }"; first="${first%% *}"
   workdir="${l_workdir:-$(dirname "$first")}"
+  # kinboard-updater: a file the labels name that cannot be read here, from
+  # the sibling that mounts their folders (or with no sibling at all, when the
+  # host has not even the folder), is not on the host: container mode.
+  #
+  # Only when none of its compose files is there: one file of several gone,
+  # or only the .env, is a mistake to report (below), not another mode.
+  if [ -n "$UPDATER" ]; then
+    gone="${KINBOARD_CONTAINER_MODE_WHY:-}"
+    if [ -z "$gone" ]; then
+      gone="the stack's compose file ($l_files, in $workdir) is not on this host's disk"
+      for f in $files; do
+        case "$f" in /*) ;; *) f="${workdir%/}/$f" ;; esac
+        [ ! -r "$f" ] || gone=""
+      done
+    fi
+    if [ -n "$gone" ]; then
+      set +f
+      if [ -z "$l_project" ]; then
+        log "ERROR: $gone, and its containers carry no Compose project; nothing was changed"
+        return 1
+      fi
+      STACK_MODE=container
+      STACK_PROJECT="$l_project"
+      # No file to read variables from: an empty one, for env_value and redact.
+      STACK_ENV_FILE=/dev/null
+      unset COMPOSE_FILES
+      COMPOSE_FILES=""
+      unset TZ
+      STACK_NOTE="container mode: $gone (a Portainer web-editor stack keeps it inside Portainer); the Kinboard containers are recreated from their own configuration, with only the image changed"
+      return 0
+    fi
+  fi
   args=""
   [ -z "$l_project" ] || args="-p $l_project"
   args="$args --project-directory $workdir"
@@ -1399,7 +1482,8 @@ STACK_NOTE=""
 #     container's network and volumes (the socket, the config volume) and
 #     runs this same image ("compose-file mode"). A path that is not on the
 #     host (Portainer's web editor keeps its stacks inside its own volume) is
-#     container mode, which comes later (PR 14): logged, nothing touched.
+#     container mode: the Kinboard containers are recreated from their own
+#     configuration with the new image (see "Container mode").
 #   - State, lock and log are in the config volume (updater/), never in git.
 #   - The first tick records a baseline and changes nothing.
 #   - Then, for each running service: a reference that differs from what the
@@ -1437,6 +1521,23 @@ updater_self() {
   if [ -n "$id" ]; then printf '%s\n' "$id"; else hostname 2>/dev/null || true; fi
 }
 
+# Runs this tick in the sibling: $1 this container, $2 the project, $3 the
+# image, $4 the host folders to mount read-only at the same path; or none,
+# and $5 why: container mode.
+hop_run() {
+  hr_self="$1" hr_project="$2" hr_image="$3" hr_dirs="$4" hr_why="${5:-}"
+  # A fixed name per stack: a tick still running blocks a second one.
+  set -- --rm --name "$hr_project-updater-tick" --network "container:$hr_self" --volumes-from "$hr_self" --label app.kinboard.updater-tick=1 \
+    -e KINBOARD_UPDATER=1 -e KINBOARD_UPDATER_SIBLING=1 -e "KINBOARD_SELF_CONTAINER=$hr_self"
+  for d in $hr_dirs; do set -- "$@" --mount "type=bind,source=$d,target=$d,readonly"; done
+  [ -z "$hr_why" ] || set -- "$@" -e "KINBOARD_CONTAINER_MODE_WHY=$hr_why"
+  for v in $UPDATER_PASS_ENV; do
+    val="$(printenv "$v" 2>/dev/null || true)"
+    [ -z "$val" ] || set -- "$@" -e "$v=$val"
+  done
+  docker run "$@" --entrypoint sh "$hr_image" /usr/local/bin/kinboard-self-update.sh --tick
+}
+
 # What a tick reads from its environment, handed on to the sibling.
 UPDATER_PASS_ENV="KINBOARD_UPDATE_TICK KINBOARD_HEALTH_TIMEOUT KINBOARD_HEALTH_POLL KINBOARD_SMOKE_TIMEOUT KINBOARD_TICK_INTERVAL KINBOARD_BACKUP_DIR BACKUP_KEEP KINBOARD_INSECURE_REGISTRIES KINBOARD_REGISTRY_TIMEOUT KINBOARD_UPDATER_DIR KINBOARD_LOG_MAX LOG_FILE"
 
@@ -1472,21 +1573,19 @@ HOP
     log "ERROR: cannot read the updater's own image; nothing was changed"
     exit 1
   fi
-  # A fixed name per stack: a tick still running blocks a second one.
-  set -- --rm --name "$h_project-updater-tick" --network "container:$self" --volumes-from "$self" --label app.kinboard.updater-tick=1 \
-    -e KINBOARD_UPDATER=1 -e KINBOARD_UPDATER_SIBLING=1 -e "KINBOARD_SELF_CONTAINER=$self"
-  for d in $dirs; do set -- "$@" --mount "type=bind,source=$d,target=$d,readonly"; done
-  for v in $UPDATER_PASS_ENV; do
-    val="$(printenv "$v" 2>/dev/null || true)"
-    [ -z "$val" ] || set -- "$@" -e "$v=$val"
-  done
   hop_err="${TMPDIR:-/tmp}/kinboard-updater-hop.$$"
   rc=0
-  docker run "$@" --entrypoint sh "$image" /usr/local/bin/kinboard-self-update.sh --tick 2>"$hop_err" || rc=$?
+  hop_run "$self" "$h_project" "$image" "$dirs" 2>"$hop_err" || rc=$?
+  # Docker refuses to mount a folder the host does not have: the files are
+  # not on this host's disk at all (a Portainer web-editor stack keeps them
+  # inside Portainer's own volume). Then the tick is container mode, in the
+  # same kind of sibling without the folders: it needs only the socket and
+  # the config volume, and it is not cut short when this container is
+  # recreated.
   if [ "$rc" = 125 ] && grep -q 'bind source path does not exist' "$hop_err" 2>/dev/null; then
-    rm -f "$hop_err"
-    log "=== tick skipped: the stack's compose file ($h_files) is not on this host's disk (a Portainer web-editor stack keeps it inside Portainer). Updating such a stack from its containers comes with a later release; until then update it with Pull and Up in your Compose UI. Nothing was changed ==="
-    exit 0
+    rc=0
+    hop_run "$self" "$h_project" "$image" "" \
+      "the stack's files ($(printf '%s' "${paths# }" | tr ' ' ',')) are not on this host's disk" 2>"$hop_err" || rc=$?
   fi
   if [ "$rc" = 125 ]; then
     log "ERROR: could not start the tick's container: $(grep -v '^[[:space:]]*$' "$hop_err" | tail -n1); nothing was changed"
@@ -1612,6 +1711,12 @@ image_digest() {
 # The value service $1 sets for environment variable $2 in the stack's
 # configuration (`docker compose config`), quotes removed; or nothing.
 config_env() {
+  # Container mode: what the container was created with.
+  if [ "$STACK_MODE" = container ]; then
+    docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$(svc_container "$1")" 2>/dev/null \
+      | awk -v k="$2" 'index($0, k "=") == 1 { print substr($0, length(k) + 2); exit }' || true
+    return 0
+  fi
   # shellcheck disable=SC2086
   docker compose $COMPOSE_FILES config 2>/dev/null | awk -v s="$1" -v k="$2" '
     /^services:/ { in_services = 1; next }
@@ -1712,8 +1817,7 @@ updater_revision_ok() {
   done
   [ -n "$pulled" ] || return 0
   new_id="$(docker image inspect -f '{{.Id}}' "$kref" 2>/dev/null || true)"
-  # shellcheck disable=SC2086
-  wcid="$(docker compose $COMPOSE_FILES ps -aq webapp 2>/dev/null | head -n1 || true)"
+  wcid="$(svc_container webapp)"
   run_id="$(docker inspect -f '{{.Image}}' "$wcid" 2>/dev/null || true)"
   run_ref="$(docker inspect -f '{{.Config.Image}}' "$wcid" 2>/dev/null || true)"
   [ -n "$new_id" ] && [ "$new_id" != "$run_id" ] || return 0
@@ -1790,9 +1894,11 @@ running_mounts() {
 # (KINBOARD_*_DIR typed in a shell, not in .env) would otherwise be recreated
 # on other data: on empty volumes, with new secrets.
 updater_mounts_match() {
+  # Container mode has no file to compare with: it copies each container's
+  # mounts as they are (see "Container mode").
+  [ "$STACK_MODE" != container ] || return 0
   for svc in $RECREATE; do
-    # shellcheck disable=SC2086
-    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+    cid="$(svc_container "$svc")"
     [ -n "$cid" ] || continue
     want="$(config_mounts "$svc")"
     have="$(running_mounts "$cid")"
@@ -1802,6 +1908,574 @@ updater_mounts_match() {
     fi
   done
   return 0
+}
+
+# ---------------------------------------------------------------------------
+# Container mode (RFC-023 §4.11.3, PR 14 of §9).
+#
+# Portainer's web editor keeps a stack's compose file and its variables inside
+# Portainer's own volume (/data/compose/<id>/). The containers' Compose labels
+# name that path, and the host has nothing there: the sibling of compose-file
+# mode cannot even be started, and `docker compose` has no file to run. The
+# same holds for a stack started from stdin (`docker compose -f -`) or whose
+# file was deleted since. Then the updater recreates each Kinboard container
+# from its own configuration, read from Docker, with only the image changed:
+# Watchtower's method. A release changes nothing but the image (§2), so that
+# is enough; what does need a new file raises KINBOARD_COMPOSE_REVISION,
+# which holds the update here as in compose-file mode.
+#
+#   - Desired is what each container was created from (its .Config.Image),
+#     running is its image id, remote is the registry's digest for that
+#     reference: the same decisions as compose-file mode. A reference never
+#     changes here (a new KINBOARD_TAG reaches the containers only through the
+#     UI's own redeploy), so a pinned stack never moves.
+#   - Only containers of the Kinboard image are ever recreated (init, db-init,
+#     the webapp), checked once more right before each one: never the
+#     database, PostgREST, go2rtc or the updater itself.
+#   - Each one: its configuration through the Engine API (GET
+#     /containers/{id}/json), the create request built from it by CM_CREATE_JQ
+#     below, and the container created through the API (POST
+#     /containers/create). The API, not `docker create`: the CLI's
+#     --entrypoint takes one word, so init's `entrypoint: [/bin/sh, -c, …]`
+#     would come back split between Entrypoint and Cmd, and a network alias,
+#     a log option or a healthcheck field without a flag would be lost.
+#   - The swap: the old container is renamed aside (<name>-before-update),
+#     the new one created under the real name, then the old one stopped (its
+#     restart policy set to "no" first, so a reboot cannot start both) and
+#     the new one started. A refused create or start puts the old one back
+#     under its name, policy and state at once. Kept until the update is
+#     healthy; then removed with `docker rm`, never -v: the volumes it shares
+#     with the new one stay.
+#   - Order: init must exit 0 before db-init runs, db-init before the webapp.
+#   - Rollback is the old containers themselves: the new ones are removed and
+#     the originals renamed back and started, so the exact containers that
+#     ran before (same id, same configuration, same image) run again.
+#   - A journal (updater/swap, beside the state) records every swap before it
+#     starts. A tick that finds one (the updater was killed, the host
+#     rebooted) puts the originals back first, or, when the update had
+#     already passed its health checks, removes them. Only containers the
+#     update itself made are ever removed: when the stack was redeployed from
+#     the UI in the meantime, that is left alone (see cm_restore).
+#   - The tick runs in a sibling container, as in compose-file mode (without
+#     the folders, which the host does not have), so that recreating the
+#     updater itself (a Pull and redeploy in the UI) does not cut it short.
+# ---------------------------------------------------------------------------
+
+CM_SUFFIX=-before-update
+CM_DIR="${UPDATER_DIR:-/kinboard/updater}/swap.d"
+CM_JOURNAL="${UPDATER_DIR:-/kinboard/updater}/swap"
+
+# The create request for a container, from its configuration as the Engine API
+# reports it. jq, run as: jq -n --slurpfile c <container.json> --slurpfile i
+# <image.json> --arg ref <reference> --arg composeimage <label value>. Prints
+# {name, body, connect: [{network, body}]}: the container's name, the body of
+# POST /containers/create, and one POST /networks/{network}/connect body for
+# each network beyond the first (its "Container" filled in afterwards).
+#
+# Docker writes into a container's configuration what its image supplied:
+# the image's ENV lines, LABELs, ENTRYPOINT and CMD, HEALTHCHECK, USER,
+# WORKDIR, STOPSIGNAL, EXPOSE and VOLUME. Copied as they are, the new
+# container would keep the old image's values for good (its version label,
+# its PATH, its entrypoint). So whatever still equals the old image's value is
+# left out, and the new image supplies its own. Everything else is the
+# container's own configuration and is copied as it is: every other variable,
+# label (the Compose labels too, so the UI still shows the container in its
+# stack), mount, port, network with its aliases and fixed addresses, restart
+# policy, healthcheck, user, command and entrypoint, log driver and options,
+# and the rest of HostConfig. Derived from the old container and left for
+# Docker to give anew: its id, its hostname when that is the id, an alias
+# that is the old id, its addresses unless fixed, its MAC address.
+#
+# A volume Docker created without a name (an image's VOLUME, or `- /path` in a
+# compose file) is mounted again by its name: created afresh it would be
+# empty. (Only those: one that came with volumes_from comes again with it.) com.docker.compose.image says which image Compose created the
+# container from; it gets the new image's (cm_compose_image), so a later
+# redeploy from the UI does not take the container for out of date. Empty:
+# left as it is.
+# shellcheck disable=SC2016
+CM_CREATE_JQ='
+($c[0]) as $c | ($i[0].Config // {}) as $ic | ($c.Config // {}) as $cc |
+($c.Id[0:12]) as $short |
+($c.HostConfig.NetworkMode // "" | if . == "default" then "bridge" else . end) as $mode |
+(if ($mode | test("^(host|none|container:.*)$")) then null else $mode end) as $primary |
+([($c.HostConfig.Mounts // [])[].Target] + [($c.HostConfig.Binds // [])[] | split(":")[1]]) as $mounted |
+def unless_image($v; $img): if $v == $img then null else $v end;
+def endpoint: {
+  IPAMConfig: .IPAMConfig,
+  Links: .Links,
+  Aliases: (if .Aliases == null then null else [.Aliases[] | select(. != $short)] end),
+  DriverOpts: .DriverOpts
+} + (if has("GwPriority") then {GwPriority: .GwPriority} else {} end);
+def anon_name($target): first(($c.Mounts // [])[] | select(.Type == "volume" and .Destination == $target) | .Name) // "";
+{
+  name: ($c.Name | ltrimstr("/")),
+  body: {
+    Hostname: (if $cc.Hostname == $short or ($mode | startswith("container:")) then "" else $cc.Hostname end),
+    Domainname: $cc.Domainname,
+    User: (if ($cc.User // "") == ($ic.User // "") then "" else $cc.User end),
+    AttachStdin: $cc.AttachStdin,
+    AttachStdout: $cc.AttachStdout,
+    AttachStderr: $cc.AttachStderr,
+    Tty: $cc.Tty,
+    OpenStdin: $cc.OpenStdin,
+    StdinOnce: $cc.StdinOnce,
+    ExposedPorts: (($cc.ExposedPorts // {}) | with_entries(.key as $k | select(
+      ((($ic.ExposedPorts // {}) | has($k)) | not) or (($c.HostConfig.PortBindings // {}) | has($k))
+    )) | if . == {} then null else . end),
+    Env: [($cc.Env // [])[] | select(. as $e | any(($ic.Env // [])[]; . == $e) | not)],
+    Entrypoint: unless_image($cc.Entrypoint; $ic.Entrypoint),
+    Cmd: (if $cc.Entrypoint != $ic.Entrypoint then $cc.Cmd else unless_image($cc.Cmd; $ic.Cmd) end),
+    Image: $ref,
+    Volumes: (($cc.Volumes // {}) | with_entries(.key as $k | select(($ic.Volumes // {}) | has($k) | not)) | if . == {} then null else . end),
+    WorkingDir: (if ($cc.WorkingDir // "") == ($ic.WorkingDir // "") then "" else $cc.WorkingDir end),
+    Labels: (($cc.Labels // {})
+      | with_entries(.key as $k | select(.value != (($ic.Labels // {})[$k])))
+      | if has("com.docker.compose.image") and $composeimage != "" then .["com.docker.compose.image"] = $composeimage else . end),
+    StopSignal: unless_image($cc.StopSignal; $ic.StopSignal),
+    StopTimeout: $cc.StopTimeout,
+    Healthcheck: unless_image($cc.Healthcheck; $ic.Healthcheck),
+    Shell: unless_image($cc.Shell; $ic.Shell),
+    NetworkDisabled: $cc.NetworkDisabled,
+    HostConfig: ($c.HostConfig
+      | if .Mounts == null then . else .Mounts |= map(
+          if .Type == "volume" and ((.Source // "") == "") then .Source = anon_name(.Target) else . end
+        ) end
+      | ([($c.Mounts // [])[]
+          | .Destination as $d
+          | select(.Type == "volume" and (.Name // "") != "" and (($cc.Volumes // {}) | has($d))
+              and ($mounted | index([$d]) | not))
+          | {Type: "volume", Source: .Name, Target: .Destination, ReadOnly: (.RW | not)}]) as $anon
+      | if $anon == [] then . else .Mounts = ((.Mounts // []) + $anon) end),
+    NetworkingConfig: {EndpointsConfig: (($c.NetworkSettings.Networks // {})
+      | with_entries(select($primary != null and (.key == $primary or .value.NetworkID == $primary)))
+      | map_values(endpoint))}
+  },
+  connect: [($c.NetworkSettings.Networks // {}) | to_entries[]
+    | select($primary != null and .key != $primary and .value.NetworkID != $primary)
+    | {network: (.value.NetworkID // .key), name: .key, body: {Container: "", EndpointConfig: (.value | endpoint)}}]
+}
+'
+
+# "<id> <service> <name>" for each container of the stack's project: a
+# one-off (`docker compose run`), one without a service label and one an
+# update set aside left out. $1: "running" for running ones only.
+cm_list() {
+  all=-a
+  [ -z "${1:-}" ] || all=""
+  # shellcheck disable=SC2086
+  docker ps $all --no-trunc --filter "label=com.docker.compose.project=$STACK_PROJECT" \
+    --format '{{.ID}}|{{.Label "com.docker.compose.service"}}|{{.Names}}|{{.Label "com.docker.compose.oneoff"}}' 2>/dev/null \
+    | awk -F'|' -v sfx="$CM_SUFFIX" '$2 != "" && $3 != "" && $4 != "True" && substr($3, length($3) - length(sfx) + 1) != sfx { print $1, $2, $3 }' \
+    | sort -k2,2 -k3,3 || true
+}
+
+# The ids of service $1's containers; $2: "running" for running ones only.
+cm_containers() {
+  cm_list "${2:-}" | awk -v s="$1" '$2 == s { print $1 }'
+}
+
+# $1 method, $2 path, $3 a file holding the JSON body. Talks to the daemon the
+# docker CLI talks to (DOCKER_HOST, else the socket). Prints the response;
+# returns 1, with the reason in API_ERR, unless the answer is a 2xx.
+API_ERR=""
+docker_api() {
+  API_ERR=""
+  host="${DOCKER_HOST:-unix:///var/run/docker.sock}"
+  if [ -n "${DOCKER_TLS_VERIFY:-}" ]; then
+    API_ERR="DOCKER_TLS_VERIFY is set; container mode talks to the Docker socket or plain tcp only"
+    return 1
+  fi
+  api_tmp="$CM_DIR/api.$$"
+  set -- "$1" "$2" "${3:-}" -sS -m 120 -o "$api_tmp" -w '%{http_code}' -X "$1" -H 'Content-Type: application/json'
+  case "$host" in
+    unix://*) set -- "$@" --unix-socket "${host#unix://}" "http://localhost$2" ;;
+    tcp://*) set -- "$@" "http://${host#tcp://}$2" ;;
+    *) API_ERR="DOCKER_HOST=$host is neither unix:// nor tcp://"; return 1 ;;
+  esac
+  [ -z "$3" ] || set -- "$@" --data-binary "@$3"
+  shift 3
+  code="$(curl "$@" 2>"$api_tmp.err")" || code="000"
+  if [ -f "$api_tmp" ]; then cat "$api_tmp"; fi
+  case "$code" in
+    2??) rm -f "$api_tmp" "$api_tmp.err"; return 0 ;;
+  esac
+  API_ERR="HTTP $code: $(cat "$api_tmp" "$api_tmp.err" 2>/dev/null | tr -d '\r' | tr '\n' ' ' | cut -c1-300)"
+  rm -f "$api_tmp" "$api_tmp.err"
+  return 1
+}
+
+# The journal: "phase <updating|done>", then one line per container swapped:
+# "<service> <old id> <name> <was running: true|false> <restart policy>
+# <image id it ran> <reference> <new id or -> <image id it gets> <since, UTC>".
+# Only lines of exactly that shape are read: it lives in the config volume.
+CM_LINE='^[A-Za-z0-9._-]+ [0-9a-f]{64} [A-Za-z0-9][A-Za-z0-9_.-]* (true|false) (no|always|unless-stopped|on-failure(:[0-9]+)?) sha256:[0-9a-f]{64} [^ ]+ ([0-9a-f]{64}|-) sha256:[0-9a-f]{64} [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$'
+
+# $1 service, $2 its line. Returns 1 unless the line is in the journal.
+cm_journal_add() {
+  { if [ -f "$CM_JOURNAL" ]; then cat "$CM_JOURNAL"; else echo "phase updating"; fi; echo "$2"; } > "$CM_JOURNAL.tmp" \
+    && mv "$CM_JOURNAL.tmp" "$CM_JOURNAL" && [ "$(cm_journal_get "$1")" = "$2" ]
+}
+cm_journal_get() {
+  grep -E "$CM_LINE" "$CM_JOURNAL" 2>/dev/null | awk -v s="$1" '$1 == s { print; exit }' || true
+}
+# $1 service, $2 the new container's id.
+cm_journal_new() {
+  awk -v s="$1" -v n="$2" '$1 == s && $1 != "phase" { $8 = n } { print }' "$CM_JOURNAL" > "$CM_JOURNAL.tmp" && mv "$CM_JOURNAL.tmp" "$CM_JOURNAL"
+}
+# Service $1 is done with: its line and its saved configuration go.
+cm_forget() {
+  if [ -f "$CM_JOURNAL" ]; then
+    awk -v s="$1" '$1 != s' "$CM_JOURNAL" > "$CM_JOURNAL.tmp" && mv "$CM_JOURNAL.tmp" "$CM_JOURNAL"
+    if ! grep -qv '^phase ' "$CM_JOURNAL" 2>/dev/null; then rm -f "$CM_JOURNAL"; fi
+  fi
+  case "$1" in *[!A-Za-z0-9._-]* | "") return 0 ;; esac
+  rm -f "$CM_DIR/$1.json" "$CM_DIR/$1.image.json"
+}
+# The services in the journal, last swapped first.
+cm_journal_services() {
+  grep -E "$CM_LINE" "$CM_JOURNAL" 2>/dev/null | awk '{ l[NR] = $1 } END { for (i = NR; i >= 1; i--) print l[i] }' || true
+}
+# Whether the journal has a line of any shape besides the phase.
+cm_journal_busy() {
+  [ -f "$CM_JOURNAL" ] && grep -qv '^phase ' "$CM_JOURNAL" 2>/dev/null
+}
+
+# Whether container $1 belongs to service $2 of this stack (its Compose labels).
+cm_is_ours() {
+  [ "$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}' "$1" 2>/dev/null || true)" = "$STACK_PROJECT|$2" ]
+}
+
+# What com.docker.compose.image should say for image $2, when it said $1 for
+# image $3: the image id where it was the id; where it was the digest of the
+# platform's own manifest in the image (Compose 5.4 on the containerd image
+# store), the new image's manifest for that same platform. Nothing when that
+# cannot be told.
+cm_compose_image() {
+  [ -n "$1" ] || return 0
+  if [ "$1" = "$3" ]; then
+    printf '%s\n' "$2"
+    return 0
+  fi
+  plat="$(docker_api GET "/images/$3/json?manifests=1" 2>/dev/null \
+    | jq -c --arg d "$1" 'first(.Manifests[]? | select(.Descriptor.digest == $d) | .Descriptor.platform) // empty' 2>/dev/null || true)"
+  [ -n "$plat" ] || return 0
+  docker_api GET "/images/$2/json?manifests=1" 2>/dev/null \
+    | jq -r --argjson p "$plat" 'first(.Manifests[]? | select(.Kind == "image" and .Available and .Descriptor.platform == $p) | .Descriptor.digest) // empty' 2>/dev/null || true
+}
+
+# Creates a container from saved configuration $1 (container) and $2 (its old
+# image), from reference $3, which must name image id $4 now; $5: the value
+# for com.docker.compose.image (empty: as saved). Sets CM_NEW, or returns 1
+# with CM_ERR set and nothing left behind.
+cm_create() {
+  CM_NEW=""
+  spec="$CM_DIR/create.json"
+  if ! jq -n --slurpfile c "$1" --slurpfile i "$2" --arg ref "$3" --arg composeimage "${5:-}" "$CM_CREATE_JQ" > "$spec" 2>>"$LOG_FILE"; then
+    CM_ERR="could not turn the container's configuration into a create request (jq)"
+    rm -f "$spec"
+    return 1
+  fi
+  name="$(jq -r .name "$spec")"
+  jq -c .body "$spec" > "$spec.body"
+  if ! resp="$(docker_api POST "/containers/create?name=$name" "$spec.body")"; then
+    CM_ERR="Docker refused to create $name: $API_ERR"
+    rm -f "$spec" "$spec.body"
+    return 1
+  fi
+  rm -f "$spec.body"
+  CM_NEW="$(printf '%s' "$resp" | jq -r '.Id // empty' 2>/dev/null || true)"
+  if [ -z "$CM_NEW" ]; then
+    CM_ERR="Docker created $name but gave no id"
+    rm -f "$spec"
+    return 1
+  fi
+  n=0
+  count="$(jq '.connect | length' "$spec")"
+  while [ "$n" -lt "$count" ]; do
+    net="$(jq -r ".connect[$n].network" "$spec")"
+    jq -c --arg id "$CM_NEW" ".connect[$n].body | .Container = \$id" "$spec" > "$spec.net"
+    if ! docker_api POST "/networks/$net/connect" "$spec.net" >/dev/null; then
+      CM_ERR="could not connect $name to the network $(jq -r ".connect[$n].name" "$spec"): $API_ERR"
+      rm -f "$spec" "$spec.net"
+      docker rm -f "$CM_NEW" >>"$LOG_FILE" 2>&1 || true
+      CM_NEW=""
+      return 1
+    fi
+    n=$((n + 1))
+  done
+  rm -f "$spec" "$spec.net"
+  got="$(docker inspect -f '{{.Image}}' "$CM_NEW" 2>/dev/null || true)"
+  if [ "$got" != "$4" ]; then
+    CM_ERR="the new $name runs ${got:-an unknown image}, not $4 ($3 moved meanwhile?)"
+    docker rm -f "$CM_NEW" >>"$LOG_FILE" 2>&1 || true
+    CM_NEW=""
+    return 1
+  fi
+  return 0
+}
+
+# Recreates service $1's container with image id $2 (what its reference names
+# now), its configuration otherwise as it is. Returns 1 with CM_ERR set, the
+# old container back as it was.
+cm_swap() {
+  svc="$1"
+  want="$2"
+  CM_ERR=""
+  ids="$(cm_containers "$svc")"
+  old="$(printf '%s\n' "$ids" | head -n1)"
+  if [ -z "$old" ]; then CM_ERR="$svc has no container"; return 1; fi
+  if [ "$(printf '%s\n' "$ids" | grep -c .)" -gt 1 ]; then CM_ERR="$svc has more than one container; container mode recreates one per service"; return 1; fi
+  if ! ( umask 077; mkdir -p "$CM_DIR" ); then CM_ERR="cannot create $CM_DIR"; return 1; fi
+  if ! docker_api GET "/containers/$old/json" > "$CM_DIR/$svc.json"; then CM_ERR="cannot read $svc's configuration: $API_ERR"; cm_forget "$svc"; return 1; fi
+  ref="$(jq -r '.Config.Image // empty' "$CM_DIR/$svc.json")"
+  old_img="$(jq -r '.Image // empty' "$CM_DIR/$svc.json")"
+  # Never anything but the Kinboard image, whatever decided this.
+  if [ -z "$ref" ] || [ "$(ref_repo "$ref")" != "$KB_REPO" ]; then
+    CM_ERR="$svc runs ${ref:-no image reference}, not the Kinboard image ($KB_REPO); container mode recreates the Kinboard containers only"
+    cm_forget "$svc"
+    return 1
+  fi
+  if ! docker_api GET "/images/$old_img/json" > "$CM_DIR/$svc.image.json"; then CM_ERR="cannot read the image $svc runs ($old_img): $API_ERR"; cm_forget "$svc"; return 1; fi
+  name="$(jq -r '.Name | ltrimstr("/")' "$CM_DIR/$svc.json")"
+  was_running="$(jq -r '.State.Running' "$CM_DIR/$svc.json")"
+  policy="$(jq -r '.HostConfig.RestartPolicy // {} | if .Name == "on-failure" and (.MaximumRetryCount // 0) > 0 then "on-failure:\(.MaximumRetryCount)" elif (.Name // "") == "" then "no" else .Name end' "$CM_DIR/$svc.json")"
+  aside="$name$CM_SUFFIX"
+  if docker inspect "$aside" >/dev/null 2>&1; then
+    CM_ERR="a container named $aside is in the way; nothing was changed for $svc"
+    cm_forget "$svc"
+    return 1
+  fi
+  # Recorded first, and read back: without the line, nothing could put the
+  # original back.
+  if ! cm_journal_add "$svc" "$svc $old $name $was_running $policy $old_img $ref - $want $(date -u +%Y-%m-%dT%H:%M:%S)"; then
+    CM_ERR="could not record the swap in $CM_JOURNAL (a full or read-only config volume?); nothing was changed for $svc"
+    cm_forget "$svc"
+    return 1
+  fi
+  if ! docker rename "$old" "$aside" >>"$LOG_FILE" 2>&1; then
+    cm_forget "$svc"
+    CM_ERR="could not rename $name aside"
+    return 1
+  fi
+  label="$(jq -r '.Config.Labels["com.docker.compose.image"] // empty' "$CM_DIR/$svc.json")"
+  if ! cm_create "$CM_DIR/$svc.json" "$CM_DIR/$svc.image.json" "$ref" "$want" "$(cm_compose_image "$label" "$want" "$old_img")"; then
+    err="$CM_ERR"
+    cm_restore "$svc"
+    CM_ERR="$err"
+    return 1
+  fi
+  # Not fatal: the restore also knows the new one by its name, age and image.
+  cm_journal_new "$svc" "$CM_NEW" || log "WARN: could not record the new $name's id in $CM_JOURNAL"
+  log "container mode: $svc: created $(printf '%.12s' "$CM_NEW") as $name from $ref ($want); $(printf '%.12s' "$old") set aside as $aside"
+  if [ "$policy" != no ] && ! docker update --restart=no "$old" >>"$LOG_FILE" 2>&1; then
+    cm_restore "$svc"
+    CM_ERR="could not set the restart policy of $aside to no"
+    return 1
+  fi
+  if [ "$was_running" = true ] && ! docker stop "$old" >>"$LOG_FILE" 2>&1; then
+    cm_restore "$svc"
+    CM_ERR="could not stop $aside"
+    return 1
+  fi
+  if ! docker start "$CM_NEW" >>"$LOG_FILE" 2>&1; then
+    cm_restore "$svc"
+    CM_ERR="Docker could not start the new $name"
+    return 1
+  fi
+  return 0
+}
+
+# Puts service $1's original container back, from the journal: the container
+# this update made removed (never its volumes), the original renamed back,
+# its restart policy given back, started when it ran. $2 = "retag": point the
+# reference at the image the original runs first (after a cut-short tick; a
+# rollback has done that already).
+#
+# Only what this update made is ever removed: the id the journal recorded,
+# or, for a tick cut short before it recorded one, the container under the
+# name that was created since the journal line, from the image the update
+# wanted, with this service's labels. Anything else under the name, or an
+# original that is gone, means the stack was changed outside the updater
+# (a redeploy or a stop from the UI, perhaps in the middle of the update):
+# then nothing is removed, renamed or created for that service, its journal
+# line is dropped so that no later tick acts on it, and the log says so.
+# Returns 1 unless the original runs (or, for a one-shot, exists) again.
+cm_restore() {
+  line="$(cm_journal_get "$1")"
+  [ -n "$line" ] || return 0
+  r_retag="${2:-}"
+  # shellcheck disable=SC2086
+  set -- $line
+  r_svc="$1" r_old="$2" r_name="$3" r_running="$4" r_policy="$5" r_img="$6" r_ref="$7" r_new="$8" r_want="$9" r_since="${10}"
+  holder="$(docker inspect -f '{{.Id}}' "$r_name" 2>/dev/null || true)"
+  mine=""
+  if [ "$r_new" != - ]; then
+    if docker inspect "$r_new" >/dev/null 2>&1; then mine="$r_new"; fi
+  elif [ -n "$holder" ] && [ "$holder" != "$r_old" ] && cm_is_ours "$holder" "$r_svc" \
+       && [ "$(docker inspect -f '{{.Image}}' "$holder" 2>/dev/null || true)" = "$r_want" ] \
+       && awk -v c="$(docker inspect -f '{{.Created}}' "$holder" 2>/dev/null | cut -c1-19)" -v s="$r_since" 'BEGIN { exit !(c >= s) }'; then
+    mine="$holder"
+  fi
+  if ! docker inspect "$r_old" >/dev/null 2>&1; then
+    log "ERROR: $r_svc: the original $r_name ($(printf '%.12s' "$r_old")) is gone; the stack was changed outside the updater (a redeploy or a stop from the UI?). Nothing more is done for it"
+    cm_forget "$r_svc"
+    return 1
+  fi
+  if [ -n "$holder" ] && [ "$holder" != "$r_old" ] && [ "$holder" != "$mine" ]; then
+    log "ERROR: $r_svc: $r_name is now $(printf '%.12s' "$holder"), which this update did not make; the stack was redeployed outside the updater, and that is left as it is"
+    # The original is then a leftover, set aside and stopped.
+    if [ "$(docker inspect -f '{{.State.Running}}' "$r_old" 2>/dev/null || true)" != true ] && cm_is_ours "$r_old" "$r_svc" \
+       && docker rm "$r_old" >>"$LOG_FILE" 2>&1; then
+      log "container mode: $r_svc: removed the original ($(printf '%.12s' "$r_old")), which nothing uses now; its volumes stay"
+    fi
+    cm_forget "$r_svc"
+    return 1
+  fi
+  r_ok=1
+  if [ -n "$mine" ] && ! docker rm -f "$mine" >>"$LOG_FILE" 2>&1; then
+    r_ok=""
+    log "ERROR: could not remove the new $r_name ($(printf '%.12s' "$mine"))"
+  fi
+  if [ "$r_retag" = retag ] && [ "$(docker image inspect -f '{{.Id}}' "$r_ref" 2>/dev/null || true)" != "$r_img" ]; then
+    docker tag "$r_img" "$r_ref" >>"$LOG_FILE" 2>&1 || log "WARN: could not point $r_ref back at $r_img"
+  fi
+  if [ -n "$r_ok" ]; then
+    cur="$(docker inspect -f '{{.Name}}' "$r_old" 2>/dev/null || true)"
+    if [ "${cur#/}" != "$r_name" ] && ! docker rename "$r_old" "$r_name" >>"$LOG_FILE" 2>&1; then
+      r_ok=""
+      log "ERROR: could not rename $(printf '%.12s' "$r_old") back to $r_name"
+    fi
+  fi
+  if [ "$r_policy" != no ] && ! docker update --restart="$r_policy" "$r_old" >>"$LOG_FILE" 2>&1; then
+    r_ok=""
+    log "ERROR: could not give $r_name its restart policy ($r_policy) back"
+  fi
+  if [ -n "$r_ok" ] && [ "$r_running" = true ] && [ "$(docker inspect -f '{{.State.Running}}' "$r_old" 2>/dev/null || true)" != true ] \
+     && ! docker start "$r_old" >>"$LOG_FILE" 2>&1; then
+    r_ok=""
+    log "ERROR: could not start $r_name ($(printf '%.12s' "$r_old")) again"
+  fi
+  if [ -n "$r_ok" ]; then
+    log "container mode: $r_svc: the original $r_name ($(printf '%.12s' "$r_old")) is back"
+    cm_forget "$r_svc"
+    return 0
+  fi
+  return 1
+}
+
+# Every swapped service back, last first. Returns 1 when one did not come back.
+# $1: as for cm_restore.
+cm_restore_all() {
+  all_ok=0
+  for s in $(cm_journal_services); do
+    cm_restore "$s" "${1:-}" || all_ok=1
+  done
+  return "$all_ok"
+}
+
+# The update came up healthy: the originals go (`docker rm`, never -v).
+# Returns 1 when one could not be removed (its line stays).
+cm_finish() {
+  [ -f "$CM_JOURNAL" ] || return 0
+  { echo "phase done"; grep -v '^phase ' "$CM_JOURNAL"; } > "$CM_JOURNAL.tmp" && mv "$CM_JOURNAL.tmp" "$CM_JOURNAL"
+  fin_ok=0
+  for s in $(cm_journal_services); do
+    # shellcheck disable=SC2046
+    set -- $(cm_journal_get "$s")
+    if docker inspect "$2" >/dev/null 2>&1 && cm_is_ours "$2" "$1"; then
+      if [ "$(docker inspect -f '{{.State.Running}}' "$2" 2>/dev/null || true)" = true ]; then
+        log "WARN: $3$CM_SUFFIX ($2) runs again (started by hand?); left as it is"
+      elif docker rm "$2" >>"$LOG_FILE" 2>&1; then
+        log "container mode: $1: removed the original ($(printf '%.12s' "$2")); its volumes stay"
+      else
+        log "WARN: could not remove $3$CM_SUFFIX ($2); remove it by hand once Kinboard runs well"
+        fin_ok=1
+        continue
+      fi
+    fi
+    cm_forget "$1"
+  done
+  return "$fin_ok"
+}
+
+# Recreates services $1 (Kinboard containers), init first and alone, then
+# db-init, then the rest; a one-shot must have exited 0 before the next
+# starts. Returns 1 with UNHEALTHY set; what was swapped stays in the journal
+# for the rollback.
+cm_recreate() {
+  UNHEALTHY=""
+  # cm_preflight saw to an earlier journal; one left here is not this run's.
+  if cm_journal_busy; then
+    UNHEALTHY="an earlier update's journal ($CM_JOURNAL) is still there; nothing was recreated
+"
+    return 1
+  fi
+  order="$(for s in init db-init; do case " $1 " in *" $s "*) echo "$s" ;; esac; done
+    for s in $1; do case "$s" in init | db-init) ;; *) echo "$s" ;; esac; done)"
+  for svc in $order; do
+    ref="$(field_for "$svc" "$CONFIG_IMAGES")"
+    want="$(docker image inspect -f '{{.Id}}' "$ref" 2>/dev/null || true)"
+    if [ -z "$want" ]; then
+      UNHEALTHY="$svc: $ref is not on this host
+"
+      return 1
+    fi
+    log "container mode: recreating $svc with $want, its configuration otherwise as it is"
+    if ! cm_swap "$svc" "$want"; then
+      UNHEALTHY="$svc: $CM_ERR
+"
+      return 1
+    fi
+    # A one-shot (it was not running, and nothing restarts it) has to finish.
+    line="$(cm_journal_get "$svc")"
+    if [ "$(printf '%s' "$line" | cut -d' ' -f4)" != true ] && [ "$(printf '%s' "$line" | cut -d' ' -f5)" = no ]; then
+      wait_completed "$svc" || return 1
+    fi
+  done
+  return 0
+}
+
+# Before a tick in container mode: what it needs, and what an earlier tick
+# that was cut short left. Exits when that tick must not go on.
+cm_preflight() {
+  # What it writes (a container's configuration holds its variables, secrets
+  # among them) is for root only.
+  umask 077
+  for tool in jq curl; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      log "ERROR: container mode needs $tool, which this image lacks; nothing was changed"
+      log "=== tick skipped ==="
+      exit 1
+    fi
+  done
+  if ! mkdir -p "$CM_DIR" 2>/dev/null; then
+    log "ERROR: container mode cannot write $CM_DIR; nothing was changed"
+    log "=== tick skipped ==="
+    exit 1
+  fi
+  if ! docker_api GET /_ping >/dev/null; then
+    log "ERROR: container mode cannot reach the Docker API ($API_ERR); nothing was changed"
+    log "=== tick skipped ==="
+    exit 1
+  fi
+  cm_journal_busy || { rm -f "$CM_JOURNAL"; return 0; }
+  if grep -q '^phase done' "$CM_JOURNAL"; then
+    log "container mode: the last update came up healthy but was cut short before it removed the containers it replaced; removing them now"
+    cm_finish || true
+  else
+    log "container mode: an update was cut short while it recreated containers ($(cm_journal_services | tr '\n' ' ')); putting the originals back"
+    if cm_restore_all retag && ! cm_journal_busy; then
+      log "=== tick: the containers from before the interrupted update run again; the next tick looks again ==="
+      exit 0
+    fi
+  fi
+  if cm_journal_busy; then
+    log "ERROR: container mode: $CM_JOURNAL still lists containers it could not deal with ($(cut -d' ' -f1-3 "$CM_JOURNAL" | grep -v '^phase' | tr '\n' ';')); nothing more is changed until that is resolved: put back or remove what it names by hand, then delete the file"
+    log "=== tick skipped ==="
+    exit 1
+  fi
+  log "=== tick: what the interrupted update left is dealt with; the next tick looks again ==="
+  exit 0
 }
 
 if [ "$MODE" = loop ]; then
@@ -1892,7 +2566,7 @@ fi
 # halfway). The updater's image moves when the household pulls the stack.
 NEVER_RECREATE='^(webhook|diun)$'
 if [ -n "$UPDATER" ]; then
-  if [ "$STACK_MODE" != compose ]; then
+  if [ "$STACK_MODE" != compose ] && [ "$STACK_MODE" != container ]; then
     log "ERROR: kinboard-updater updates a stack started from compose.yml; this one was started from other files. A git install updates with the Diun overlay instead. Nothing was changed"
     log "=== tick skipped ==="
     exit 1
@@ -1911,13 +2585,19 @@ if [ -n "$UPDATER" ]; then
   fi
   NEVER_RECREATE="^(webhook|diun|$(printf '%s' "$SELF_SERVICE" | sed 's/[.]/[.]/g'))\$"
 fi
-if [ "$STACK_MODE" = compose ] && [ "$MODE" = tick ] && [ "$(tick_switch)" = off ]; then
+if { [ "$STACK_MODE" = compose ] || [ "$STACK_MODE" = container ]; } && [ "$MODE" = tick ] && [ "$(tick_switch)" = off ]; then
   log "=== tick: switched off (KINBOARD_UPDATE_TICK=off) ==="
   exit 0
 fi
 if [ "$STACK_MODE" = compose ] && [ "$MODE" = update ]; then
   [ -z "$STACK_NOTE" ] || log "$STACK_NOTE"
   log "this stack runs compose.yml: docker compose $COMPOSE_FILES"
+fi
+# Container mode (see there): say so, check what it needs, and finish what a
+# tick that was cut short left.
+if [ "$STACK_MODE" = container ]; then
+  log "$STACK_NOTE"
+  cm_preflight
 fi
 DIUN_BEFORE="$(stat -c %Y webapp/docker/diun/diun.yml 2>/dev/null || echo 0)"
 
@@ -2035,10 +2715,8 @@ take_retry_request
 # tick"). What differs is logged, and the next tick applies it.
 if [ "$MODE" = tick ] && [ -z "$(state_get baseline)" ]; then
   CONFIG_IMAGES="$(config_images)"
-  # shellcheck disable=SC2086
-  for svc in $(docker compose $COMPOSE_FILES config --services 2>/dev/null | grep -vE "$NEVER_RECREATE" || true); do
-    # shellcheck disable=SC2086
-    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+  for svc in $(stack_services | grep -vE "$NEVER_RECREATE" || true); do
+    cid="$(svc_container "$svc")"
     ref=""; running=""
     if [ -n "$cid" ]; then
       ref="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null || true)"
@@ -2088,17 +2766,14 @@ if [ "$MODE" = tick ]; then
     fi
     # The one-shots run the webapp's image and go with it: a webapp someone
     # stopped keeps all three as they are.
-    # shellcheck disable=SC2086
-    wcid="$(docker compose $COMPOSE_FILES ps -q webapp 2>/dev/null | head -n1 || true)"
+    wcid="$(svc_container webapp running)"
     if [ -z "$wcid" ] || [ "$(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}' "$wcid" 2>/dev/null | cut -d'|' -f1 || true)" != running ]; then
       log "=== tick: the webapp is not running; nothing is updated until it is ==="
       exit 0
     fi
   fi
-  # shellcheck disable=SC2086
-  for svc in $(docker compose $COMPOSE_FILES config --services 2>/dev/null | grep -vE "$NEVER_RECREATE" || true); do
-    # shellcheck disable=SC2086
-    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+  for svc in $(stack_services | grep -vE "$NEVER_RECREATE" || true); do
+    cid="$(svc_container "$svc")"
     [ -n "$cid" ] || continue
     st="$(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}' "$cid" 2>/dev/null || true)"
     case "$st" in
@@ -2159,14 +2834,22 @@ fi
 # The image ids before the pull, so the backup below can tell a real upgrade
 # from a no-op run. `config --images` lists what the stack resolves to;
 # inspecting each gives the id actually on disk now.
+# Every image reference the stack names.
+stack_image_refs() {
+  if [ "$STACK_MODE" = container ]; then
+    config_images | awk '{ print $2 }'
+    return 0
+  fi
+  # shellcheck disable=SC2086
+  docker compose $COMPOSE_FILES config --images 2>/dev/null || true
+}
 images_now() {
   # Sorted, because `config --images` returns the images in a different order
   # on every call: three consecutive calls on a production host gave three
   # different checksums with every image id unchanged. Unsorted, this compared
   # two shuffles of the same list and nearly always reported a change, so the
   # backup ran on runs that had nothing to upgrade.
-  # shellcheck disable=SC2086
-  docker compose $COMPOSE_FILES config --images 2>/dev/null | sort -u | while read -r ref; do
+  stack_image_refs | sort -u | while read -r ref; do
     docker image inspect -f '{{.Id}}' "$ref" 2>/dev/null || echo "absent:$ref"
   done
 }
@@ -2177,8 +2860,20 @@ IMAGES_BEFORE="$(images_now)"
 # stays on disk and is applied by the run that next gets through. A tick's
 # output goes to the log only then, so a quiet tick is one line.
 PULL_OUT="${TMPDIR:-/tmp}/kinboard-update-pull.$$"
+# $@: the services to pull (all when none). Container mode pulls each one's
+# reference once.
+stack_pull() {
+  if [ "$STACK_MODE" = container ]; then
+    for ref in $(for svc in "$@"; do field_for "$svc" "$CONFIG_IMAGES"; done | awk 'NF && !seen[$0]++'); do
+      docker pull "$ref" || return 1
+    done
+    return 0
+  fi
+  # shellcheck disable=SC2086
+  docker compose $COMPOSE_FILES pull --ignore-buildable "$@"
+}
 # shellcheck disable=SC2086
-if ! docker compose $COMPOSE_FILES pull --ignore-buildable $PULL_SVCS >"$PULL_OUT" 2>&1; then
+if ! stack_pull $PULL_SVCS >"$PULL_OUT" 2>&1; then
   cat "$PULL_OUT" >> "$LOG_FILE" 2>/dev/null || true
   why="$(grep -v '^[[:space:]]*$' "$PULL_OUT" | tail -n1 || true)"
   rm -f "$PULL_OUT"
@@ -2218,8 +2913,7 @@ fi
 # scheduler not refreshed, etc.). Self-updating those two services is
 # done out-of-band via `docker compose build webhook && docker compose
 # up -d webhook diun` from the host when their definitions change.
-# shellcheck disable=SC2086
-SERVICES=$(docker compose $COMPOSE_FILES config --services 2>/dev/null \
+SERVICES=$(stack_services \
             | grep -vE "$NEVER_RECREATE" \
             | tr '\n' ' ')
 
@@ -2255,8 +2949,7 @@ RECREATE="$(printf '%s\n' "$DECISIONS" | awk '$1 == "recreate" { printf "%s%s", 
 # back. Point it at the image that runs again, so that a `./start.sh up` or a
 # `docker compose up` by hand does not start the broken one.
 for svc in $(printf '%s\n' "$DECISIONS" | awk '$1 == "held" { print $2 }'); do
-  # shellcheck disable=SC2086
-  cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+  cid="$(svc_container "$svc")"
   running="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true)"
   want_ref="$(field_for "$svc" "$CONFIG_IMAGES")"
   # Once is enough where services share the reference (compose.yml's init,
@@ -2279,8 +2972,7 @@ fi
 # (see updater_mounts_match). If not, the pulled tags go back to what runs.
 if [ -n "$UPDATER" ] && ! updater_mounts_match; then
   for svc in $RECREATE; do
-    # shellcheck disable=SC2086
-    cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+    cid="$(svc_container "$svc")"
     running="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true)"
     run_ref="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null || true)"
     [ -n "$running" ] && [ "$run_ref" = "$(field_for "$svc" "$CONFIG_IMAGES")" ] || continue
@@ -2295,8 +2987,7 @@ fi
 # state file too, for whoever reads it after a run that was cut short.
 PREVIOUS=""
 for svc in $RECREATE; do
-  # shellcheck disable=SC2086
-  cid="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null | head -n1 || true)"
+  cid="$(svc_container "$svc")"
   id="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true)"
   ref="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null || true)"
   PREVIOUS="$PREVIOUS$svc ${id:--} ${ref:--}
@@ -2374,6 +3065,10 @@ fi
 # exited 0 before the others are started. Returns 1, with UNHEALTHY set, when
 # any of it fails. (On the legacy file there is no init: one `up`, as always.)
 recreate_services() {
+  if [ "$STACK_MODE" = container ]; then
+    cm_recreate "$2"
+    return $?
+  fi
   case " $2 " in
     *" init "*)
       others="$(printf ' %s ' "$2" | sed 's/ init / /; s/^  *//; s/  *$//')"
@@ -2404,8 +3099,7 @@ wait_completed() {
   UNHEALTHY=""
   deadline=$(( $(date +%s) + HEALTH_TIMEOUT ))
   while :; do
-    # shellcheck disable=SC2086
-    cid="$(docker compose $COMPOSE_FILES ps -aq "$1" 2>/dev/null | head -n1 || true)"
+    cid="$(svc_container "$1")"
     st="$(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}' "$cid" 2>/dev/null || true)"
     IFS='|' read -r status health restarts code policy <<EOF
 $st
@@ -2476,8 +3170,17 @@ roll_back() {
       log "ERROR: could not tag $prev_id as $want_ref"
     fi
   done
-  log "rolling back: docker compose $COMPOSE_FILES up -d --pull never --no-build --no-deps --force-recreate $RECREATE"
-  if recreate_services "--pull never" "$RECREATE" && wait_ready "$RECREATE"; then
+  if [ "$STACK_MODE" = container ]; then
+    # The originals themselves, set aside by the swap (see "Container mode").
+    log "rolling back: the containers from before the update ($RECREATE) back under their names"
+    rb_ok=1
+    cm_restore_all || rb_ok=""
+  else
+    log "rolling back: docker compose $COMPOSE_FILES up -d --pull never --no-build --no-deps --force-recreate $RECREATE"
+    rb_ok=1
+    recreate_services "--pull never" "$RECREATE" || rb_ok=""
+  fi
+  if [ -n "$rb_ok" ] && wait_ready "$RECREATE"; then
     OUTCOME=rolled_back
     log "ERROR: ROLLED BACK: $RECREATE run the images they ran before this update again, and are healthy"
     if [ -n "$MIGRATION" ]; then
@@ -2496,7 +3199,11 @@ OUTCOME=none
 MIGRATION=""
 EXCERPT=""
 if [ -n "$RECREATE" ]; then
-  log "docker compose $COMPOSE_FILES up -d --no-build --no-deps --force-recreate $RECREATE"
+  if [ "$STACK_MODE" = container ]; then
+    log "container mode: recreating $RECREATE from their own configuration with the new image"
+  else
+    log "docker compose $COMPOSE_FILES up -d --no-build --no-deps --force-recreate $RECREATE"
+  fi
   up_ok=1
   recreate_services "" "$RECREATE" || up_ok=""
   # The versions for the status record, before a rollback re-tags anything.
@@ -2514,6 +3221,7 @@ if [ -n "$RECREATE" ]; then
   if [ -n "$up_ok" ] && wait_ready "$RECREATE"; then
     OUTCOME=updated
     log "healthy: $RECREATE"
+    [ "$STACK_MODE" != container ] || cm_finish
     for svc in $RECREATE; do
       release_held "$(field_for "$svc" "$CONFIG_IMAGES")"
     done

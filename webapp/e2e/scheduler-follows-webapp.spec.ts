@@ -48,6 +48,11 @@ function run(script: (typeof SCRIPTS)[number], before: string, after: string, se
            return 0
          }
          : > "$CALLS"
+         # kinboard-self-update.sh finds containers and services through two
+         # helpers (svc_container, stack_services: RFC-023 PR 14); start.sh has neither.
+         STACK_MODE=legacy
+         eval "$(${fn("svc_container")} "$1")"
+         eval "$(${fn("stack_services")} "$1")"
          eval "$(${fn("webapp_container")} "$1")"
          eval "$(${fn("recreate_scheduler_if_webapp_changed")} "$1")"
          recreate_scheduler_if_webapp_changed "$BEFORE" >/dev/null 2>&1`,
