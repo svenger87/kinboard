@@ -58,7 +58,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
   chmodSync, chownSync, closeSync, constants, copyFileSync, existsSync, fstatSync, fsyncSync, lstatSync, mkdirSync,
-  mkdtempSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, statSync, writeFileSync, writeSync,
+  mkdtempSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, statSync, statfsSync, writeFileSync, writeSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
@@ -126,6 +126,81 @@ export function undoPlaced(rec, filesDir, secretsDir) {
       else rmSync(join(secretsDir, file), { force: true });
     });
   }
+}
+
+/**
+ * At a start of the all-in-one image, before PostgREST and the webapp read
+ * the secrets (db-ready.sh, as PUID): an import cut off before its commit
+ * (the container killed, the power gone) is undone here rather than only by
+ * the next `kinboard import`. Until then the install ran, with no family, on
+ * the archive's keys (a VAPID pair possibly half of one install and half of
+ * the other) and with the other install's photos in its files folder; a
+ * household that gave up on the import and created a family kept them for
+ * good. Also removes a files staging folder an import left (its files were
+ * never placed). Returns sentences for the log, or "".
+ */
+export function resumeAtStart({ env = process.env } = {}) {
+  const secretsDir = env.KINBOARD_SECRETS_DIR || DEFAULT_SECRETS_DIR;
+  const filesDir = env.FILES_DIR || "/var/lib/storage/files";
+  const said = [];
+  if (existsSync(filesDir) && !lstatSync(filesDir).isSymbolicLink()) {
+    const staged = readdirSync(filesDir).filter((n) => n.startsWith(".kinboard-import-"));
+    for (const n of staged) asOwnerOf(filesDir, () => rmSync(join(filesDir, n), { recursive: true, force: true }));
+    if (staged.length) said.push(`removed ${staged.length} staging folder(s) an import cut off before placing its files had left in ${filesDir}.`);
+  }
+  if (existsSync(secretsDir) && existsSync(join(secretsDir, PENDING))) {
+    const { pg } = dbEnv(env);
+    const families = Number(psql(pg, "SELECT count(*) FROM public.families;\n").trim());
+    const done = resumeLeftover({ filesDir, secretsDir, families, dbNonce: readNonce(pg) });
+    if (done) said.push(done);
+  }
+  return said.join(" ");
+}
+
+/* ------------------------------------------------------------ free space */
+
+const MB = 1024 * 1024;
+const mb = (n) => `${Math.ceil(n / MB)} MB`;
+
+/**
+ * Whether the disks an import writes to have room for it, before anything is
+ * written. `needs` is a list of { path, bytes, what }; paths on the same
+ * filesystem are added up. Returns sentences, empty when everything fits.
+ * The database's need is an estimate (its table data about twice over: the
+ * rows, their indexes and the write-ahead log of one transaction), so a
+ * import that would run the disk full is refused up front rather than by
+ * PostgreSQL half-way, which then stops with "No space left on device".
+ */
+export function spaceProblems(needs, { statfs = statfsSync, dev = (p) => statSync(p).dev } = {}) {
+  const byDisk = new Map();
+  for (const n of needs) {
+    if (!n.bytes) continue;
+    let at = n.path;
+    while (!existsSync(at) && dirname(at) !== at) at = dirname(at);
+    const key = String(dev(at));
+    const d = byDisk.get(key) ?? { paths: [], bytes: 0, what: [], at };
+    d.paths.push(n.path); d.bytes += n.bytes; d.what.push(`${n.what} ${mb(n.bytes)}`);
+    byDisk.set(key, d);
+  }
+  const p = [];
+  for (const d of byDisk.values()) {
+    const st = statfs(d.at);
+    const free = Number(st.bavail) * Number(st.bsize);
+    if (free < d.bytes) {
+      p.push(`not enough free space: ${d.paths.join(" and ")} ${d.paths.length > 1 ? "(one disk) have" : "has"} ${mb(free)} free, and this import needs about ${mb(d.bytes)} there (${d.what.join(", ")}). Free some space or give it a bigger disk, then run the import again`);
+    }
+  }
+  return p;
+}
+
+/** The size of every entry in a busybox `tar -tvzf` listing, added up. */
+export function listedBytes(listing) {
+  let n = 0;
+  for (const line of listing.split("\n")) {
+    const size = Number(line.split(/\s+/)[2]);
+    if (Number.isSafeInteger(size) && size > 0) n += size;
+  }
+  return n;
 }
 
 /** The nonce the last committed import wrote, or "". */
@@ -629,9 +704,24 @@ export function importArchive({ archive, env = process.env, restart = true, log 
       if (r.status !== 0) throw new Error("could not read the archive from standard input");
     }
     const list = spawnSync("tar", ["-tvzf", path], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
-    if (list.status !== 0) throw new Error(`not a readable archive: ${(list.stderr || "").trim()}`);
+    if (list.status !== 0) {
+      // What a household has in hand then: a copy cut short, or the text a
+      // failed `docker exec … > file` wrote into the file instead of an archive.
+      const head = (() => {
+        try {
+          const fd = openSync(path, "r");
+          try { const b = Buffer.alloc(120); return b.subarray(0, readSync(fd, b, 0, 120, 0)).toString("utf8"); } finally { closeSync(fd); }
+        } catch { return ""; }
+      })();
+      // Quoted printable characters only: a crafted file must not put terminal escapes into the operator's shell.
+      const said = /^[\x09\x0a\x0d\x20-\x7e]{8,}/.test(head) ? ` It starts with text, not an archive: ${JSON.stringify(head.split("\n")[0].replace(/[^\x20-\x7e]/g, "").slice(0, 100))}; the export that wrote it failed.` : "";
+      throw new Error(`not a readable archive (${(list.stderr || "").trim().replace(/\s*\n\s*/g, "; ")}).${said} Nothing was changed. Export again on the old install and copy the whole file.`);
+    }
     const entryProblems = archiveEntryProblems(list.stdout);
     if (entryProblems.length) throw new Error(`refusing this archive:\n  - ${entryProblems.slice(0, 10).join("\n  - ")}`);
+    // Unpacked into the container's own temporary folder first, not /data.
+    const tmpNeed = spaceProblems([{ path: tmpdir(), bytes: listedBytes(list.stdout) + 16 * MB, what: "the archive unpacked" }]);
+    if (tmpNeed.length) throw new Error(`refusing to import; nothing was changed: ${tmpNeed.join("; ")} (this is the container's own ${tmpdir()}, on Docker's disk)`);
     // Unpacked by an unprivileged user (nobody) into a folder of its own: as
     // root, a hard link or an odd entry the listing missed could reach a file
     // of the container's. Then everything is checked once more as it landed.
@@ -676,6 +766,16 @@ export function importArchive({ archive, env = process.env, restart = true, log 
     if (listFiles(filesDir).length > 0) throw new Error(`refusing to import; nothing was changed: ${filesDir} already holds uploaded files (not a fresh install)`);
     const odd = [...oddEntries(filesDir), ...oddEntries(secretsDir)];
     if (odd.length) throw new Error(`refusing to import; nothing was changed: not plain files or folders (symlinks?): ${odd.slice(0, 5).join(", ")}`);
+    // Room for the files and, in the all-in-one image, the database (in
+    // /data/db; a compose install's database is in another container).
+    for (const t of manifest.tables) {
+      if (!existsSync(join(x, t.file))) throw new Error(`refusing to import; nothing was changed: ${t.file} (the data of ${keyOf(t)}), listed in the archive's manifest, is missing from the archive. Export again on the old install and copy the whole file.`);
+    }
+    const dataBytes = manifest.tables.reduce((n, t) => n + lstatSync(join(x, t.file)).size, 0);
+    const needs = [{ path: filesDir, bytes: manifest.files.reduce((n, f) => n + f.size, 0) + 16 * MB, what: "uploaded files" }];
+    if (env.KINBOARD_AIO === "1" && env.KINBOARD_DATA) needs.push({ path: join(env.KINBOARD_DATA, "db"), bytes: 3 * dataBytes + 64 * MB, what: "the database, about" });
+    const sp = spaceProblems(needs);
+    if (sp.length) throw new Error(`refusing to import; nothing was changed: ${sp.join("; ")}`);
     if (!existsSync(filesDir)) asOwnerOf(dirname(filesDir), () => mkdirSync(filesDir));
     // Writable by its owner, tried by creating a file as that owner (access(2)
     // would answer for the real uid, root).
@@ -698,6 +798,7 @@ export function importArchive({ archive, env = process.env, restart = true, log 
     stage = asOwnerOf(filesDir, () => mkdtempSync(join(filesDir, ".kinboard-import-")));
     for (const f of manifest.files) {
       const src = join(x, "files", f.path);
+      if (!existsSync(src)) throw new Error(`refusing to import; nothing was changed: files/${f.path}, listed in the archive's manifest, is missing from the archive. Export again on the old install and copy the whole file.`);
       const bytes = readPlain(src);
       if (createHash("sha256").update(bytes).digest("hex") !== f.sha256) throw new Error(`the file ${f.path} differs from what the archive's manifest says`);
       const dst = join(stage, f.path);
@@ -831,7 +932,9 @@ function usage() {
     "usage:\n" +
     "  kinboard export [<file> | -]   write this install to an archive (- for stdout)\n" +
     "  kinboard import <file> | -     restore an archive into this fresh install\n" +
-    "        --no-restart             (all-in-one) leave PostgREST and the webapp running\n",
+    "        --no-restart             (all-in-one) leave PostgREST and the webapp running\n" +
+    "  kinboard resume                undo an import that was cut off before its commit\n" +
+    "                                 (the all-in-one image runs it at every start)\n",
   );
 }
 
@@ -852,10 +955,19 @@ function main(argv) {
       importArchive({ archive, restart: !rest.includes("--no-restart") });
       return 0;
     }
+    if (cmd === "resume") {
+      const said = resumeAtStart();
+      if (said) process.stderr.write(`${TAG} ${said}\n`);
+      return 0;
+    }
     usage();
     return 2;
   } catch (err) {
-    process.stderr.write(`${TAG} ${err?.message ?? err}\n`);
+    let msg = err?.message ?? String(err);
+    if (err?.code === "ENOSPC" || /No space left on device/.test(msg)) {
+      msg += "\nThe disk ran full. Nothing of this import was kept: free some space (or give it a bigger disk) and run the import again.";
+    }
+    process.stderr.write(`${TAG} ${msg}\n`);
     return 1;
   }
 }

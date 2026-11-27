@@ -859,6 +859,8 @@ interface Transfer2 {
   undoPlaced(rec: unknown, filesDir: string, secretsDir: string): void;
   resumeLeftover(o: { filesDir: string; secretsDir: string; families: number; dbNonce?: string }): string;
   PENDING: string;
+  spaceProblems(needs: { path: string; bytes: number; what: string }[], o?: { statfs?: (p: string) => { bavail: number; bsize: number }; dev?: (p: string) => number }): string[];
+  listedBytes(listing: string): number;
 }
 
 test.describe("kinboard import: nothing read through a link, and resumable", () => {
@@ -936,6 +938,54 @@ test.describe("kinboard import: nothing read through a link, and resumable", () 
     expect(at("writeSecretFile(secretsDir, file, value, like)")).toBeLessThan(at('"COMMIT;"'));
     // (the record's last removal, after the commit; the first is the undo's)
     expect(at('"COMMIT;"')).toBeLessThan(imp.lastIndexOf("rmSync(join(secretsDir, PENDING)"));
+  });
+
+  test("an import that would run a disk full is refused up front, with the room it needs", async () => {
+    const t = (await transferMod) as unknown as Transfer2;
+    const MB = 1024 * 1024;
+    const disk = (freeMb: number) => ({ statfs: () => ({ bavail: (freeMb * MB) / 4096, bsize: 4096 }), dev: () => 1 });
+    const root = mkdtempSync(join(tmpdir(), "kb-space-"));
+    mkdirSync(join(root, "files")); mkdirSync(join(root, "db"));
+    const needs = [
+      { path: join(root, "files"), bytes: 306 * MB, what: "uploaded files" },
+      { path: join(root, "db"), bytes: 260 * MB, what: "the database, about" },
+    ];
+    // One disk: the two needs add up.
+    expect(t.spaceProblems(needs, disk(600))).toEqual([]);
+    const p = t.spaceProblems(needs, disk(357)).join();
+    expect(p).toContain("not enough free space");
+    expect(p).toContain(`${join(root, "files")} and ${join(root, "db")} (one disk) have 357 MB free`);
+    expect(p).toContain("needs about 566 MB");
+    expect(p).toContain("run the import again");
+    // Two disks: each on its own.
+    const two = { statfs: (x: string) => ({ bavail: ((x.includes("db") ? 300 : 400) * MB) / 4096, bsize: 4096 }), dev: (x: string) => (x.includes("db") ? 2 : 1) };
+    expect(t.spaceProblems(needs, two)).toEqual([]);
+    rmSync(root, { recursive: true, force: true });
+    // busybox's listing: the sizes in the third column.
+    expect(t.listedBytes("-rw------- 0/0 1200 2026-11-27 10:00:00 manifest.json\ndrwx------ 0/0 0 2026-11-27 10:00:00 data/\n-rw-r--r-- 0/0 34 2026-11-27 10:00:00 files/a b.jpg\n")).toBe(1234);
+    // Wired in before anything is placed: the tmp check before extraction, the
+    // /data check before the files' staging folder.
+    const src = read(join(IMAGE, "kinboard-transfer.mjs"));
+    const imp = src.slice(src.indexOf("export function importArchive"));
+    expect(imp.indexOf("listedBytes(list.stdout)")).toBeLessThan(imp.indexOf('spawnSync("tar", ["-xzof"'));
+    expect(imp.indexOf("const sp = spaceProblems(needs)")).toBeLessThan(imp.indexOf("stage = asOwnerOf(filesDir"));
+    expect(src).toContain("The disk ran full. Nothing of this import was kept");
+    // An archive cut short, or the error text a failed `docker exec … >` wrote
+    // into the file, and a file the manifest lists but the archive lacks: what to do.
+    expect(src).toContain("Export again on the old install and copy the whole file.");
+    expect(src).toContain("It starts with text, not an archive");
+    expect(imp.indexOf("is missing from the archive")).toBeLessThan(imp.indexOf("const bytes = readPlain(src)"));
+  });
+
+  test("an import cut off before its commit is undone at the next start of the all-in-one image, before PostgREST and the webapp", () => {
+    const ready = read(join(LIB, "db-ready.sh"));
+    // As PUID, after the db-init succeeded; db-ready comes before postgrest and the webapp (s6 order above).
+    expect(ready).toMatch(/exec su-exec "\$RUN_UID:\$RUN_GID" sh -c 'sh \/app\/kinboard-db-init\.sh \|\| exit 1\n\s+node \/app\/kinboard-transfer\.mjs resume \|\|/);
+    const src = read(join(IMAGE, "kinboard-transfer.mjs"));
+    expect(src).toContain('if (cmd === "resume")');
+    const fn = src.slice(src.indexOf("export function resumeAtStart"), src.indexOf("/* ------------------------------------------------------------ free space"));
+    expect(fn).toContain("resumeLeftover({ filesDir, secretsDir, families, dbNonce: readNonce(pg) })");
+    expect(fn).toContain('.startsWith(".kinboard-import-")');
   });
 
   test("export: no child is spawned while the effective user is dropped (it could not take a gid)", () => {
