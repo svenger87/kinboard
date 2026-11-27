@@ -537,8 +537,11 @@ BACKUP_AT=""
 # skipped.
 # ---------------------------------------------------------------------------
 
+# `webapp` unless the all-in-one target set KB_SVC; read with a default so the
+# function stands on its own (e2e/scheduler-follows-webapp.spec.ts runs it
+# without the rest of the script).
 webapp_container() {
-  svc_container "$KB_SVC"
+  svc_container "${KB_SVC:-webapp}"
 }
 
 # $1: the webapp container id from before `up -d` (empty if none ran).
@@ -932,7 +935,7 @@ EOF
 SMOKE_TIMEOUT="${KINBOARD_SMOKE_TIMEOUT:-180}"
 
 smoke_check() {
-  cid="$(svc_container "$KB_SVC")"
+  cid="$(svc_container "${KB_SVC:-webapp}")"
   smoke_deadline=$(( $(date +%s) + SMOKE_TIMEOUT ))
   while :; do
     # CRON_SECRET is the webapp container's own: single quotes, expanded there.
@@ -971,14 +974,14 @@ smoke_check() {
 # Health, and for a recreated webapp the smoke check too.
 wait_ready() {
   wait_healthy "$1" || return 1
-  case " $1 " in *" $KB_SVC "*) smoke_check || return 1 ;; esac
+  case " $1 " in *" ${KB_SVC:-webapp} "*) smoke_check || return 1 ;; esac
   return 0
 }
 
 # The migration the webapp's entrypoint gave up on, from its log
 # (migrate.sh: "[migrate] FAILED: <file>"), or nothing.
 failed_migration() {
-  cid="$(svc_container "$KB_SVC")"
+  cid="$(svc_container "${KB_SVC:-webapp}")"
   [ -n "$cid" ] || return 0
   docker logs "$cid" 2>&1 | sed -n 's/.*\[migrate\] FAILED: *\([^ ]*\).*/\1/p' | tail -n1 || true
 }
@@ -3364,7 +3367,7 @@ if [ "$MODE" = tick ] && [ -z "$(state_get baseline)" ]; then
       log "tick baseline: $svc: the compose files and .env name $want; the next tick applies it"
     fi
     if [ -n "$UPDATER" ] && [ -n "$want" ]; then
-      if [ "$(ref_repo "$want")" != "$(ref_repo "$(field_for "$KB_SVC" "$CONFIG_IMAGES")")" ]; then
+      if [ "$(ref_repo "$want")" != "$(ref_repo "$(field_for "${KB_SVC:-webapp}" "$CONFIG_IMAGES")")" ]; then
         log "tick baseline: $svc: $want moves only with the compose file"
       elif ref_pinned "$want"; then
         log "tick baseline: $svc: $want is pinned; it never moves"
@@ -3392,7 +3395,7 @@ if [ "$MODE" = tick ]; then
     # The Kinboard image (init, db-init and the webapp run it), and which
     # compose file revision the file declares (RFC-023 §4.6). The all-in-one
     # container has no compose file, and no revision to hold for.
-    KB_REPO="$(ref_repo "$(field_for "$KB_SVC" "$CONFIG_IMAGES")")"
+    KB_REPO="$(ref_repo "$(field_for "${KB_SVC:-webapp}" "$CONFIG_IMAGES")")"
     FILE_REVISION=""
     [ -n "$AIO" ] || FILE_REVISION="$(config_env webapp KINBOARD_COMPOSE_REVISION)"
     REGISTRY_FAIL=""
@@ -3404,7 +3407,7 @@ if [ "$MODE" = tick ]; then
     fi
     # The one-shots run the webapp's image and go with it: a webapp someone
     # stopped keeps all three as they are.
-    wcid="$(svc_container "$KB_SVC" running)"
+    wcid="$(svc_container "${KB_SVC:-webapp}" running)"
     if [ -z "$wcid" ] || [ "$(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}' "$wcid" 2>/dev/null | cut -d'|' -f1 || true)" != running ]; then
       if [ -n "$AIO" ]; then
         log "=== tick: $AIO_NAME is not running; nothing is updated until it is ==="
@@ -3786,7 +3789,7 @@ EOF
 roll_back() {
   printf '%s' "$UNHEALTHY" | while IFS= read -r line; do log "ERROR: $line"; done
   MIGRATION=""
-  case " $RECREATE " in *" $KB_SVC "*) MIGRATION="$(failed_migration)" ;; esac
+  case " $RECREATE " in *" ${KB_SVC:-webapp} "*) MIGRATION="$(failed_migration)" ;; esac
   EXCERPT="$(log_excerpt "$RECREATE")"
   # What each reference names now, read for every service before any is
   # tagged back: on compose.yml init, db-init and webapp share one reference,
@@ -3867,8 +3870,8 @@ if [ -n "$RECREATE" ]; then
   up_ok=1
   recreate_services "" "$RECREATE" || up_ok=""
   # The versions for the status record, before a rollback re-tags anything.
-  MAIN_SVC="$KB_SVC"
-  case " $RECREATE " in *" $KB_SVC "*) ;; *) MAIN_SVC="${RECREATE%% *}" ;; esac
+  MAIN_SVC="${KB_SVC:-webapp}"
+  case " $RECREATE " in *" ${KB_SVC:-webapp} "*) ;; *) MAIN_SVC="${RECREATE%% *}" ;; esac
   main_prev_id="$(field_for "$MAIN_SVC" "$PREVIOUS")"
   main_prev_ref="$(printf '%s\n' "$PREVIOUS" | awk -v s="$MAIN_SVC" '$1 == s { print $3; exit }')"
   main_ref="$(field_for "$MAIN_SVC" "$CONFIG_IMAGES")"
@@ -3920,7 +3923,7 @@ fi
 
 # 6. The status record Settings reads (instance_settings.update_status): a
 # rollback always, an update when the webapp was in it ("Updated to 1.18.0").
-if [ "$OUTCOME" = updated ] && [ "$MAIN_SVC" != "$KB_SVC" ]; then
+if [ "$OUTCOME" = updated ] && [ "$MAIN_SVC" != "${KB_SVC:-webapp}" ]; then
   :
 elif [ "$OUTCOME" != none ]; then
   severe=false
