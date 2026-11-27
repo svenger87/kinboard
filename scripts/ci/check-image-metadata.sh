@@ -11,7 +11,13 @@
 #   - each platform image: the same key=value pairs as OCI labels, and a
 #     HEALTHCHECK (read by pulling that image, the one check that downloads);
 #   - each platform: an SPDX SBOM with packages in it, and SLSA provenance in
-#     max mode (it records the build's config, which min mode leaves out).
+#     max mode (it records the build's config, which min mode leaves out);
+#   - with SBOM_EXPECT set, named packages in a platform's SBOM: each
+#     whitespace-separated `<os>/<arch>=<package>` must be there with a version
+#     and a declared licence, each `<os>/<arch>=!<package>` must not be. A
+#     platform the image does not have fails, so a renamed platform cannot
+#     turn the check into a no-op. kinboard-aio uses it for the glibc runtime
+#     its arm64 PostgREST brings along (webapp/docker/aio/Dockerfile).
 #
 # Used by the merge job after it pushes the list, and by hand against a local
 # registry:
@@ -61,6 +67,10 @@ sbom="$(per_platform <<< "$sbom")"
 provenance="$(per_platform <<< "$provenance")"
 platforms="$(jq -r 'keys[]' <<< "$image")"
 echo "$ref: $(tr '\n' ' ' <<< "$platforms")"
+read -r -a sbom_expect <<< "${SBOM_EXPECT:-}"
+for e in "${sbom_expect[@]}"; do
+  case "$e" in */*=?*) ;; *) echo "SBOM_EXPECT: '$e' is not <os>/<arch>=[!]<package>" >&2; exit 2 ;; esac
+done
 
 echo "manifest list annotations"
 for kv in "${expected[@]}"; do
@@ -93,11 +103,30 @@ for p in $platforms; do
   [ -n "$hc" ] && ok "HEALTHCHECK $hc" || bad "no HEALTHCHECK"
   packages="$(jq -r --arg p "$p" '.[$p].SPDX.packages // [] | length' <<< "$sbom")"
   [ "${packages:-0}" -gt 0 ] && ok "SBOM: SPDX with $packages packages" || bad "no SBOM (or an empty one)"
+  for e in "${sbom_expect[@]}"; do
+    [ "${e%%=*}" = "$p" ] || continue
+    name="${e#*=}"
+    found="$(jq -r --arg p "$p" --arg n "${name#!}" '.[$p].SPDX.packages // [] | map(select(.name == $n))
+              | map("\(.versionInfo // "NOASSERTION")\t\(.licenseDeclared // "NOASSERTION")") | first // empty' <<< "$sbom")"
+    if [ "${name#!}" != "$name" ]; then
+      [ -z "$found" ] && ok "SBOM: no ${name#!}" || bad "SBOM: ${name#!} listed, and must not be (${found%%$'\t'*})"
+    elif [ -z "$found" ]; then bad "SBOM: no $name"
+    else
+      version="${found%%$'\t'*}" licence="${found#*$'\t'}"
+      if [ "$version" = NOASSERTION ] || [ -z "$version" ]; then bad "SBOM: $name without a version"
+      elif [ "$licence" = NOASSERTION ] || [ -z "$licence" ]; then bad "SBOM: $name $version without a licence"
+      else ok "SBOM: $name $version (${licence:0:60}$([ ${#licence} -gt 60 ] && echo …))"; fi
+    fi
+  done
   max="$(jq -r --arg p "$p" '.[$p].SLSA // {} | [.. | objects | select(has("buildConfig"))] | length' <<< "$provenance")"
   slsa="$(jq -r --arg p "$p" '.[$p].SLSA // empty | type' <<< "$provenance")"
   if [ -z "$slsa" ]; then bad "no provenance"
   elif [ "${max:-0}" -gt 0 ]; then ok "provenance, max mode (buildConfig recorded)"
   else bad "provenance in min mode (no buildConfig)"; fi
+done
+
+for e in "${sbom_expect[@]}"; do
+  grep -qxF "${e%%=*}" <<< "$platforms" || bad "SBOM_EXPECT names ${e%%=*}, which $ref does not have"
 done
 
 [ "$failures" -eq 0 ] && { echo "all checks passed"; exit 0; }

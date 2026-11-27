@@ -776,9 +776,13 @@ jobs:
           for digest in *; do args+=("$REGISTRY/$AIO_IMAGE_NAME@sha256:$digest"); done
           docker buildx imagetools create "${args[@]}"
 
+      # The arm64 SBOM lists the glibc runtime that image's PostgREST brings
+      # along (webapp/docker/aio/Dockerfile), with versions and licences; the
+      # amd64 one, whose PostgREST is static, has no glibc.
       - name: Check annotations, SBOM and provenance
         env:
           EXPECTED_LICENSE: ${{ steps.oci.outputs.license }}
+          SBOM_EXPECT: linux/arm64=libc6 linux/arm64=libpq5 linux/amd64=!libc6
         run: |
           scripts/ci/check-image-metadata.sh \
             "${{ env.REGISTRY }}/${{ env.AIO_IMAGE_NAME }}:${{ steps.meta.outputs.version }}" \
