@@ -45,7 +45,7 @@ export function NotesHomeWidget({ editing }: HomeWidgetProps) {
           {/* At most three lines: a long note is read on /notes. */}
           <p className="line-clamp-3 whitespace-pre-line break-words home-body leading-snug">{note.content}</p>
           <p className="home-meta text-muted-foreground">
-            {formatDistanceToNow(new Date(note.created_at), { addSuffix: true, locale: dateLocale })}
+            {note.created_at && formatDistanceToNow(new Date(note.created_at), { addSuffix: true, locale: dateLocale })}
           </p>
         </div>
         <Button

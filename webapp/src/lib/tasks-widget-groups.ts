@@ -11,7 +11,7 @@ interface WidgetTask {
   due_date?: string | null;
   priority?: string | null;
   recurrence?: string | null;
-  created_at: string;
+  created_at: string | null;
 }
 
 const dayOf = (todo: WidgetTask): string | null => (todo.due_date ? todo.due_date.slice(0, 10) : null);
@@ -57,6 +57,6 @@ export function widgetTasks<T extends WidgetTask>(open: readonly T[], today: str
         const db = dayOf(b.todo);
         if (da !== db) return da === null ? 1 : db === null ? -1 : da.localeCompare(db);
       }
-      return comparePriority(a.todo, b.todo) || a.todo.created_at.localeCompare(b.todo.created_at);
+      return comparePriority(a.todo, b.todo) || (a.todo.created_at ?? "").localeCompare(b.todo.created_at ?? "");
     });
 }

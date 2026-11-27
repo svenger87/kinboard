@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
   let familyId = body.family_id;
   if (!familyId) {
-    const { data } = await (supabase as any).from("families").select("id").limit(2);
+    const { data } = await supabase.from("families").select("id").limit(2);
     const families = (data ?? []) as { id: string }[];
     // Guessing on a multi-family instance would silently answer about the
     // wrong household, which is worse than refusing.

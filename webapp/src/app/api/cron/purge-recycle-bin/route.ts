@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
 
    
-  const { data, error } = await (supabase as any).rpc("purge_expired");
+  const { data, error } = await supabase.rpc("purge_expired");
   if (error) {
     console.error("[purge-recycle-bin] purge_expired failed:", error);
     return NextResponse.json({ error: "Purge failed" }, { status: 500 });
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   // The task log (#341) rides along: like the bin, its retention is a
   // family's own setting about its own data -- `task_log.retentionDays`,
   // 90 by default, 0 for good -- applied by one nightly sweep.
-  const { data: eventsData, error: eventsError } = await (supabase as any).rpc("purge_todo_events");
+  const { data: eventsData, error: eventsError } = await supabase.rpc("purge_todo_events");
   if (eventsError) {
     // Logged, not fatal: the bin was emptied, and failing the job would hide that.
     console.error("[purge-recycle-bin] purge_todo_events failed:", eventsError);

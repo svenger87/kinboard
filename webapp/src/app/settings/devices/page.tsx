@@ -74,7 +74,8 @@ function getDeviceIcon(type: string) {
   }
 }
 
-function isOnline(lastSeen: string): boolean {
+function isOnline(lastSeen: string | null): boolean {
+  if (!lastSeen) return false;
   const date = new Date(lastSeen);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -99,7 +100,8 @@ export default function DevicesSettingsPage() {
   const [editName, setEditName] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const formatLastSeen = (dateStr: string): string => {
+  const formatLastSeen = (dateStr: string | null): string => {
+    if (!dateStr) return "";
     const date = new Date(dateStr);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -402,7 +404,7 @@ export default function DevicesSettingsPage() {
                             <div className="flex items-center">
                               <Switch
                                 aria-label={t("kioskToggleAria", { name: device.name })}
-                                checked={device.is_kiosk}
+                                checked={device.is_kiosk ?? false}
                                 onCheckedChange={(checked) => handleToggleKiosk(device.id, checked)}
                                 disabled={updateDevice.isPending}
                               />
@@ -424,7 +426,7 @@ export default function DevicesSettingsPage() {
                               <Radar className={`size-4 ${device.has_presence_sensor ? "text-success" : "text-muted-foreground"}`} />
                               <Switch
                                 aria-label={t("presenceToggleAria", { name: device.name })}
-                                checked={device.has_presence_sensor}
+                                checked={device.has_presence_sensor ?? false}
                                 onCheckedChange={(checked) => handleTogglePresenceSensor(device.id, checked)}
                                 disabled={updateDevice.isPending}
                               />

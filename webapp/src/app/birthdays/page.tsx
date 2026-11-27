@@ -215,7 +215,7 @@ export default function BirthdaysPage() {
     setFormMonth((date.getMonth() + 1).toString());
     setFormYear(date.getFullYear().toString());
     setFormPersonId(birthday.person_id || "none");
-    setFormNotifyDays(birthday.notify_days_before.toString());
+    setFormNotifyDays(String(birthday.notify_days_before ?? 7));
     setFormImage(birthday.image_url ?? null);
   };
 

@@ -10,6 +10,7 @@ const at = (iso: string, ack: string | null = null): Message => ({
   sender_label: null,
   acknowledged_at: ack,
   acknowledged_by_device_id: ack ? "d2" : null,
+  action_request_id: null,
   created_at: iso,
 });
 

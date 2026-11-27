@@ -216,6 +216,33 @@ jobs:
       - name: Check migrations are additive
         run: node webapp/docker/check-additive-migrations.mjs
 
+  # RFC-024 §4.6 step 4: src/types/database.generated.ts is what the
+  # migrations build, never a hand edit. This starts a throwaway PostgreSQL
+  # (kinboard-postgres's pinned base image), applies the role bootstrap,
+  # init.sql and every migration as a new install does, regenerates the file
+  # and fails, with the diff, when the committed one differs. A migration
+  # merged without `npm run db:generate` fails here.
+  db-types:
+    name: Database types
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: webapp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+      - name: Use the pinned npm
+        run: corepack enable npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Generated types match the migrated schema
+        run: npm run db:check
+
   changelog:
     name: Changelog entry
     runs-on: ubuntu-latest

@@ -272,7 +272,7 @@ async function syncFamilyCalendar(familyId: string): Promise<SyncResult> {
 
             if (existingToDelete) {
                
-              await (supabase as any).from("events").delete().eq("id", existingToDelete.id);
+              await supabase.from("events").delete().eq("id", existingToDelete.id);
               deleted++;
             }
             continue;

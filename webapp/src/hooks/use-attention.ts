@@ -113,7 +113,7 @@ export function useAcknowledgeAttention() {
         .update({
           state: "acknowledged",
           acted_at: new Date().toISOString(),
-        } as never)
+        })
         .eq("id", id);
       if (error) throw error;
     },
@@ -135,7 +135,7 @@ export function useSnoozeAttention() {
           state: "snoozed",
           snoozed_until: until,
           acted_at: new Date().toISOString(),
-        } as never)
+        })
         .eq("id", id);
       if (error) throw error;
     },
@@ -155,7 +155,7 @@ export function useDismissAttention() {
         .update({
           state: "dismissed",
           acted_at: new Date().toISOString(),
-        } as never)
+        })
         .eq("id", id);
       if (error) throw error;
     },
@@ -208,7 +208,7 @@ export function useSetRuleEnabled() {
             rule_id: ruleId,
             enabled,
             updated_at: new Date().toISOString(),
-          } as never,
+          },
           { onConflict: "family_id,rule_id" }
         );
       if (error) throw error;

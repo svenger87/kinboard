@@ -178,7 +178,7 @@ export default function NotesPage() {
           onUndo: async () => {
             const supabase = createClient();
 
-            const { error } = await (supabase as any).from("notes").insert(noteSnapshot);
+            const { error } = await supabase.from("notes").insert(noteSnapshot);
             if (error) throw error;
             if (family?.id) {
               queryClient.invalidateQueries({ queryKey: queryKeys.notes(family.id) });
@@ -216,7 +216,7 @@ export default function NotesPage() {
   const sortedNotes = useMemo(() => {
     return [...filteredNotes].sort((a, b) => {
       if ((a.pinned || false) !== (b.pinned || false)) return a.pinned ? -1 : 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
     });
   }, [filteredNotes]);
 
@@ -542,11 +542,11 @@ export default function NotesPage() {
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <span className="text-xs text-muted-foreground tabular-nums">
-                                      {format(new Date(note.created_at), "d. MMM yyyy", { locale: dateLocale })}
+                                      {note.created_at && format(new Date(note.created_at), "d. MMM yyyy", { locale: dateLocale })}
                                     </span>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>{format(new Date(note.created_at), "PPPp", { locale: dateLocale })}</p>
+                                    <p>{note.created_at && format(new Date(note.created_at), "PPPp", { locale: dateLocale })}</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </div>

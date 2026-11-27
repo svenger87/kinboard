@@ -157,7 +157,7 @@ async function getOrCreateMealPlanId(
   familyId: string,
   weekStart: string,
 ): Promise<string> {
-  const plans = (supabase as any).from("meal_plans");
+  const plans = supabase.from("meal_plans");
   const findPlan = () => plans
     .select("id")
     .eq("family_id", familyId)

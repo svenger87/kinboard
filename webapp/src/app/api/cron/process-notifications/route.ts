@@ -311,8 +311,8 @@ export async function POST(request: NextRequest) {
     const audience = audienceFor(notificationType, notifications[0].data);
     if (audience.kind !== "everyone" && subscriptions.length > 0) {
       const [{ data: devicesData, error: devicesError }, { data: childrenData, error: childrenError }] = await Promise.all([
-        (supabase as any).from("devices").select("id, person_id, is_kiosk").eq("family_id", familyId),
-        (supabase as any).from("people").select("id").eq("family_id", familyId).eq("is_child", true),
+        supabase.from("devices").select("id, person_id, is_kiosk").eq("family_id", familyId),
+        supabase.from("people").select("id").eq("family_id", familyId).eq("is_child", true),
       ]);
       if (devicesError || childrenError) {
         // Unreadable: nobody rather than everybody. A request a parent misses

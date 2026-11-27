@@ -148,7 +148,7 @@ export async function syncIcsCalendar(
       updated++;
     } else {
 
-      await (supabase as any).from("events").insert(eventData);
+      await supabase.from("events").insert(eventData);
       created++;
     }
   }
@@ -164,7 +164,7 @@ export async function syncIcsCalendar(
   for (const row of existingIcsEvents ?? []) {
     if (!freshUids.has(row.google_event_id)) {
 
-      await (supabase as any).from("events").delete().eq("id", row.id);
+      await supabase.from("events").delete().eq("id", row.id);
       deleted++;
     }
   }

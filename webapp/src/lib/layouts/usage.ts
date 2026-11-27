@@ -12,7 +12,7 @@ import type { Layout, LayoutDefaults } from "./types";
 export interface UsageDevice {
   id: string;
   name: string;
-  is_kiosk: boolean;
+  is_kiosk: boolean | null;
   layout_id: string | null;
   screen: { viewportWidth: number; viewportHeight: number } | null;
 }

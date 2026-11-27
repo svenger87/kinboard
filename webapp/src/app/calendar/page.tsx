@@ -491,7 +491,7 @@ export default function CalendarPage() {
       title: event.title,
       start: new Date(event.start_at),
       end: new Date(event.end_at),
-      allDay: event.all_day,
+      allDay: event.all_day ?? false,
       color: person?.color || calendarColor || "#3b82f6",
       location: event.location || undefined,
       description: event.description || undefined,

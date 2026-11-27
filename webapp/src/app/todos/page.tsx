@@ -491,7 +491,7 @@ export default function TodosPage() {
           onUndo: async () => {
             const supabase = createClient();
 
-            const { error } = await (supabase as any).from("todos").insert(taskSnapshot);
+            const { error } = await supabase.from("todos").insert(taskSnapshot);
             if (error) throw error;
             if (family?.id) {
               queryClient.invalidateQueries({ queryKey: queryKeys.todos(family.id) });

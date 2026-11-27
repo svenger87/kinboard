@@ -18,7 +18,7 @@ import { isScheduled, isTurnOpen, type TurnFields } from "@/lib/todo-turns";
  */
 
 export interface RecurringFields extends TurnFields {
-  completed?: boolean;
+  completed?: boolean | null;
   recurrence?: string | null;
   last_completed?: string | null;
   /** When the task was made: where a never-done custom-days task starts counting. */

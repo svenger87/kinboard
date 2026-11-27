@@ -142,10 +142,11 @@ test("the column is added by a migration the entrypoint can run again, and typed
   const sql = codeOnly(read("docker/migrations/044_todos_show_in_events.sql"), { sql: true });
   expect(sql).toContain("ALTER TABLE public.todos ADD COLUMN IF NOT EXISTS show_in_events BOOLEAN NOT NULL DEFAULT false;");
   expect(sql).toContain("NOTIFY pgrst, 'reload schema';");
-  const types = codeOnly(read("src/types/database.ts"));
-  const todos = types.slice(types.indexOf("todos: {"), types.indexOf("todo_occurrences: {"));
-  expect(todos).toContain("show_in_events: boolean;");
-  expect(todos.match(/show_in_events\?: boolean;/g)).toHaveLength(2);
+  // Generated from the migrated schema (npm run db:generate, RFC-024 §4.6).
+  const types = read("src/types/database.generated.ts");
+  const todos = types.slice(types.indexOf("\n      todos: {"), types.indexOf("\n    Views:"));
+  expect(todos).toMatch(/^ {10}show_in_events: boolean$/m);
+  expect(todos.match(/^ {10}show_in_events\?: boolean$/gm)).toHaveLength(2);
 });
 
 test("the option's strings exist in every language", () => {

@@ -23,6 +23,6 @@ export async function writeInstanceKey(key: string, value: string): Promise<void
 }
 
 export async function deleteInstanceKey(key: string): Promise<void> {
-  const { error } = await (createAdminClient() as any).from("instance_settings").delete().eq("key", key);
+  const { error } = await createAdminClient().from("instance_settings").delete().eq("key", key);
   if (error) throw new Error(error.message);
 }

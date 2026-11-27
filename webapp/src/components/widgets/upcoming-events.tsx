@@ -87,7 +87,7 @@ export function UpcomingEvents({
       title: event.title,
       start: new Date(event.start_at),
       color: person?.color || event.calendar?.color || "#3b82f6",
-      allDay: event.all_day,
+      allDay: event.all_day ?? false,
       holiday: false,
     };
   }), [events, people]);

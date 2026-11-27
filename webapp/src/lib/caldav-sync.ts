@@ -178,10 +178,10 @@ export async function syncCaldavCalendar(
     if (existing && !eventRowChanged(existing, eventData)) {
       // Identical: nothing written, nothing for open screens to refetch.
     } else if (existing) {
-      await (supabase as any).from("events").update(eventData).eq("id", existing.id);
+      await supabase.from("events").update(eventData).eq("id", existing.id);
       updated++;
     } else {
-      await (supabase as any).from("events").insert(eventData);
+      await supabase.from("events").insert(eventData);
       created++;
     }
   }
@@ -198,7 +198,7 @@ export async function syncCaldavCalendar(
 
   for (const row of existingCaldavEvents ?? []) {
     if (!freshIds.has(row.google_event_id)) {
-      await (supabase as any).from("events").delete().eq("id", row.id);
+      await supabase.from("events").delete().eq("id", row.id);
       deleted++;
     }
   }

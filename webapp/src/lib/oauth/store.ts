@@ -146,7 +146,7 @@ export function createOAuthStore(): OAuthStore {
 
 export async function findDcrClient(clientId: string): Promise<OAuthClient | null> {
   if (!clientId.startsWith(DCR_CLIENT_PREFIX)) return null;
-  const { data, error } = await (createAdminClient() as any).from("oauth_clients")
+  const { data, error } = await createAdminClient().from("oauth_clients")
     .select("client_id, client_name, redirect_uris").eq("client_id", clientId).maybeSingle();
   if (error) throw error;
   return data ? { clientId: data.client_id, clientName: data.client_name, redirectUris: data.redirect_uris, kind: "dcr" } : null;
@@ -154,7 +154,7 @@ export async function findDcrClient(clientId: string): Promise<OAuthClient | nul
 
 /** How many DCR clients were registered since `sinceIso`, across every caller. */
 export async function countDcrClientsSince(sinceIso: string): Promise<number> {
-  const { count, error } = await (createAdminClient() as any).from("oauth_clients")
+  const { count, error } = await createAdminClient().from("oauth_clients")
     .select("client_id", { count: "exact", head: true }).gte("created_at", sinceIso);
   if (error) throw error;
   return count ?? 0;
@@ -213,7 +213,7 @@ export async function sweepUnusedDcrClients(beforeIso: string, db: any = createA
 
 export async function registerDcrClient(clientName: string, redirectUris: string[]): Promise<OAuthClient> {
   const clientId = `${DCR_CLIENT_PREFIX}${randomBytes(16).toString("base64url")}`;
-  const { error } = await (createAdminClient() as any).from("oauth_clients")
+  const { error } = await createAdminClient().from("oauth_clients")
     .insert({ client_id: clientId, client_name: clientName, redirect_uris: redirectUris });
   if (error) throw error;
   return { clientId, clientName, redirectUris, kind: "dcr" };
