@@ -20,7 +20,7 @@ import {
   cjkNotoSerif,
   cjkZcoolKuaile,
 } from "./fonts";
-import { publicApiEnv, serverAnonKey } from "@/lib/supabase/api-base";
+import { legacyKongPageScript } from "@/lib/supabase/legacy-kong";
 import { MOTION_INIT_SCRIPT } from "@/lib/motion";
 import { FESTIVAL_INIT_SCRIPT } from "@/lib/festival-settings";
 import { FESTIVAL_CSS } from "@/lib/festivals/kits";
@@ -70,15 +70,9 @@ export default async function RootLayout({
   const locale = await getLocale();
   const messages = await getMessages();
   const t = await getTranslations("common");
-
-  // Read public env at REQUEST time so the published Docker image
-  // works for any self-hoster's URL without a per-deployment rebuild.
-  // Build-time NEXT_PUBLIC_* baking still works (source build path);
-  // this is a runtime fallback the browser-side supabase client reads
-  // first via window.__ENV. See lib/supabase/client.ts.
-  //
-  // The API is on the page's own origin (lib/supabase/api-base.ts).
-  const publicEnv = publicApiEnv(serverAnonKey());
+  // Null on every install but one still behind a pre-1.15 Kong, whose
+  // browser needs the anon key as `apikey` (lib/supabase/legacy-kong.ts).
+  const kongPageScript = legacyKongPageScript();
 
   return (
     <html lang={locale} className={monthTheme} suppressHydrationWarning>
@@ -91,12 +85,9 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: FESTIVAL_INIT_SCRIPT }} />
         {/* Every festival's wash and dressing, keyed off <html data-festival> (lib/festivals/kits/). */}
         <style id="festival-css" dangerouslySetInnerHTML={{ __html: FESTIVAL_CSS }} />
-        <script
-           
-          dangerouslySetInnerHTML={{
-            __html: `window.__ENV=${JSON.stringify(publicEnv)};`,
-          }}
-        />
+        {/* No window.__ENV since 1.18 (RFC-024 §4.6 step 3): the database client needs
+            neither an address nor a key, except behind a pre-1.15 Kong. */}
+        {kongPageScript && <script dangerouslySetInnerHTML={{ __html: kongPageScript }} />}
         <a href="#main-content" className="skip-link">
           {t("skipToMain")}
         </a>

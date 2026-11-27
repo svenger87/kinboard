@@ -12,47 +12,20 @@
  * ignored. An install that still points a proxy or an old API_EXTERNAL_URL at
  * Kong's port loses nothing, because the browser no longer goes there.
  *
- * Decided on the server and handed over in `window.__ENV`, never through a
- * `process.env.NEXT_PUBLIC_*` expression, which Next replaces at build time
- * with whatever the build machine had. That is how a build carrying
+ * Nothing to hand over, then: the browser client builds on
+ * `window.location.origin` (lib/supabase/client.ts), and neither it nor the
+ * root layout reads an address from the environment. Until 1.18 the layout
+ * still wrote `same-origin` and the anon key into `window.__ENV`; a
+ * `process.env.NEXT_PUBLIC_*` read in their place, which Next replaces at
+ * build time with whatever the build machine had, is how a build carrying
  * `localhost:8130` once took production down (2026-08-06).
  */
 
 import { postgrestFetch, postgrestUrl } from "@/lib/rest-proxy";
 import { guardUnfilteredWrites } from "@/lib/supabase/unfiltered-write-guard";
-
-/** The marker `window.__ENV` carries: the browser uses its own origin. */
-export const SAME_ORIGIN = "same-origin";
+import { legacyKongUrl } from "@/lib/supabase/legacy-kong";
 
 type EnvLike = Record<string, string | undefined>;
-
-/** What the root layout hands the browser in `window.__ENV`. */
-export interface PublicEnv {
-  /** Always `same-origin` since 1.15; kept so a cached client still parses it. */
-  NEXT_PUBLIC_SUPABASE_URL: string;
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
-}
-
-/**
- * The anon key, read when the request is served.
- *
- * Through a parameter, never as `process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY`:
- * Next replaces that expression at build time with whatever the build machine
- * had, in server code as well as in the browser's, and a baked key would then
- * win over the one the container is given. Since RFC-023 the entrypoint may
- * also mint this key from JWT_SECRET when it starts (docker/secrets-store.mjs),
- * which a build can never know.
- */
-export function serverAnonKey(env: EnvLike = process.env): string {
-  return env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-}
-
-export function publicApiEnv(anonKey: string): PublicEnv {
-  return {
-    NEXT_PUBLIC_SUPABASE_URL: SAME_ORIGIN,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: anonKey,
-  };
-}
 
 /**
  * The base the server-side PostgREST client is built on.
@@ -66,7 +39,7 @@ export function publicApiEnv(anonKey: string): PublicEnv {
 export function serverSupabaseUrl(env: EnvLike = process.env): string {
   const direct = postgrestUrl(env);
   if (direct) return direct;
-  const kong = env.SUPABASE_URL?.trim();
+  const kong = legacyKongUrl(env);
   if (kong) return kong;
   throw new Error(
     "POSTGREST_URL is not set: server-side code needs PostgREST's internal address " +

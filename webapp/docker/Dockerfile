@@ -36,14 +36,13 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build-time env for Next.js. NEXT_PUBLIC_* values are inlined into the
-# client JS bundle by `next build`, so they must be present at this stage
-# (NOT just at runtime). docker-compose can pass them via build.args.
-# When NOT provided, the build falls back to .env.local in the source —
-# which is the normal flow for prod. When provided (e.g. by the
-# screenshot demo stack), they override .env.local.
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+# No NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY build
+# arguments any more (RFC-024 §4.6 step 3): the browser reaches the API on
+# its own origin and sends no key, so nothing in the app reads either name
+# and a value in a source tree's .env.local has nothing to be baked into.
+# Next still inlines any other `process.env.NEXT_PUBLIC_*` it finds; the
+# guard in e2e/secrets-store.spec.ts keeps webapp/src free of such reads.
+
 # Short git sha of the source being built; CI passes it (docker.yml), as do
 # docker-compose.build.yml and start.sh. Empty is allowed: stamp-sw.sh then
 # uses a timestamp, so a build is never mistaken for another one.
@@ -59,22 +58,11 @@ ENV NODE_ENV production
 # in a typical 4 GB VM with swap available.
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Conditionally export the build-time NEXT_PUBLIC_* if a non-empty value
-# was passed via --build-arg. Inline `export` keeps the ARGs out of the
-# final image's env when unused. If unset, Next.js reads .env.local as
-# usual.
-#
 # `set -e` ensures any failure (including OOM in the npm subprocess)
 # fails the RUN step, instead of silently producing a partial build
 # without .next/standalone (which then masquerades as a runner-stage
 # COPY failure).
 RUN set -e; \
-  if [ -n "$NEXT_PUBLIC_SUPABASE_URL" ]; then \
-      export NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL"; \
-  fi; \
-  if [ -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then \
-      export NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY"; \
-  fi; \
   # Stamp the SW's CACHE_NAME with the package.json version AND this
   # build's revision, so every build serves a different sw.js. A changed
   # sw.js is the only way an open page learns of a deploy (updatefound);

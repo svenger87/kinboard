@@ -196,7 +196,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_DB: postgres
       # Empty: derived from the stored JWT secret. Only an install that moved
-      # here from the git setup sets them, to keep its old keys.
+      # here from the git setup sets them, to keep its old keys. 1.18 and
+      # later no longer read the anon key (the browser sends none); it stays
+      # for an image rolled back to 1.17, whose pages still need it.
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${KINBOARD_ANON_KEY:-}
       KINBOARD_SERVICE_ROLE_KEY: ${KINBOARD_SERVICE_ROLE_KEY:-}
       PUID: ${PUID:-}

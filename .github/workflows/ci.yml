@@ -344,10 +344,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build
-        # The real build needs these at compile time; the values are irrelevant
-        # here because nothing is served, but their absence fails the build.
-        env:
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+        # No NEXT_PUBLIC_* values: nothing in the app reads one that a build
+        # could bake in (RFC-024 §4.6 step 3), so the build needs none.
         run: npm run build
 
   # RFC-024 §6.5 and §7: every app-store listing is generated from one

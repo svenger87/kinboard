@@ -16,11 +16,13 @@ import type { Database } from "@/types/database";
  * What supabase-js added on top, and what of it is kept:
  *
  * - **`apikey` and `Authorization: Bearer <key>`, set only when the request
- *   doesn't carry them already** (supabase-js `fetchWithAuth`). Kept exactly:
- *   the browser's family-token fetch overwrites `Authorization` after this,
- *   and `.setHeader("Authorization", …)` at a call site still wins. With no
+ *   doesn't carry them already** (supabase-js `fetchWithAuth`). Kept exactly
+ *   for the server, whose key is the service role's:
+ *   `.setHeader("Authorization", …)` at a call site still wins. With no
  *   auth session — Kinboard never had one — supabase-js sent the key itself
- *   as the bearer, as here.
+ *   as the bearer, as here. The browser has no key since step 3 (`NO_KEY`,
+ *   below): PostgREST runs a request without `Authorization` as its
+ *   anon role, exactly what the anon key's `role: anon` claim asked for.
  * - **`schema: "public"`**, which makes postgrest-js send
  *   `Accept-Profile: public` on reads and `Content-Profile: public` on writes.
  *   Kept.
@@ -63,6 +65,13 @@ export interface PostgrestClientOptions {
   headers?: Record<string, string>;
 }
 
+/**
+ * The browser's "no key" (RFC-024 §4.6 step 3): a named value rather than
+ * `null`, so a server key that comes out missing (`x ?? null`) can't quietly
+ * turn a server client into an anonymous one. `""` is still refused.
+ */
+export const NO_KEY: unique symbol = Symbol("no key");
+
 /** supabase-js's URL check, with its messages, so a bad URL fails the same way. */
 function apiBaseUrl(base: string): URL {
   const trimmed = base?.trim();
@@ -95,13 +104,20 @@ function withKey(key: string, inner: typeof fetch = (input, init) => fetch(input
  * `base` is the address the `/rest/v1` prefix is appended to — the page's
  * origin in the browser, POSTGREST_URL (whose fetch strips the prefix again)
  * or the legacy Kong address on the server.
+ *
+ * `key` is the server's service-role key, sent as `apikey` and as the
+ * bearer. `NO_KEY` sends neither (RFC-024 §4.6, phase 7 step 3): the browser's
+ * client, whose only credential is the family token its own fetch adds, and
+ * which PostgREST otherwise runs as `anon`, the role the anon key's claim
+ * named. An empty string is still refused, so a server whose key is missing
+ * fails as loudly as before instead of quietly querying as `anon`.
  */
-export function createPostgrestClient(base: string, key: string, options: PostgrestClientOptions = {}): DbClient {
+export function createPostgrestClient(base: string, key: string | typeof NO_KEY, options: PostgrestClientOptions = {}): DbClient {
   const baseUrl = apiBaseUrl(base);
-  if (!key) throw new Error("supabaseKey is required.");
+  if (key !== NO_KEY && (typeof key !== "string" || !key)) throw new Error("supabaseKey is required.");
   return new PostgrestClient<Database, ClientOptions, "public">(new URL("rest/v1", baseUrl).href, {
     headers: { ...options.headers },
     schema: "public",
-    fetch: withKey(key, options.fetch),
+    fetch: key === NO_KEY ? (options.fetch ?? ((input, init) => fetch(input, init))) : withKey(key, options.fetch),
   });
 }

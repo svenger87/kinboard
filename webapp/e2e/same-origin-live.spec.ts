@@ -85,10 +85,10 @@ test.describe("one stack, two addresses (RFC-018)", () => {
     const b = await screenAt(browser, URLS[1], `b-${tag}`);
     try {
       for (const s of [a, b]) {
-        // The page told the client to use its own origin...
-        const env = await s.page.evaluate(() => (window as unknown as { __ENV: Record<string, string> }).__ENV);
-        expect(env.NEXT_PUBLIC_SUPABASE_URL).toBe("same-origin");
-        // ...and it did: data was loaded, all of it from the page's own address.
+        // The page hands the client no address since 1.18 (RFC-024 §4.6 step 3)...
+        const env = await s.page.evaluate(() => (window as unknown as { __ENV?: unknown }).__ENV);
+        expect(env).toBeUndefined();
+        // ...and it uses its own: data was loaded, all of it from the page's own address.
         await expect.poll(() => s.apiRequests.filter((u) => u.includes("/rest/v1/")).length, { timeout: 20_000 }).toBeGreaterThan(0);
         for (const u of s.apiRequests) expect(new URL(u).origin, u).toBe(s.origin);
         // The live-update stream too.

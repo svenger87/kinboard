@@ -276,6 +276,11 @@ services:
       # code goes to it directly. API_EXTERNAL_URL and KINBOARD_ENTRY are no
       # longer read (there is no Kong to point them at).
       POSTGREST_URL: http://rest:3000
+      # Not used by 1.18 and later with this file (it sets POSTGREST_URL): the
+      # browser sends no key, and PostgREST runs such a request as anon, the
+      # role this key names (RFC-024 §4.6). Kept for an image rolled back to
+      # an older version, which still hands it to every page and fails
+      # without it.
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       # Where uploaded files live, inside the volume above.

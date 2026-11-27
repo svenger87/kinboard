@@ -1,31 +1,27 @@
-import { createPostgrestClient, type BrowserDbClient } from "@/lib/supabase/postgrest";
+import { NO_KEY, createPostgrestClient, type BrowserDbClient } from "@/lib/supabase/postgrest";
+import { legacyKongBrowserApikey } from "@/lib/supabase/legacy-kong";
 import { getFamilyToken, invalidateFamilyToken } from "@/lib/supabase/family-token";
 import { guardUnfilteredWrites } from "@/lib/supabase/unfiltered-write-guard";
 
-// Runtime env injected by app/layout.tsx via <script>window.__ENV=...</script>.
-// Reading from window.__ENV first (when set) lets the published Docker image
-// pick up the self-hoster's actual URL/key at container start instead of
-// requiring a per-deployment rebuild. Build-time NEXT_PUBLIC_* still works
-// as a fallback for the source-build path.
+// No key, and nothing read from the build (RFC-024 §4.6, phase 7 step 3).
 //
-// NEXT_PUBLIC_SUPABASE_URL is `same-origin` when the API is served at the
-// address the page was opened from (RFC-018, lib/supabase/api-base.ts).
-declare global {
-  interface Window {
-    __ENV?: {
-      NEXT_PUBLIC_SUPABASE_URL?: string;
-      NEXT_PUBLIC_SUPABASE_ANON_KEY?: string;
-    };
-  }
-}
-
-function publicEnv(key: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_ANON_KEY"): string {
-  if (typeof window !== "undefined") {
-    const v = window.__ENV?.[key];
-    if (v) return v;
-  }
-  return process.env[key] ?? "";
-}
+// Before 1.18 the root layout handed this client the anon key in
+// `window.__ENV`, and it sent that key as `apikey` and as the bearer before
+// a family token replaced it. The key's only claim was `role: anon`, and
+// PostgREST runs a request with no `Authorization` header as that same role
+// (PGRST_DB_ANON_ROLE=anon), so it gave the browser nothing; the family token
+// is what row-level security reads. Without a key there is also nothing left
+// for `next build` to inline, which is how a stray `.env.local` once ended up
+// in production's bundle (2026-08-06).
+//
+// One exception, for one release: an install still on a compose file from
+// before 1.15 with Kong as its front door, where Kong answers `/rest/v1`
+// and refuses a request without `apikey`. There the layout still hands the
+// page the key in `window.__ENV`, and this client sends it as `apikey`, and
+// only that (lib/supabase/legacy-kong.ts). A page rendered before the
+// update, still carrying the old `window.__ENV`, works the same way; its old
+// NEXT_PUBLIC_SUPABASE_URL is never read. e2e/anon-key-retired.spec.ts
+// holds all of it.
 
 /**
  * The API base for this browser: the page's own origin, always (1.15 —
@@ -70,17 +66,25 @@ let browserClient: BrowserDbClient | undefined;
 export function createClient(): BrowserDbClient {
   const isBrowser = typeof window !== "undefined" && typeof window.document !== "undefined";
   if (isBrowser && browserClient) return browserClient;
+  // Only behind a pre-1.15 Kong, or on a page rendered before 1.18; else null.
+  const kongApikey = legacyKongBrowserApikey();
+  const withKongApikey = (init?: RequestInit): RequestInit | undefined => {
+    if (!kongApikey) return init;
+    const headers = new Headers(init?.headers);
+    if (!headers.has("apikey")) headers.set("apikey", kongApikey);
+    return { ...init, headers };
+  };
   const client = createPostgrestClient(
     browserApiBase(),
-    publicEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    NO_KEY,
     {
       /**
-       * Attach the family-scoped token to every direct Supabase call.
+       * Attach the family-scoped token to every direct database call.
        *
        * Row-level security reads a `family_id` claim from the request's JWT.
-       * The anon key above carries no such claim — with RLS enabled it can
-       * read nothing, which is the point — so without this the app would see
-       * an empty database.
+       * A request without one runs as `anon`, which with RLS enabled can read
+       * nothing — the point — so without this the app would see an empty
+       * database.
        *
        * Done here rather than at the ~200 call sites because `createClient()`
        * is synchronous and used everywhere; a custom fetch is the one place
@@ -88,16 +92,18 @@ export function createClient(): BrowserDbClient {
        * refreshed transparently, which a kiosk needs: nobody is going to
        * reload the wall display every hour.
        *
-       * The anon key stays as the `apikey` header (Kong requires it to route
-       * at all); the Authorization header is what PostgREST verifies and what
-       * the policies read.
+       * No `apikey` header: Kong, which wanted one, is gone since 1.15. An
+       * install whose webapp still forwards to Kong gets the key added by
+       * the server's /rest/v1 route; one with Kong in front gets it from the
+       * page (`kongApikey` above). The Authorization header is what
+       * PostgREST verifies and what the policies read.
        *
        * Wrapped in the unfiltered-write guard (RFC-024 §4.2.1): an UPDATE
        * or DELETE without a filter is refused before a token is even asked
        * for.
        */
       fetch: guardUnfilteredWrites(async (input: RequestInfo | URL, rawInit?: RequestInit) => {
-        const init = withReadTimeout(rawInit);
+        const init = withKongApikey(withReadTimeout(rawInit));
         const token = await getFamilyToken();
         if (!token) return fetch(input, init);
 

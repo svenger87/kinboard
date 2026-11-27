@@ -48,7 +48,8 @@ export const STORED = [
 
 /**
  * The two keys that are minted, never stored. `env` is the name the app reads
- * (lib/env.ts `serviceRoleKey`, app/layout.tsx); `older` are names read in its
+ * (lib/env.ts `serviceRoleKey`; the anon key only lib/supabase/legacy-kong.ts
+ * since 1.18, RFC-024 §4.6 step 3); `older` are names read in its
  * place, in order, when it is not set. For the service-role key (RFC-024
  * §4.6): SUPABASE_SERVICE_ROLE_KEY, the name docker-compose.yml (the pre-1.18
  * file) passes, then SERVICE_ROLE_KEY, the name .env and setup.sh use. The
@@ -78,7 +79,8 @@ export function signHs256(payloadJson, secret) {
 /**
  * The anon or service-role key for a JWT secret. A fixed payload, no `iat`
  * and no `exp`, so the same secret always gives the same key: the anon key a
- * page holds in window.__ENV survives a restart, and nothing expires on a
+ * page held in window.__ENV (until 1.18; since then only the legacy Kong path
+ * and an image rolled back to 1.17 use it) survives a restart, and nothing expires on a
  * household that never re-runs anything (RFC-023 §4.1).
  */
 export function deriveKey(role, secret) {

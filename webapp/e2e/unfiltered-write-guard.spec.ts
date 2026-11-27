@@ -60,7 +60,8 @@ const SERVER_ENV = { POSTGREST_URL: "http://rest.test:3000" };
 test.beforeAll(() => {
   process.env.POSTGREST_URL = SERVER_ENV.POSTGREST_URL;
   setServiceKey("service-role-key");
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+  // No anon key: the browser client needs none (RFC-024 §4.6 step 3).
+  delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 });
 
 test.beforeEach(() => {

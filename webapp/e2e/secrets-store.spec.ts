@@ -5,7 +5,7 @@ import { chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, wr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { codeOnly } from "./source-helpers";
-import { serverAnonKey } from "../src/lib/supabase/api-base";
+import { legacyKongAnonKey } from "../src/lib/supabase/legacy-kong";
 
 /**
  * RFC-023 §4.1: the webapp's entrypoint reads the secrets store.
@@ -378,14 +378,16 @@ test.describe("wiring", () => {
     expect(dockerfile).toMatch(/WORKDIR \/app/);
   });
 
-  test("the page's anon key goes through serverAnonKey", () => {
+  test("the page carries no anon key any more (RFC-024 §4.6 step 3)", () => {
     const layout = readFileSync(join(__dirname, "..", "src/app/layout.tsx"), "utf8");
-    expect(layout).toContain("publicApiEnv(serverAnonKey())");
+    expect(layout).not.toMatch(/AnonKey|ANON_KEY|window\.__ENV\s*=/);
   });
 
-  test("serverAnonKey reads what the container was given", () => {
-    expect(serverAnonKey({ NEXT_PUBLIC_SUPABASE_ANON_KEY: "runtime" })).toBe("runtime");
-    expect(serverAnonKey({})).toBe("");
+  test("the legacy Kong path's anon key is read from what the container was given", () => {
+    // Still minted at start (DERIVED above) for that path and for an image
+    // rolled back to 1.17, whose pages need it.
+    expect(legacyKongAnonKey({ NEXT_PUBLIC_SUPABASE_ANON_KEY: "runtime" })).toBe("runtime");
+    expect(legacyKongAnonKey({})).toBe("");
   });
 });
 
@@ -421,7 +423,7 @@ test.describe("nothing a build could bake in", () => {
   test("no file in webapp/src reads a NEXT_PUBLIC_ value as process.env.NEXT_PUBLIC_*, nor names a secret NEXT_PUBLIC_", () => {
     // Next replaces `process.env.NEXT_PUBLIC_X` at build time, server code
     // included (main built with a fake anon key served it over the runtime
-    // one, PR #546). Read such values through a parameter, as serverAnonKey
+    // one, PR #546). Read such values through a parameter, as legacyKongAnonKey
     // and push-sender's getVapidConfig do.
     expect(inlinableReads(SRC)).toEqual([]);
   });

@@ -143,11 +143,10 @@ test("the migration's UPDATE, run as postgres, rewrites only our own row, and a 
 
 test("not part of the public API", async () => {
   const base = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL)!.replace(/\/+$/, "");
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  test.skip(!anon, "needs NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  // As a browser without a family token: no key at all, which PostgREST runs as anon.
   const res = await fetch(`${base}/rest/v1/rpc/relative_storage_url`, {
     method: "POST",
-    headers: { apikey: anon!, Authorization: `Bearer ${anon}`, "content-type": "application/json" },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify({ p_url: `http://x${PATH}` }),
   });
   expect(res.ok).toBe(false);

@@ -24,6 +24,12 @@ import { join } from "node:path";
  *     and every one of them is still there);
  *   - the bare anon role, no Authorization header, reads nothing from any
  *     table;
+ *   - no Authorization header reaches exactly what the anon key reached,
+ *     table by table, for a read and for an insert (RFC-024 §4.6 step 3: the
+ *     browser stopped sending the key), and an `apikey` header changes
+ *     nothing either way;
+ *   - a forged, unsigned, expired or malformed token reaches nothing: 401,
+ *     never a fallback to anon or to more;
  *   - the service role, straight to PostgREST, counts exactly what a
  *     superuser's count(*) counts: it still sees every family;
  *   - an UPDATE and a DELETE without a filter are refused by the database
@@ -138,9 +144,13 @@ function pkFilter(table: Table, pk: unknown[]): string {
 
 type Reply = { status: number; body: unknown; headers: Headers };
 
-async function call(url: string, init: { method?: string; token?: string | null; body?: unknown; prefer?: string } = {}): Promise<Reply> {
+async function call(
+  url: string,
+  init: { method?: string; token?: string | null; apikey?: string; body?: unknown; prefer?: string } = {},
+): Promise<Reply> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (init.token) headers.Authorization = `Bearer ${init.token}`;
+  if (init.apikey) headers.apikey = init.apikey;
   if (init.body !== undefined) headers["Content-Type"] = "application/json";
   if (init.prefer) headers.Prefer = init.prefer;
   const res = await fetch(url, {
@@ -276,6 +286,71 @@ test.describe("row-level security matrix over /rest/v1", () => {
       else if (res.status !== 200 && res.status !== 401 && res.status !== 403) leaks.push(`${t.name}: HTTP ${res.status}`);
     }
     expect(leaks).toEqual([]);
+  });
+
+  test("no Authorization header reaches exactly what the anon key reached, on every table", async () => {
+    // The anon key as setup.sh and secrets-store.mjs mint it: role anon, signed with the secret.
+    const anonKey = sign({ role: "anon", iss: "kinboard" });
+    const differ: string[] = [];
+    let compared = 0;
+    for (const t of tables) {
+      const path = rest(`${t.name}?select=*`);
+      const withKey = await call(path, { token: anonKey, apikey: anonKey });
+      const without = await call(path);
+      // An old page's apikey alone, without the bearer: the proxy drops it, so it is "without".
+      const apikeyOnly = await call(path, { apikey: anonKey });
+      const shape = (r: Reply) => `${r.status} ${JSON.stringify(r.body)}`;
+      if (shape(withKey) !== shape(without)) differ.push(`${t.name} read: key ${shape(withKey).slice(0, 120)} / none ${shape(without).slice(0, 120)}`);
+      if (shape(apikeyOnly) !== shape(without)) differ.push(`${t.name} read, apikey only: ${shape(apikeyOnly).slice(0, 120)}`);
+      if (INSTANCE_WIDE.has(t.name)) continue;
+      const copy = Object.fromEntries(Object.entries(before[t.name][0].row).filter(([k]) => !t.skipOnInsert.includes(k)));
+      const insKey = await call(rest(t.name), { method: "POST", token: anonKey, apikey: anonKey, body: copy, prefer: "return=minimal" });
+      const insNone = await call(rest(t.name), { method: "POST", body: copy, prefer: "return=minimal" });
+      const code = (r: Reply) => `${r.status} ${(r.body as { code?: string } | null)?.code ?? ""}`;
+      if (code(insKey) !== code(insNone)) differ.push(`${t.name} insert: key ${code(insKey)} / none ${code(insNone)}`);
+      if (insNone.status < 400) differ.push(`${t.name} insert without a token was accepted: ${insNone.status}`);
+      compared++;
+    }
+    expect(compared, "compared no table").toBeGreaterThan(40);
+    expect(differ).toEqual([]);
+  });
+
+  test("a forged, unsigned, expired or malformed token reaches nothing", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const claimsOfB = { role: "authenticated", iss: "kinboard", family_id: fam.B.id, iat: now, exp: now + 3600 };
+    const wrongSecret = (payload: Record<string, unknown>) => {
+      const b64 = (v: unknown) => Buffer.from(JSON.stringify(v)).toString("base64url");
+      const input = `${b64({ alg: "HS256", typ: "JWT" })}.${b64(payload)}`;
+      return `${input}.${createHmac("sha256", `${JWT_SECRET}-not-it`).update(input).digest("base64url")}`;
+    };
+    const b64 = (v: unknown) => Buffer.from(JSON.stringify(v)).toString("base64url");
+    // A's real token with B's family put in, signature kept.
+    const [h, , sig] = fam.A.token.split(".");
+    // Each with the answer it must get: PostgREST's 401 for a token it can't
+    // verify, and the webapp's own 403 for anything claiming service_role,
+    // which /rest/v1 refuses before PostgREST sees it (lib/rest-proxy.ts).
+    const tokens: Record<string, [string, number]> = {
+      "service_role, wrong secret": [wrongSecret({ role: "service_role", iss: "kinboard", iat: now, exp: now + 3600 }), 403],
+      "B's family, wrong secret": [wrongSecret(claimsOfB), 401],
+      "B's family, alg none": [`${b64({ alg: "none", typ: "JWT" })}.${b64(claimsOfB)}.`, 401],
+      "A's token, payload swapped for B's": [`${h}.${b64(claimsOfB)}.${sig}`, 401],
+      "B's family, expired": [sign({ ...claimsOfB, iat: now - 7200, exp: now - 3600 }), 401],
+      "not a JWT": ["not-a-jwt", 401],
+    };
+    const reached: string[] = [];
+    for (const [name, [token, want]] of Object.entries(tokens)) {
+      for (const t of tables) {
+        const res = await call(rest(`${t.name}?select=*`), { token });
+        if (res.status !== want) reached.push(`${name} → ${t.name}: HTTP ${res.status} ${JSON.stringify(res.body).slice(0, 100)}`);
+      }
+      const ins = await call(rest(FILTERLESS_TABLE), { method: "POST", token, body: { family_id: fam.B.id, title: "forged" }, prefer: "return=minimal" });
+      if (ins.status !== want) reached.push(`${name} → insert: HTTP ${ins.status}`);
+    }
+    expect(reached).toEqual([]);
+    // Non-vacuity: the same claims, correctly signed, do read B's rows.
+    const real = await call(rest(`${FILTERLESS_TABLE}?select=id`), { token: sign(claimsOfB) });
+    expect(real.status).toBe(200);
+    expect((real.body as unknown[]).length).toBeGreaterThan(0);
   });
 
   test("family A can't insert a copy of any of B's rows", async () => {
