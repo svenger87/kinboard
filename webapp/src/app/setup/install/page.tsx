@@ -80,7 +80,7 @@ export default function SetupInstallPage() {
             invalid={invalid}
             disabled={save.isPending}
           />
-          <DataLocationNote />
+          <DataLocationNote aio={instance.aio} />
         </CardContent>
       </Card>
       <WizardStepFooter step="install" onNextClick={handleNext} disabled={save.isPending} />

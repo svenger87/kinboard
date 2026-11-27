@@ -167,7 +167,8 @@ test.describe("kinboard-updater, published beside the webapp (RFC-023 §4.11.3)"
     const df = read("webapp/docker/Dockerfile.webhook");
     expect(df).toMatch(/^HEALTHCHECK /m);
     expect(df).toContain("COPY kinboard-self-update.sh /usr/local/bin/kinboard-self-update.sh");
-    expect(df).toContain("'export KINBOARD_UPDATER=1'");
+    expect(df).toContain("COPY kinboard-updater.sh /usr/local/bin/kinboard-updater");
+    expect(read("webapp/docker/kinboard-updater.sh")).toContain("export KINBOARD_UPDATER=1");
     // Git installs keep the webhook as the entrypoint (kinboard-webhook, the same file).
     expect(df).toMatch(/^ENTRYPOINT \["\/usr\/local\/bin\/webhook"\]$/m);
   });

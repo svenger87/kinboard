@@ -148,6 +148,8 @@ test.describe("kinboard-updater and the all-in-one image (RFC-024 §4.7)", () =>
       expect(res.log).toContain("smoke check passed");
       expect(res.record).toMatchObject({ status: "updated", from: "1.18.0", to: "1.18.1", services: "aio", backup: "pre-update-20261127T101500Z.sql.gz" });
       expect(s.unraidStatus).toEqual({ [NEXT]: { local: D2, remote: D2, status: "true" } });
+      // Nothing about a webapp, a cron container or Diun: none of them exists here (the Unraid test, 2026-11-27).
+      for (const line of ["webapp recreated", "webapp not recreated", "scheduler", "diun"]) expect(res.log, line).not.toContain(line);
 
       const again = r.run();
       expect(again.log).toContain("=== tick: nothing to do ===");

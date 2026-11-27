@@ -97,7 +97,7 @@ export function InstanceCard() {
           invalid={contactInvalid}
           disabled={save.isPending}
         />
-        <DataLocationNote />
+        <DataLocationNote aio={instance.aio} />
         <Button size="sm" onClick={onSave} disabled={!dirty || save.isPending} data-testid="instance-save">
           {save.isPending ? <Loader2 className="size-4 mr-1 animate-spin" /> : <Check className="size-4 mr-1" />}
           {t("save")}

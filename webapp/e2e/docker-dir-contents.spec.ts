@@ -54,6 +54,7 @@ const ALLOWED: Record<string, string> = {
     "published as kinboard-webhook and kinboard-updater by docker.yml (context webapp/docker); built on the household's " +
     "machine only by docker-compose.webhook-build.yml, and by an older install's own copy of the Diun overlay",
   "kinboard-self-update.sh": "run by the webhook from this checkout",
+  "kinboard-updater.sh": "COPYed by Dockerfile.webhook as the kinboard-updater command (build context webapp/docker)",
   "kinboard-entry.sh": "called by start.sh and by older self-updates after a git pull",
   "test-upgrade.sh": "a stub that tells whoever ran the old rig how to update instead; goes with the 1.18 release",
 };

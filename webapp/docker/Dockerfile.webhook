@@ -52,14 +52,11 @@ RUN curl -fsSL "https://github.com/adnanh/webhook/releases/download/${WEBHOOK_VE
 # copy: its hook and its tick run the checkout's (diun/hooks.yaml, the
 # overlay's entrypoint), which `git pull` keeps current, whichever release
 # the image itself comes from.
+# kinboard-updater is the command: the loop as the container's main process,
+# --check-now, --help (see the file).
 COPY kinboard-self-update.sh /usr/local/bin/kinboard-self-update.sh
-RUN chmod 0755 /usr/local/bin/kinboard-self-update.sh \
- && printf '%s\n' '#!/bin/sh' \
-      '# kinboard-updater: automatic image-only updates of a one-file install (RFC-023 §4.11.3).' \
-      'export KINBOARD_UPDATER=1' \
-      'exec sh /usr/local/bin/kinboard-self-update.sh --tick-loop' \
-      > /usr/local/bin/kinboard-updater \
- && chmod 0755 /usr/local/bin/kinboard-updater
+COPY kinboard-updater.sh /usr/local/bin/kinboard-updater
+RUN chmod 0755 /usr/local/bin/kinboard-self-update.sh /usr/local/bin/kinboard-updater
 
 # Healthy while its loop (the updater) or the webhook (a git install) runs.
 # `[.]` keeps the pattern from matching this check's own command line.

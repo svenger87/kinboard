@@ -22,7 +22,8 @@
     "confirmDeleteGiftTitle": "Supprimer cette idée de cadeau ?",
     "confirmDeleteGiftBody": "Elle sera retirée de cet anniversaire. Cette action est irréversible.",
     "confirmDeleteDashboardTitle": "Supprimer ce tableau de bord ?",
-    "confirmDeleteDashboardBody": "Toutes ses cartes disparaîtront avec lui et devraient être recréées une par une. Cette action est irréversible."
+    "confirmDeleteDashboardBody": "Toutes ses cartes disparaîtront avec lui et devraient être recréées une par une. Cette action est irréversible.",
+    "httpsGuide": "Comment passer en HTTPS"
   },
   "components": {
     "back": "Retour",
@@ -238,7 +239,6 @@
       "cameraBlocked": "La caméra n’est pas autorisée pour cette page. Autorisez-la dans les paramètres du site du navigateur, ou prenez une photo.",
       "cameraMissing": "Aucune caméra trouvée sur cet appareil, ou une autre application l’utilise. Une photo ou les chiffres fonctionnent.",
       "cameraNeedsHttps": "La caméra en direct nécessite une adresse https ; sur cette adresse http simple, le navigateur la bloque. Une photo ou les chiffres fonctionnent ici.",
-      "httpsGuide": "Comment passer en HTTPS",
       "photo": "Prendre le code-barres en photo",
       "photoMissed": "Aucun code-barres trouvé sur cette photo. Essayez un peu plus près et plus net, ou tapez les chiffres.",
       "manualPlaceholder": "Chiffres sous le code-barres",
@@ -5268,11 +5268,13 @@
       "addressInvalid": "Ce n'est pas une adresse comme http://192.168.1.20:3000 : un schéma, un hôte et un port, rien après.",
       "dataTitle": "Où sont vos données",
       "dataBody": "Tout reste sur ce serveur. Calendriers, listes, personnes et réglages sont dans sa base de données ; photos et autres fichiers envoyés sont à côté. Les deux se trouvent dans le dossier de données de l'installation (<code>DATA_DIR</code>, <code>./data</code> à côté du fichier compose sauf si vous en avez choisi un autre). Sauvegardez ce dossier, ou téléchargez une copie à tout moment dans Paramètres → Données & sauvegarde.",
+      "dataBodyAio": "Tout reste sur ce serveur. Calendriers, listes, personnes et réglages sont dans sa base de données ; photos et autres fichiers envoyés sont à côté. Les deux se trouvent dans le dossier que vous avez associé à <code>/data</code> (par exemple <code>/mnt/user/appdata/kinboard-aio</code> sur Unraid). Sauvegardez ce dossier, ou téléchargez une copie à tout moment dans Paramètres → Données & sauvegarde.",
       "saveError": "Impossible d'enregistrer l'adresse. Réessayez."
     },
     "push": {
       "title": "Notifications",
       "ready": "Les notifications push vers les téléphones et navigateurs fonctionnent déjà : cette installation a créé ses propres clés.",
+      "needsHttps": "Les notifications push nécessitent une adresse https. Sur cette adresse http simple, le navigateur ne s'y abonne pas ; tout le reste fonctionne ici.",
       "notReady": "Le push n'est pas encore disponible : ce serveur n'a pas de clés push. Tout le reste fonctionne sans.",
       "contactLabel": "Contact pour les services push (facultatif)",
       "contactBody": "Les services push comme ceux de Google, d'Apple et de Mozilla peuvent écrire à cette adresse si les notifications de ce serveur posent problème. Sans adresse, ils reçoivent admin@example.com.",

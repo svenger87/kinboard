@@ -17,6 +17,8 @@ export interface InstanceSetup {
   siteUrl?: { value: string | null; source: InstanceValueSource };
   pushContact?: { value: string | null; source: InstanceValueSource };
   pushReady?: boolean;
+  /** The all-in-one image: data in the folder mapped to /data, not DATA_DIR next to a compose file. */
+  aio?: boolean;
 }
 
 const KEY = "instance-setup";

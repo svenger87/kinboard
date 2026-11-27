@@ -693,6 +693,10 @@ webapp_container() {
 # $1: the webapp container id from before `up -d` (empty if none ran).
 recreate_scheduler_if_webapp_changed() {
   before="$1"
+  # The all-in-one image has no webapp or cron container: its jobs run
+  # inside it, and its own recreate is logged where it happens. A line about
+  # "webapp" and "the scheduler" here only read as if something was missing.
+  [ -z "${AIO:-}" ] || return 0
   after="$(webapp_container)"
   if [ -z "$after" ] || [ "$before" = "$after" ]; then
     log "webapp not recreated; scheduler left as it is"
@@ -4133,8 +4137,11 @@ recreate_scheduler_if_webapp_changed "$WEBAPP_BEFORE"
 # skip Diun in the compose-up above (self-kill protection — Diun is
 # the one that fired this whole update), so the restart has to be a
 # separate explicit step here.
+# The all-in-one image has no Diun: nothing to say about it.
 DIUN_AFTER="$(stat -c %Y diun/diun.yml 2>/dev/null || echo 0)"
-if [ "$DIUN_AFTER" != "$DIUN_BEFORE" ]; then
+if [ -n "$AIO" ]; then
+  :
+elif [ "$DIUN_AFTER" != "$DIUN_BEFORE" ]; then
   log "diun.yml changed (mtime $DIUN_BEFORE → $DIUN_AFTER); restarting kinboard-diun"
   docker restart kinboard-diun >>"$LOG_FILE" 2>&1 || log "WARN: diun restart failed (diun may not be running)"
 else
