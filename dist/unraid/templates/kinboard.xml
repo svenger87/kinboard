@@ -15,6 +15,8 @@ Everything stays on your own hardware. There is no account to create and no clou
 
 Everything runs in this one container: the app, its PostgreSQL database and the scheduled jobs. Give it one folder for its data; back up that folder, and keep the backups private. go2rtc is not included: snapshot and MJPEG cameras work without it, and RTSP cameras need a separate go2rtc container (set GO2RTC_URL).
 
+Push notifications, the barcode scanner&apos;s live camera and installing the app need an https address; everything else works over plain http on your network. Switch on &quot;Use Tailscale&quot; (Serve is preset) for an https address on your tailnet, reachable from your devices that run Tailscale; cloud AI assistants (ChatGPT, Claude.ai) can&apos;t reach it. Other ways, and what each means, on the wiki&apos;s HTTPS page: https://github.com/svenger87/kinboard/wiki/HTTPS
+
 Open the app and create your family; every other device joins with the family&apos;s code. The passwords and keys create themselves on the first start and are kept in the data folder.</Overview>
   <Category>HomeAutomation: Productivity:</Category>
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
@@ -33,8 +35,28 @@ Open the app and create your family; every other device joins with the family&ap
   <Screenshot>https://raw.githubusercontent.com/svenger87/kinboard/main/docs/wiki/images/shopping-list-mixed-light.png</Screenshot>
   <Screenshot>https://raw.githubusercontent.com/svenger87/kinboard/main/docs/wiki/images/todos-overview-light.png</Screenshot>
   <Screenshot>https://raw.githubusercontent.com/svenger87/kinboard/main/docs/wiki/images/screensaver-designed.png</Screenshot>
+  <TailscaleEnabled>false</TailscaleEnabled>
+  <TailscaleIsExitNode>false</TailscaleIsExitNode>
+  <TailscaleHostname>kinboard</TailscaleHostname>
+  <TailscaleExitNodeIP></TailscaleExitNodeIP>
+  <TailscaleSSH>false</TailscaleSSH>
+  <TailscaleUserspaceNetworking>true</TailscaleUserspaceNetworking>
+  <TailscaleLANAccess>false</TailscaleLANAccess>
+  <TailscaleServe>serve</TailscaleServe>
+  <TailscaleWebUI>https://[hostname][magicdns]/</TailscaleWebUI>
+  <TailscaleServePort>3000</TailscaleServePort>
+  <TailscaleServeTarget>http://127.0.0.1</TailscaleServeTarget>
+  <TailscaleServeLocalPath></TailscaleServeLocalPath>
+  <TailscaleServeProtocol>https</TailscaleServeProtocol>
+  <TailscaleServeProtocolPort></TailscaleServeProtocolPort>
+  <TailscaleServePath></TailscaleServePath>
+  <TailscaleDParams></TailscaleDParams>
+  <TailscaleParams></TailscaleParams>
+  <TailscaleRoutes></TailscaleRoutes>
+  <TailscaleAcceptRoutes>false</TailscaleAcceptRoutes>
+  <TailscaleStateDir>/data/tailscale</TailscaleStateDir>
   <Config Name="Web UI" Target="3000" Default="3001" Mode="tcp" Description="The port families open in a browser." Type="Port" Display="always" Required="true" Mask="false">3001</Config>
-  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/kinboard" Mode="rw" Description="Everything Kinboard keeps: every family, calendar, list and setting; family photos, recipe pictures, vehicle images; the database password, the key that signs logins, the push keys. Back it up, and keep the backups private." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/kinboard</Config>
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/kinboard-aio" Mode="rw" Description="Everything Kinboard keeps: every family, calendar, list and setting; family photos, recipe pictures, vehicle images; the database password, the key that signs logins, the push keys. Back it up, and keep the backups private." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/kinboard-aio</Config>
   <Config Name="Time zone" Target="TZ" Default="Europe/Berlin" Description="Time zone" Type="Variable" Display="always" Required="false" Mask="false">Europe/Berlin</Config>
   <Config Name="Address other apps get in links (calendar feed); empty means the address the page was opened at" Target="SITE_URL" Default="" Description="Address other apps get in links (calendar feed); empty means the address the page was opened at" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
   <Config Name="User that runs Kinboard and owns its data folder" Target="PUID" Default="99" Description="User that runs Kinboard and owns its data folder" Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>

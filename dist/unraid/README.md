@@ -11,7 +11,7 @@ Add `https://github.com/svenger87/kinboard-unraid` to the Docker page's template
 into `/boot/config/plugins/dockerMan/templates-user/` on the flash drive; then Docker → Add Container and pick the
 template. (To be confirmed on a real Unraid 7 box before any submission: RFC-024 §10.)
 
-Set the container's data folder (default `/mnt/user/appdata/kinboard`) to a folder on a disk or the cache, and PUID/PGID to the
+Set the container's data folder (default `/mnt/user/appdata/kinboard-aio`) to a folder on a disk or the cache, and PUID/PGID to the
 owner of that folder (99:100, Unraid's nobody:users, by default). Moving an existing Kinboard install here:
 `kinboard export` on the old one, `kinboard import` on this one (the wiki's All-in-one page).
 
@@ -22,5 +22,8 @@ registry every 30 minutes, takes Kinboard's own checked database dump, replaces 
 the new image, and puts the previous one back when the new one does not come up healthy. It is the only container
 that gets the Docker socket. Install it after Kinboard, leave its "Kinboard container" at the Name you gave Kinboard,
 and leave Kinboard out of the Auto Update Applications plugin (no backup, no way back). Details: the wiki's All-in-one page.
+
+HTTPS: switch on "Use Tailscale" in the container's settings (Unraid 7; Serve on port 3000 is preset, off by default),
+or see https://github.com/svenger87/kinboard/wiki/HTTPS for the other ways and what each one means.
 
 Support: https://github.com/svenger87/kinboard/discussions. Documentation: https://github.com/svenger87/kinboard/wiki. Licence: PolyForm-Noncommercial-1.0.0.

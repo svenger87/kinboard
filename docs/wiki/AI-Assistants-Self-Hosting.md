@@ -17,6 +17,13 @@ member's browser. So Kinboard must be reachable over HTTPS on a public
 hostname, and some paths are called by the assistant's servers rather than by
 a person.
 
+An HTTPS address that only your own devices reach is not enough for them.
+Tailscale Serve's `https://….ts.net` address is one: for ChatGPT and Claude
+it counts as LAN-only, like `http://192.168.1.50:3001`, while Claude Code and
+other MCP clients on a computer in the tailnet can use it. Tailscale Funnel
+would make it public, and with it the whole app: [HTTPS → AI assistants and
+Tailscale](HTTPS#ai-assistants-and-tailscale).
+
 | Path | Called by | What it is |
 |---|---|---|
 | `/api/mcp` | the assistant's servers | The MCP endpoint. Without a valid token it answers `401` with a `WWW-Authenticate` header pointing at the next row |

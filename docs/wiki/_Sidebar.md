@@ -9,6 +9,7 @@
 
 **Operations**
 - [[Self-hosting]]
+- [[HTTPS]]
 - [[Windows (WSL) as a host|Windows-WSL-Host]]
 - [[Security-and-Threat-Model]]
 - [[Troubleshooting]]

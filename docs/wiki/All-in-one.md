@@ -46,6 +46,10 @@ Optional settings: `TZ`, `SITE_URL` (the address other apps get in links, such
 as the calendar feed), `INSTANCE_ADMIN_FAMILY_ID` (the family that sees update
 notices when there is more than one), `GO2RTC_URL` (below).
 
+The container speaks plain HTTP. Push notifications, the barcode scanner's
+live camera and installing the app need an `https://` address in front of it:
+[HTTPS](HTTPS) has the ways, shortest first.
+
 Health: `docker ps` shows the container healthy once `/api/health` answers,
 which checks the database too. A first start (creating the database and every
 table) takes about half a minute on a PC, longer on a Raspberry Pi.
@@ -58,11 +62,17 @@ Until it is in Community Applications, add it by hand: put
 `templates/kinboard.xml` from that repository into
 `/boot/config/plugins/dockerMan/templates-user/` on the flash drive, then
 Docker → Add Container → pick *Kinboard*. Its defaults are Unraid's: the data
-folder `/mnt/user/appdata/kinboard`, PUID 99 and PGID 100, and the stop timeout
-above. (Installing from the template is still to be rehearsed on a real Unraid
-7 box.)
+folder `/mnt/user/appdata/kinboard-aio`, PUID 99 and PGID 100, and the stop
+timeout above. (Installing from the template is still to be rehearsed on a real
+Unraid 7 box.) The data folder is not `/mnt/user/appdata/kinboard`, where
+[Self-hosting](Self-hosting) puts a git install: the image refuses a folder
+holding another install's database, so a household with both keeps them apart.
 For automatic updates, add the second template, `kinboard-updater`
 ([below](#automatic-updates)).
+
+**HTTPS**: the template carries Unraid 7's **Use Tailscale** settings, preset
+for Tailscale Serve and switched off. Switch it on for an
+`https://kinboard.<your-tailnet>.ts.net` address: [HTTPS](HTTPS#unraid-7-use-tailscale).
 
 ### Cameras
 

@@ -154,6 +154,8 @@ A short setup follows. Every step can be skipped, and everything in it is in Set
 
 The first two are under **Settings → This install** afterwards, visible only to the family that runs the install (`INSTANCE_ADMIN_FAMILY_ID`, or the first and only family). An install that already had a family before this setup existed never shows them.
 
+Other devices in the house open `http://<this machine's address>:3001`. Plain HTTP is fine for nearly everything; push notifications, the barcode scanner's live camera and installing the app need an `https://` address, and [HTTPS](HTTPS) shows the ways to get one, shortest first.
+
 ## 4. Configure integrations
 
 Open the menu → **Settings** and walk through the integrations you care about. Each is documented separately:

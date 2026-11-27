@@ -137,6 +137,18 @@ export function metadataProblems(m, file = "metadata") {
     const up = u?.updater;
     need(str(up?.category) && up.category.trim().split(" ").every((t) => /^[A-Za-z]+:[A-Za-z]*$/.test(t)), "aio.unraid.updater.category must be CA's Category:Subcategory list");
     for (const k of ["container_env", "switch_env"]) need(/^[A-Z][A-Z0-9_]*$/.test(up?.[k] ?? ""), `aio.unraid.updater.${k} must be a variable name`);
+    need(str(a.https?.en), "aio.https.en is required (what needs HTTPS, said in the Unraid template)");
+    const ts = u?.tailscale;
+    need(ts && typeof ts === "object", "aio.unraid.tailscale is required (Unraid 7's \"Use Tailscale\" presets)");
+    if (ts && typeof ts === "object") {
+      need(str(ts.hostname) && /^[A-Za-z0-9_{}-]+$/.test(ts.hostname), "aio.unraid.tailscale.hostname must be a host name (Unraid's field allows letters, digits, - and _)");
+      // Funnel publishes the whole app on the internet: never a preset (wiki: HTTPS).
+      need(ts.serve === "serve", "aio.unraid.tailscale.serve must be serve (Funnel is the household's own choice, never a preset)");
+      need(ts.serve_protocol === "https", "aio.unraid.tailscale.serve_protocol must be https");
+      need(/^http:\/\/(127\.0\.0\.1|localhost)$/.test(ts.serve_target ?? ""), "aio.unraid.tailscale.serve_target must be the container's own loopback (http://127.0.0.1)");
+      need(ts.userspace_networking === "true" || ts.userspace_networking === "false", "aio.unraid.tailscale.userspace_networking must be \"true\" or \"false\"");
+      need(typeof a.data === "string" && str(ts.state_dir) && ts.state_dir.startsWith(`${a.data}/`), "aio.unraid.tailscale.state_dir must be under aio.data, so it persists with the rest");
+    }
   }
   const r = m.release;
   need(r && str(r.version) && str(r.app_tag) && str(r.postgres_tag), "release.version, .app_tag and .postgres_tag are required");
