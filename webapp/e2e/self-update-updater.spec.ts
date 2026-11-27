@@ -524,14 +524,20 @@ test.describe("kinboard-updater: finding the stack", () => {
     }
   });
 
-  test("a compose file that is not on the host (Portainer's web editor): logged, nothing touched, exit 0", () => {
+  // What container mode then does is self-update-container-mode.spec.ts's,
+  // against a stub daemon with the Engine API; this stub has none.
+  test("a compose file that is not on the host (Portainer's web editor) is container mode, in a sibling without the folders; no docker compose", () => {
     const r = rig();
     try {
       r.setLabels(`kbt|/data/compose/3|/data/compose/3/docker-compose.yml|`);
       r.setHop({ missing: true });
       const res = r.run(["--tick"]);
       expect(res.status, res.out).toBe(0);
-      expect(res.log).toContain("is not on this host's disk (a Portainer web-editor stack keeps it inside Portainer)");
+      const hops = res.runs.split("\n").filter((l) => l.includes("app.kinboard.updater-tick=1"));
+      expect(hops).toHaveLength(2);
+      expect(hops[0]).toContain("--mount type=bind,source=/data/compose/3,target=/data/compose/3,readonly");
+      expect(hops[1]).not.toContain("--mount");
+      expect(hops[1]).toContain("-e KINBOARD_CONTAINER_MODE_WHY=the stack's files (/data/compose/3/docker-compose.yml) are not on this host's disk");
       expect(res.calls.filter((c) => c.startsWith("docker compose"))).toEqual([]);
     } finally {
       r.cleanup();

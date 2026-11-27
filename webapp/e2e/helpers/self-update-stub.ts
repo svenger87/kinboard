@@ -190,6 +190,8 @@ case "$1" in
     case "$*" in *app.kinboard.updater-tick=1*)
       # The updater's sibling: Docker refuses a bind mount of a path the host
       # does not have (a Portainer web-editor stack).
+      # Without --mount it is container mode's sibling (RFC-023 PR 14), which starts.
+      case "$*" in *--mount*) ;; *) exit "$(cat "$STUB/hop-rc" 2>/dev/null || echo 0)" ;; esac
       if [ -f "$STUB/hop-missing" ]; then echo 'docker: Error response from daemon: invalid mount config for type "bind": bind source path does not exist: /data/compose/3' >&2; exit 125; fi
       exit "$(cat "$STUB/hop-rc" 2>/dev/null || echo 0)" ;;
     esac

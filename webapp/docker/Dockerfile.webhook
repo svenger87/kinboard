@@ -15,7 +15,9 @@
 #     §4.11.3): compose.yml's `updater` service, under the `autoupdate`
 #     profile, for an install with no git checkout. That has no script of
 #     its own on disk, so the image carries it, and `kinboard-updater` runs
-#     its loop.
+#     its loop. jq is for its container mode (Portainer's web-editor
+#     stacks), which rebuilds each container's create request from Docker's
+#     own description of it.
 
 FROM alpine:3.20
 
@@ -29,6 +31,7 @@ RUN apk add --no-cache \
       ca-certificates \
       bash \
       curl \
+      jq \
       openssh-client \
       openssl \
       tzdata

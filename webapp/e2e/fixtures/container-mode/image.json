@@ -1,0 +1,107 @@
+{
+  "Id": "sha256:87e4b429a2404351f72fcacbebdf1c290b69e08478d459600edee2cbfeb0df07",
+  "RepoTags": [
+    "127.0.0.1:5098/kinboard:u3"
+  ],
+  "RepoDigests": [
+    "127.0.0.1:5098/kinboard@sha256:87e4b429a2404351f72fcacbebdf1c290b69e08478d459600edee2cbfeb0df07"
+  ],
+  "Config": {
+    "User": "root",
+    "ExposedPorts": {
+      "3000/tcp": {}
+    },
+    "Env": [
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "NODE_VERSION=22.23.5",
+      "YARN_VERSION=1.22.22",
+      "NODE_ENV=production",
+      "NEXT_TELEMETRY_DISABLED=1",
+      "PORT=3000",
+      "HOSTNAME=0.0.0.0",
+      "KINBOARD_RIG_BUILD=1.18.0-u3"
+    ],
+    "Entrypoint": [
+      "./webapp-entrypoint.sh"
+    ],
+    "WorkingDir": "/app",
+    "Labels": {
+      "app.kinboard.compose-revision": "1",
+      "org.opencontainers.image.created": "2026-11-26T23:05:10.231Z",
+      "org.opencontainers.image.description": "Self-hosted family dashboard for kitchen wall displays — calendars, shopping, weather, photos, smart home, energy and daily life in one beautiful screen.",
+      "org.opencontainers.image.documentation": "https://github.com/svenger87/kinboard/wiki",
+      "org.opencontainers.image.licenses": "PolyForm-Noncommercial-1.0.0",
+      "org.opencontainers.image.revision": "2e83c9fa91968354673b89b1a98591072d6d2cd9",
+      "org.opencontainers.image.source": "https://github.com/svenger87/kinboard",
+      "org.opencontainers.image.title": "Kinboard",
+      "org.opencontainers.image.url": "https://kinboard.app",
+      "org.opencontainers.image.vendor": "svenger87",
+      "org.opencontainers.image.version": "1.18.0-u3"
+    },
+    "Healthcheck": {
+      "Test": [
+        "CMD-SHELL",
+        "curl -sf -o /dev/null \"http://127.0.0.1:${PORT:-3000}/api/health\" || exit 1"
+      ],
+      "Interval": 30000000000,
+      "Timeout": 10000000000,
+      "StartPeriod": 120000000000,
+      "Retries": 3
+    }
+  },
+  "Manifests": [
+    {
+      "ID": "sha256:26e6855d03dacebe0925bd6ddd1bc7268168357721d5c8678b52e1c977d4a792",
+      "Descriptor": {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "digest": "sha256:26e6855d03dacebe0925bd6ddd1bc7268168357721d5c8678b52e1c977d4a792",
+        "size": 10118,
+        "platform": {
+          "architecture": "amd64",
+          "os": "linux"
+        }
+      },
+      "Available": true,
+      "Size": {
+        "Content": 108226549,
+        "Total": 479832053
+      },
+      "Kind": "image",
+      "ImageData": {
+        "Platform": {
+          "architecture": "amd64",
+          "os": "linux"
+        },
+        "Size": {
+          "Unpacked": 371605504
+        },
+        "Containers": null
+      }
+    },
+    {
+      "ID": "sha256:43e11ac0bc5061a42eb67bdcbebd4d92cc7d141250c55ca506d4edaaac0c5c3b",
+      "Descriptor": {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "digest": "sha256:43e11ac0bc5061a42eb67bdcbebd4d92cc7d141250c55ca506d4edaaac0c5c3b",
+        "size": 838,
+        "annotations": {
+          "vnd.docker.reference.digest": "sha256:26e6855d03dacebe0925bd6ddd1bc7268168357721d5c8678b52e1c977d4a792",
+          "vnd.docker.reference.type": "attestation-manifest"
+        },
+        "platform": {
+          "architecture": "unknown",
+          "os": "unknown"
+        }
+      },
+      "Available": true,
+      "Size": {
+        "Content": 2030,
+        "Total": 2030
+      },
+      "Kind": "attestation",
+      "AttestationData": {
+        "For": "sha256:26e6855d03dacebe0925bd6ddd1bc7268168357721d5c8678b52e1c977d4a792"
+      }
+    }
+  ]
+}

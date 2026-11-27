@@ -21,12 +21,15 @@ import { readFileSync } from "node:fs";
 const script = readFileSync("docker/kinboard-self-update.sh", "utf8");
 
 test("the image list is sorted before it is compared", () => {
+  // The list comes from stack_image_refs (`config --images`, or the
+  // containers' references in container mode, RFC-023 PR 14).
+  const refs = script.slice(script.indexOf("stack_image_refs() {"), script.indexOf("images_now()"));
+  expect(refs, "could not find stack_image_refs()").toContain("config --images");
   const fn = script.slice(script.indexOf("images_now()"), script.indexOf("IMAGES_BEFORE="));
-  expect(fn, "could not find images_now()").toContain("config --images");
   expect(
     fn,
     "`docker compose config --images` returns images in a different order on " +
       "every call, so an unsorted before/after comparison reports a change " +
       "that did not happen",
-  ).toMatch(/config --images[^\n]*\|\s*sort/);
+  ).toMatch(/stack_image_refs[^\n]*\|\s*sort/);
 });
