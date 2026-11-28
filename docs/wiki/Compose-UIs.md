@@ -330,7 +330,7 @@ Onto a new server, or after the volumes are gone:
 3. **The database and the files**:
 
    ```bash
-   docker exec -i kinboard-db psql -U supabase_admin -d postgres -c "TRUNCATE public.instance_settings"
+   docker exec -i kinboard-db psql -U supabase_admin -d postgres -c "TRUNCATE public.instance_settings, public.system_heartbeats"
    docker exec -i kinboard-db pg_restore -U supabase_admin -d postgres \
      --data-only --disable-triggers -n public < /backups/kinboard-2026-12-01.pgdump
    docker run --rm -v kinboard-storage:/storage -v /backups:/in:ro --entrypoint sh supabase/postgres:15.14.1.159 \
