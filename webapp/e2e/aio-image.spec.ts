@@ -537,6 +537,9 @@ interface TransferModule {
   archiveEntryProblems(listing: string): string[];
   manifestProblems(m: unknown): string[];
   targetProblems(m: unknown, t: unknown): string[];
+  skippedTables(m: unknown, t: unknown): string[];
+  inArchiveOrder(t: { schema: string; table: string; columns: string[] }, h: { schema: string; table: string; columns: string[] }): { columns: string[] };
+  LEFTOVER_TABLES: Record<string, string>;
   checksumSelect(t: { schema: string; table: string; columns: string[] }): string;
   ident(s: string): string;
   literal(s: string): string;
@@ -589,6 +592,56 @@ test.describe("kinboard export / import (RFC-024 §4.4)", () => {
     expect(t.targetProblems(manifest(), extra).join()).toContain("public.todos is in this install but not in the archive");
   });
 
+  // Prod's move to the all-in-one image (2026-11-28): todos and shopping_items
+  // had the same columns as a fresh install, in another order (gained through
+  // migrations), and the archive held the pre-1.15 public.schema_migrations.
+  test("columns by name, never by position: the same columns in another order import", async () => {
+    const t = await transferMod;
+    const m = manifest();
+    m.tables[0].columns = ["name", "id"];
+    expect(t.targetProblems(m, target())).toEqual([]);
+    // The COPY and the checksum follow the archive's order, with the target's names.
+    const h = { schema: "public", table: "families", columns: ["id", "name"] };
+    expect(t.inArchiveOrder(m.tables[0], h).columns).toEqual(["name", "id"]);
+    expect(() => t.inArchiveOrder({ ...m.tables[0], columns: ["name", "nope"] }, h)).toThrow("not this install's");
+    expect(() => t.inArchiveOrder({ ...m.tables[0], columns: ["name"] }, h)).toThrow("not this install's");
+    expect(() => t.inArchiveOrder({ ...m.tables[0], columns: ["name", "name"] }, h)).toThrow("not this install's");
+    // Still refused: a column missing, one more, a type that differs, a column listed twice.
+    const missing = { ...target(), tables: [{ schema: "public", table: "families", columns: ["id", "name", "added"] }] };
+    expect(t.targetProblems(m, missing).join()).toContain("has other columns here (only in the archive: none; only here: added)");
+    const typed = { ...m, tables: [{ ...m.tables[0], columns: ["id", "name"], types: ["uuid", "text"] }] };
+    const typedHere = (types: string[]) => ({ ...target(), tables: [{ schema: "public", table: "families", columns: ["id", "name"], types }] });
+    expect(t.targetProblems(typed, typedHere(["uuid", "text"]))).toEqual([]);
+    expect(t.targetProblems(typed, typedHere(["uuid", "character varying(20)"])).join()).toContain("column name is text in the archive and character varying(20) here");
+    expect(t.targetProblems(typed, typedHere(["text", "text"])).join()).toContain("column id is uuid in the archive and text here");
+    // An archive from 1.18.0-rc.1 has no types: names only.
+    expect(t.targetProblems(m, typedHere(["uuid", "text"]))).toEqual([]);
+    expect(t.manifestProblems({ ...m, tables: [{ ...m.tables[0], columns: ["id", "id"] }] }).join()).toContain("a column listed twice");
+    expect(t.manifestProblems({ ...typed, tables: [{ ...typed.tables[0], types: ["uuid"] }] }).join()).toContain("column types don't match");
+    expect(t.manifestProblems(typed)).toEqual([]);
+  });
+
+  test("a known leftover of an older install is left out; any other unknown table is still refused", async () => {
+    const t = await transferMod;
+    expect(Object.keys(t.LEFTOVER_TABLES)).toEqual(["public.schema_migrations"]);
+    const legacy = { schema: "public", table: "schema_migrations", columns: ["version"], rows: 3, checksum: "", file: "data/0002.copy" };
+    const m = { ...manifest(), tables: [...manifest().tables, legacy] };
+    expect(t.targetProblems(m, target())).toEqual([]);
+    expect(t.skippedTables(m, target())).toEqual(["public.schema_migrations"]);
+    // When this install has the table, it is imported like any other (never skipped, its columns checked).
+    const hasIt = { ...target(), tables: [...target().tables, { schema: "public", table: "schema_migrations", columns: ["version"] }] };
+    expect(t.skippedTables(m, hasIt)).toEqual([]);
+    expect(t.targetProblems(m, hasIt)).toEqual([]);
+    const otherCols = { ...target(), tables: [...target().tables, { schema: "public", table: "schema_migrations", columns: ["id"] }] };
+    expect(t.targetProblems(m, otherCols).join()).toContain("table public.schema_migrations has other columns here");
+    // Only that name: the same table name in another schema, another name, or a prototype key, is refused.
+    for (const [schema, table] of [["kinboard", "schema_migrations"], ["public", "schema_migrations_old"], ["public", "todos"], ["public", "constructor"], ["__proto__", "x"]]) {
+      const odd = { ...manifest(), tables: [...manifest().tables, { ...legacy, schema, table }] };
+      expect(t.skippedTables(odd, target()), `${schema}.${table}`).toEqual([]);
+      expect(t.targetProblems(odd, target()).join(), `${schema}.${table}`).toContain(`table ${schema}.${table} is in the archive but not in this install`);
+    }
+  });
+
   test("red: a manifest that is not ours, or whose paths and values could escape", async () => {
     const t = await transferMod;
     const m = manifest();
@@ -632,6 +685,8 @@ test.describe("kinboard export / import (RFC-024 §4.4)", () => {
     const imp = src.slice(src.indexOf("export function importArchive"));
     expect(imp).toContain("SET LOCAL session_replication_role = replica;");
     expect(imp).toMatch(/\\\\copy \$\{qualified\(h\)\} \(\$\{h\.columns\.map\(ident\)/);
+    // Both the COPY and the verifying checksum in the archive's column order.
+    expect(imp.match(/const h = inArchiveOrder\(t, have\.get\(keyOf\(t\)\)\);/g)?.length).toBe(2);
     expect(imp).not.toContain("pg_restore");
     // Verified inside the transaction, before COMMIT.
     expect(imp.indexOf("RAISE EXCEPTION 'table % differs after the import")).toBeLessThan(imp.indexOf('"COMMIT;"'));

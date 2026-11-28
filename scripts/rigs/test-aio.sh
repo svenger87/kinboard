@@ -21,9 +21,13 @@
 #   transfer    `kinboard export` from a compose.yml stack (supabase/postgres
 #               15) -> `kinboard import` into a fresh all-in-one -> every
 #               table's rows and checksum, every file and the secrets equal;
-#               then the other way, into a fresh compose stack. Red: a second
-#               import into a non-empty install, an archive from another
-#               version, a tampered table: refused or rolled back
+#               then the other way, into a fresh compose stack. The source is
+#               made to look like an install that grew through the migrations
+#               since before 1.15: columns of todos, shopping_items and
+#               families in another order than a fresh install's, and the old
+#               public.schema_migrations with rows. Red: a second import into
+#               a non-empty install, an archive from another version, a
+#               tampered table: refused or rolled back
 #   migrate     a pending migration on existing data: a verified dump first;
 #               with no writable backup folder, no migration and no start;
 #               a version whose migration fails stops, names the version to go
@@ -510,9 +514,11 @@ secret_of() { tar -xzOf "$1" "secrets/$2" 2>/dev/null; }
 # export: the scheduler's heartbeats, and the server's time zone record the
 # entrypoint rewrites at every start. Compared, and listed when they differ.
 VOLATILE='^(public\.system_heartbeats|public\.instance_settings) '
+# Left out by the import on purpose (LEFTOVER_TABLES), so in the first archive only.
+LEFTOVER='^public\.schema_migrations '
 same_data() {  # same_data <label> <archive a> <archive b>
   local a="$WORK/$1.a" b="$WORK/$1.b"
-  tables_of "$2" | grep -vE "$VOLATILE" >"$a"; tables_of "$3" | grep -vE "$VOLATILE" >"$b"
+  tables_of "$2" | grep -vE "$VOLATILE|$LEFTOVER" >"$a"; tables_of "$3" | grep -vE "$VOLATILE|$LEFTOVER" >"$b"
   if diff "$a" "$b" >"$WORK/$1.diff"; then
     pass "$1: every table identical, rows and checksums ($(wc -l <"$a") tables, $(awk '{n += $2} END {print n}' "$a") rows)"
     step "written by the running app itself after the import, so not compared: $(tables_of "$2" | grep -E "$VOLATILE" | awk '{print $1 " " $2}' | tr '\n' ' ')-> $(tables_of "$3" | grep -E "$VOLATILE" | awk '{print $2}' | tr '\n' ' ')rows"
@@ -541,6 +547,39 @@ if want transfer; then
       && printf "recipe" > "/var/lib/storage/files/recipe-images/pancakes with space.png" \
       && head -c 1 /dev/urandom > /var/lib/storage/files/recipe-images/tiny.bin \
       && chown -R nextjs:nodejs /var/lib/storage/files'
+    # An install that grew through the migrations, as a household's from
+    # before 1.15 (prod's move, 2026-11-28): a column added by a later
+    # migration sits at the end of its table, where a fresh install's CREATE
+    # TABLE has it in the middle, and the stack of then left a
+    # public.schema_migrations behind. Columns moved to the end with their
+    # values, defaults and NOT NULL; triggers off (no change feed, no
+    # updated_at), so the data stays as seeded.
+    if apsql kbaio-cmp-db >/dev/null <<'SQL'
+SET session_replication_role = replica;
+CREATE FUNCTION pg_temp.move_to_end(t regclass, col text) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE typ text; nn boolean; def text;
+BEGIN
+  SELECT format_type(a.atttypid, a.atttypmod), a.attnotnull, pg_get_expr(d.adbin, d.adrelid) INTO typ, nn, def
+    FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+   WHERE a.attrelid = t AND a.attname = col AND NOT a.attisdropped;
+  IF typ IS NULL THEN RAISE EXCEPTION 'no column % in %', col, t; END IF;
+  EXECUTE format('ALTER TABLE %s RENAME COLUMN %I TO %I', t, col, col || '_moving');
+  EXECUTE format('ALTER TABLE %s ADD COLUMN %I %s', t, col, typ);
+  EXECUTE format('UPDATE %s SET %I = %I', t, col, col || '_moving');
+  EXECUTE format('ALTER TABLE %s DROP COLUMN %I', t, col || '_moving');
+  IF def IS NOT NULL THEN EXECUTE format('ALTER TABLE %s ALTER COLUMN %I SET DEFAULT %s', t, col, def); END IF;
+  IF nn THEN EXECUTE format('ALTER TABLE %s ALTER COLUMN %I SET NOT NULL', t, col); END IF;
+END $$;
+SELECT pg_temp.move_to_end('public.todos', 'created_at'), pg_temp.move_to_end('public.todos', 'show_in_events'),
+       pg_temp.move_to_end('public.shopping_items', 'source_device_id'), pg_temp.move_to_end('public.families', 'join_code_expires_at');
+CREATE TABLE public.schema_migrations (version character varying(14) PRIMARY KEY);
+INSERT INTO public.schema_migrations VALUES ('20210101000000'), ('20210102000000'), ('20210103000000');
+SQL
+    then pass "transfer: the source made a grown install (columns moved, the old public.schema_migrations)"
+    else fail "transfer: making the source a grown install"; fi
+    order_of() { apsql "$1" -c "SELECT string_agg(attname, ',' ORDER BY attnum) FROM pg_attribute WHERE attrelid = 'public.$2'::regclass AND attnum > 0 AND NOT attisdropped"; }
+    sorted_cols() { tr ',' '\n' | LC_ALL=C sort | tr '\n' ' '; }
+    other_order() { [ -n "$1" ] && [ "$1" != "$2" ] && [ "$(sorted_cols <<<"$1")" = "$(sorted_cols <<<"$2")" ]; }
     docker exec kbaio-cmp-webapp kinboard export - >"$WORK/from-compose.tar.gz" 2>"$WORK/export1.log"
     check "transfer: kinboard export from compose ($(du -h "$WORK/from-compose.tar.gz" | cut -f1); $(tail -n2 "$WORK/export1.log" | head -n1 | sed 's/^\[kinboard\] //'))" \
       bash -c "tar -tzf '$WORK/from-compose.tar.gz' | grep -qx 'manifest.json'"
@@ -548,7 +587,14 @@ if want transfer; then
 
     aio_run kbaio-imp "$P_SIDE" kbaio-imp-data
     if wait_healthy kbaio-imp; then
+      # Not vacuous: the same columns, in another order than the fresh install's.
+      for t in todos shopping_items families; do
+        a="$(order_of kbaio-cmp-db "$t")"; b="$(order_of kbaio-imp "$t")"
+        check "transfer: the grown source's $t has the fresh install's columns in another order" other_order "$a" "$b"
+      done
       docker exec -i kbaio-imp kinboard import - <"$WORK/from-compose.tar.gz" >"$WORK/import1.log" 2>&1
+      check "transfer: the old public.schema_migrations is left out, and said so" grep -q 'leaving out public.schema_migrations (3 row(s))' "$WORK/import1.log"
+      check "transfer: ... and is not created on the all-in-one" test "$(apsql kbaio-imp -c "SELECT to_regclass('public.schema_migrations') IS NULL")" = t
       check "transfer: kinboard import into a fresh all-in-one ($(grep -m1 'imported' "$WORK/import1.log" | sed 's/^\[kinboard\] //' | cut -c1-150))" grep -q 'every table.s count and checksum verified' "$WORK/import1.log"
       sleep 5; wait_http "http://127.0.0.1:$P_SIDE" || fail "transfer: not answering after the import's restart"
       docker exec kbaio-imp kinboard export - >"$WORK/aio-after.tar.gz" 2>/dev/null
@@ -570,11 +616,14 @@ if want transfer; then
         check "transfer red: an archive from another version is refused" grep -q "another version" "$WORK/import-ver.log"
         # A tampered table: one row of todos changed after the export.
         rm -rf "$WORK/tamper"; mkdir -p "$WORK/tamper" && tar -xzf "$WORK/from-compose.tar.gz" -C "$WORK/tamper"
+        # The title of one todo (a text column, found by name in the archive's
+        # order), so it is the checksum that catches it, not COPY's parser.
         f="$(jq -r '.tables[] | select(.table == "todos") | .file' "$WORK/tamper/manifest.json")"
-        sed -i '0,/\t/s/\t[^\t]*\t/\tTAMPERED\t/' "$WORK/tamper/$f"
+        col="$(jq -r '.tables[] | select(.table == "todos") | .columns | index("title") + 1' "$WORK/tamper/manifest.json")"
+        awk -v c="$col" 'BEGIN { FS = OFS = "\t" } NR == 1 { $c = "TAMPERED" } { print }' "$WORK/tamper/$f" >"$WORK/tamper/t" && cat "$WORK/tamper/t" >"$WORK/tamper/$f" && rm "$WORK/tamper/t"
         tar -czf "$WORK/tampered.tar.gz" -C "$WORK/tamper" .
         docker exec -i kbaio-imp2 kinboard import --no-restart - <"$WORK/tampered.tar.gz" >"$WORK/import-tamper.log" 2>&1
-        check "transfer red: a tampered table is caught by the checksum and rolled back" grep -q "rolled back" "$WORK/import-tamper.log"
+        check "transfer red: a tampered table is caught by the checksum and rolled back" grep -q "table public.todos differs after the import" "$WORK/import-tamper.log"
         check "transfer red: after it, still no family, no imported file, the secrets as before" bash -c \
           "[ \"\$(docker exec -i kbaio-imp2 psql -X -U supabase_admin -d postgres -tAc 'SELECT count(*) FROM families')\" = 0 ] && [ -z \"\$(docker exec kbaio-imp2 find /data/storage/files -type f)\" ] && ! docker exec kbaio-imp2 sh -c 'ls /data/config/secrets' | grep -q previous"
         # An archive with a path that climbs out of the folder it is extracted to.
