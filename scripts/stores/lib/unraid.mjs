@@ -205,6 +205,13 @@ export function unraid(src) {
     Description: `Everything ${meta.name} keeps: ${Object.values(meta.volumes).map((v) => v.description).join("; ")}. Back it up, and keep the backups private.`,
     Type: "Path", Display: "always", Required: "true", Mask: "false",
   });
+  // The optional backups folder: empty, so Unraid maps nothing until the household picks a share.
+  if (meta.aio.backups) {
+    config.push({
+      Name: meta.aio.backups.label, Target: meta.aio.backups.target, Default: "", Mode: "rw",
+      Description: meta.aio.backups.description, Type: "Path", Display: "always", Required: "false", Mask: "false",
+    });
+  }
   for (const [name, v] of Object.entries(aioEnv(meta))) {
     const def = name === "PUID" ? u.puid : name === "PGID" ? u.pgid : v.default ?? "";
     config.push({

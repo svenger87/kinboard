@@ -51,6 +51,8 @@ import { PushResetNotice } from "@/components/settings/push-reset-notice";
 import { useComposeRevision } from "@/hooks/use-compose-revision";
 import { useOldDatabase } from "@/hooks/use-old-database";
 import { OldDatabaseNotice } from "@/components/settings/old-database-notice";
+import { ScheduledBackupNotice, ScheduledBackupSection } from "@/components/settings/scheduled-backup-section";
+import { useScheduledBackup } from "@/hooks/use-scheduled-backup";
 import { ComposeHoldNotice, ComposeRevisionNotice } from "@/components/settings/compose-revision-notice";
 import { InstanceCard } from "@/components/settings/instance-card";
 import { PinDigits, saveSettingsPin, type PinDigitsHandle } from "@/components/settings/pin-digits";
@@ -124,6 +126,7 @@ export default function SettingsPage() {
   const { data: pushReset } = usePushReset(!!family);
   const { data: composeRevision } = useComposeRevision();
   const { data: oldDatabase } = useOldDatabase();
+  const { data: scheduledBackup } = useScheduledBackup();
   const realtimeStatus = useRealtimeStatusStore((s) => s.status);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
 
@@ -494,6 +497,7 @@ export default function SettingsPage() {
         {/* An automatic update that did not start and was rolled back (RFC-023 §4.11.4). */}
         <UpdateStatusNotice status={updateStatus} />
         <UpdatePullNotice failure={updatePull} />
+        <ScheduledBackupNotice status={scheduledBackup} />
 
         {/* The server's push key changed: devices that need push turned on again (RFC-023 §6.4). */}
         <PushResetNotice devices={pushReset} currentDeviceId={device?.id} />
@@ -883,6 +887,9 @@ export default function SettingsPage() {
             >
               {t("exportButton")}
             </Button>
+
+            {/* The all-in-one image's automatic backups, for the install's operator (lib/scheduled-backup/). */}
+            <ScheduledBackupSection status={scheduledBackup} />
 
             <div id="calendar-feed" data-setting="calendar-feed" className="mt-4 pt-4 border-t">
               <p className="font-medium text-sm">{t("feedTitle")}</p>

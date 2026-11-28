@@ -24,9 +24,20 @@
 # because a dump holds every family's data. The newest BACKUP_KEEP (5) of this
 # prefix are kept.
 #
+# One backup at a time: with KINBOARD_BACKUP_LOCK set (the all-in-one image
+# sets it), this waits for the lock the scheduled backups hold while they run
+# (kinboard-scheduled-backup.mjs, started by the webapp), up to
+# KINBOARD_BACKUP_LOCK_WAIT seconds (1800), and holds it until it exits. So
+# kinboard-updater's dump before an update (taken with this script) waits for
+# a scheduled backup to finish instead of running beside it, and the update
+# then stops the container with no scheduled backup half written. The
+# migrations' and the PostgreSQL upgrade's dumps run before the webapp starts,
+# so nothing else holds it then.
+#
 # Env: PGHOST, PGPORT, PGUSER (the superuser, supabase_admin), PGPASSWORD;
 # PG_DUMPALL (default pg_dumpall; the major upgrade passes the old major's
-# server-matching client, or the newest), BACKUP_KEEP, KINBOARD_BACKUP_MIN_TABLES.
+# server-matching client, or the newest), BACKUP_KEEP, KINBOARD_BACKUP_MIN_TABLES,
+# KINBOARD_BACKUP_LOCK, KINBOARD_BACKUP_LOCK_WAIT.
 set -u
 
 dir="${1:-}"
@@ -51,6 +62,27 @@ fail() { echo "$tag NOT VERIFIED: $*" >&2; cleanup; exit 1; }
 umask 077
 mkdir -p "$dir" 2>/dev/null || fail "cannot create the backup folder $dir"
 [ -d "$dir" ] && [ -w "$dir" ] || fail "the backup folder $dir is not a writable folder"
+
+lock="${KINBOARD_BACKUP_LOCK:-}"
+if [ -n "$lock" ]; then
+  lock_wait="${KINBOARD_BACKUP_LOCK_WAIT:-1800}"
+  case "$lock_wait" in "" | *[!0-9]*) lock_wait=1800 ;; esac
+  # Tried in a subshell first: a redirection that fails on `exec` ends the script.
+  if ! command -v flock >/dev/null 2>&1; then
+    echo "$tag no flock here: not waiting for a scheduled backup" >&2
+  elif ! (: >>"$lock") 2>/dev/null; then
+    echo "$tag cannot open the backup lock $lock: not waiting for a scheduled backup" >&2
+  else
+    exec 9>>"$lock"
+    waited=0
+    while ! flock -n 9; do
+      [ "$waited" -eq 0 ] && echo "$tag a scheduled backup is running; waiting for it to finish (up to ${lock_wait}s)" >&2
+      [ "$waited" -ge "$lock_wait" ] && fail "a scheduled backup still held the backup lock after ${lock_wait}s"
+      sleep 2
+      waited=$((waited + 2))
+    done
+  fi
+fi
 
 if ! "$dumpall" --no-password >"$tmp_sql" 2>"$tmp_sql.err"; then
   msg="$(tail -n 3 "$tmp_sql.err" 2>/dev/null | tr '\n' ' ')"

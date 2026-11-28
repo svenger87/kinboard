@@ -375,7 +375,14 @@ export function unraidProblems(xml, profileXml, src) {
   const port = configs.find((c) => c.getAttribute("Type") === "Port" && c.getAttribute("Target") === String(meta.ports.web.container));
   if (!port) p.push(`${at}: no Port config for ${meta.ports.web.container}`);
   const paths = configs.filter((c) => c.getAttribute("Type") === "Path");
-  if (paths.length !== 1 || paths[0].getAttribute("Target") !== meta.aio.data) p.push(`${at}: exactly one Path, at ${meta.aio.data} (the all-in-one image keeps everything there)`);
+  // The data folder first and required; besides it only the optional backups folder, empty by default.
+  if (paths.length < 1 || paths[0].getAttribute("Target") !== meta.aio.data || paths[0].getAttribute("Required") !== "true") p.push(`${at}: the first Path is ${meta.aio.data}, required (the all-in-one image keeps everything there)`);
+  for (const extra of paths.slice(1)) {
+    const t = extra.getAttribute("Target");
+    if (!meta.aio.backups || t !== meta.aio.backups.target) p.push(`${at}: a Path at ${t}, which the all-in-one image does not read`);
+    else if (extra.getAttribute("Required") !== "false" || extra.getAttribute("Default") !== "") p.push(`${at}: the backups Path ${t} must be optional and empty by default (the data folder is the default)`);
+  }
+  if (meta.aio.backups && !paths.some((c) => c.getAttribute("Target") === meta.aio.backups.target)) p.push(`${at}: no Path for the backups folder ${meta.aio.backups.target}`);
   const wantData = meta.aio.unraid.data_path.replaceAll("{slug}", meta.slug);
   if (paths[0] && paths[0].getAttribute("Default") !== wantData) p.push(`${at}: the data path defaults to ${paths[0].getAttribute("Default")}, not ${wantData}`);
   if (byTarget("PUID")?.getAttribute("Default") !== meta.aio.unraid.puid || byTarget("PGID")?.getAttribute("Default") !== meta.aio.unraid.pgid) {

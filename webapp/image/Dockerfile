@@ -251,8 +251,10 @@ COPY image/stock-postgres-bootstrap.sql ./initdb/stock-postgres-bootstrap.sql
 # `kinboard export` and `kinboard import`, the same command in both images.
 # kinboard-backup.sh is the verified dump the all-in-one image takes before a
 # pending migration or a PostgreSQL major upgrade (§4.7); nothing in the
-# compose shape calls it.
-COPY image/kinboard-transfer.mjs image/kinboard-backup.sh image/storage-api-move.sh ./
+# compose shape calls it. kinboard-scheduled-backup.mjs is the all-in-one
+# image's scheduled backup: an export archive, read back and checked before it
+# is kept (started by the webapp, src/lib/scheduled-backup/).
+COPY image/kinboard-transfer.mjs image/kinboard-backup.sh image/storage-api-move.sh image/kinboard-scheduled-backup.mjs ./
 USER root
 RUN chmod +x ./webapp-entrypoint.sh ./migrate.sh ./cron-call.sh ./kinboard-db-init.sh ./kinboard-backup.sh \
  && printf '#!/bin/sh\nexec node /app/kinboard-init.mjs "$@"\n' > /usr/local/bin/kinboard-init \

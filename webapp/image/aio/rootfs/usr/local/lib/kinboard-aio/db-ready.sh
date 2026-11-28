@@ -22,6 +22,9 @@ cd /app
 # Then, an import cut off before its commit (the container killed, the power
 # gone) is undone, before PostgREST and the webapp read the secrets it may
 # have replaced (kinboard-transfer.mjs resumeAtStart). That never stops a
-# start: the next `kinboard import` tries the same again.
+# start: the next `kinboard import` tries the same again. And what an export
+# cut off by the stop left (a scheduled backup's, kinboard-scheduled-backup.mjs):
+# its copy of the keys in /tmp, its links to every photo beside the files.
 exec su-exec "$RUN_UID:$RUN_GID" sh -c 'sh /app/kinboard-db-init.sh || exit 1
-  node /app/kinboard-transfer.mjs resume || echo "[kinboard-aio] could not check for an import cut off before its commit; the next kinboard import does" >&2'
+  node /app/kinboard-transfer.mjs resume || echo "[kinboard-aio] could not check for an import cut off before its commit; the next kinboard import does" >&2
+  node /app/kinboard-scheduled-backup.mjs --clean-exports || true'
