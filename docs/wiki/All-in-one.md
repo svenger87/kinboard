@@ -359,6 +359,18 @@ differ: a sign-in does not depend on it). A screen sent to another machine's
 address starts at the join screen: join it again with the family's code,
 which is the same as before.
 
+**Until the import is done, keep the new install where the screens can't
+reach it.** A screen that loads a page from the new install while it is still
+empty finds no family, forgets its sign-in and shows the join screen; it signs
+itself in again only at its next page load after the import (a reload, not the
+family's code), and a kitchen screen nobody reloads sits on the join screen
+until someone does. So start the all-in-one image on another port than the old
+install's, and behind a reverse proxy without its proxy settings (Traefik:
+`traefik.enable=false`); import; stop the old install; then give the new one
+the old port and the proxy settings (on Unraid: edit the template, Apply). The
+import doesn't care about the port, and creating the container before you stop
+the old install keeps its first start out of the time the screens are down.
+
 **Cameras** that stream through go2rtc (RTSP) need it after the move too:
 the all-in-one image has no go2rtc inside, so the camera page reports a
 WebRTC error until `GO2RTC_URL` points at a go2rtc container of its own (see
