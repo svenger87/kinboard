@@ -619,6 +619,9 @@ test.describe("kinboard export / import (RFC-024 §4.4)", () => {
     expect(t.manifestProblems({ ...m, tables: [{ ...m.tables[0], columns: ["id", "id"] }] }).join()).toContain("a column listed twice");
     expect(t.manifestProblems({ ...typed, tables: [{ ...typed.tables[0], types: ["uuid"] }] }).join()).toContain("column types don't match");
     expect(t.manifestProblems(typed)).toEqual([]);
+    // A crafted name or type reaches the message without control characters.
+    const esc = { ...m, tables: [{ ...m.tables[0], columns: ["id", "name", "x\u001b[2J"] }] };
+    expect(t.targetProblems(esc, target()).join()).toContain("only in the archive: x?[2J;");
   });
 
   test("a known leftover of an older install is left out; any other unknown table is still refused", async () => {

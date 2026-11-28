@@ -360,17 +360,19 @@ export function skippedTables(manifest, target) {
  * NULL there during the COPY, which rolls the whole import back.
  */
 export function columnProblems(k, want, have) {
+  // Printable characters only: names and types from a crafted archive must not put terminal escapes into the operator's shell.
+  const said = (v) => String(v).replace(/[^\x20-\x7e]/g, "?");
   const here = new Set(have.columns);
   const there = new Set(want.columns);
   const onlyThere = want.columns.filter((c) => !here.has(c));
   const onlyHere = have.columns.filter((c) => !there.has(c));
   if (onlyThere.length || onlyHere.length) {
-    return [`table ${k} has other columns here (only in the archive: ${onlyThere.join(", ") || "none"}; only here: ${onlyHere.join(", ") || "none"})`];
+    return [`table ${k} has other columns here (only in the archive: ${onlyThere.map(said).join(", ") || "none"}; only here: ${onlyHere.join(", ") || "none"})`];
   }
   if (!Array.isArray(want.types) || !Array.isArray(have.types)) return [];
   const typeHere = new Map(have.columns.map((c, i) => [c, have.types[i]]));
   return want.columns.flatMap((c, i) => (typeHere.get(c) === want.types[i] ? []
-    : [`table ${k}: column ${c} is ${want.types[i]} in the archive and ${typeHere.get(c)} here`]));
+    : [`table ${k}: column ${c} is ${said(want.types[i])} in the archive and ${typeHere.get(c)} here`]));
 }
 
 /**

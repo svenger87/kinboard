@@ -514,11 +514,12 @@ secret_of() { tar -xzOf "$1" "secrets/$2" 2>/dev/null; }
 # export: the scheduler's heartbeats, and the server's time zone record the
 # entrypoint rewrites at every start. Compared, and listed when they differ.
 VOLATILE='^(public\.system_heartbeats|public\.instance_settings) '
-# Left out by the import on purpose (LEFTOVER_TABLES), so in the first archive only.
+# Left out by the import on purpose (LEFTOVER_TABLES): taken out of the source
+# side only, so a target that still had it would differ.
 LEFTOVER='^public\.schema_migrations '
 same_data() {  # same_data <label> <archive a> <archive b>
   local a="$WORK/$1.a" b="$WORK/$1.b"
-  tables_of "$2" | grep -vE "$VOLATILE|$LEFTOVER" >"$a"; tables_of "$3" | grep -vE "$VOLATILE|$LEFTOVER" >"$b"
+  tables_of "$2" | grep -vE "$VOLATILE|$LEFTOVER" >"$a"; tables_of "$3" | grep -vE "$VOLATILE" >"$b"
   if diff "$a" "$b" >"$WORK/$1.diff"; then
     pass "$1: every table identical, rows and checksums ($(wc -l <"$a") tables, $(awk '{n += $2} END {print n}' "$a") rows)"
     step "written by the running app itself after the import, so not compared: $(tables_of "$2" | grep -E "$VOLATILE" | awk '{print $1 " " $2}' | tr '\n' ' ')-> $(tables_of "$3" | grep -E "$VOLATILE" | awk '{print $2}' | tr '\n' ' ')rows"
