@@ -340,7 +340,7 @@
     "createSubmitting": "Erstellen…",
     "createError": "Fehler beim Erstellen der Familie.",
     "restoreButton": "Aus Sicherung wiederherstellen",
-    "restoreFailed": "Wiederherstellung fehlgeschlagen. Der Grund steht darunter. Eine Kinboard-Sicherung ist die .json-Datei aus Einstellungen → Daten & Sicherung.",
+    "restoreFailed": "Wiederherstellung fehlgeschlagen. Der Grund steht darunter. Eine Kinboard-Sicherung ist die .json-Datei aus Einstellungen → Daten & Sicherheit.",
     "restoreWarnings": "Mit {count} übersprungenen Einträgen wiederhergestellt"
   },
   "holidays": {
@@ -1082,10 +1082,6 @@
     "cancelRenameAria": "Umbenennen abbrechen",
     "familyRenamed": "Familie umbenannt",
     "renameFailed": "Die Familie konnte nicht umbenannt werden. Bitte versuche es erneut.",
-    "sectionFamily": "Familie",
-    "sectionIntegrations": "Integrationen",
-    "sectionDisplay": "Anzeige",
-    "sectionSecurity": "Sicherheit",
     "itemPeopleLabel": "Familienmitglieder",
     "itemPeopleDescription": "Personen und Farben verwalten",
     "itemDevicesLabel": "Geräte",
@@ -3758,6 +3754,21 @@
       "save": "Speichern",
       "saved": "Gespeichert",
       "saveFailed": "Konnte nicht gespeichert werden. Versuch es noch einmal."
+    },
+    "categories": {
+      "names": {
+        "family": "Familie & Personen",
+        "calendars": "Kalender & Ferien",
+        "board": "Auf dem Board",
+        "screens": "Bildschirme & Geräte",
+        "look": "Aussehen & Sprache",
+        "connections": "Smart Home & Verbindungen",
+        "data": "Daten & Sicherheit",
+        "install": "Diese Installation",
+        "about": "Info & Diagnose"
+      },
+      "installSummary": "Adresse, Push-Kontakt, wo die Daten liegen",
+      "needsAttention": "Braucht Aufmerksamkeit"
     }
   },
   "settingsSearch": {
@@ -5321,8 +5332,8 @@
       "addressFromEnvironment": "Auf dem Server festgelegt (SITE_URL): {value}. Diese Einstellung gilt; ändere sie dort.",
       "addressInvalid": "Das ist keine Adresse wie http://192.168.1.20:3000: Schema, Host und Port, nichts dahinter.",
       "dataTitle": "Wo eure Daten liegen",
-      "dataBody": "Alles bleibt auf diesem Server. Kalender, Listen, Personen und Einstellungen stehen in seiner Datenbank, Fotos und andere Uploads als Dateien daneben. Wo das ist, hängt davon ab, wie Kinboard installiert wurde: mit <code>compose.yml</code> in seinen drei Docker-Volumes oder den Ordnern, die du dafür angegeben hast (<code>KINBOARD_DB_DIR</code> und die anderen); mit git und <code>setup.sh</code> im Datenordner (<code>DATA_DIR</code>, <code>./data</code>, wenn du keinen anderen gewählt hast); als ein Container in seinem Ordner <code>/data</code>. Sichere das, oder lade jederzeit unter Einstellungen → Daten & Sicherung eine Kopie herunter.",
-      "dataBodyAio": "Alles bleibt auf diesem Server. Kalender, Listen, Personen und Einstellungen stehen in seiner Datenbank, Fotos und andere Uploads als Dateien daneben. Beides liegt in dem Ordner, den du auf <code>/data</code> gelegt hast (auf Unraid zum Beispiel <code>/mnt/user/appdata/kinboard-aio</code>). Sichere diesen Ordner, oder lade jederzeit unter Einstellungen → Daten & Sicherung eine Kopie herunter.",
+      "dataBody": "Alles bleibt auf diesem Server. Kalender, Listen, Personen und Einstellungen stehen in seiner Datenbank, Fotos und andere Uploads als Dateien daneben. Wo das ist, hängt davon ab, wie Kinboard installiert wurde: mit <code>compose.yml</code> in seinen drei Docker-Volumes oder den Ordnern, die du dafür angegeben hast (<code>KINBOARD_DB_DIR</code> und die anderen); mit git und <code>setup.sh</code> im Datenordner (<code>DATA_DIR</code>, <code>./data</code>, wenn du keinen anderen gewählt hast); als ein Container in seinem Ordner <code>/data</code>. Sichere das, oder lade jederzeit unter Einstellungen → Daten & Sicherheit eine Kopie herunter.",
+      "dataBodyAio": "Alles bleibt auf diesem Server. Kalender, Listen, Personen und Einstellungen stehen in seiner Datenbank, Fotos und andere Uploads als Dateien daneben. Beides liegt in dem Ordner, den du auf <code>/data</code> gelegt hast (auf Unraid zum Beispiel <code>/mnt/user/appdata/kinboard-aio</code>). Sichere diesen Ordner, oder lade jederzeit unter Einstellungen → Daten & Sicherheit eine Kopie herunter.",
       "saveError": "Die Adresse konnte nicht gespeichert werden. Versuch es noch einmal."
     },
     "push": {
@@ -5344,10 +5355,10 @@
       "enter": "Wähle vier Ziffern",
       "confirm": "Gib sie noch einmal ein",
       "mismatch": "Die stimmten nicht überein. Wähle noch einmal vier Ziffern.",
-      "hint": "Jedes Gerät fragt danach, bevor es die Einstellungen öffnet. Ändern oder entfernen unter Einstellungen → Sicherheit.",
+      "hint": "Jedes Gerät fragt danach, bevor es die Einstellungen öffnet. Ändern oder entfernen unter Einstellungen → Daten & Sicherheit.",
       "digitLabel": "PIN-Ziffer {position}",
       "saved": "PIN gesetzt",
-      "already": "Diese Familie hat schon eine PIN. Du kannst sie unter Einstellungen → Sicherheit ändern.",
+      "already": "Diese Familie hat schon eine PIN. Du kannst sie unter Einstellungen → Daten & Sicherheit ändern.",
       "saveError": "Die PIN konnte nicht gesetzt werden. Versuch es noch einmal."
     }
   },
@@ -6030,9 +6041,9 @@
     "newPinInvalid": "Die PIN muss genau 4 Ziffern haben.",
     "expired": "Diese Anfrage ist abgelaufen oder wurde schon beantwortet. Starte die Verbindung im Assistenten neu.",
     "failed": "Etwas ist schiefgelaufen. Versuche es erneut.",
-    "revokeHint": "Du kannst die Verbindung jederzeit unter Einstellungen → Integrationen trennen.",
+    "revokeHint": "Du kannst die Verbindung jederzeit unter Einstellungen → Smart Home & Verbindungen → Integrations-Tokens trennen.",
     "pinChanged": "Gerade wurde an anderer Stelle eine Einstellungs-PIN festgelegt. Lade die Seite neu und gib diese PIN ein.",
-    "assistantsDisabled": "KI-Assistenten sind unter Einstellungen → Integrationen ausgeschaltet.",
+    "assistantsDisabled": "KI-Assistenten sind unter Einstellungen → Smart Home & Verbindungen → Integrations-Tokens ausgeschaltet.",
     "verifiedBy": "Bestätigt durch {host}",
     "selfRegisteredWarning": "Selbst registrierte App — Kinboard kann nicht bestätigen, dass es wirklich {client} ist. Fahre nur fort, wenn du das selbst gestartet hast."
   },

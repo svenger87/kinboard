@@ -1,7 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { MENU_SECTIONS, SETTINGS_ENTRIES, isEntryVisible, type SettingsEntry } from "../src/lib/settings-search/registry";
+import {
+  SETTINGS_CATEGORIES,
+  SETTINGS_ENTRIES,
+  categoryForIndexHash,
+  categoryForPath,
+  isEntryVisible,
+  type SettingsEntry,
+} from "../src/lib/settings-search/registry";
 import { normalize, searchSettings, toSearchable, type SearchableEntry } from "../src/lib/settings-search/search";
 
 /**
@@ -136,55 +143,100 @@ test.describe("the settings menu comes from the registry", () => {
     expect(src).toMatch(/import\s*\{[^}]*\bSETTINGS_ENTRIES\b[^}]*\}\s*from\s*"@\/lib\/settings-search\/registry"/);
   });
 
-  test("the menu shows the same items, in the same groups and order, as before", () => {
-    // Read from the inline `settingsSections` array the index had before it
-    // moved to the registry (main at c1cfe4d). A page that
+  test("the menu shows the approved categories, with the same pages as before", () => {
+    // The owner's decision of 2026-11-28: nine categories, in this order,
+    // each listing these pages in this order. Notifications sits with the
+    // screens, holidays with the calendars, photos on the board. A page that
     // joins the menu later is added here on purpose, in the same change.
-    const before: Record<string, string[]> = {
-      sectionFamily: [
-        "/settings/people",
-        "/settings/devices",
-        "/settings/catalogue",
-        "/settings/schedule",
-        "/settings/holidays",
-        "/settings/recycle-bin",
-        "/settings/task-log",
-        // RFC-017: creatures and rewards left pocket money for a page of their own.
-        "/settings/creatures",
-      ],
-      sectionDisplay: [
-        "/settings/widgets",
-        "/settings/hints",
-        "/settings/navigation",
-        "/settings/theme",
-        "/settings/screensaver",
-        // The layout designer: next to the screensaver it designs.
-        "/settings/layouts",
-        "/settings/weather",
-        "/settings/notifications",
-        "/settings/language",
-        "/settings/news",
-        "/settings/plugins",
-      ],
-      sectionIntegrations: [
-        "/settings/calendar",
-        "/settings/bring",
-        "/settings/photos",
+    const approved: Record<string, string[]> = {
+      family: ["/settings/people", "/settings/schedule", "/settings/creatures", "/settings/pocket-money"],
+      calendars: ["/settings/calendar", "/settings/holidays"],
+      board: ["/settings/widgets", "/settings/weather", "/settings/news", "/settings/photos", "/settings/hints", "/settings/plugins"],
+      screens: ["/settings/devices", "/settings/layouts", "/settings/screensaver", "/settings/navigation", "/settings/notifications"],
+      look: ["/settings/theme", "/settings/language"],
+      connections: [
         "/settings/homeassistant",
+        "/settings/catalogue",
+        "/settings/bring",
         "/settings/integrations",
-        "/settings/vehicles",
-        "/settings/energy",
-        "/settings/cameras",
-        "/settings/stonks",
-        "/settings/pocket-money",
         "/settings/media-players",
+        "/settings/cameras",
+        "/settings/energy",
+        "/settings/vehicles",
+        "/settings/stonks",
       ],
+      data: ["/settings/recycle-bin", "/settings/task-log"],
+      install: [],
+      about: [],
     };
+    expect(SETTINGS_CATEGORIES.map((c) => c.id)).toEqual(Object.keys(approved));
     const after: Record<string, string[]> = {};
-    for (const section of MENU_SECTIONS) {
-      after[section] = SETTINGS_ENTRIES.filter((e) => e.menu && e.section === section).map((e) => e.href);
+    for (const c of SETTINGS_CATEGORIES) {
+      after[c.id] = SETTINGS_ENTRIES.filter((e) => e.menu && e.category === c.id).map((e) => e.href);
     }
-    expect(after).toEqual(before);
+    expect(after).toEqual(approved);
+
+    // The same 30 pages the three old groups listed (main at c3372a5e), none lost or doubled.
+    const before = [
+      "/settings/people", "/settings/devices", "/settings/catalogue", "/settings/schedule", "/settings/holidays",
+      "/settings/recycle-bin", "/settings/task-log", "/settings/creatures", "/settings/widgets", "/settings/hints",
+      "/settings/navigation", "/settings/theme", "/settings/screensaver", "/settings/layouts", "/settings/weather",
+      "/settings/notifications", "/settings/language", "/settings/news", "/settings/plugins", "/settings/calendar",
+      "/settings/bring", "/settings/photos", "/settings/homeassistant", "/settings/integrations", "/settings/vehicles",
+      "/settings/energy", "/settings/cameras", "/settings/stonks", "/settings/pocket-money", "/settings/media-players",
+    ];
+    expect(Object.values(after).flat().sort()).toEqual([...before].sort());
+  });
+
+  test("every index card belongs to a category that opens for its anchor", () => {
+    const cards = SETTINGS_ENTRIES.filter((e) => e.href === "/settings");
+    expect(cards.map((e) => `${e.anchor}:${e.category}`).sort()).toEqual(
+      [
+        "join-code:family",
+        "calendar-feed:calendars",
+        "pin:data",
+        "data-export:data",
+        "scheduled-backup:data",
+        "diagnostics:about",
+      ].sort(),
+    );
+    for (const e of cards) expect(categoryForIndexHash(e.anchor!), e.anchor).toBe(e.category);
+    // A category's own id opens it, #instance is the install card, and
+    // nothing else opens anything.
+    for (const c of SETTINGS_CATEGORIES) expect(categoryForIndexHash(c.id)).toBe(c.id);
+    expect(categoryForIndexHash("instance")).toBe("install");
+    expect(categoryForIndexHash("#pin")).toBe("data");
+    for (const h of ["", "nope", "school-holidays", "presence"]) expect(categoryForIndexHash(h), h).toBeNull();
+  });
+
+  test("no category id is also the anchor of a card on the index", () => {
+    const anchors = new Set(SETTINGS_ENTRIES.filter((e) => e.href === "/settings").map((e) => e.anchor));
+    for (const c of SETTINGS_CATEGORIES) expect(anchors.has(c.id), c.id).toBe(false);
+  });
+
+  test("every category has something in it, and only the install's is for its operator alone", () => {
+    for (const c of SETTINGS_CATEGORIES) {
+      const inside = SETTINGS_ENTRIES.filter((e) => e.category === c.id && (e.menu || e.href === "/settings"));
+      if (c.id === "install") continue; // the InstanceCard, which is not a search entry
+      expect(inside.length, `${c.id} is empty`).toBeGreaterThan(0);
+    }
+    expect(SETTINGS_CATEGORIES.filter((c) => c.operatorOnly).map((c) => c.id)).toEqual(["install"]);
+  });
+
+  test("every settings page knows its category, sub-pages through their parent", () => {
+    for (const e of SETTINGS_ENTRIES.filter((x) => !x.anchor)) expect(categoryForPath(e.href), e.href).toBe(e.category);
+    expect(categoryForPath("/settings/layouts/3f2a")).toBe("screens");
+    expect(categoryForPath("/settings/vehicles/new")).toBe("connections");
+    expect(categoryForPath("/settings/homeassistant/rooms")).toBe("connections");
+    expect(categoryForPath("/settings/caldav")).toBe("calendars");
+    expect(categoryForPath("/settings")).toBeNull();
+    expect(categoryForPath("/settings-elsewhere")).toBeNull();
+  });
+
+  test("the index draws its menu from the registry's categories, not a list of its own", () => {
+    const src = indexSource();
+    expect(src).toMatch(/e\.menu && e\.category === category/);
+    expect(src).not.toMatch(/MENU_SECTIONS|sectionFamily|sectionSecurity/);
   });
 
   test("a disabled plugin's page is hidden, and so are its sections", () => {
@@ -284,7 +336,7 @@ test.describe("guards", () => {
     heading in one of these files still has to be a section or join the list.
   */
   const NOT_SECTIONS: Record<string, { count: number; why: string }> = {
-    "app/settings/page.tsx": { count: 1, why: "the menu's group headings (one <h2> in the map)" },
+    "components/settings/settings-categories.tsx": { count: 1, why: "the index's category rows (one <h2> in the map), each opening a group of page entries" },
     "app/settings/calendar/page.tsx": { count: 4, why: "link cards to Google, ICS, CalDAV and local calendars, each a page entry of its own" },
     "app/settings/catalogue/page.tsx": { count: 2, why: "one heading per room, from the family's data" },
     "app/settings/google/page.tsx": { count: 1, why: "the result of a person-mapping test" },
@@ -298,7 +350,6 @@ test.describe("guards", () => {
     "app/settings/pocket-money/page.tsx": { count: 2, why: "one card per child's account, and that account's requests" },
     "components/pocket-money/rewards-settings.tsx": { count: 1, why: "the reward requests inbox, there only while one waits" },
     "app/settings/schedule/page.tsx": { count: 1, why: "the empty state shown before any child exists" },
-    "components/settings/instance-card.tsx": { count: 1, why: "This install (RFC-024 §8): shown only to the install's operator, so not in a search every family shares" },
     "app/settings/screensaver/page.tsx": { count: 1, why: "the help box" },
     "app/settings/theme/page.tsx": { count: 1, why: "a preview, not a setting" },
     "app/settings/weather/page.tsx": { count: 1, why: "a preview, not a setting" },

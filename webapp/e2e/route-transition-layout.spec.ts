@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { establishSession } from "./session";
+import { categoryForPath } from "../src/lib/settings-search/registry";
 
 /**
  * Leaving a page with a drag-to-reorder list left the next page blank.
@@ -36,7 +37,8 @@ test.describe("route transitions", () => {
   for (const path of ["/settings/widgets", "/settings/navigation"]) {
     test(`the next page shows after leaving ${path}`, async ({ page }, testInfo) => {
       await establishSession(page, FAMILY_CODE, `Route transition ${testInfo.project.name}`);
-      await page.goto("/settings");
+      // The link sits in its category on the index, which the hash opens.
+      await page.goto(`/settings#${categoryForPath(path)}`);
       // In-app navigation both ways: a full page load mounts a fresh shell,
       // which is why a reload was the way out.
       await page.locator(`a[href="${path}"]`).first().click();

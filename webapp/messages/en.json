@@ -340,7 +340,7 @@
     "createSubmitting": "Creating…",
     "createError": "Failed to create family.",
     "restoreButton": "Restore from backup",
-    "restoreFailed": "Restore failed. The reason is below. A Kinboard backup is the .json file from Settings → Data & backup.",
+    "restoreFailed": "Restore failed. The reason is below. A Kinboard backup is the .json file from Settings → Data & safety.",
     "restoreWarnings": "Restored with {count} skipped items"
   },
   "holidays": {
@@ -1082,10 +1082,6 @@
     "cancelRenameAria": "Cancel rename",
     "familyRenamed": "Family renamed",
     "renameFailed": "Could not rename the family. Please try again.",
-    "sectionFamily": "Family",
-    "sectionIntegrations": "Integrations",
-    "sectionDisplay": "Display",
-    "sectionSecurity": "Security",
     "itemPeopleLabel": "Family members",
     "itemPeopleDescription": "Manage people and colors",
     "itemDevicesLabel": "Devices",
@@ -3758,6 +3754,21 @@
       "save": "Save",
       "saved": "Saved",
       "saveFailed": "Couldn't save. Try again."
+    },
+    "categories": {
+      "names": {
+        "family": "Family & people",
+        "calendars": "Calendars & holidays",
+        "board": "On the board",
+        "screens": "Screens & devices",
+        "look": "Look & language",
+        "connections": "Smart home & connections",
+        "data": "Data & safety",
+        "install": "This install",
+        "about": "About & diagnostics"
+      },
+      "installSummary": "Address, push contact, where the data is",
+      "needsAttention": "Needs attention"
     }
   },
   "settingsSearch": {
@@ -5321,8 +5332,8 @@
       "addressFromEnvironment": "Set on the server (SITE_URL): {value}. That setting wins; change it there.",
       "addressInvalid": "That isn't an address like http://192.168.1.20:3000: a scheme, a host and a port, nothing after them.",
       "dataTitle": "Where your data lives",
-      "dataBody": "Everything stays on this server. Calendars, lists, people and settings are in its database; photos and other uploads are files beside it. Where that is depends on how Kinboard was installed: with <code>compose.yml</code>, in its three Docker volumes or the folders you named for them (<code>KINBOARD_DB_DIR</code> and the others); with git and <code>setup.sh</code>, in the data folder (<code>DATA_DIR</code>, <code>./data</code> unless you chose another); as one container, in its <code>/data</code> folder. Back that up, or download a copy any time under Settings → Data & backup.",
-      "dataBodyAio": "Everything stays on this server. Calendars, lists, people and settings are in its database; photos and other uploads are files beside it. Both are in the folder you mapped to <code>/data</code> (for example <code>/mnt/user/appdata/kinboard-aio</code> on Unraid). Back up that folder, or download a copy any time under Settings → Data & backup.",
+      "dataBody": "Everything stays on this server. Calendars, lists, people and settings are in its database; photos and other uploads are files beside it. Where that is depends on how Kinboard was installed: with <code>compose.yml</code>, in its three Docker volumes or the folders you named for them (<code>KINBOARD_DB_DIR</code> and the others); with git and <code>setup.sh</code>, in the data folder (<code>DATA_DIR</code>, <code>./data</code> unless you chose another); as one container, in its <code>/data</code> folder. Back that up, or download a copy any time under Settings → Data & safety.",
+      "dataBodyAio": "Everything stays on this server. Calendars, lists, people and settings are in its database; photos and other uploads are files beside it. Both are in the folder you mapped to <code>/data</code> (for example <code>/mnt/user/appdata/kinboard-aio</code> on Unraid). Back up that folder, or download a copy any time under Settings → Data & safety.",
       "saveError": "Couldn't save the address. Try again."
     },
     "push": {
@@ -5344,10 +5355,10 @@
       "enter": "Choose four digits",
       "confirm": "Enter them again",
       "mismatch": "Those didn't match. Choose four digits again.",
-      "hint": "Every device asks for it before opening Settings. Change or remove it in Settings → Security.",
+      "hint": "Every device asks for it before opening Settings. Change or remove it in Settings → Data & safety.",
       "digitLabel": "PIN digit {position}",
       "saved": "PIN set",
-      "already": "This family has a PIN already. You can change it in Settings → Security.",
+      "already": "This family has a PIN already. You can change it in Settings → Data & safety.",
       "saveError": "Couldn't set the PIN. Try again."
     }
   },
@@ -6030,9 +6041,9 @@
     "newPinInvalid": "The PIN must be exactly 4 digits.",
     "expired": "This request has expired or was already answered. Start the connection again from the assistant.",
     "failed": "Something went wrong. Try again.",
-    "revokeHint": "You can disconnect it at any time under Settings → Integrations.",
+    "revokeHint": "You can disconnect it at any time under Settings → Smart home & connections → Integration tokens.",
     "pinChanged": "A settings PIN was just set somewhere else. Reload this page and enter that PIN.",
-    "assistantsDisabled": "AI assistants are switched off in Settings → Integrations.",
+    "assistantsDisabled": "AI assistants are switched off in Settings → Smart home & connections → Integration tokens.",
     "verifiedBy": "Verified by {host}",
     "selfRegisteredWarning": "Self-registered app — Kinboard can't confirm it is really {client}. Only continue if you started this yourself."
   },

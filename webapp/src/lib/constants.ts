@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { categoryForPath } from "@/lib/settings-search/registry";
 import {
   Home,
   CalendarDays,
@@ -137,7 +138,14 @@ export const SETTINGS_PARENT_PATHS: Record<string, string> = {
   "/settings/local-calendars": "/settings/calendar",
 };
 
-/** Where the back control on a settings sub-page should go. */
+/**
+ * Where the back control on a settings sub-page should go: its parent page,
+ * or the settings index with the page's category open (`/settings#screens`),
+ * so the way back lands where the way in started.
+ */
 export function settingsBackHref(pathname: string): string {
-  return SETTINGS_PARENT_PATHS[pathname] ?? "/settings";
+  const parent = SETTINGS_PARENT_PATHS[pathname];
+  if (parent) return parent;
+  const category = categoryForPath(pathname);
+  return category ? `/settings#${category}` : "/settings";
 }

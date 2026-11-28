@@ -134,7 +134,7 @@ The integration lives in its own repository:
 
 ## Create a token
 
-**Settings → Integrations → New token.** Name it (the name is only so you can
+**Settings → Smart home & connections → Integration tokens → New token.** Name it (the name is only so you can
 tell two apart later), tick what it may do, and copy it — **it is shown once**.
 Kinboard stores only a fingerprint and cannot show it again.
 

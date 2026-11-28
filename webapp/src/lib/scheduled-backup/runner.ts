@@ -239,7 +239,7 @@ export async function checkOnce(deps: RunDeps = realDeps, cfgIn?: ResolvedConfig
 
 function describe(cfg: ResolvedConfig, loc: BackupLocation): string {
   if (cfg.error) return `off: ${cfg.error}`;
-  if (cfg.frequency === "off") return `off (${cfg.source === "server" ? "KINBOARD_BACKUP_SCHEDULE=off" : "switch it on in Settings → Data & backup"})`;
+  if (cfg.frequency === "off") return `off (${cfg.source === "server" ? "KINBOARD_BACKUP_SCHEDULE=off" : "switch it on in Settings → Data & safety"})`;
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const when = cfg.frequency === "daily" ? `daily at ${cfg.time}` : `weekly on ${days[cfg.day]} at ${cfg.time}`;
   return `${when} (${timeZone()}), keeping ${cfg.keep}, into ${loc.dir}${cfg.source === "server" ? " (set by the server)" : ""}`;

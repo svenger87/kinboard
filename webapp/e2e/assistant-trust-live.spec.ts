@@ -7,7 +7,7 @@ import en from "../messages/en.json";
 
 /**
  * "Trust this assistant", end to end on a running server and the real
- * database: the switch in Settings → Integrations (PIN to switch on, none to
+ * database: the switch in Settings → Integration tokens (PIN to switch on, none to
  * switch off, family-scoped, never reachable with an Integration API token);
  * a trusted assistant's pocket-money booking and reward decision running at
  * once through the confirm path, recorded as allowed by trust, with a quiet

@@ -49,7 +49,7 @@ dashboard.
 
 | Problem | Check |
 |---|---|
-| A screen does not update immediately | Check Settings → Diagnostics for the live-update status and reload once; the client also polls as a fallback. |
+| A screen does not update immediately | Check Settings → About & diagnostics for the live-update status and reload once; the client also polls as a fallback. |
 | No phone notification | Enable notifications on that device and use **Settings → Notifications → Send test**. |
 | The sender gets no takeover | This is intentional; the sender sees a waiting row instead. |
 | A message vanished everywhere | Another device acknowledged it, or the sender withdrew it. |

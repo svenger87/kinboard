@@ -11,7 +11,7 @@ import { useInstanceSetup, useSaveInstanceSetup } from "@/hooks/use-instance-set
 import { normaliseSiteUrl, normaliseVapidSubject } from "@/lib/first-run";
 
 /**
- * Settings → This install: the first-run sequence's install steps found
+ * Settings → This install (a category of its own on the index): the first-run sequence's install steps found
  * again (RFC-024 §8, "every step can be found again in Settings"). Shown
  * only to the install's operator; for every other family it renders nothing.
  */
@@ -66,8 +66,8 @@ export function InstanceCard() {
   return (
     // No data-setting: the settings search lists the same entries for every
     // family, and this card exists only for the install's operator.
-    <div id="instance" className="mb-6" data-testid="instance-card">
-      <h2 className="text-kiosk-label mb-3 px-1">{t("title")}</h2>
+    // Its heading is the "This install" category row it sits in.
+    <div id="instance" data-testid="instance-card">
       <Card className="p-4 space-y-6">
         <div className="flex items-start gap-3">
           <div className="p-2 rounded-lg bg-primary/10 shrink-0">

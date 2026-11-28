@@ -271,7 +271,7 @@ The image carries the same check as its own `HEALTHCHECK` (every 30 s, 10 s time
 
 Two options, at different levels:
 
-- **Family-level JSON export** — Settings → **Data & backup** → **Download backup**. Downloads everything the app manages for your family (events, todos, shopping, recipes, meal plans, notes, birthdays, schedules, settings) as one JSON file, excluding credentials and device data. Good for a quick "just in case" snapshot before a risky change, or for migrating a family between installs. Not a full restore mechanism by itself — there's no matching "import" flow yet, so treat it as a reference/manual-recovery backup, not a one-click restore.
+- **Family-level JSON export** — Settings → **Data & safety** → **Download backup**. Downloads everything the app manages for your family (events, todos, shopping, recipes, meal plans, notes, birthdays, schedules, settings) as one JSON file, excluding credentials and device data. Good for a quick "just in case" snapshot before a risky change, or for migrating a family between installs. Not a full restore mechanism by itself — there's no matching "import" flow yet, so treat it as a reference/manual-recovery backup, not a one-click restore.
 - **Full backup (`pg_dump` + the storage directory)** — see below. This is the restorable backup: every family on the instance, all integration credentials, everything. It is **two** things, and the second one is easy to miss: uploaded files — photos your family has added, recipe pictures, vehicle images — are not in the database. They sit on disk under `${DATA_DIR}/storage/`, and a `pg_dump` alone will not bring them back.
 
 ## Backups
@@ -841,7 +841,7 @@ cd webapp/docker
 
 **Going back to stable** — delete the line (or set `KINBOARD_TAG=latest`) and `./start.sh up` again.
 
-> **Back up first.** Release candidates can contain schema migrations that a later stable release changes. Migrations are forward-only: downgrading the image does **not** undo a migration that has already run. Take a backup (Settings → Data & backup, or copy `DATA_DIR`) before switching to `next`, and keep it until you're back on stable.
+> **Back up first.** Release candidates can contain schema migrations that a later stable release changes. Migrations are forward-only: downgrading the image does **not** undo a migration that has already run. Take a backup (Settings → Data & safety, or copy `DATA_DIR`) before switching to `next`, and keep it until you're back on stable.
 
 **Reporting a problem:** quote the exact version from Settings (e.g. `1.6.0-rc.1`), not "next" — `next` moves, so a report against it can't be reproduced later.
 

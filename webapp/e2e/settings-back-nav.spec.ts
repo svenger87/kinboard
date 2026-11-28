@@ -39,9 +39,14 @@ test("every settings page linked from the calendar page maps back to it", () => 
   }
 });
 
-test("an ordinary settings page still goes back to the root", () => {
-  expect(settingsBackHref("/settings/weather")).toBe("/settings");
-  expect(settingsBackHref("/settings/hints")).toBe("/settings");
+test("an ordinary settings page goes back to the index, with its own category open", () => {
+  expect(settingsBackHref("/settings/weather")).toBe("/settings#board");
+  expect(settingsBackHref("/settings/notifications")).toBe("/settings#screens");
+  expect(settingsBackHref("/settings/recycle-bin")).toBe("/settings#data");
+  // A page under another one that isn't in the parent map: its parent's category.
+  expect(settingsBackHref("/settings/layouts/3f2a")).toBe("/settings#screens");
+  // Not a settings page the registry knows: the index, as before.
+  expect(settingsBackHref("/settings/festival-gallery")).toBe("/settings");
 });
 
 test("the shared page header does not hard-code the back destination", () => {

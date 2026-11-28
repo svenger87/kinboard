@@ -39,13 +39,13 @@ To check what a connection was actually given, look at its row under
 The assistant address and Kinboard's sign-in addresses answer `404` while
 **Allow AI assistants** is off for every family on the server. In a browser,
 the sign-in step shows *"AI assistants are not switched on for this Kinboard.
-Turn them on under Settings → Integrations, then start the connection
+Turn them on under Settings → Smart home & connections → Integration tokens, then start the connection
 again."*
 
 - Switch it on under **Settings → Integration tokens → Allow AI assistants**,
   then start the connection again from the assistant.
 - If it is on for your family and the consent page says *"AI assistants are
-  switched off in Settings → Integrations."*, the browser you are using is
+  switched off in Settings → Smart home & connections → Integration tokens."*, the browser you are using is
   joined to a different family on the same server, one that has it off.
 - After switching it on, the sign-in addresses can take up to 30 seconds to
   answer.

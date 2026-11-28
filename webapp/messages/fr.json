@@ -340,7 +340,7 @@
     "createSubmitting": "Création…",
     "createError": "Échec de la création de la famille.",
     "restoreButton": "Restaurer depuis une sauvegarde",
-    "restoreFailed": "La restauration a échoué. La raison est indiquée ci-dessous. Une sauvegarde Kinboard est le fichier .json de Réglages → Données & sauvegarde.",
+    "restoreFailed": "La restauration a échoué. La raison est indiquée ci-dessous. Une sauvegarde Kinboard est le fichier .json de Paramètres → Données & sécurité.",
     "restoreWarnings": "Restauré avec {count} éléments ignorés"
   },
   "holidays": {
@@ -1082,10 +1082,6 @@
     "cancelRenameAria": "Annuler le renommage",
     "familyRenamed": "Famille renommée",
     "renameFailed": "Impossible de renommer la famille. Veuillez réessayer.",
-    "sectionFamily": "Famille",
-    "sectionIntegrations": "Intégrations",
-    "sectionDisplay": "Affichage",
-    "sectionSecurity": "Sécurité",
     "itemPeopleLabel": "Membres de la famille",
     "itemPeopleDescription": "Gérer les personnes et les couleurs",
     "itemDevicesLabel": "Appareils",
@@ -3758,6 +3754,21 @@
       "save": "Enregistrer",
       "saved": "Enregistré",
       "saveFailed": "Impossible d'enregistrer. Réessayez."
+    },
+    "categories": {
+      "names": {
+        "family": "Famille & personnes",
+        "calendars": "Calendriers & vacances",
+        "board": "Sur le tableau",
+        "screens": "Écrans & appareils",
+        "look": "Apparence & langue",
+        "connections": "Maison connectée & connexions",
+        "data": "Données & sécurité",
+        "install": "Cette installation",
+        "about": "À propos & diagnostic"
+      },
+      "installSummary": "Adresse, contact push, emplacement des données",
+      "needsAttention": "Demande votre attention"
     }
   },
   "settingsSearch": {
@@ -5321,8 +5332,8 @@
       "addressFromEnvironment": "Défini sur le serveur (SITE_URL) : {value}. Ce réglage l'emporte ; changez-le là-bas.",
       "addressInvalid": "Ce n'est pas une adresse comme http://192.168.1.20:3000 : un schéma, un hôte et un port, rien après.",
       "dataTitle": "Où sont vos données",
-      "dataBody": "Tout reste sur ce serveur. Calendriers, listes, personnes et réglages sont dans sa base de données ; photos et autres fichiers envoyés sont à côté. Leur emplacement dépend de l'installation de Kinboard : avec <code>compose.yml</code>, dans ses trois volumes Docker ou les dossiers que vous avez indiqués pour eux (<code>KINBOARD_DB_DIR</code> et les autres) ; avec git et <code>setup.sh</code>, dans le dossier de données (<code>DATA_DIR</code>, <code>./data</code> sauf si vous en avez choisi un autre) ; en un seul conteneur, dans son dossier <code>/data</code>. Sauvegardez-le, ou téléchargez une copie à tout moment dans Paramètres → Données & sauvegarde.",
-      "dataBodyAio": "Tout reste sur ce serveur. Calendriers, listes, personnes et réglages sont dans sa base de données ; photos et autres fichiers envoyés sont à côté. Les deux se trouvent dans le dossier que vous avez associé à <code>/data</code> (par exemple <code>/mnt/user/appdata/kinboard-aio</code> sur Unraid). Sauvegardez ce dossier, ou téléchargez une copie à tout moment dans Paramètres → Données & sauvegarde.",
+      "dataBody": "Tout reste sur ce serveur. Calendriers, listes, personnes et réglages sont dans sa base de données ; photos et autres fichiers envoyés sont à côté. Leur emplacement dépend de l'installation de Kinboard : avec <code>compose.yml</code>, dans ses trois volumes Docker ou les dossiers que vous avez indiqués pour eux (<code>KINBOARD_DB_DIR</code> et les autres) ; avec git et <code>setup.sh</code>, dans le dossier de données (<code>DATA_DIR</code>, <code>./data</code> sauf si vous en avez choisi un autre) ; en un seul conteneur, dans son dossier <code>/data</code>. Sauvegardez-le, ou téléchargez une copie à tout moment dans Paramètres → Données & sécurité.",
+      "dataBodyAio": "Tout reste sur ce serveur. Calendriers, listes, personnes et réglages sont dans sa base de données ; photos et autres fichiers envoyés sont à côté. Les deux se trouvent dans le dossier que vous avez associé à <code>/data</code> (par exemple <code>/mnt/user/appdata/kinboard-aio</code> sur Unraid). Sauvegardez ce dossier, ou téléchargez une copie à tout moment dans Paramètres → Données & sécurité.",
       "saveError": "Impossible d'enregistrer l'adresse. Réessayez."
     },
     "push": {
@@ -5344,10 +5355,10 @@
       "enter": "Choisissez quatre chiffres",
       "confirm": "Saisissez-les à nouveau",
       "mismatch": "Ils ne correspondent pas. Choisissez à nouveau quatre chiffres.",
-      "hint": "Chaque appareil le demande avant d'ouvrir les paramètres. Modifiez-le ou supprimez-le dans Paramètres → Sécurité.",
+      "hint": "Chaque appareil le demande avant d'ouvrir les paramètres. Modifiez-le ou supprimez-le dans Paramètres → Données & sécurité.",
       "digitLabel": "Chiffre {position} du code",
       "saved": "Code PIN défini",
-      "already": "Cette famille a déjà un code PIN. Vous pouvez le modifier dans Paramètres → Sécurité.",
+      "already": "Cette famille a déjà un code PIN. Vous pouvez le modifier dans Paramètres → Données & sécurité.",
       "saveError": "Impossible de définir le code PIN. Réessayez."
     }
   },
@@ -6030,9 +6041,9 @@
     "newPinInvalid": "Le code PIN doit comporter exactement 4 chiffres.",
     "expired": "Cette demande a expiré ou a déjà reçu une réponse. Relancez la connexion depuis l'assistant.",
     "failed": "Une erreur s'est produite. Réessayez.",
-    "revokeHint": "Vous pouvez la déconnecter à tout moment dans Paramètres → Intégrations.",
+    "revokeHint": "Vous pouvez la déconnecter à tout moment dans Paramètres → Maison connectée & connexions → Jetons d'intégration.",
     "pinChanged": "Un code PIN des paramètres vient d'être défini ailleurs. Rechargez cette page et saisissez ce code.",
-    "assistantsDisabled": "Les assistants IA sont désactivés dans Paramètres → Intégrations.",
+    "assistantsDisabled": "Les assistants IA sont désactivés dans Paramètres → Maison connectée & connexions → Jetons d'intégration.",
     "verifiedBy": "Vérifié par {host}",
     "selfRegisteredWarning": "Application auto-enregistrée — Kinboard ne peut pas confirmer qu'il s'agit vraiment de {client}. Ne continuez que si vous l'avez lancée vous-même."
   },

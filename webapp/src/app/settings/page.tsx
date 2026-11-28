@@ -1,20 +1,18 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
 import { format } from "date-fns";
 import { getDateFnsLocale } from "@/lib/date-fns-locale";
 import {
   Activity,
   Check,
-  ChevronDown,
   ChevronRight,
-  ChevronUp,
   Copy,
   DatabaseBackup,
   Lock,
   Pencil,
   RefreshCw,
+  Rss,
   Settings,
   Trash2,
   Wifi,
@@ -56,7 +54,7 @@ import { useScheduledBackup } from "@/hooks/use-scheduled-backup";
 import { ComposeHoldNotice, ComposeRevisionNotice } from "@/components/settings/compose-revision-notice";
 import { InstanceCard } from "@/components/settings/instance-card";
 import { PinDigits, saveSettingsPin, type PinDigitsHandle } from "@/components/settings/pin-digits";
-import { showsUpdatedLine } from "@/lib/update-status";
+import { showsRollbackNotice, showsUpdatedLine } from "@/lib/update-status";
 import { usePWA } from "@/hooks/use-pwa";
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
@@ -71,16 +69,17 @@ import { toast } from "sonner";
 import { isPinRequired, relockSettings } from "@/lib/pin-session";
 import { WhatsNewDialog } from "@/components/whats-new-dialog";
 import { SettingsSearch } from "@/components/settings/settings-search";
-import { MENU_SECTIONS, SETTINGS_ENTRIES, isEntryVisible } from "@/lib/settings-search/registry";
+import { SETTINGS_ENTRIES, isEntryVisible, type SettingsCategory } from "@/lib/settings-search/registry";
+import { SettingsCategories, useOpenSettingsCategory, type SettingsCategoryItem } from "@/components/settings/settings-categories";
+import { useInstanceSetup } from "@/hooks/use-instance-setup";
 import { useEnabledPlugins } from "@/hooks/use-enabled-plugins";
 
 /** Where Kinboard's source lives, linked from the version line at the foot of the page. */
 const SOURCE_CODE_URL = "https://github.com/svenger87/kinboard";
 
 // Diagnostics-only push status row. usePushServerConfigured() fires a fetch
-// on mount — isolating it here (rendered only while the diagnostics
-// collapsible is open) keeps that probe from firing on every settings-page
-// load.
+// on mount — isolating it here (rendered only while "About & diagnostics"
+// is open) keeps that probe from firing on every settings-page load.
 function DiagnosticsPushRow({
   label,
   okLabel,
@@ -128,7 +127,8 @@ export default function SettingsPage() {
   const { data: oldDatabase } = useOldDatabase();
   const { data: scheduledBackup } = useScheduledBackup();
   const realtimeStatus = useRealtimeStatusStore((s) => s.status);
-  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const { data: instanceSetup } = useInstanceSetup();
+  const { open: openCategory, toggle: toggleCategory } = useOpenSettingsCategory();
 
   // Baked into the bundle at build time (next.config.mjs), so it is whatever
   // build this tab loaded — not what the server is serving now.
@@ -430,21 +430,6 @@ export default function SettingsPage() {
     () => (device?.name ? { devices: device.name } : ({} as Record<string, string>)),
     [device?.name],
   );
-  const settingsMenu = MENU_SECTIONS.map((section) => ({
-    key: section,
-    title: t(section),
-    items: SETTINGS_ENTRIES.filter(
-      (e) => e.menu && e.section === section && isEntryVisible(e, menuVisibility),
-    ).map((e) => ({
-      icon: e.icon,
-      label: tAll(e.labelKey),
-      description:
-        descriptionOverrides[e.id] ??
-        (e.descriptionKey ? tAll(e.descriptionKey) : ""),
-      href: e.href,
-    })),
-  }));
-
   // A calendar counts as connected if ANY source is set up, not just
   // Google. Reported by a tester on discussion #18: a household syncing
   // via CalDAV — or ICS before that — saw "not connected" permanently,
@@ -469,601 +454,599 @@ export default function SettingsPage() {
     "/settings/homeassistant": { connected: haConnected, needsReauth: haNeedsReauth },
   };
 
+  // A page's link in its category, from the registry: the same rule (and
+  // order) the search uses, so the two cannot disagree about what exists.
+  const menuOf = (category: SettingsCategory) =>
+    SETTINGS_ENTRIES.filter((e) => e.menu && e.category === category && isEntryVisible(e, menuVisibility)).map((e) => ({
+      id: e.id,
+      icon: e.icon,
+      label: tAll(e.labelKey),
+      description: descriptionOverrides[e.id] ?? (e.descriptionKey ? tAll(e.descriptionKey) : ""),
+      href: e.href,
+    }));
+  const menuLinks = (category: SettingsCategory) => {
+    const items = menuOf(category);
+    if (items.length === 0) return null;
+    return (
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {items.map((item) => {
+          const status = integrationStatusByHref[item.href];
+          if (status) {
+            const s = integrationStatus(status.connected, status.needsReauth);
+            return (
+              <Link key={item.id} href={item.href} className="rounded-xl">
+                <IntegrationStatusRow
+                  icon={item.icon}
+                  name={item.label}
+                  status={s.node}
+                  right={s.right}
+                  className="hover:bg-accent/50 transition-colors"
+                />
+              </Link>
+            );
+          }
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              className="flex min-h-[56px] items-center gap-3 rounded-xl border border-border bg-card px-4 elev-sm transition-colors hover:bg-accent/50"
+            >
+              <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                <item.icon className="size-5" strokeWidth={1.75} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">{item.label}</p>
+                {/* `truncate` clipped these to one line; German runs ~30% longer than
+                    English and six of them were cut mid-sentence (audit KB-34). */}
+                <p className="line-clamp-3 text-xs text-muted-foreground">{item.description}</p>
+              </div>
+              <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+            </Link>
+          );
+        })}
+      </div>
+    );
+  };
+  const menuNames = (category: SettingsCategory) => menuOf(category).map((i) => i.label);
+  const summary = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" · ");
+
+  const joinCodeCard = family && (
+    <Card id="join-code" data-setting="join-code" className="p-5">
+      <div className="flex items-center justify-between gap-3 pb-4 mb-4 border-b border-border">
+        {editingName ? (
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Input
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              className="h-9"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveName();
+                if (e.key === "Escape") cancelEditingName();
+              }}
+            />
+            <Button
+              size="icon"
+              variant="outline"
+              className="size-9 shrink-0"
+              onClick={handleSaveName}
+              disabled={renameFamily.isPending}
+              aria-label={t("saveFamilyNameAria")}
+            >
+              <Check className="size-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-9 shrink-0"
+              onClick={cancelEditingName}
+              disabled={renameFamily.isPending}
+              aria-label={t("cancelRenameAria")}
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <p className="truncate text-lg font-semibold">{family.name}</p>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-7 shrink-0"
+              aria-label={t("renameFamilyAria")}
+              onClick={startEditingName}
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+          </div>
+        )}
+      </div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground mb-1">{t("joinCodeLabel")}</p>
+          {/* A stored family without its code is repaired by the
+              family check in AuthGuard within one round trip, so
+              hold the code's place rather than drawing a blank that
+              reads as "this family has no code". */}
+          {family.join_code ? (
+            <p className="text-3xl font-mono tracking-[0.3em] font-medium" data-testid="family-join-code">
+              {family.join_code}
+            </p>
+          ) : (
+            <Skeleton className="h-9 w-48 my-px" aria-hidden data-testid="family-join-code-pending" />
+          )}
+          <p className="text-xs text-muted-foreground mt-1">
+            {family.join_code_expires_at
+              ? t("joinCodeExpiresAt", {
+                  date: format(new Date(family.join_code_expires_at), "Pp", { locale: dateLocale }),
+                })
+              : t("joinCodeNoExpiry")}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">{t("joinCodeHint")}</p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label={t("copyJoinCodeAria")}
+            onClick={copyJoinCode}
+            disabled={!family.join_code}
+          >
+            {copied ? <Check className="size-4 text-success" /> : <Copy className="size-4" />}
+          </Button>
+          {/* Regenerate trigger — opens the TTL picker */}
+          <Button
+            variant="outline"
+            size="icon"
+            title={t("regenerateCode")}
+            aria-label={t("regenerateCode")}
+            onClick={() => setRegenDialogOpen(true)}
+          >
+            <RefreshCw className="size-4" />
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+
+  const feedCard = (
+    <Card id="calendar-feed" data-setting="calendar-feed" className="p-4">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-primary/10">
+          <Rss className="size-5 text-primary" strokeWidth={1.75} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium">{t("feedTitle")}</p>
+          <p className="text-sm text-muted-foreground">{t("feedDescription")}</p>
+        </div>
+      </div>
+
+      {feedUrl && (
+        <div className="mt-3 flex items-center gap-2">
+          <Input readOnly value={feedUrl} className="text-xs" onFocus={(e) => e.currentTarget.select()} />
+          <Button variant="outline" size="icon" aria-label={t("feedCopy")} onClick={handleFeedCopy} className="shrink-0">
+            {feedCopied ? (
+              <Check className="size-4 text-success" strokeWidth={1.75} />
+            ) : (
+              <Copy className="size-4" strokeWidth={1.75} />
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Rotating the link revokes the calendar feed for every family
+          member and every subscribed app. It used to look exactly like
+          the benign "download a backup" button 12px above it — same
+          variant, same width, no warning until after the click (audit
+          KB-64). The consequence now precedes the control, and the
+          control reads as destructive. Enabling for the first time is
+          not destructive, so only the rotate case changes. */}
+      {(feedEnabled || feedUrl) && <p className="mt-3 text-xs text-muted-foreground">{t("feedHint")}</p>}
+
+      <Button
+        variant={feedEnabled || feedUrl ? "destructive" : "outline"}
+        className="mt-3 w-full"
+        onClick={handleFeedGenerate}
+        disabled={feedLoading || !family?.id}
+      >
+        {feedEnabled || feedUrl ? t("feedRotate") : t("feedEnable")}
+      </Button>
+    </Card>
+  );
+
+  const pinCard = (
+    <Card id="pin" data-setting="pin" className="p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Lock className="size-5 text-primary" strokeWidth={1.75} />
+          </div>
+          <div className="min-w-0">
+            <p className="font-medium">{t("pinLabel")}</p>
+            <p className="text-sm text-muted-foreground">{pinIsSet ? t("pinProtected") : t("pinNotSet")}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {pinIsSet && (
+            <Button variant="ghost" size="icon" onClick={handleRemovePin} aria-label={t("pinRemoveAria")} className="text-destructive hover:text-destructive">
+              <Trash2 className="size-4" />
+            </Button>
+          )}
+          <Dialog open={pinDialogOpen} onOpenChange={(open) => {
+            setPinDialogOpen(open);
+            if (open) setTimeout(() => pinDigitsRef.current?.reset(), 100);
+          }}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                {pinIsSet ? t("pinChangeButton") : t("pinSetButton")}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>{pinIsSet ? t("pinDialogTitleChange") : t("pinDialogTitleSet")}</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col items-center gap-4 py-4">
+                <p className="text-sm text-muted-foreground text-center">{t("pinDialogDescription")}</p>
+                <PinDigits ref={pinDigitsRef} onComplete={handlePinComplete} disabled={pinSaving} />
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+    </Card>
+  );
+
+  const exportCard = (
+    <Card id="data-export" data-setting="data-export" className="p-4">
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-primary/10">
+          <DatabaseBackup className="size-5 text-primary" strokeWidth={1.75} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium">{t("dataCardTitle")}</p>
+          <p className="text-sm text-muted-foreground">{t("dataCardDescription")}</p>
+        </div>
+      </div>
+      <Button variant="outline" className="mt-4 w-full" onClick={handleExport} disabled={isExporting || !family?.id}>
+        {t("exportButton")}
+      </Button>
+
+      {/* The all-in-one image's automatic backups, for the install's operator (lib/scheduled-backup/). */}
+      <ScheduledBackupSection status={scheduledBackup} />
+    </Card>
+  );
+
+  const familyExits = (
+    <div className="flex flex-wrap justify-center gap-2">
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button variant="ghost" className="text-destructive hover:text-destructive">
+            {t("leaveFamilyButton")}
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("leaveFamilyTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("leaveFamilyDescription", { name: family?.name ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                // Delete the device row server-side BEFORE clearing the
+                // local cookie — otherwise the next visit to /join
+                // re-recognizes this device by fingerprint and shows a
+                // "Welcome back" rejoin card, making "leave" feel
+                // broken. The mutation throws if it fails; we swallow
+                // the error so the local cookie still clears (better
+                // to be logged out client-side than stuck).
+                if (device?.id) {
+                  try {
+                    await deleteDevice.mutateAsync(device.id);
+                  } catch (err) {
+                    console.error("leave-family: device delete failed:", err);
+                  }
+                }
+                clearSession();
+                window.location.href = "/join";
+              }}
+            >
+              {t("leaveFamilyConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Danger zone: delete family */}
+      <AlertDialog
+        open={deleteFamilyOpen}
+        onOpenChange={(open) => {
+          setDeleteFamilyOpen(open);
+          if (!open) setDeleteConfirmName("");
+        }}
+      >
+        <AlertDialogTrigger asChild>
+          <Button variant="ghost" className="text-destructive hover:text-destructive">
+            {t("deleteFamilyButton")}
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("deleteFamilyTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("deleteFamilyDescription")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={deleteConfirmName}
+            onChange={(e) => setDeleteConfirmName(e.target.value)}
+            placeholder={family?.name ?? ""}
+            autoComplete="off"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!family?.name || deleteConfirmName !== family.name || isDeletingFamily}
+              onClick={() => {
+                handleDeleteFamily();
+              }}
+            >
+              {t("deleteFamilyConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+
+  const diagnosticsCard = (
+    <Card id="diagnostics" data-setting="diagnostics" className="p-4">
+      <div className="flex items-center gap-3 pb-2">
+        <div className="p-2 rounded-lg bg-primary/10">
+          <Activity className="size-5 text-primary" strokeWidth={1.75} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium">{t("diagnosticsTitle")}</p>
+          <p className="text-sm text-muted-foreground">{t("diagnosticsDescription")}</p>
+        </div>
+      </div>
+      {diagRow(
+        t("diagnosticsVersionLabel"),
+        <span className="text-muted-foreground font-normal">{version?.current ?? "—"}</span>,
+        statusDot("bg-muted-foreground/40")
+      )}
+      {/* What this tab is actually running, as opposed to what the
+          server is. They differ when a page has been open across an
+          update — the service worker waits for the user to accept it
+          — and until now nothing said so, which made every "broken
+          after updating" report impossible to check (issue #185). */}
+      {diagRow(
+        t("diagnosticsBundleLabel"),
+        bundleIsStale ? (
+          <button onClick={updateServiceWorker} className="text-warning underline underline-offset-2">
+            {t("diagnosticsBundleStale", { version: bundleVersion })}
+          </button>
+        ) : (
+          <span className="text-muted-foreground font-normal">{bundleVersion}</span>
+        ),
+        statusDot(bundleIsStale ? "bg-warning" : "bg-muted-foreground/40")
+      )}
+      {diagRow(
+        t("diagnosticsNetworkLabel"),
+        isOnline ? (
+          <span className="text-success">{t("diagnosticsStatusOk")}</span>
+        ) : (
+          <span className="text-destructive">{t("diagnosticsStatusOffline")}</span>
+        ),
+        statusDot(isOnline ? "bg-success" : "bg-destructive")
+      )}
+      {diagRow(
+        t("diagnosticsRealtimeLabel"),
+        realtimeStatus === "connected" ? (
+          <span className="text-success">{t("diagnosticsStatusOk")}</span>
+        ) : realtimeStatus === "connecting" ? (
+          <span className="text-warning">{t("diagnosticsStatusReconnecting")}</span>
+        ) : (
+          <span className="text-destructive">{t("diagnosticsStatusOffline")}</span>
+        ),
+        statusDot(
+          realtimeStatus === "connected"
+            ? "bg-success"
+            : realtimeStatus === "connecting"
+              ? "bg-warning"
+              : "bg-destructive"
+        )
+      )}
+      {/* Mounted only while this category is open: it probes the server. */}
+      {openCategory === "about" && (
+        <DiagnosticsPushRow
+          label={t("diagnosticsPushLabel")}
+          okLabel={t("diagnosticsStatusOk")}
+          notConfiguredLabel={t("diagnosticsStatusNotConfigured")}
+        />
+      )}
+      {(() => {
+        const ha = integrationStatus(haConnected, haNeedsReauth);
+        const google = integrationStatus(googleConnected, googleNeedsReauth);
+        const bring = integrationStatus(bringConnected, false);
+        const photos = integrationStatus(photosConnected, false);
+        return (
+          <>
+            {diagRow(t("itemHomeAssistantLabel"), ha.node, ha.right)}
+            {diagRow(t("itemCalendarLabel"), google.node, google.right)}
+            {diagRow(t("itemBringLabel"), bring.node, bring.right)}
+            {diagRow(t("itemPhotosLabel"), photos.node, photos.right)}
+          </>
+        );
+      })()}
+    </Card>
+  );
+
+  const networkCard = (
+    <Card className="p-4" data-testid="settings-network-card">
+      <div className="flex items-center gap-3">
+        <Wifi className={`size-5 ${isOnline ? "text-success" : "text-destructive"}`} />
+        <div className="flex-1">
+          <p className="text-sm font-medium">{isOnline ? t("networkConnected") : t("networkOffline")}</p>
+          <p className="text-xs text-muted-foreground">
+            {isOnline ? t("networkConnectedDescription") : t("networkOfflineDescription")}
+          </p>
+        </div>
+        <div className={`size-2 rounded-full ${isOnline ? "bg-success animate-pulse" : "bg-destructive"}`} />
+      </div>
+    </Card>
+  );
+
+  const installNeedsAttention =
+    !!composeRevision?.outdated ||
+    updateHold?.status === "held_compose" ||
+    !!oldDatabase ||
+    !!updatePull ||
+    showsRollbackNotice(updateStatus);
+
+  const categories: SettingsCategoryItem[] = [
+    {
+      id: "family",
+      summary: summary(family?.join_code && `${t("joinCodeLabel")} ${family.join_code}`, ...menuNames("family")),
+      content: (
+        <>
+          {joinCodeCard}
+          {menuLinks("family")}
+        </>
+      ),
+    },
+    {
+      id: "calendars",
+      summary: summary(...menuNames("calendars"), t("feedTitle")),
+      attention: calendarNeedsReauth ? "error" : undefined,
+      content: (
+        <>
+          {menuLinks("calendars")}
+          {feedCard}
+        </>
+      ),
+    },
+    { id: "board", summary: summary(...menuNames("board")), content: menuLinks("board") },
+    {
+      id: "screens",
+      summary: summary(...menuNames("screens")),
+      // Push has to be switched on again on some screens (the notice above).
+      attention: pushReset && pushReset.length > 0 ? "warning" : undefined,
+      content: menuLinks("screens"),
+    },
+    { id: "look", summary: summary(...menuNames("look")), content: menuLinks("look") },
+    {
+      id: "connections",
+      summary: summary(...menuNames("connections")),
+      attention: haNeedsReauth ? "error" : undefined,
+      content: menuLinks("connections"),
+    },
+    {
+      id: "data",
+      summary: summary(t("pinLabel"), t("dataCardTitle"), ...menuNames("data")),
+      attention: scheduledBackup?.failing ? "error" : undefined,
+      content: (
+        <>
+          {pinCard}
+          {exportCard}
+          {menuLinks("data")}
+          {familyExits}
+        </>
+      ),
+    },
+    {
+      id: "install",
+      hidden: !instanceSetup?.operator,
+      summary: t("categories.installSummary"),
+      attention: installNeedsAttention ? "warning" : undefined,
+      content: <InstanceCard />,
+    },
+    {
+      id: "about",
+      summary: summary(
+        version?.current ? t("appVersionDynamic", { version: version.current }) : t("appVersion"),
+        t("diagnosticsTitle"),
+      ),
+      attention: !isOnline || bundleIsStale ? "warning" : undefined,
+      content: (
+        <>
+          {diagnosticsCard}
+          {networkCard}
+        </>
+      ),
+    },
+  ];
+
   return (
     // Two siblings here (the page and the regenerate-code dialog); the PIN
     // guard that used to wrap them now lives in the layout, so every
     // settings sub-page is covered rather than just this index.
     <>
-    <main id="main-content" className="min-h-page p-4 pt-16 md:p-8 md:pt-20 relative safe-area-inset">
+    {/* A screen no taller than 960 px (a 1440×900 laptop, a phone) gets less
+        air above and below, and the rows lose 8 px, so every category fits
+        above the bottom bar without scrolling. */}
+    <main
+      id="main-content"
+      className="min-h-page p-4 pt-16 md:p-8 md:pt-16 [@media(min-width:768px)_and_(max-height:960px)]:pt-8 [@media(min-width:768px)_and_(max-height:960px)]:pb-2 relative safe-area-inset"
+    >
       <div className="relative z-10 max-w-2xl mx-auto">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 mb-8"
-        >
+        <div className="flex items-center gap-3 mb-6 [@media(max-height:960px)]:mb-4">
           <div className="p-2.5 rounded-xl bg-primary/10">
             <Settings className="size-6 text-primary" strokeWidth={1.75} />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-display font-light">{t("title")}</h1>
             <p className="text-sm text-muted-foreground truncate">
               {family?.name || t("subtitleNoFamily")}
               {device?.name ? ` · ${device.name}` : ""}
             </p>
           </div>
-        </motion.div>
-
-        {/* An automatic update that did not start and was rolled back (RFC-023 §4.11.4). */}
-        <UpdateStatusNotice status={updateStatus} />
-        <UpdatePullNotice failure={updatePull} />
-        <ScheduledBackupNotice status={scheduledBackup} />
-
-        {/* The server's push key changed: devices that need push turned on again (RFC-023 §6.4). */}
-        <PushResetNotice devices={pushReset} currentDeviceId={device?.id} />
-
-        {/* The search box. While it holds a query, its results take the place
-            of the join code card and the menu below it. */}
-        <SettingsSearch visibility={menuVisibility} descriptionOverrides={descriptionOverrides}>
-        {/* Join Code Card */}
-        {family && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <Card id="join-code" data-setting="join-code" className="p-6 mb-6">
-              <div className="flex items-center justify-between gap-3 pb-4 mb-4 border-b border-border">
-                {editingName ? (
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                    <Input
-                      value={nameDraft}
-                      onChange={(e) => setNameDraft(e.target.value)}
-                      className="h-9"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleSaveName();
-                        if (e.key === "Escape") cancelEditingName();
-                      }}
-                    />
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="size-9 shrink-0"
-                      onClick={handleSaveName}
-                      disabled={renameFamily.isPending}
-                      aria-label={t("saveFamilyNameAria")}
-                    >
-                      <Check className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-9 shrink-0"
-                      onClick={cancelEditingName}
-                      disabled={renameFamily.isPending}
-                      aria-label={t("cancelRenameAria")}
-                    >
-                      <X className="size-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                    <p className="truncate text-lg font-semibold">{family.name}</p>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-7 shrink-0"
-                      aria-label={t("renameFamilyAria")}
-                      onClick={startEditingName}
-                    >
-                      <Pencil className="size-3.5" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm text-muted-foreground mb-1">
-                    {t("joinCodeLabel")}
-                  </p>
-                  {/* A stored family without its code is repaired by the
-                      family check in AuthGuard within one round trip, so
-                      hold the code's place rather than drawing a blank that
-                      reads as "this family has no code". */}
-                  {family.join_code ? (
-                    <p className="text-3xl font-mono tracking-[0.3em] font-medium" data-testid="family-join-code">
-                      {family.join_code}
-                    </p>
-                  ) : (
-                    <Skeleton className="h-9 w-48 my-px" aria-hidden data-testid="family-join-code-pending" />
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {family.join_code_expires_at
-                      ? t("joinCodeExpiresAt", {
-                          date: format(new Date(family.join_code_expires_at), "Pp", { locale: dateLocale }),
-                        })
-                      : t("joinCodeNoExpiry")}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t("joinCodeHint")}
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label={t("copyJoinCodeAria")}
-                    onClick={copyJoinCode}
-                    disabled={!family.join_code}
-                  >
-                    {copied ? (
-                      <Check className="size-4 text-success" />
-                    ) : (
-                      <Copy className="size-4" />
-                    )}
-                  </Button>
-                  {/* Regenerate trigger — opens the TTL picker */}
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    title={t("regenerateCode")}
-                    aria-label={t("regenerateCode")}
-                    onClick={() => setRegenDialogOpen(true)}
-                  >
-                    <RefreshCw className="size-4" />
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* Settings Sections */}
-        {settingsMenu.map((section, sectionIndex) => (
-          <motion.div
-            key={section.key}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 + sectionIndex * 0.1 }}
-            className="mb-6"
-          >
-            <h2 className="text-kiosk-label mb-3 px-1">
-              {section.title}
-            </h2>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {section.items.map((item) => {
-                const status = integrationStatusByHref[item.href];
-                if (status) {
-                  const s = integrationStatus(status.connected, status.needsReauth);
-                  return (
-                    <Link key={item.label} href={item.href} className="rounded-xl">
-                      <IntegrationStatusRow
-                        icon={item.icon}
-                        name={item.label}
-                        status={s.node}
-                        right={s.right}
-                        className="hover:bg-accent/50 transition-colors"
-                      />
-                    </Link>
-                  );
-                }
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="flex min-h-[56px] items-center gap-3 rounded-xl border border-border bg-card px-4 elev-sm transition-colors hover:bg-accent/50"
-                  >
-                    <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-                      <item.icon className="size-5" strokeWidth={1.75} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{item.label}</p>
-                      {/* `truncate` clipped these to one line; German runs ~30% longer than
-                          English and six of them were cut mid-sentence (audit KB-34). */}
-                      <p className="line-clamp-3 text-xs text-muted-foreground">{item.description}</p>
-                    </div>
-                    <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-                  </Link>
-                );
-              })}
-            </div>
-          </motion.div>
-        ))}
-        </SettingsSearch>
-
-        {/* PIN Protection */}
-        <motion.div id="pin" data-setting="pin"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45 }}
-          className="mb-6"
-        >
-          <h2 className="text-kiosk-label mb-3 px-1">
-            {t("sectionSecurity")}
-          </h2>
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Lock className="size-5 text-primary" strokeWidth={1.75} />
-                </div>
-                <div>
-                  <p className="font-medium">{t("pinLabel")}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {pinIsSet ? t("pinProtected") : t("pinNotSet")}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {pinIsSet && (
-                  <Button variant="ghost" size="icon" onClick={handleRemovePin} aria-label={t("pinRemoveAria")} className="text-destructive hover:text-destructive">
-                    <Trash2 className="size-4" />
-                  </Button>
-                )}
-                <Dialog open={pinDialogOpen} onOpenChange={(open) => {
-                  setPinDialogOpen(open);
-                  if (open) setTimeout(() => pinDigitsRef.current?.reset(), 100);
-                }}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      {pinIsSet ? t("pinChangeButton") : t("pinSetButton")}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-sm">
-                    <DialogHeader>
-                      <DialogTitle>{pinIsSet ? t("pinDialogTitleChange") : t("pinDialogTitleSet")}</DialogTitle>
-                    </DialogHeader>
-                    <div className="flex flex-col items-center gap-4 py-4">
-                      <p className="text-sm text-muted-foreground text-center">
-                        {t("pinDialogDescription")}
-                      </p>
-                      <PinDigits ref={pinDigitsRef} onComplete={handlePinComplete} disabled={pinSaving} />
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* The install's own settings, for its operator only (RFC-024 §8). */}
-        <InstanceCard />
-
-        {/* Network Status */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <Wifi className={`size-5 ${isOnline ? "text-success" : "text-destructive"}`} />
-              <div className="flex-1">
-                <p className="text-sm font-medium">
-                  {isOnline ? t("networkConnected") : t("networkOffline")}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {isOnline ? t("networkConnectedDescription") : t("networkOfflineDescription")}
-                </p>
-              </div>
-              <div className={`size-2 rounded-full ${isOnline ? "bg-success animate-pulse" : "bg-destructive"}`} />
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Logout */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="mt-8 text-center"
-        >
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                className="text-destructive hover:text-destructive"
-              >
-                {t("leaveFamilyButton")}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>{t("leaveFamilyTitle")}</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("leaveFamilyDescription", { name: family?.name ?? "" })}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={async () => {
-                    // Delete the device row server-side BEFORE clearing the
-                    // local cookie — otherwise the next visit to /join
-                    // re-recognizes this device by fingerprint and shows a
-                    // "Welcome back" rejoin card, making "leave" feel
-                    // broken. The mutation throws if it fails; we swallow
-                    // the error so the local cookie still clears (better
-                    // to be logged out client-side than stuck).
-                    if (device?.id) {
-                      try {
-                        await deleteDevice.mutateAsync(device.id);
-                      } catch (err) {
-                        console.error("leave-family: device delete failed:", err);
-                      }
-                    }
-                    clearSession();
-                    window.location.href = "/join";
-                  }}
-                >
-                  {t("leaveFamilyConfirm")}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </motion.div>
-
-        {/* Danger zone: delete family */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.62 }}
-          className="mt-2 text-center"
-        >
-          <AlertDialog
-            open={deleteFamilyOpen}
-            onOpenChange={(open) => {
-              setDeleteFamilyOpen(open);
-              if (!open) setDeleteConfirmName("");
-            }}
-          >
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                className="text-destructive hover:text-destructive"
-              >
-                {t("deleteFamilyButton")}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>{t("deleteFamilyTitle")}</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("deleteFamilyDescription")}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <Input
-                value={deleteConfirmName}
-                onChange={(e) => setDeleteConfirmName(e.target.value)}
-                placeholder={family?.name ?? ""}
-                autoComplete="off"
-              />
-              <AlertDialogFooter>
-                <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  disabled={
-                    !family?.name ||
-                    deleteConfirmName !== family.name ||
-                    isDeletingFamily
-                  }
-                  onClick={() => {
-                    handleDeleteFamily();
-                  }}
-                >
-                  {t("deleteFamilyConfirm")}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </motion.div>
-
-        {/* Data & backup */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.65 }}
-          className="mt-8"
-        >
-          <Card id="data-export" data-setting="data-export" className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <DatabaseBackup className="size-5 text-primary" strokeWidth={1.75} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium">{t("dataCardTitle")}</p>
-                <p className="text-sm text-muted-foreground">
-                  {t("dataCardDescription")}
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              className="mt-4 w-full"
-              onClick={handleExport}
-              disabled={isExporting || !family?.id}
-            >
-              {t("exportButton")}
-            </Button>
-
-            {/* The all-in-one image's automatic backups, for the install's operator (lib/scheduled-backup/). */}
-            <ScheduledBackupSection status={scheduledBackup} />
-
-            <div id="calendar-feed" data-setting="calendar-feed" className="mt-4 pt-4 border-t">
-              <p className="font-medium text-sm">{t("feedTitle")}</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t("feedDescription")}
-              </p>
-
-              {feedUrl && (
-                <div className="mt-3 flex items-center gap-2">
-                  <Input
-                    readOnly
-                    value={feedUrl}
-                    className="text-xs"
-                    onFocus={(e) => e.currentTarget.select()}
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label={t("feedCopy")}
-                    onClick={handleFeedCopy}
-                    className="shrink-0"
-                  >
-                    {feedCopied ? (
-                      <Check className="size-4 text-success" strokeWidth={1.75} />
-                    ) : (
-                      <Copy className="size-4" strokeWidth={1.75} />
-                    )}
-                  </Button>
-                </div>
-              )}
-
-              {/* Rotating the link revokes the calendar feed for every family
-                  member and every subscribed app. It used to look exactly like
-                  the benign "download a backup" button 12px above it — same
-                  variant, same width, no warning until after the click (audit
-                  KB-64). The consequence now precedes the control, and the
-                  control reads as destructive. Enabling for the first time is
-                  not destructive, so only the rotate case changes. */}
-              {(feedEnabled || feedUrl) && (
-                <p className="mt-3 text-xs text-muted-foreground">{t("feedHint")}</p>
-              )}
-
-              <Button
-                variant={feedEnabled || feedUrl ? "destructive" : "outline"}
-                className="mt-2 w-full"
-                onClick={handleFeedGenerate}
-                disabled={feedLoading || !family?.id}
-              >
-                {feedEnabled || feedUrl ? t("feedRotate") : t("feedEnable")}
-              </Button>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Diagnostics */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-          className="mt-8"
-        >
-          <Card id="diagnostics" data-setting="diagnostics" className="p-4">
-            <button
-              type="button"
-              onClick={() => setDiagnosticsOpen((open) => !open)}
-              className="w-full flex items-center gap-3"
-              aria-expanded={diagnosticsOpen}
-            >
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Activity className="size-5 text-primary" strokeWidth={1.75} />
-              </div>
-              <div className="flex-1 min-w-0 text-left">
-                <p className="font-medium">{t("diagnosticsTitle")}</p>
-                <p className="text-sm text-muted-foreground">
-                  {t("diagnosticsDescription")}
-                </p>
-              </div>
-              {diagnosticsOpen ? (
-                <ChevronUp className="size-4 text-muted-foreground shrink-0" />
-              ) : (
-                <ChevronDown className="size-4 text-muted-foreground shrink-0" />
-              )}
-            </button>
-
-            {diagnosticsOpen && (
-              <div className="mt-4 pt-4 border-t">
-                {diagRow(
-                  t("diagnosticsVersionLabel"),
-                  <span className="text-muted-foreground font-normal">
-                    {version?.current ?? "—"}
-                  </span>,
-                  statusDot("bg-muted-foreground/40")
-                )}
-                {/* What this tab is actually running, as opposed to what the
-                    server is. They differ when a page has been open across an
-                    update — the service worker waits for the user to accept it
-                    — and until now nothing said so, which made every "broken
-                    after updating" report impossible to check (issue #185). */}
-                {diagRow(
-                  t("diagnosticsBundleLabel"),
-                  bundleIsStale ? (
-                    <button
-                      onClick={updateServiceWorker}
-                      className="text-warning underline underline-offset-2"
-                    >
-                      {t("diagnosticsBundleStale", { version: bundleVersion })}
-                    </button>
-                  ) : (
-                    <span className="text-muted-foreground font-normal">{bundleVersion}</span>
-                  ),
-                  statusDot(bundleIsStale ? "bg-warning" : "bg-muted-foreground/40")
-                )}
-                {diagRow(
-                  t("diagnosticsNetworkLabel"),
-                  isOnline ? (
-                    <span className="text-success">{t("diagnosticsStatusOk")}</span>
-                  ) : (
-                    <span className="text-destructive">{t("diagnosticsStatusOffline")}</span>
-                  ),
-                  statusDot(isOnline ? "bg-success" : "bg-destructive")
-                )}
-                {diagRow(
-                  t("diagnosticsRealtimeLabel"),
-                  realtimeStatus === "connected" ? (
-                    <span className="text-success">{t("diagnosticsStatusOk")}</span>
-                  ) : realtimeStatus === "connecting" ? (
-                    <span className="text-warning">{t("diagnosticsStatusReconnecting")}</span>
-                  ) : (
-                    <span className="text-destructive">{t("diagnosticsStatusOffline")}</span>
-                  ),
-                  statusDot(
-                    realtimeStatus === "connected"
-                      ? "bg-success"
-                      : realtimeStatus === "connecting"
-                        ? "bg-warning"
-                        : "bg-destructive"
-                  )
-                )}
-                <DiagnosticsPushRow
-                  label={t("diagnosticsPushLabel")}
-                  okLabel={t("diagnosticsStatusOk")}
-                  notConfiguredLabel={t("diagnosticsStatusNotConfigured")}
-                />
-                {(() => {
-                  const ha = integrationStatus(haConnected, haNeedsReauth);
-                  const google = integrationStatus(googleConnected, googleNeedsReauth);
-                  const bring = integrationStatus(bringConnected, false);
-                  const photos = integrationStatus(photosConnected, false);
-                  return (
-                    <>
-                      {diagRow(t("itemHomeAssistantLabel"), ha.node, ha.right)}
-                      {diagRow(t("itemCalendarLabel"), google.node, google.right)}
-                      {diagRow(t("itemBringLabel"), bring.node, bring.right)}
-                      {diagRow(t("itemPhotosLabel"), photos.node, photos.right)}
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-          </Card>
-        </motion.div>
-
-        {/* Back link */}
-        <div className="mt-8 text-center">
-          <Link
-            href="/"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {t("backToDashboard")}
-          </Link>
         </div>
 
+        {/* Everything that needs someone, above the categories and never
+            inside one, so closing a category can't hide it. */}
+        <div data-testid="settings-notices">
+          {/* An automatic update that did not start and was rolled back (RFC-023 §4.11.4). */}
+          <UpdateStatusNotice status={updateStatus} />
+          <UpdatePullNotice failure={updatePull} />
+          <ScheduledBackupNotice status={scheduledBackup} />
+          {/* The server's push key changed: devices that need push turned on again (RFC-023 §6.4). */}
+          <PushResetNotice devices={pushReset} currentDeviceId={device?.id} />
+          {/* These three were written for the page's footer; up here they take the notices' width. */}
+          <div className="[&>*]:mx-0 [&>*]:mt-0 [&>*]:mb-4 [&>*]:max-w-none">
+            {/* The one-file install's compose.yml is older than this image needs (RFC-023 §4.6). */}
+            <ComposeRevisionNotice status={composeRevision} />
+            {/* kinboard-updater held a release that needs a newer compose.yml (RFC-023 §4.11.3). */}
+            <ComposeHoldNotice status={updateHold} />
+            {/* The all-in-one image kept the database from before a PostgreSQL upgrade (RFC-024 §4.3). */}
+            <OldDatabaseNotice status={oldDatabase} />
+          </div>
+          {!isOnline && (
+            <div
+              role="status"
+              data-testid="settings-offline-notice"
+              className="mb-4 flex items-start gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3"
+            >
+              <Wifi className="mt-0.5 size-5 shrink-0 text-destructive" strokeWidth={1.75} aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{t("networkOffline")}</p>
+                <p className="text-xs text-muted-foreground">{t("networkOfflineDescription")}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* The search box. While it holds a query, its results take the place
+            of the categories below it. */}
+        <SettingsSearch visibility={menuVisibility} descriptionOverrides={descriptionOverrides}>
+          <SettingsCategories items={categories} open={openCategory} onToggle={toggleCategory} />
+        </SettingsSearch>
+
         {/* App info footer */}
-        <div className="mt-6 pb-4 text-center text-2xs text-muted-foreground/40 space-y-0.5">
+        <div className="mt-6 [@media(max-height:960px)]:mt-3 pb-4 [@media(max-height:960px)]:pb-1 text-center text-2xs text-muted-foreground/60 space-y-0.5">
           <p>
             <button
               type="button"
@@ -1102,13 +1085,11 @@ export default function SettingsPage() {
             >
               {t("sourceCode")}
             </a>
+            {" · "}
+            <Link href="/" className="hover:text-foreground hover:underline transition-colors">
+              {t("backToDashboard")}
+            </Link>
           </p>
-          {/* The one-file install's compose.yml is older than this image needs (RFC-023 §4.6). */}
-          <ComposeRevisionNotice status={composeRevision} />
-          {/* kinboard-updater held a release that needs a newer compose.yml (RFC-023 §4.11.3). */}
-          <ComposeHoldNotice status={updateHold} />
-          {/* The all-in-one image kept the database from before a PostgreSQL upgrade (RFC-024 §4.3). */}
-          <OldDatabaseNotice status={oldDatabase} />
           {updateStatus && showsUpdatedLine(updateStatus, new Date()) && (
             <p data-testid="settings-updated-line">
               {t("updateStatus.updatedLine", {

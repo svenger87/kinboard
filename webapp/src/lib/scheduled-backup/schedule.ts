@@ -6,7 +6,7 @@
  *
  * The rules, each tested:
  *
- * - **Off unless switched on.** In Settings → Data & backup (stored in
+ * - **Off unless switched on.** In Settings → Data & safety (stored in
  *   instance_settings under `scheduled_backup`), or by the server with
  *   KINBOARD_BACKUP_SCHEDULE (`off`, `daily`, `weekly`), plus
  *   KINBOARD_BACKUP_TIME (`HH:MM`, 03:00), KINBOARD_BACKUP_DAY (`mon`…`sun`,

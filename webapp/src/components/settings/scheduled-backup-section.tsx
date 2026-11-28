@@ -47,7 +47,7 @@ function useWhen() {
 }
 
 /**
- * Settings → Data & backup, in the all-in-one image, for the install's
+ * Settings → Data & safety, in the all-in-one image, for the install's
  * operator: the automatic backups (lib/scheduled-backup/). Off until switched
  * on here or by the server (KINBOARD_BACKUP_SCHEDULE, then shown as set by
  * the server and not changeable here). Saving, "Back up now" and "Download"

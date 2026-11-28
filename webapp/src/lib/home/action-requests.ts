@@ -53,7 +53,7 @@
  *    claim and the answer) is reported, and marked best-effort, as `failed`
  *    with `reason: "unknown_outcome"`: it may or may not have happened.
  *
- * A trusted assistant (Settings → Integrations → "Trust this assistant",
+ * A trusted assistant (Settings → Integration tokens → "Trust this assistant",
  * `integration_tokens.trusted_at`) skips only the person:
  * `submitActionRequest` stores its request already `approved`, with
  * `decided_by_trust` and no deciding device, and runs it at once through
