@@ -58,6 +58,103 @@ const ups = (calls: string[]) => calls.filter((c) => / compose .* up /.test(c));
 const dumped = (calls: string[]) => calls.some((c) => c.includes("pg_dumpall"));
 
 test.describe("health wait and rollback", () => {
+  // What a run killed between its recreate and its verdict leaves behind
+  // (the pre-RC replica run, 2026-11-28): the new image running, unwatched,
+  // and the state file still marking the recreate and what ran before it.
+  const CUT_SHORT = `${BASELINE}previous webapp sha256:web1 ${NEXT}\nrecreating webapp\n`;
+  const cutShort = () =>
+    rig({
+      containers: { ...RUNNING, webapp: { ref: NEXT, id: "sha256:web2" } },
+      images: { ...IMAGES, [NEXT]: "sha256:web2" },
+      registry: { [NEXT]: "sha256:web2" },
+      stateFile: CUT_SHORT,
+    });
+
+  test("a recreate cut short, broken: the next Diun run recreates it again, waits, and goes back to what ran before", () => {
+    const r = cutShort();
+    r.setHealth("sha256:web2", BROKEN);
+    try {
+      const res = r.run();
+      expect(res.status, "a rollback is not a success").toBe(1);
+      expect(res.out).toContain("an earlier run was cut short while it recreated webapp");
+      expect(r.container("webapp"), "the image from before the cut-short run").toEqual({ ref: NEXT, id: "sha256:web1" });
+      expect(res.state).toMatch(new RegExp(`^held sha256:web2 ${NEXT} `, "m"));
+      expect(res.state).not.toMatch(/^recreating /m);
+      expect(res.record).toMatchObject({ status: "rolled_back", from: "1.17.0", to: "1.18.0" });
+      expect(dumped(res.calls), "backed up first, as any recreate").toBe(true);
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  test("a recreate cut short, healthy: the next tick finishes it (recreated once more, waited for, recorded), then nothing", () => {
+    const r = cutShort();
+    try {
+      const res = r.run(["--tick"]);
+      expect(res.status, res.out).toBe(0);
+      expect(res.out).not.toContain("tick: nothing to do");
+      expect(res.recreated).toEqual(["cron", "webapp"]);
+      expect(res.out).toContain("healthy: webapp");
+      expect(res.state).not.toMatch(/^recreating /m);
+      expect(res.record).toMatchObject({ status: "updated", from: "1.17.0", to: "1.18.0" });
+
+      const after = r.run(["--tick"]);
+      expect(after.recreated).toEqual([]);
+      expect(after.out).toContain("=== tick: nothing to do ===");
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  test("a tick that only finishes a cut-short recreate pulls nothing: a newer image under the tag stays Diun's", () => {
+    const r = rig({
+      containers: { ...RUNNING, webapp: { ref: NEXT, id: "sha256:web2" } },
+      images: { ...IMAGES, [NEXT]: "sha256:web2" },
+      registry: { [NEXT]: "sha256:web3" },
+      stateFile: CUT_SHORT,
+    });
+    try {
+      const res = r.run(["--tick"]);
+      expect(res.status, res.out).toBe(0);
+      expect(res.pulls).toBe(0);
+      expect(r.container("webapp"), "the image the cut-short run started, not the registry's newer one").toEqual({ ref: NEXT, id: "sha256:web2" });
+      expect(res.recreated).toContain("webapp");
+      expect(res.state).not.toMatch(/^recreating /m);
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  test("a mark naming a service the stack no longer has is dropped, and nothing is done for it", () => {
+    const r = rig({ stateFile: `${BASELINE}previous kong sha256:kong kong:2.8\nrecreating kong\n` });
+    try {
+      const res = r.run(["--tick"]);
+      expect(res.status, res.out).toBe(0);
+      expect(res.out).toContain("=== tick: nothing to do ===");
+      expect(res.out).not.toContain("cut short");
+      expect(res.state).not.toMatch(/^recreating /m);
+      expect(dumped(res.calls)).toBe(false);
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  test("a run that reaches its verdict leaves no recreate mark, healthy or rolled back", () => {
+    for (const broken of [false, true]) {
+      const r = rig({ registry: { [NEXT]: "sha256:web2" } });
+      if (broken) r.setHealth("sha256:web2", BROKEN);
+      try {
+        const res = r.run();
+        expect(res.status).toBe(broken ? 1 : 0);
+        expect(res.state).not.toMatch(/^recreating /m);
+        const next = r.run();
+        expect(next.out, "the next run finds nothing to finish").not.toContain("cut short");
+      } finally {
+        r.cleanup();
+      }
+    }
+  });
+
   test("a healthy update: recreated, waited for, recorded for Settings", () => {
     const r = rig({ registry: { [NEXT]: "sha256:web2" } });
     try {

@@ -867,6 +867,8 @@ services_to_recreate() {
 #   backoff_until <epoch seconds>  no tick before then
 #   held <image id> <reference> <UTC>   rolled back once; not applied again
 #   previous <service> <image id> <reference>   what ran before the last recreate
+#   recreating <svc,svc...>        a recreate began and its run has not yet seen it
+#                                  healthy or rolled back (see "A recreate cut short")
 #
 # RFC-023 §4.11.3 names config/updater/state.json for the published updater
 # image; a git install has no config/ directory, and its other run state
@@ -3834,6 +3836,30 @@ fi
 
 take_retry_request
 
+# A recreate cut short. A run that is killed between its `up --force-recreate`
+# and its verdict (the webhook restarted, the host rebooted, the process
+# killed) leaves the new containers running unwatched: a release that does not
+# start stays down with nobody told, and one killed inside Compose's own
+# recreate leaves the new container under Compose's temporary name
+# (<id>_kinboard-webapp), which the next `up` adopts as it is: the scheduler,
+# which reaches the webapp by its container name, then fails every job. Diun
+# does not announce the same image twice and a tick compares references only,
+# so nothing else would ever look again. So the run marks the services before
+# it recreates them, clears the mark once it has a verdict, and the next run
+# or tick that finds the mark recreates those services once more, properly
+# named, with the health wait and the way back to the images the state file
+# kept from before (`previous`). Container mode keeps its own journal.
+INTERRUPTED=""
+if [ "$STACK_MODE" != container ] && [ -z "$AIO" ] && [ -n "$(state_get recreating)" ]; then
+  # Only services the stack still has (a release may have retired one since).
+  for svc in $(state_get recreating | tr ',' ' '); do
+    if stack_services | grep -vE "$NEVER_RECREATE" | grep -qx "$svc"; then
+      INTERRUPTED="${INTERRUPTED:+$INTERRUPTED }$svc"
+    fi
+  done
+  [ -n "$INTERRUPTED" ] || state_set recreating ""
+fi
+
 # The tick's first run: a baseline, and nothing else (see "The reconciliation
 # tick"). What differs is logged, and the next tick applies it.
 if [ "$MODE" = tick ] && [ -z "$(state_get baseline)" ]; then
@@ -3892,7 +3918,11 @@ if [ "$MODE" = tick ]; then
     # The one-shots run the webapp's image and go with it: a webapp someone
     # stopped keeps all three as they are.
     wcid="$(svc_container "${KB_SVC:-webapp}" running)"
-    if [ -z "$wcid" ] || [ "$(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}' "$wcid" 2>/dev/null | cut -d'|' -f1 || true)" != running ]; then
+    # Unless a cut-short recreate stopped it: that is the case to finish.
+    case " $INTERRUPTED " in *" ${KB_SVC:-webapp} "*) wcid=interrupted ;; esac
+    if [ "$wcid" = interrupted ]; then
+      :
+    elif [ -z "$wcid" ] || [ "$(docker inspect -f '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.RestartCount}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}' "$wcid" 2>/dev/null | cut -d'|' -f1 || true)" != running ]; then
       if [ -n "$AIO" ]; then
         log "=== tick: $AIO_NAME is not running; nothing is updated until it is ==="
         exit 0
@@ -3953,10 +3983,15 @@ if [ "$MODE" = tick ]; then
     state_set failures ""
     state_set backoff_until ""
   fi
-  if [ -z "$PULL_SVCS" ]; then
+  if [ -z "$PULL_SVCS" ] && [ -z "$INTERRUPTED" ]; then
     log "=== tick: nothing to do ==="
     exit 0
   fi
+  # Only finishing a cut-short recreate: its images are on disk, and pulling
+  # could fetch a newer one under the same tag, which is Diun's to announce
+  # (with the release's git pull and setup.sh first). So no pull at all.
+  FINISH_ONLY=""
+  [ -n "$PULL_SVCS" ] || FINISH_ONLY=1
 fi
 
 # An update pulls every service but the webhook, whose image is pulled on its
@@ -4011,7 +4046,9 @@ stack_pull() {
   docker compose $COMPOSE_FILES pull --ignore-buildable "$@"
 }
 # shellcheck disable=SC2086
-if ! stack_pull $PULL_SVCS >"$PULL_OUT" 2>&1; then
+if [ -n "${FINISH_ONLY:-}" ]; then
+  : > "$PULL_OUT"
+elif ! stack_pull $PULL_SVCS >"$PULL_OUT" 2>&1; then
   cat "$PULL_OUT" >> "$LOG_FILE" 2>/dev/null || true
   why="$(grep -v '^[[:space:]]*$' "$PULL_OUT" | tail -n1 || true)"
   rm -f "$PULL_OUT"
@@ -4083,6 +4120,34 @@ printf '%s\n' "$DECISIONS" | while read -r what svc why; do
   esac
 done
 RECREATE="$(printf '%s\n' "$DECISIONS" | awk '$1 == "recreate" { printf "%s%s", sep, $2; sep = " " }')"
+if [ -n "$INTERRUPTED" ]; then
+  log "an earlier run was cut short while it recreated $INTERRUPTED, before it knew whether they started; recreating them again, with the health wait and the way back that run did not get to"
+  for svc in $INTERRUPTED; do
+    # Killed inside Compose's own recreate: the replacement was created under
+    # Compose's temporary name (<12 hex>_<name>) and never started, beside the
+    # original. Compose cannot recreate a service with both (a name conflict),
+    # so that one goes first. A running container is never removed here.
+    # shellcheck disable=SC2086
+    ids="$(docker compose $COMPOSE_FILES ps -aq "$svc" 2>/dev/null || true)"
+    if [ "$(printf '%s\n' "$ids" | grep -c .)" -gt 1 ]; then
+      for id in $ids; do
+        name="$(docker inspect -f '{{.Name}}' "$id" 2>/dev/null | sed 's#^/##' || true)"
+        st="$(docker inspect -f '{{.State.Status}}' "$id" 2>/dev/null || true)"
+        if printf '%s\n' "$name" | grep -Eq '^[0-9a-f]{12}_' && [ "$st" != running ] \
+          && docker rm -f "$id" >>"$LOG_FILE" 2>&1; then
+          log "removed $name, the container the cut-short run had created for $svc and not started"
+        fi
+      done
+    fi
+    [ -n "$(svc_container "$svc")" ] || continue
+    # Also when its decision above was `held` (killed during a rollback): the
+    # reference already points at what runs again, so this recreates that.
+    case " $RECREATE " in *" $svc "*) ;; *) RECREATE="${RECREATE:+$RECREATE }$svc" ;; esac
+  done
+  in_mark=""
+  for svc in $INTERRUPTED; do case " $RECREATE " in *" $svc "*) in_mark=1 ;; esac; done
+  [ -n "$in_mark" ] || state_set recreating ""
+fi
 
 # The pull has just pointed a held service's tag at the image that was rolled
 # back. Point it at the image that runs again, so that a `./start.sh up` or a
@@ -4125,10 +4190,22 @@ fi
 # What runs now, before anything is touched: the rollback target. In the
 # state file too, for whoever reads it after a run that was cut short.
 PREVIOUS=""
+SAVED_PREVIOUS="$(awk '$1 == "previous" { print $2, $3, $4 }' "$STATE_FILE" 2>/dev/null || true)"
 for svc in $RECREATE; do
   cid="$(svc_container "$svc")"
   id="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null || true)"
   ref="$(docker inspect -f '{{.Config.Image}}' "$cid" 2>/dev/null || true)"
+  # After a recreate cut short, what runs now is what that run started: the
+  # way back is what ran before it, as it kept it.
+  case " $INTERRUPTED " in
+    *" $svc "*)
+      saved="$(printf '%s\n' "$SAVED_PREVIOUS" | awk -v s="$svc" '$1 == s && $2 != "-" { print $2, $3; exit }')"
+      if [ -n "$saved" ]; then
+        id="${saved%% *}"; ref="${saved#* }"
+      else
+        log "WARN: $svc: the cut-short run left no record of what ran before it; if this does not start, there is no earlier image to go back to"
+      fi ;;
+  esac
   PREVIOUS="$PREVIOUS$svc ${id:--} ${ref:--}
 "
   digests="$(docker image inspect -f '{{join .RepoDigests " "}}' "$id" 2>/dev/null || true)"
@@ -4354,6 +4431,7 @@ if [ -n "$RECREATE" ]; then
   # A PostgreSQL major upgrade inside the all-in-one image takes longer.
   [ -z "$AIO" ] || aio_pg_plan
   up_ok=1
+  if [ "$STACK_MODE" != container ] && [ -z "$AIO" ]; then state_set recreating "$(printf '%s' "$RECREATE" | tr ' ' ',')"; fi
   recreate_services "" "$RECREATE" || up_ok=""
   # The versions for the status record, before a rollback re-tags anything.
   MAIN_SVC="${KB_SVC:-webapp}"
@@ -4379,6 +4457,8 @@ if [ -n "$RECREATE" ]; then
     log "ERROR: the update to $TO_VERSION did not come up healthy; going back to $FROM_VERSION"
     roll_back
   fi
+  # A verdict, either way: nothing for the next run to finish.
+  state_set recreating ""
 else
   log "no service changed; none recreated"
 fi
