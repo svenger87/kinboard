@@ -574,8 +574,12 @@ take_backup() {
   # plausible-looking 1.7KB archive and the upgrade sails on believing it has
   # a backup. -U supabase_admin because postgres is not a superuser in this
   # image and pg_dumpall dies on the _realtime tables it does not own.
+  # The dump holds every secret the database keeps (the roles' passwords, the
+  # integrations' credentials, the devices' sessions and push keys), so it and
+  # both archives below are written readable by root only, as the config
+  # archive is: umask 077 from the first byte, never a world-readable moment.
   tmp_sql="${TMPDIR:-/tmp}/kinboard-pre-upgrade-$stamp-$$.sql"
-  if ! docker exec "$db_cid" pg_dumpall -U supabase_admin > "$tmp_sql" 2>>"$LOG_FILE"; then
+  if ! ( umask 077; exec docker exec "$db_cid" pg_dumpall -U supabase_admin > "$tmp_sql" 2>>"$LOG_FILE" ); then
     log "ERROR: pg_dumpall failed — refusing to upgrade"
     rm -f "$tmp_sql"
     return 1
@@ -599,7 +603,7 @@ take_backup() {
   # Streamed into a container that has the backup directory mounted, because
   # this one does not.
   if ! gzip -c "$tmp_sql" | docker run --rm -i -v "$backup_dir":/out "$helper_image" \
-       sh -c "cat > /out/pre-upgrade-$stamp.sql.gz" 2>>"$LOG_FILE"; then
+       sh -c "umask 077; cat > /out/pre-upgrade-$stamp.sql.gz" 2>>"$LOG_FILE"; then
     log "ERROR: could not write the dump to $backup_dir"
     rm -f "$tmp_sql"
     return 1
@@ -612,9 +616,8 @@ take_backup() {
   # pictures, vehicle images. --user 0:0 because both the source directory and
   # the backup directory belong to root on the host. --entrypoint: the
   # database image's own would start Postgres.
-  if ! docker run --rm --user 0:0 --entrypoint tar -v "$storage_mount" -v "$backup_dir":/out "$tar_image" \
-       -czf "/out/pre-upgrade-$stamp-storage.tar.gz" \
-       -C /data storage >>"$LOG_FILE" 2>&1; then
+  if ! docker run --rm --user 0:0 --entrypoint sh -v "$storage_mount" -v "$backup_dir":/out "$tar_image" \
+       -c "umask 077; tar -czf /out/pre-upgrade-$stamp-storage.tar.gz -C /data storage" >>"$LOG_FILE" 2>&1; then
     log "ERROR: could not archive the storage directory — refusing to upgrade"
     return 1
   fi

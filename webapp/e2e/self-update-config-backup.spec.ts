@@ -319,6 +319,23 @@ test.describe("when the update takes the config archive (stub harness)", () => {
     }
   });
 
+  test("the database dump and the files archive are written readable by root only", () => {
+    // The dump holds the roles' passwords, the integrations' credentials and
+    // every device's session; both used to land 0644 in a 0755 folder.
+    const r = rig();
+    try {
+      const res = r.run();
+      expect(res.status, res.out).toBe(0);
+      const w = writes(res.runs);
+      expect(w[1]).toContain("umask 077; cat > /out/pre-upgrade-STAMP.sql.gz");
+      expect(w[2]).toContain("umask 077; tar -czf /out/pre-upgrade-STAMP-storage.tar.gz -C /data storage");
+      // and the dump's temporary file inside the webhook, before it is compressed
+      expect(script).toMatch(/\(\s*umask 077; exec docker exec "\$db_cid" pg_dumpall/);
+    } finally {
+      r.cleanup();
+    }
+  });
+
   test("$DATA_DIR/config exists: archived from there, logged with its count", () => {
     const r = rig();
     r.setConfig({ dataDir: true });
