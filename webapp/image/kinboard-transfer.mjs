@@ -23,11 +23,21 @@
  *
  * The archive (format 1):
  *   manifest.json   the version, the source's PostgreSQL, the migrations it
- *                   had (name and checksum), and per table its columns, row
+ *                   had (name and checksum), and per table its columns (by
+ *                   name; since 1.18.0-rc.2 sorted, with their types), row
  *                   count and checksum; per sequence its value; per file its
  *                   size and SHA-256
- *   data/NNNN.copy  each table in COPY text format, read in one
- *                   repeatable-read snapshot
+ *   data/NNNN.copy  each table in COPY text format, its columns in the
+ *                   manifest's order, read in one repeatable-read snapshot
+ *
+ * Columns go by name, never by position: an install that gained a column
+ * through a migration has it at the end, a fresh install where its CREATE
+ * TABLE put it, so the same table can hold the same columns in another order
+ * on the two sides. The export lists them (and COPYs and checksums them) in
+ * one order, the import COPYs into and checksums them in the archive's order,
+ * whatever the order of its own table. An archive from 1.18.0-rc.1 lists them
+ * in its source's order, which its data and checksums follow, so it imports
+ * the same way.
  *   files/…         the uploaded files (FILES_DIR)
  *   secrets/…       the secrets above, one value per file. Never the database
  *                   password: the target keeps its own, which its cluster was
@@ -75,6 +85,20 @@ const FILE_OF = Object.fromEntries(STORED.map((s) => [s.env, s.file]));
 
 /** Tables that are not data: the target's own record of its schema. */
 export const EXCLUDED_TABLES = ["kinboard.schema_migrations"];
+
+/**
+ * Tables an install that started before 1.15 may still have and a fresh one
+ * never has, by name, with why. public.schema_migrations (one column,
+ * `version varchar(14)` on the household that found this) is bookkeeping
+ * from the stack before 1.15, with no family's data; nothing reads it since. An archive that holds one imports without it
+ * (said in the log) when this install has no such table; when it has one, it
+ * is imported like any other. Any other table the archive has and this
+ * install lacks is still refused: an install with a table we don't know is
+ * not the same version, or not ours.
+ */
+export const LEFTOVER_TABLES = {
+  "public.schema_migrations": "a migration record that installs from before 1.15 still have (Kinboard keeps its own in kinboard.schema_migrations)",
+};
 
 /**
  * What an import has put in place before its commit. Kept in the SECRETS
@@ -239,14 +263,20 @@ export function checksumSelect(t) {
   return `SELECT count(*)::bigint AS n, coalesce(md5(string_agg(${row}, '' ORDER BY ${row})), '') AS h FROM ${qualified(t)}`;
 }
 
-/** The catalog query: every table with data in the two schemas, its columns, and every sequence. */
+/**
+ * The catalog query: every table with data in the two schemas, its columns
+ * sorted by name (bytewise) with their types in the same order, and every
+ * sequence.
+ */
 export const CATALOG_SQL = `
 SELECT json_build_object(
   'tables', coalesce((
     SELECT json_agg(json_build_object(
       'schema', n.nspname, 'table', c.relname,
-      'columns', (SELECT coalesce(json_agg(a.attname ORDER BY a.attnum), '[]'::json) FROM pg_attribute a
-                   WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped AND a.attgenerated = ''))
+      'columns', (SELECT coalesce(json_agg(a.attname ORDER BY a.attname COLLATE "C"), '[]'::json) FROM pg_attribute a
+                   WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped AND a.attgenerated = ''),
+      'types', (SELECT coalesce(json_agg(format_type(a.atttypid, a.atttypmod) ORDER BY a.attname COLLATE "C"), '[]'::json) FROM pg_attribute a
+                 WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped AND a.attgenerated = ''))
       ORDER BY n.nspname, c.relname)
       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
      WHERE c.relkind IN ('r', 'p') AND NOT c.relispartition AND n.nspname IN ('public', 'kinboard')
@@ -286,6 +316,9 @@ export function manifestProblems(m) {
     const name = `${t?.schema}.${t?.table}`;
     if (typeof t?.schema !== "string" || typeof t?.table !== "string") { p.push("a table without a name"); continue; }
     if (!Array.isArray(t.columns) || !t.columns.every((c) => typeof c === "string")) p.push(`${name}: no column list`);
+    else if (new Set(t.columns).size !== t.columns.length) p.push(`${name}: a column listed twice`);
+    // Since 1.18.0-rc.2; an archive from rc.1 has none.
+    if (t.types !== undefined && !(Array.isArray(t.types) && t.types.length === t.columns?.length && t.types.every((c) => typeof c === "string"))) p.push(`${name}: the column types don't match the column list`);
     if (!isCount(t.rows)) p.push(`${name}: no row count`);
     if (!(t.checksum === "" || HEX32.test(t.checksum ?? ""))) p.push(`${name}: no checksum`);
     if (!DATA_FILE.test(t.file ?? "")) p.push(`${name}: data file ${JSON.stringify(t.file)} is not data/NNNN.copy`);
@@ -309,10 +342,60 @@ export function safeRelative(path) {
 }
 
 /**
+ * The archive's tables this install lacks that an import leaves out: the
+ * known leftovers of older installs (LEFTOVER_TABLES), only when this install
+ * has no such table. As "schema.table".
+ */
+export function skippedTables(manifest, target) {
+  const have = new Set(target.tables.map(keyOf));
+  return manifest.tables.map(keyOf).filter((k) => !have.has(k) && Object.hasOwn(LEFTOVER_TABLES, k));
+}
+
+/**
+ * A table's columns in the archive against this install's: the same names
+ * (in any order) and, when the archive records them, the same types.
+ * Sentences, empty when they match. Not their NOT NULL: an install that grew
+ * through the migrations can lack one a fresh install has (public.settings'
+ * value on a household from before 1.15), and PostgreSQL itself refuses a
+ * NULL there during the COPY, which rolls the whole import back.
+ */
+export function columnProblems(k, want, have) {
+  // Printable characters only: names and types from a crafted archive must not put terminal escapes into the operator's shell.
+  const said = (v) => String(v).replace(/[^\x20-\x7e]/g, "?");
+  const here = new Set(have.columns);
+  const there = new Set(want.columns);
+  const onlyThere = want.columns.filter((c) => !here.has(c));
+  const onlyHere = have.columns.filter((c) => !there.has(c));
+  if (onlyThere.length || onlyHere.length) {
+    return [`table ${k} has other columns here (only in the archive: ${onlyThere.map(said).join(", ") || "none"}; only here: ${onlyHere.join(", ") || "none"})`];
+  }
+  if (!Array.isArray(want.types) || !Array.isArray(have.types)) return [];
+  const typeHere = new Map(have.columns.map((c, i) => [c, have.types[i]]));
+  return want.columns.flatMap((c, i) => (typeHere.get(c) === want.types[i] ? []
+    : [`table ${k}: column ${c} is ${said(want.types[i])} in the archive and ${typeHere.get(c)} here`]));
+}
+
+/**
+ * The target's table `h` with its columns in the archive table `t`'s order,
+ * the order its data and checksum follow, each name as the target's catalog
+ * has it. Throws when the two sets differ (targetProblems refuses that first).
+ */
+export function inArchiveOrder(t, h) {
+  const named = new Map(h.columns.map((c) => [c, c]));
+  const columns = t.columns.map((c) => named.get(c));
+  if (columns.some((c) => c === undefined) || columns.length !== h.columns.length || new Set(columns).size !== columns.length) {
+    throw new Error(`table ${keyOf(t)}: the archive's columns are not this install's`);
+  }
+  return { ...h, columns };
+}
+
+/**
  * What the target must be for an import: the same migrations (the same
  * Kinboard version: rows seeded by a migration the source never had would be
  * lost to the TRUNCATE, and a column it lacks would not restore), no family
- * and no device yet, the same tables with the same columns.
+ * and no device yet, the same tables with the same columns (by name and type;
+ * their order does not matter). A known leftover of an older
+ * install (LEFTOVER_TABLES) this install lacks is no problem: it is left out.
  */
 export function targetProblems(manifest, target) {
   const p = [];
@@ -334,10 +417,11 @@ export function targetProblems(manifest, target) {
   }
   const want = new Map(manifest.tables.map((t) => [keyOf(t), t]));
   const have = new Map(target.tables.map((t) => [keyOf(t), t]));
+  const skipped = new Set(skippedTables(manifest, target));
   for (const [k, t] of want) {
     const h = have.get(k);
-    if (!h) p.push(`table ${k} is in the archive but not in this install`);
-    else if (JSON.stringify(h.columns) !== JSON.stringify(t.columns)) p.push(`table ${k} has other columns here`);
+    if (!h) { if (!skipped.has(k)) p.push(`table ${k} is in the archive but not in this install`); }
+    else p.push(...columnProblems(k, t, h));
   }
   for (const k of have.keys()) if (!want.has(k)) p.push(`table ${k} is in this install but not in the archive`);
   return p;
@@ -763,6 +847,10 @@ export function importArchive({ archive, env = process.env, restart = true, log 
     const target = readCatalog(pg);
     const tp = targetProblems(manifest, target);
     if (tp.length) throw new Error(`refusing to import; nothing was changed:\n  - ${tp.join("\n  - ")}`);
+    for (const k of skippedTables(manifest, target)) {
+      const t = manifest.tables.find((x) => keyOf(x) === k);
+      log(`leaving out ${k} (${t.rows} row(s)): ${LEFTOVER_TABLES[k]}; this install has no such table.`);
+    }
     if (listFiles(filesDir).length > 0) throw new Error(`refusing to import; nothing was changed: ${filesDir} already holds uploaded files (not a fresh install)`);
     const odd = [...oddEntries(filesDir), ...oddEntries(secretsDir)];
     if (odd.length) throw new Error(`refusing to import; nothing was changed: not plain files or folders (symlinks?): ${odd.slice(0, 5).join(", ")}`);
@@ -859,13 +947,16 @@ export function importArchive({ archive, env = process.env, restart = true, log 
       if (env[name] && env[name] !== value) log(`warning: ${name} is set in this container's environment, which wins over the imported value; remove it there.`);
     }
 
-    // 5. The database, in one transaction, verified before it commits.
+    // 5. The database, in one transaction, verified before it commits. Each
+    // table's columns in the archive's order (its data and checksum follow
+    // it), as this install's catalog names them: the same names, checked above.
     const have = new Map(target.tables.map((t) => [keyOf(t), t]));
+    const imported = manifest.tables.filter((t) => have.has(keyOf(t)));
     const seqs = new Map(target.sequences.map((s) => [`${s.schema}.${s.name}`, s]));
     const lines = [SESSION_SQL, "BEGIN;", "SET LOCAL session_replication_role = replica;"];
     lines.push(`TRUNCATE ${target.tables.map(qualified).join(", ")};`);
-    for (const t of manifest.tables) {
-      const h = have.get(keyOf(t));
+    for (const t of imported) {
+      const h = inArchiveOrder(t, have.get(keyOf(t)));
       const src = join(x, t.file);
       // x is root's and 0700 since takeOver: nothing can be swapped in before psql reads it.
       const st = lstatSync(src);
@@ -881,8 +972,8 @@ export function importArchive({ archive, env = process.env, restart = true, log 
       lines.push(`SELECT setval(${literal(`${ident(h.schema)}.${ident(h.name)}`)}, ${v}, ${called});`);
     }
     lines.push("DO $kinboard_verify$ DECLARE n bigint; h text; BEGIN");
-    for (const t of manifest.tables) {
-      const h = have.get(keyOf(t));
+    for (const t of imported) {
+      const h = inArchiveOrder(t, have.get(keyOf(t)));
       const sel = checksumSelect(h).replace(/^SELECT count\(\*\)::bigint AS n, (.*) AS h FROM/, "SELECT count(*)::bigint, $1 INTO n, h FROM");
       lines.push(`  ${sel};`);
       lines.push(`  IF n <> ${Number(t.rows)} OR h <> ${literal(t.checksum)} THEN RAISE EXCEPTION 'table % differs after the import: % rows, the archive says ${Number(t.rows)}', ${literal(keyOf(t))}, n; END IF;`);
@@ -901,8 +992,8 @@ export function importArchive({ archive, env = process.env, restart = true, log 
     // Committed: the previous values are history now, the record is done.
     try { asOwnerOf(secretsDir, () => rmSync(join(secretsDir, PENDING), { force: true })); } catch { /* the next import removes it */ }
 
-    const rows = manifest.tables.reduce((n, t) => n + t.rows, 0);
-    log(`imported Kinboard ${manifest.kinboard.version} (${manifest.kinboard.shape ?? "?"}, PostgreSQL ${manifest.postgres}): ${manifest.tables.length} tables, ${rows} rows, every table's count and checksum verified; ${manifest.files.length} file(s); ${manifest.secrets.length} secret(s).`);
+    const rows = imported.reduce((n, t) => n + t.rows, 0);
+    log(`imported Kinboard ${manifest.kinboard.version} (${manifest.kinboard.shape ?? "?"}, PostgreSQL ${manifest.postgres}): ${imported.length} tables, ${rows} rows, every table's count and checksum verified; ${manifest.files.length} file(s); ${manifest.secrets.length} secret(s).`);
     if (env.KINBOARD_AIO === "1" && restart && existsSync("/run/service/webapp")) {
       for (const svc of ["postgrest", "webapp"]) spawnSync("s6-svc", ["-r", `/run/service/${svc}`]);
       log("PostgREST and the webapp restart with the imported keys; the app is back in a few seconds.");
