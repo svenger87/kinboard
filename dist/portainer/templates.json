@@ -232,6 +232,22 @@
         {
           "name": "GO2RTC_URL",
           "label": "Address of a separate go2rtc container, for RTSP cameras (snapshot and MJPEG cameras work without it)"
+        },
+        {
+          "name": "KINBOARD_BACKUP_SCHEDULE",
+          "label": "Automatic backups: off, daily or weekly. Leave empty to choose in Settings, Data & backup"
+        },
+        {
+          "name": "KINBOARD_BACKUP_TIME",
+          "label": "Time of the automatic backup, HH:MM in the time zone above (empty is 03:00)"
+        },
+        {
+          "name": "KINBOARD_BACKUP_DAY",
+          "label": "Day of a weekly backup, mon to sun (empty is sun)"
+        },
+        {
+          "name": "KINBOARD_BACKUP_KEEP",
+          "label": "How many automatic backups to keep (empty is 7)"
         }
       ]
     }

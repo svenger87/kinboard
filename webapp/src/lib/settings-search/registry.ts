@@ -208,6 +208,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   ]),
   ...sectionsOf({ ...index, section: "sectionFamily" }, [
     { anchor: "data-export", labelKey: "settings.dataCardTitle", descriptionKey: "settings.dataCardDescription", icon: DatabaseBackup },
+    { anchor: "scheduled-backup", labelKey: "settings.scheduledBackup.title", descriptionKey: "settings.scheduledBackup.description", icon: DatabaseBackup },
     { anchor: "calendar-feed", labelKey: "settings.feedTitle", icon: Rss },
     { anchor: "diagnostics", labelKey: "settings.diagnosticsTitle", descriptionKey: "settings.diagnosticsDescription", icon: Activity },
   ]),

@@ -128,6 +128,8 @@ export function metadataProblems(m, file = "metadata") {
       need(str(v?.label), `aio.env ${name} needs a label`);
     }
     for (const name of a.env_exclude ?? []) need(m.env && name in m.env, `aio.env_exclude names ${name}, which env does not offer`);
+    need(!a.backups || (typeof a.backups.target === "string" && a.backups.target.startsWith("/") && a.backups.target !== a.data && !a.backups.target.startsWith(`${a.data}/`)), "aio.backups.target must be an absolute path outside aio.data");
+    need(!a.backups || (str(a.backups.label) && str(a.backups.description)), "aio.backups needs a label and a description");
     const u = a.unraid;
     need(u && typeof u.repository === "string" && /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(u.repository), "aio.unraid.repository must be owner/name");
     // Token by token, so the check is linear (a nested quantifier backtracks exponentially).

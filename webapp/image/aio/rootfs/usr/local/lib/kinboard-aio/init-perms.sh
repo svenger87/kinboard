@@ -135,6 +135,25 @@ as_user chmod 0700 "$DATA/db" "$DATA/config"
 [ -d "$DB_OLD" ] && as_user chmod 0700 "$DB_OLD"
 [ -d "$DB_NEW" ] && as_user chmod 0700 "$DB_NEW"
 
+# The scheduled backups' own folder, when the household mapped one (Unraid's
+# template offers /backups, a share on another disk; KINBOARD_BACKUP_PATH
+# names another; src/lib/scheduled-backup/store.ts). Docker creates a host
+# folder that does not exist yet as root, and PUID could not write into it:
+# a mount point that is empty and belongs to root is handed to PUID:PGID,
+# 0700. Anything else (a share that belongs to someone, a folder with files
+# in it) is left exactly as the household set it; when PUID can't write
+# there, the backup fails and Settings says so, with both owners.
+for b in /backups "${KINBOARD_BACKUP_PATH:-}"; do
+  while [ "${b%/}" != "$b" ]; do b="${b%/}"; done
+  case "$b" in "" | / | "$DATA" | "$DATA"/*) continue ;; esac
+  [ -d "$b" ] && [ ! -L "$b" ] || continue
+  awk -v p="$b" '$5 == p { found = 1 } END { exit !found }' /proc/self/mountinfo 2>/dev/null || continue
+  [ "$(stat -c %u:%g "$b")" = "0:0" ] && [ -z "$(ls -A "$b" 2>/dev/null)" ] || continue
+  log "handing the empty backup folder $b to $owner"
+  chown -h "$owner" "$b"
+  as_user chmod 0700 "$b"
+done
+
 # The server's socket, and the private one a major upgrade's temporary
 # servers listen on (pg-lib.sh).
 for d in "$SOCKET_DIR" "$TMP_SOCK"; do

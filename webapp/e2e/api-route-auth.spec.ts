@@ -215,6 +215,12 @@ test("a route that still takes family_id checks it against the session", () => {
     // check; the request carries the PIN only (e2e/aio-old-database.spec.ts
     // shows a family_id in the body is ignored).
     "old-database/route.ts",
+    // The all-in-one image's scheduled backups: the same operator and PIN
+    // checks with auth.session.familyId; the requests carry an action, a PIN
+    // and a schedule, and the download a one-time token issued to that same
+    // family (e2e/scheduled-backup.spec.ts).
+    "scheduled-backup/route.ts",
+    "scheduled-backup/download/route.ts",
     "devices/[id]/layout/route.ts",
     // The family's shop prices: the regex matches the `family_id` column the
     // setting is written under, from auth.session.familyId; the request carries

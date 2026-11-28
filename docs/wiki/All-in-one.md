@@ -44,7 +44,8 @@ device joins with the family's code.
 
 Optional settings: `TZ`, `SITE_URL` (the address other apps get in links, such
 as the calendar feed), `INSTANCE_ADMIN_FAMILY_ID` (the family that sees update
-notices when there is more than one), `GO2RTC_URL` (below).
+notices when there is more than one), `GO2RTC_URL` (below), and the
+automatic backups' `KINBOARD_BACKUP_*` and a `/backups` folder ([Backups](#backups)).
 
 The container speaks plain HTTP. Push notifications, the barcode scanner's
 live camera and installing the app need an `https://` address in front of it:
@@ -89,10 +90,145 @@ cameras, run go2rtc as its own container and set `GO2RTC_URL` to its address
 | `config/secrets/` | the database password, the key that signs logins, the push keys (0600) |
 | `config/updater/` | the start records: the last version that ran healthy, a failed start, a database upgrade |
 | `backups/` | the checked dumps taken before migrations and database upgrades (five of each kept) |
+| `backups/scheduled/` | the [automatic backups](#backups), when they are on and no other folder is mapped |
 
 **Back it up whole.** Stop the container, copy the folder, start it again.
 Whoever can read the folder can read everything, the secrets included: keep
-the backups private.
+the backups private. Or let Kinboard do it while it runs: [Backups](#backups).
+
+## Backups
+
+Kinboard can back itself up on a schedule. **Off until you switch it on.**
+Each backup is one file holding everything a new install needs to carry on
+where this one stopped: every table of every family, the uploaded photos, and
+the keys that must travel (the key that signs logins, so screens stay signed
+in; the push keys, so notifications keep working; the calendar-feed and
+presence tokens other systems hold). It is the same archive
+[`kinboard export`](#moving-between-the-compose-file-and-the-all-in-one-image)
+writes, so a restore is `kinboard import`, which checks every table before it
+keeps anything. The database password is not in it: a new install keeps its
+own.
+
+### Switch it on
+
+- **In Settings → Data & backup → Automatic backups**, as the install's own
+  family (the one that also sees update notices): daily or weekly, the time,
+  the day for weekly, and how many to keep (7 unless you change it). Saving
+  asks for the settings PIN; a family without one sets one first.
+- **Or in the container's settings**, which then win and show in Settings as
+  set by the server: `KINBOARD_BACKUP_SCHEDULE` (`off`, `daily` or
+  `weekly`), `KINBOARD_BACKUP_TIME` (`HH:MM`, default `03:00`),
+  `KINBOARD_BACKUP_DAY` (`mon` … `sun`, default `sun`) and
+  `KINBOARD_BACKUP_KEEP` (default `7`). Empty means not set. A value
+  Kinboard doesn't understand switches the backups off, and Settings says
+  which one.
+
+The time is the clock of `TZ` (Europe/Berlin unless you set it). Pick an hour
+your server is on and idle; a backup reads the whole database and every
+photo. If the container was stopped at that time, the backup runs within a
+few minutes of the next start instead.
+
+### Where they go, and why another disk
+
+By default into `/data/backups/scheduled/`. That protects against a mistake
+(a deleted family, an update you want to undo by moving to a fresh install)
+but not against the disk itself: when the disk under `/data` fails, the
+backups go with it. So give them a folder on **another disk**:
+
+- **Unraid**: the template's *Backups (optional)* field, for example
+  `/mnt/user/backups/kinboard` on a share that doesn't live on the same disk
+  as `appdata` (or on another machine, mounted with Unassigned Devices). It is
+  mounted at `/backups` in the container, and Kinboard uses it as soon as it
+  is there.
+- **`docker run`**: add `-v /mnt/other-disk/kinboard-backups:/backups`.
+- Any other path inside the container: set `KINBOARD_BACKUP_PATH`.
+
+The folder must be writable by `PUID`:`PGID` (on Unraid, 99:100, which a new
+share already is). **Keep it private**: on Unraid 99 is the shared `nobody`
+user, so the file modes don't keep out other containers running as it or a
+share exported to guests: set the share's SMB export to *No* or *Private*.
+**One folder per install**: two installs given the same folder remove each
+other's backups. An empty folder that belongs to root (what Docker creates
+for a path that didn't exist) is handed to `PUID`:`PGID` at the start;
+anything else is left as you set it. Settings says where the backups go, and
+warns when that is inside `/data` or on the same disk.
+
+Each backup is written under a temporary dot-name, read back in full (every
+table's rows, every photo's checksum, every key) and only then given its
+name, `kinboard-backup-<date and time>-<version>-sha-<build>.tar.gz`,
+readable by `PUID` only (mode 0600; a folder Kinboard creates is 0700). A
+backup of an install with no family yet is refused, so a fresh install
+sharing the folder never rotates a household's backups out. Only after that
+are the oldest beyond the number to keep removed. A backup that fails (a full
+disk, a folder it can't write to) removes only its own temporary file: the
+last good backup always stays. A backup cut off by a restart or an update
+leaves only that dot-file, which never counts and the next run removes.
+
+### When one fails
+
+Kinboard tries again an hour later, up to three times, then at the next
+scheduled time. Settings shows the last good backup (when, how big), the next
+run and the last error, and while the last backup failed, a notice at the top
+of Settings says so to the install's own family. The container log has every
+step: `docker logs kinboard 2>&1 | grep -E '\[(scheduled-)?backup\]'`.
+
+**Back up now** in Settings starts one at once, and **Download** fetches the
+newest through the browser (both ask for the settings PIN; the download link
+works once, for two minutes). The file holds every family's data and keys:
+keep it somewhere only you can read.
+
+Backups and updates don't overlap: an update by
+[kinboard-updater](#automatic-updates) waits for a running backup to finish
+before it takes its own dump and replaces the container, and a scheduled
+backup doesn't start while an update's dump runs.
+
+### Restore a backup
+
+A backup goes into a **fresh** install of **the same build**, before its
+first family is created. The end of the file name says which: in
+`kinboard-backup-20261128T030000Z-1.18.0-sha-abc1234.tar.gz` that is version
+1.18.0, image tag `sha-abc1234` (every published all-in-one image has its
+`sha-` tag; a release also has its version tag, `1.18.0`). If the install it
+came from still runs, stop it first.
+
+1. Move the old data folder aside (don't delete it until the restore works),
+   or pick a new, empty one.
+2. Start Kinboard on the empty folder **with the backup's build as the
+   image tag**: `ghcr.io/svenger87/kinboard-aio:sha-abc1234` for the file
+   above, and **on another port than the screens use** (and without its
+   reverse-proxy settings). On Unraid, set *Repository* in the template to
+   that tag and *Web UI* to another port, and *Apply*. Wait until it is
+   healthy; don't open it in a browser to create a family. (A screen that
+   reaches it while it is still empty forgets its sign-in, as
+   [the move](#moving-between-the-compose-file-and-the-all-in-one-image)
+   explains.)
+3. Import the backup:
+
+   ```bash
+   docker exec -i kinboard kinboard import - < /mnt/other-disk/kinboard-backups/kinboard-backup-20261128T030000Z-1.18.0-sha-abc1234.tar.gz
+   ```
+
+   (On Unraid the container is called `Kinboard`; run it in Unraid's terminal
+   with the backup's path on the server.) It checks every table's row count
+   and checksum before it keeps anything, restores the photos and the keys,
+   and restarts the app inside the container.
+4. Give it the screens' port (and the proxy settings) back (on Unraid: edit
+   the template, *Apply*). The families, the photos and the settings are
+   back, and screens that were signed in stay signed in when they reach it
+   under the same address. The automatic backups' schedule comes back with them; check
+   that the backups folder is mapped again.
+5. To get updates again, set the tag back to `next`.
+
+A backup from an older build than the image you want: restore it on its own
+build first, as above, then update. If the import says the archive is from
+another version, the tag doesn't match the file name.
+
+**Compose installs** (`compose.yml`, TrueNAS, CasaOS, Umbrel, Portainer
+stacks) don't have this switch: their app container gets the config folder
+read-only and has no folder of its own off the database's disk, and the
+stores back up their app folders their own way. Back up the three folders, or
+run `kinboard export` from a scheduled task on the host. A git install keeps
+its own scripts ([Self-hosting](Self-hosting)).
 
 ## Updates
 

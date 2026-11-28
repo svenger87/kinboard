@@ -192,6 +192,7 @@ ENV KINBOARD_AIO=1 \
     POSTGRES_DB=postgres \
     KINBOARD_SECRETS_DIR=/data/config/secrets \
     KINBOARD_MIGRATE_BACKUP_DIR=/data/backups \
+    KINBOARD_BACKUP_LOCK=/data/backups/.kinboard-backup.lock \
     KINBOARD_START_STATE_DIR=/data/config/updater \
     FILES_DIR=/data/storage/files \
     POSTGREST_URL=http://127.0.0.1:3010 \

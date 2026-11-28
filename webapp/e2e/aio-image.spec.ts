@@ -526,7 +526,7 @@ test.describe("the entrypoint's start guarantees (RFC-024 §4.7), off for compos
     expect(entry).toMatch(/kinboard-init \| kinboard-db-init \| kinboard\)/);
     const df = read(join(IMAGE, "Dockerfile"));
     expect(df).toContain("exec node /app/kinboard-transfer.mjs");
-    expect(df).toContain("COPY image/kinboard-transfer.mjs image/kinboard-backup.sh image/storage-api-move.sh ./");
+    expect(df).toContain("COPY image/kinboard-transfer.mjs image/kinboard-backup.sh image/storage-api-move.sh image/kinboard-scheduled-backup.mjs ./");
   });
 });
 

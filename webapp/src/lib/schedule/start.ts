@@ -108,6 +108,16 @@ export function startInternalScheduler(): Scheduler | null {
   g[GLOBAL_KEY] = scheduler;
   scheduler.start();
 
+  // The all-in-one image's scheduled backups (lib/scheduled-backup/runner.ts):
+  // not a job of the table above, because a git install's ofelia has no such
+  // job (its households keep their own scripts) and the table is held equal
+  // to ofelia's labels. They look every few minutes; off unless switched on.
+  if (process.env.KINBOARD_AIO === "1") {
+    void import("../scheduled-backup/runner")
+      .then((m) => m.startBackupScheduler())
+      .catch((err) => console.log(`[scheduled-backup] could not start: ${err instanceof Error ? err.message : String(err)}`));
+  }
+
   // Test hook for the rehearsal: run every job once as soon as the server
   // answers, through the same path as a scheduled run (no-overlap included),
   // so every route is exercised without waiting for 03:20 UTC.
