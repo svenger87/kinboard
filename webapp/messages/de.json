@@ -3806,6 +3806,7 @@
       "index_join-code": "Familien-Code, Code, einladen, Gerät hinzufügen, beitreten, neues Gerät",
       "index_pin": "PIN, Sperre, sperren, Passwort, Kennwort, Schutz, Kindersicherung, Sicherheit",
       "index_data-export": "Sicherung, Backup, Export, exportieren, herunterladen, wiederherstellen, Daten",
+      "index_scheduled-backup": "automatische Sicherung, Backup, geplant, täglich, wöchentlich, Sicherungsordner, aufbewahren, wiederherstellen",
       "index_calendar-feed": "Kalender-Feed, ICS, abonnieren, Outlook, iPhone, Kalender teilen",
       "index_diagnostics": "Diagnose, Version, Status, Fehlersuche, Verbindung, Probleme, Update",
       "schedule_subjects": "Fächer, Schulfächer, Unterricht, Mathe, Farbe, Lehrer",

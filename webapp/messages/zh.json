@@ -3806,6 +3806,7 @@
       "index_join-code": "家庭代码，加入代码，邀请，添加设备，新屏幕",
       "index_pin": "PIN，锁，密码，保护，安全，儿童锁",
       "index_data-export": "备份，导出，下载，恢复，JSON，数据",
+      "index_scheduled-backup": "自动备份，定时，每天，每周，备份文件夹，保留，恢复",
       "index_calendar-feed": "日历订阅源，ICS，订阅，Outlook，iPhone，共享日历",
       "index_diagnostics": "诊断，版本，状态，故障排查，连接，实时，更新",
       "schedule_subjects": "科目，课程，学校科目，数学，颜色，老师",
