@@ -9,7 +9,7 @@ import { issueTicket, scheduledBackupRequest } from "@/lib/scheduled-backup/requ
 export const dynamic = "force-dynamic";
 
 /**
- * The all-in-one image's scheduled backups, for Settings → Data & backup.
+ * The all-in-one image's scheduled backups, for Settings → Data & safety.
  *
  * GET → { scheduledBackup: ScheduledBackupStatus | null }: the schedule (and
  * whether the server sets it), where the backups go, the last one, the last

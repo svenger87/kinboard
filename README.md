@@ -65,7 +65,8 @@ curl -fsSL https://raw.githubusercontent.com/svenger87/kinboard/main/install.sh 
 
 Open the URL printed at the end and create your family. The first device receives
 a six-character join code for the other phones, tablets, and wall displays.
-Optional services are configured later in **Settings → Integrations**.
+Optional services are configured later in Settings: calendars under
+**Calendars & holidays**, Home Assistant, Bring! and the rest under **Smart home & connections**.
 
 The installer will never modify an existing `kinboard` directory. Existing
 installations keep their `.env`, secrets, data, compose overlays, and current
@@ -184,7 +185,7 @@ your house.
 
 Install from HACS as a custom repository
 ([svenger87/kinboard-homeassistant](https://github.com/svenger87/kinboard-homeassistant)),
-paste a token from **Settings → Integrations**, and you get:
+paste a token from **Settings → Smart home & connections → Integration tokens**, and you get:
 
 | | |
 |---|---|
@@ -234,7 +235,7 @@ Home Assistant catalogue the family sets up — anything beyond the plainly
 harmless waits for a family member to confirm it on a Kinboard screen or
 phone — through Kinboard's built-in MCP endpoint. Add
 `https://<your-kinboard>/api/mcp` as a custom connector — after switching on
-**Allow AI assistants** under Settings → Integrations — and approve the
+**Allow AI assistants** under Settings → Smart home & connections → Integration tokens — and approve the
 request Kinboard shows you. See [AI assistants](https://github.com/svenger87/kinboard/wiki/AI-Assistants).
 
 

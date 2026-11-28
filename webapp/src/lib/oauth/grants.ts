@@ -52,7 +52,7 @@ function freshTokens(now: Date) {
 }
 
 /**
- * The name a connection is listed under in Settings → Integrations. A CIMD
+ * The name a connection is listed under in Settings → Integration tokens. A CIMD
  * client's name was published by the host in its client_id, so it stands on
  * its own. A DCR client chose its name in an anonymous registration — two
  * "Claude"s could be anyone — so the host it returns to is part of the name:
@@ -129,7 +129,7 @@ export async function exchangeAuthorizationCode(
   // Earlier connections from the same assistant are left alone: two people
   // in a household who each connect their own Claude share a client id, and
   // both must stay connected. Each connection is listed on its own under
-  // Settings → Integrations and is revoked there on its own.
+  // Settings → Integration tokens and is revoked there on its own.
   return {
     ok: true,
     body: { access_token: t.access.token, token_type: "Bearer", expires_in: ACCESS_TOKEN_TTL_S, refresh_token: t.refresh.token, scope: r.grantedScopes.join(" ") },

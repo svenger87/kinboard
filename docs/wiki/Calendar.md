@@ -105,7 +105,7 @@ Every event also has a shareable link that deep-links to its date and opens it d
 
 ## Publish your calendar (ICS feed)
 
-Settings → **Data & backup** has a **Calendar feed (ICS)** card. Tap **Create feed link** to generate a secret, read-only ICS URL for your family's events, then paste it into Google Calendar ("From URL"), Apple Calendar, or Outlook to subscribe — external calendar apps pull your Kinboard events on their own refresh schedule from there.
+Settings → **Calendars & holidays** has a **Calendar feed (ICS)** card. Tap **Create feed link** to generate a secret, read-only ICS URL for your family's events, then paste it into Google Calendar ("From URL"), Apple Calendar, or Outlook to subscribe — external calendar apps pull your Kinboard events on their own refresh schedule from there.
 
 The link is a shared secret: anyone who has it can read your family's events (title, time, location), so treat it like a password. If it leaks, tap **Rotate link** on the same card — that invalidates the old URL and issues a new one, and you'll need to re-subscribe every calendar app that was using it.
 

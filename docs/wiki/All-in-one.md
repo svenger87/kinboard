@@ -111,7 +111,7 @@ own.
 
 ### Switch it on
 
-- **In Settings → Data & backup → Automatic backups**, as the install's own
+- **In Settings → Data & safety → Automatic backups**, as the install's own
   family (the one that also sees update notices): daily or weekly, the time,
   the day for weekly, and how many to keep (7 unless you change it). Saving
   asks for the settings PIN; a family without one sets one first.

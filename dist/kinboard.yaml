@@ -224,11 +224,11 @@ aio:
       label: Address of a separate go2rtc container, for RTSP cameras (snapshot and MJPEG cameras work without it)
       advanced: true
     # The scheduled backups (wiki: All-in-one, Backups). Empty: chosen in
-    # Settings → Data & backup, off until switched on there. Set, the
+    # Settings → Data & safety, off until switched on there. Set, the
     # server's value wins and Settings shows it as set by the server, so the
     # template's default stays empty (a default of "off" would lock Settings).
     KINBOARD_BACKUP_SCHEDULE:
-      label: "Automatic backups: off, daily or weekly. Leave empty to choose in Settings, Data & backup"
+      label: "Automatic backups: off, daily or weekly. Leave empty to choose in Settings, Data & safety"
     KINBOARD_BACKUP_TIME:
       label: Time of the automatic backup, HH:MM in the time zone above (empty is 03:00)
       advanced: true

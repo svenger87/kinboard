@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   // person lands here in a browser, so they get a page saying where the
   // switch is rather than bare JSON.
   if (!(await assistantsEnabledAnywhere())) {
-    return page(404, "AI assistants are not switched on for this Kinboard. Turn them on under Settings → Integrations, then start the connection again.");
+    return page(404, "AI assistants are not switched on for this Kinboard. Turn them on under Settings → Smart home & connections → Integration tokens, then start the connection again.");
   }
   if (hitLimit(`oauth-authorize:${clientIp(request)}`, 30, 60_000).limited) return page(429, "Too many attempts. Try again in a minute.");
   const origin = publicOrigin(request.headers, request.nextUrl.origin);

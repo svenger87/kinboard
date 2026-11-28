@@ -70,10 +70,10 @@ test("a query that matches nothing says so, naming the query", async ({ page }) 
   await expect(empty).toBeVisible();
   await expect(empty).toContainText("zzzz");
   await expect(page.getByTestId("settings-search-result")).toHaveCount(0);
-  // Escape clears the query and the menu comes back.
+  // Escape clears the query and the categories come back.
   await input.press("Escape");
   await expect(input).toHaveValue("");
-  await expect(page.getByRole("link", { name: /Feiertage/ }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Kalender & Ferien/ })).toBeVisible();
 });
 
 test("Back from a result returns to the settings page with the query still there", async ({ page }) => {
@@ -95,13 +95,16 @@ test("Back from a result returns to the settings page with the query still there
 });
 
 test("a section of the settings page itself opens in place", async ({ page }) => {
-  // The PIN is on /settings already: no navigation, only a hash change.
+  // The PIN is on /settings already, in a closed category: no navigation,
+  // only a hash change, which opens the category around it.
   const input = await openSettings(page);
   await input.fill("pin");
   await expect(page.getByTestId("settings-search-result").first()).toHaveAttribute("href", "/settings#pin");
   await input.press("Enter");
   await expect(page).toHaveURL(/\/settings#pin$/);
   await expect(input).toHaveValue("");
+  // The PIN card is in "Daten & Sicherheit", closed until the hit opens it.
+  await expect(page.locator("[data-settings-category=data]")).toHaveAttribute("data-open", "");
   const section = page.locator('[data-setting="pin"]');
   await expect(section).toHaveClass(/settings-anchor-highlight/);
   await expect(section).toBeInViewport();

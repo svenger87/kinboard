@@ -235,7 +235,7 @@
         },
         {
           "name": "KINBOARD_BACKUP_SCHEDULE",
-          "label": "Automatic backups: off, daily or weekly. Leave empty to choose in Settings, Data & backup"
+          "label": "Automatic backups: off, daily or weekly. Leave empty to choose in Settings, Data & safety"
         },
         {
           "name": "KINBOARD_BACKUP_TIME",

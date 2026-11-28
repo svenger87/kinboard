@@ -18,8 +18,9 @@ const FIND_FOR_MS = 5000;
  * Opens the settings section a URL points at: on a route change, and on
  * `hashchange` for a section of the page already open, it finds
  * `[data-setting="<hash>"]`, scrolls it under the fixed header and rings it
- * briefly. Sections often render only after their data has loaded, so the
- * lookup retries every frame for up to five seconds before giving up quietly.
+ * briefly. Sections often render only after their data has loaded (or, on the
+ * index, once their category has opened), so the lookup retries every frame
+ * for up to five seconds before giving up quietly.
  */
 export function useSettingsAnchor() {
   const pathname = usePathname();
@@ -49,7 +50,10 @@ export function useSettingsAnchor() {
 
       const find = () => {
         const el = document.querySelector(selector);
-        if (!el) {
+        // A card inside a closed category on the settings index is in the
+        // page but hidden; the index opens its category on the same hash, so
+        // wait until it shows rather than scroll to a box of no size.
+        if (!el || el.getClientRects().length === 0) {
           if (performance.now() - started < FIND_FOR_MS) frame = requestAnimationFrame(find);
           return;
         }

@@ -19,7 +19,7 @@ interface PinDigitsProps {
 }
 
 /**
- * The settings PIN's four boxes, as Settings → Security and the setup
+ * The settings PIN's four boxes, as Settings → Data & safety and the setup
  * wizard's PIN step (RFC-024 §8) ask for it: one digit each, the cursor
  * moving on as they fill and back on Backspace.
  */

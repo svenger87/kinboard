@@ -9,7 +9,7 @@ import { logApiError } from "@/lib/api-error";
 export const dynamic = "force-dynamic";
 
 /**
- * The "Allow AI assistants" switch under Settings → Integrations (RFC-010).
+ * The "Allow AI assistants" switch under Settings → Smart home & connections → Integration tokens (RFC-010).
  *
  * GET  → { enabled }
  * POST { enabled: boolean } → { enabled }

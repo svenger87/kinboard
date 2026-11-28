@@ -340,7 +340,7 @@
     "createSubmitting": "创建中…",
     "createError": "创建家庭失败。",
     "restoreButton": "从备份恢复",
-    "restoreFailed": "恢复失败。原因见下文。Kinboard 备份是 设置 → 数据与备份 中的 .json 文件。",
+    "restoreFailed": "恢复失败。原因见下文。Kinboard 备份是 设置 → 数据与安全 中的 .json 文件。",
     "restoreWarnings": "已恢复，跳过了 {count} 个条目"
   },
   "holidays": {
@@ -1082,10 +1082,6 @@
     "cancelRenameAria": "取消重命名",
     "familyRenamed": "家庭已重命名",
     "renameFailed": "无法重命名家庭。请重试。",
-    "sectionFamily": "家庭",
-    "sectionIntegrations": "集成",
-    "sectionDisplay": "显示",
-    "sectionSecurity": "安全",
     "itemPeopleLabel": "家庭成员",
     "itemPeopleDescription": "管理人员和颜色",
     "itemDevicesLabel": "设备",
@@ -3758,6 +3754,21 @@
       "save": "保存",
       "saved": "已保存",
       "saveFailed": "无法保存。请重试。"
+    },
+    "categories": {
+      "names": {
+        "family": "家庭与成员",
+        "calendars": "日历与假期",
+        "board": "看板内容",
+        "screens": "屏幕与设备",
+        "look": "外观与语言",
+        "connections": "智能家居与连接",
+        "data": "数据与安全",
+        "install": "这个安装",
+        "about": "关于与诊断"
+      },
+      "installSummary": "地址、推送联系人、数据位置",
+      "needsAttention": "需要处理"
     }
   },
   "settingsSearch": {
@@ -5321,8 +5332,8 @@
       "addressFromEnvironment": "已在服务器上设置（SITE_URL）：{value}。以该设置为准；请在那里修改。",
       "addressInvalid": "这不是类似 http://192.168.1.20:3000 的地址：只需协议、主机和端口，后面不要有其他内容。",
       "dataTitle": "你的数据存放在哪里",
-      "dataBody": "所有内容都留在这台服务器上。日历、清单、成员和设置在它的数据库中；照片和其他上传的文件就在旁边。具体位置取决于 Kinboard 的安装方式：使用 <code>compose.yml</code> 时，在它的三个 Docker 卷中，或你为它们指定的文件夹中（<code>KINBOARD_DB_DIR</code> 等）；使用 git 和 <code>setup.sh</code> 时，在数据文件夹中（<code>DATA_DIR</code>，除非你另选，否则是 <code>./data</code>）；作为单个容器运行时，在它的 <code>/data</code> 文件夹中。请备份这些数据，或随时在“设置 → 数据与备份”中下载一份副本。",
-      "dataBodyAio": "所有内容都留在这台服务器上。日历、清单、成员和设置在它的数据库中；照片和其他上传的文件就在旁边。两者都位于你映射到 <code>/data</code> 的文件夹中（例如 Unraid 上的 <code>/mnt/user/appdata/kinboard-aio</code>）。请备份该文件夹，或随时在“设置 → 数据与备份”中下载一份副本。",
+      "dataBody": "所有内容都留在这台服务器上。日历、清单、成员和设置在它的数据库中；照片和其他上传的文件就在旁边。具体位置取决于 Kinboard 的安装方式：使用 <code>compose.yml</code> 时，在它的三个 Docker 卷中，或你为它们指定的文件夹中（<code>KINBOARD_DB_DIR</code> 等）；使用 git 和 <code>setup.sh</code> 时，在数据文件夹中（<code>DATA_DIR</code>，除非你另选，否则是 <code>./data</code>）；作为单个容器运行时，在它的 <code>/data</code> 文件夹中。请备份这些数据，或随时在“设置 → 数据与安全”中下载一份副本。",
+      "dataBodyAio": "所有内容都留在这台服务器上。日历、清单、成员和设置在它的数据库中；照片和其他上传的文件就在旁边。两者都位于你映射到 <code>/data</code> 的文件夹中（例如 Unraid 上的 <code>/mnt/user/appdata/kinboard-aio</code>）。请备份该文件夹，或随时在“设置 → 数据与安全”中下载一份副本。",
       "saveError": "无法保存地址。请重试。"
     },
     "push": {
@@ -5344,10 +5355,10 @@
       "enter": "选择四位数字",
       "confirm": "再输入一次",
       "mismatch": "两次输入不一致。请重新选择四位数字。",
-      "hint": "每台设备在打开设置前都会要求输入。可在“设置 → 安全”中修改或移除。",
+      "hint": "每台设备在打开设置前都会要求输入。可在“设置 → 数据与安全”中修改或移除。",
       "digitLabel": "PIN 第 {position} 位",
       "saved": "PIN 已设置",
-      "already": "这个家庭已经有 PIN 码。你可以在“设置 → 安全”中修改。",
+      "already": "这个家庭已经有 PIN 码。你可以在“设置 → 数据与安全”中修改。",
       "saveError": "无法设置 PIN 码。请重试。"
     }
   },
@@ -6030,9 +6041,9 @@
     "newPinInvalid": "PIN 必须恰好是 4 位数字。",
     "expired": "此请求已过期或已被处理。从助手重新开始连接。",
     "failed": "出了点问题。重试。",
-    "revokeHint": "你可以随时在 设置 → 集成 中断开它。",
+    "revokeHint": "你可以随时在 设置 → 智能家居与连接 → 集成令牌 中断开它。",
     "pinChanged": "刚刚在其他地方设置了一个设置 PIN。重新加载此页面并输入该 PIN。",
-    "assistantsDisabled": "AI 助手在 设置 → 集成 中已关闭。",
+    "assistantsDisabled": "AI 助手在 设置 → 智能家居与连接 → 集成令牌 中已关闭。",
     "verifiedBy": "由 {host} 验证",
     "selfRegisteredWarning": "自注册应用 — Kinboard 无法确认它真的是 {client}。只有在你亲自启动它时才继续。"
   },
